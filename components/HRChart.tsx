@@ -114,16 +114,19 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
             <Tooltip content={<CustomTooltip />} />
             {/* Segment bands drawn first so line appears on top */}
             <Customized
-              component={(props: any) => (
-                <SegmentBands
-                  segments={lapSegments}
-                  totalDuration={totalDuration}
-                  chartX={props.chartX ?? props.offset?.left ?? 0}
-                  chartY={props.chartY ?? props.offset?.top ?? 0}
-                  chartWidth={props.chartWidth ?? props.offset?.width ?? 0}
-                  chartHeight={props.chartHeight ?? props.offset?.height ?? 0}
-                />
-              )}
+              component={(props: any) => {
+                const o = props.offset ?? {}
+                return (
+                  <SegmentBands
+                    segments={lapSegments}
+                    totalDuration={totalDuration}
+                    chartX={o.left ?? 0}
+                    chartY={o.top ?? 0}
+                    chartWidth={o.width ?? 0}
+                    chartHeight={o.height ?? 0}
+                  />
+                )
+              }}
             />
             {avgHR && (
               <ReferenceLine y={avgHR} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.4} strokeWidth={1} />

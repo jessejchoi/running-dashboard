@@ -43,11 +43,11 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
       <div className="flex items-center gap-2 pb-1 border-b border-[#1c1c1c]">
         <div className="w-5 shrink-0" />
         <div className="flex-1" />
-        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-10 sm:w-14 shrink-0 text-right">Pace</div>
+        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">Pace</div>
         {showDistance && (
-          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 sm:w-14 shrink-0 text-right">Dist</div>
+          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">Dist</div>
         )}
-        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-10 sm:w-16 shrink-0 text-right">Avg HR</div>
+        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">HR</div>
       </div>
 
       {/* Rows */}
@@ -61,7 +61,7 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
             <div className="flex-1 flex items-center" style={{ height: barHeight(parseFloat(d.dist ?? '0') || 0) + 4 }}>
               <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: barHeight(parseFloat(d.dist ?? '0') || 0), backgroundColor: color, opacity: 0.8 }} />
             </div>
-            <div className="text-xs font-mono font-bold text-white w-10 sm:w-14 shrink-0 text-right">
+            <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">
               {paceLabel(d.pace)}
             </div>
             {showDistance && (
@@ -69,7 +69,7 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
                 {d.dist ?? '—'}
               </div>
             )}
-            <div className="text-xs font-mono text-[#6b7280] w-10 sm:w-16 shrink-0 text-right">
+            <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">
               {d.hr ?? '—'}
             </div>
           </div>

@@ -58,7 +58,11 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
         return (
           <div key={d.index} className="flex items-center gap-2">
             <div className="text-[#6b7280] text-xs font-mono w-5 shrink-0 text-right">
-              {label === 'km' ? `${d.index}` : `L${d.index}`}
+              {label === 'km'
+                ? (i === data.length - 1 && parseFloat(d.dist ?? '1') < 0.95
+                    ? `0.${Math.round(parseFloat(d.dist ?? '0') * 10)}`
+                    : `${d.index}`)
+                : `L${d.index}`}
             </div>
             <div className="flex-1 flex items-center" style={{ height: barHeight(parseFloat(d.dist ?? '0') || 0) + 6 }}>
               <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: barHeight(parseFloat(d.dist ?? '0') || 0), backgroundColor: color, opacity: 0.8 }} />

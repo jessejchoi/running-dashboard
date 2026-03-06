@@ -29,10 +29,12 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
   const range = maxP - Math.min(...paces) || 1
   const barWidth = (pace: number) => Math.round(20 + ((maxP - pace) / range) * 75)
 
-  // Bar height weighted by distance — taller bar = more km
+  // Bar height: km splits = uniform, laps = weighted by distance (exaggerated)
   const distances = data.map(d => parseFloat(d.dist ?? '0') || 0)
   const maxDist = Math.max(...distances, 0.01)
-  const barHeight = (dist: number) => Math.round(8 + (dist / maxDist) * 20)  // 8px–28px
+  const barHeight = (dist: number) => label === 'km'
+    ? 16  // uniform for km splits
+    : Math.round(4 + Math.pow(dist / maxDist, 0.6) * 32)  // 4px–36px, power curve = more exaggerated
 
   const lapTypes = colorMode === 'lap-type' ? categorizeLaps(splits, avgPace) : null
   const usedTypes = lapTypes ? [...new Set(lapTypes)] : []
@@ -58,7 +60,7 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
             <div className="text-[#6b7280] text-xs font-mono w-5 shrink-0 text-right">
               {label === 'km' ? `${d.index}` : `L${d.index}`}
             </div>
-            <div className="flex-1 flex items-center" style={{ height: barHeight(parseFloat(d.dist ?? '0') || 0) + 4 }}>
+            <div className="flex-1 flex items-center" style={{ height: barHeight(parseFloat(d.dist ?? '0') || 0) + 6 }}>
               <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: barHeight(parseFloat(d.dist ?? '0') || 0), backgroundColor: color, opacity: 0.8 }} />
             </div>
             <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">

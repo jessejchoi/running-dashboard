@@ -1,5 +1,5 @@
 'use client'
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid, ReferenceLine, Tooltip, ReferenceArea } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, Customized } from 'recharts'
 import type { LapSegment } from '@/lib/lapUtils'
 
 interface StreamData {
@@ -14,13 +14,12 @@ interface Props {
   lapSegments?: LapSegment[]
 }
 
-// Use solid colors with fillOpacity for recharts ReferenceArea
-const SEGMENT_FILL: Record<string, { fill: string; opacity: number }> = {
-  warmup:   { fill: '#facc15', opacity: 0.10 },
-  interval: { fill: '#f87171', opacity: 0.12 },
-  recovery: { fill: '#60a5fa', opacity: 0.10 },
-  cooldown: { fill: '#a78bfa', opacity: 0.10 },
-  steady:   { fill: '#ffffff', opacity: 0 },
+const SEGMENT_COLOR: Record<string, string> = {
+  warmup:   'rgba(250,204,21,0.15)',
+  interval: 'rgba(248,113,113,0.18)',
+  recovery: 'rgba(96,165,250,0.15)',
+  cooldown: 'rgba(167,139,250,0.15)',
+  steady:   'transparent',
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -33,6 +32,31 @@ function CustomTooltip({ active, payload }: any) {
       <div className="text-[#6b7280]">{mins}:{secs}</div>
       <div className="font-mono font-bold text-red-400">{payload[0].value} bpm</div>
     </div>
+  )
+}
+
+// Recharts Customized component — receives actual chart pixel layout
+function SegmentBands({ segments, totalDuration, chartX, chartY, chartWidth, chartHeight }: any) {
+  if (!segments?.length || !totalDuration || !chartWidth) return null
+  return (
+    <g>
+      {segments.map((seg: LapSegment, i: number) => {
+        const color = SEGMENT_COLOR[seg.type]
+        if (!color || color === 'transparent') return null
+        const xStart = chartX + (seg.startSec / totalDuration) * chartWidth
+        const w = ((seg.endSec - seg.startSec) / totalDuration) * chartWidth
+        return (
+          <rect
+            key={i}
+            x={xStart}
+            y={chartY}
+            width={Math.max(w, 0)}
+            height={chartHeight}
+            fill={color}
+          />
+        )
+      })}
+    </g>
   )
 }
 
@@ -49,6 +73,7 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
   const allHR = data.map(d => d.hr)
   const minHR = allHR.length ? Math.min(...allHR) - 5 : 100
   const maxHRVal = allHR.length ? Math.max(...allHR) + 5 : 200
+  const totalDuration = timeData.length > 0 ? timeData[timeData.length - 1] : 1
 
   return (
     <div>
@@ -74,7 +99,6 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
       {hasStream ? (
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-            <CartesianGrid stroke="#1a1a1a" vertical={false} />
             <XAxis
               dataKey="time"
               tickFormatter={(s) => `${Math.floor(s / 60)}m`}
@@ -88,25 +112,19 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
               axisLine={false} tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
-
-            {/* Lap segment background bands — rendered before the line so line draws on top */}
-            {lapSegments?.map((seg, i) => {
-              const style = SEGMENT_FILL[seg.type]
-              if (!style || style.opacity === 0) return null
-              return (
-                <ReferenceArea
-                  key={i}
-                  x1={seg.startSec}
-                  x2={seg.endSec}
-                  yAxisId={0}
-                  fill={style.fill}
-                  fillOpacity={style.opacity}
-                  strokeOpacity={0}
-                  ifOverflow="visible"
+            {/* Segment bands drawn first so line appears on top */}
+            <Customized
+              component={(props: any) => (
+                <SegmentBands
+                  segments={lapSegments}
+                  totalDuration={totalDuration}
+                  chartX={props.chartX ?? props.offset?.left ?? 0}
+                  chartY={props.chartY ?? props.offset?.top ?? 0}
+                  chartWidth={props.chartWidth ?? props.offset?.width ?? 0}
+                  chartHeight={props.chartHeight ?? props.offset?.height ?? 0}
                 />
-              )
-            })}
-
+              )}
+            />
             {avgHR && (
               <ReferenceLine y={avgHR} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.4} strokeWidth={1} />
             )}

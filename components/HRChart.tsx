@@ -1,5 +1,6 @@
 'use client'
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid, ReferenceLine, Tooltip } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid, ReferenceLine, Tooltip, ReferenceArea } from 'recharts'
+import type { LapSegment } from './SplitsChart'
 
 interface StreamData {
   heartrate?: { data: number[] }
@@ -10,7 +11,15 @@ interface Props {
   streams: StreamData | null
   avgHR?: number | null
   maxHR?: number | null
-  activityId?: number
+  lapSegments?: LapSegment[]
+}
+
+const SEGMENT_COLOR: Record<string, string> = {
+  warmup:   '#facc1520',
+  interval: '#f9731620',
+  recovery: '#60a5fa20',
+  cooldown: '#a78bfa20',
+  steady:   'transparent',
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -26,7 +35,7 @@ function CustomTooltip({ active, payload }: any) {
   )
 }
 
-export default function HRChart({ streams, avgHR, maxHR }: Props) {
+export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
   const hrData = streams?.heartrate?.data ?? []
   const timeData = streams?.time?.data ?? hrData.map((_, i) => i)
   const hasStream = hrData.length > 0
@@ -42,6 +51,7 @@ export default function HRChart({ streams, avgHR, maxHR }: Props) {
 
   return (
     <div>
+      {/* Stats */}
       <div className="flex gap-6 mb-4">
         {avgHR && (
           <div>
@@ -78,10 +88,34 @@ export default function HRChart({ streams, avgHR, maxHR }: Props) {
               axisLine={false} tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
+
+            {/* Lap segment background bands */}
+            {lapSegments?.map((seg, i) => {
+              const col = SEGMENT_COLOR[seg.type]
+              if (!col || col === 'transparent') return null
+              return (
+                <ReferenceArea
+                  key={i}
+                  x1={seg.startSec}
+                  x2={seg.endSec}
+                  fill={col}
+                  fillOpacity={1}
+                  strokeOpacity={0}
+                />
+              )
+            })}
+
             {avgHR && (
-              <ReferenceLine y={avgHR} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.5} strokeWidth={1} />
+              <ReferenceLine y={avgHR} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.4} strokeWidth={1} />
             )}
-            <Line type="monotone" dataKey="hr" stroke="#f87171" strokeWidth={1.5} dot={false} activeDot={{ r: 3, fill: '#f87171' }} />
+            <Line
+              type="monotone"
+              dataKey="hr"
+              stroke="#f87171"
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{ r: 3, fill: '#f87171' }}
+            />
           </LineChart>
         </ResponsiveContainer>
       ) : (

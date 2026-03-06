@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import RunTypeSelector from '@/components/RunTypeSelector'
-import SplitsChart from '@/components/SplitsChart'
+import SplitsChart, { buildLapSegments } from '@/components/SplitsChart'
 import HRChart from '@/components/HRChart'
 import { speedToPace, formatDuration } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -27,6 +27,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
   const splits: any[] = run.splits ?? []
   const laps: any[] = run.laps ?? []
   const paceSeconds = run.average_speed ? 1000 / run.average_speed : 0
+  const lapSegments = laps.length > 1 ? buildLapSegments(laps, paceSeconds) : []
 
   // Fetch HR stream from Strava if available (stored in raw or streams column)
   const streams = run.streams ?? null
@@ -94,11 +95,14 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Heart Rate
             </h2>
+            <div className="pb-2">
             <HRChart
               streams={streams}
               avgHR={run.average_heartrate}
               maxHR={run.max_heartrate}
+              lapSegments={lapSegments}
             />
+            </div>
           </div>
         )}
 
@@ -108,7 +112,9 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Km Splits
             </h2>
-            <SplitsChart splits={splits} avgPace={paceSeconds} label="km" />
+            <div className="pb-2">
+            <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" />
+            </div>
           </div>
         )}
 
@@ -118,7 +124,9 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Laps ({laps.length})
             </h2>
-            <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" />
+            <div className="pb-2">
+            <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" />
+            </div>
           </div>
         )}
 

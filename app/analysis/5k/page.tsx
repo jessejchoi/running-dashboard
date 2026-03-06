@@ -16,6 +16,7 @@ import { speedToPace, formatDuration, vdotFrom5K } from '@/lib/utils'
 import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
+import CollapsibleRuns from '@/components/CollapsibleRuns'
 
 const TARGET_SECS = 22 * 60 + 30
 const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
@@ -187,6 +188,7 @@ export default async function FiveKAnalysisPage() {
                 Tag runs as "Interval 5K" on the <Link href="/runs" className="text-[#f97316] hover:underline">Runs page</Link>.
               </div>
             )}
+            <CollapsibleRuns count={(intervalRuns ?? []).length} color="#f97316">
             {(intervalRuns ?? []).map((run: any) => {
               const estimate = intervalEstimates.find(e => e.activityId === run.id)
               return (
@@ -216,6 +218,7 @@ export default async function FiveKAnalysisPage() {
                 </div>
               )
             })}
+            </CollapsibleRuns>
           </div>
 
           {/* ── COL 2: Threshold ── */}
@@ -233,6 +236,7 @@ export default async function FiveKAnalysisPage() {
                 Tag runs as "Threshold" on the <Link href="/runs" className="text-blue-400 hover:underline">Runs page</Link>.
               </div>
             )}
+            <CollapsibleRuns count={(thresholdRuns ?? []).length} color="#60a5fa">
             {(thresholdRuns ?? []).map((run: any) => {
               const estimate = thresholdEstimates.find(e => e.activityId === run.id)
               return (
@@ -263,6 +267,7 @@ export default async function FiveKAnalysisPage() {
                 </div>
               )
             })}
+            </CollapsibleRuns>
           </div>
 
           {/* ── COL 3: Easy runs — aerobic efficiency ── */}
@@ -281,6 +286,7 @@ export default async function FiveKAnalysisPage() {
                 <Link href="/runs" className="text-purple-400 hover:underline">Runs page</Link>.
               </div>
             )}
+            <CollapsibleRuns count={easyRunResults.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').length} color="#a78bfa">
             {easyRunResults.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').map(({ run, result: eff }) => {
               return (
                 <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
@@ -338,6 +344,7 @@ export default async function FiveKAnalysisPage() {
                 </div>
               )
             })}
+            </CollapsibleRuns>
           </div>
 
         </div>

@@ -162,7 +162,8 @@ export default async function DashboardPage() {
             <Link href="/runs" className="text-xs text-[#f97316] hover:underline">All runs →</Link>
           </div>
           <div className="card p-0 overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="border-b border-[#2a2a2a]">
                   {['Date', 'Name', 'Type', 'Distance', 'Pace', 'Time'].map(h => (
@@ -196,6 +197,7 @@ export default async function DashboardPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </main>

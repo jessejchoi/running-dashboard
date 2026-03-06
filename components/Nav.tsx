@@ -24,12 +24,12 @@ export default function Nav() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#2a2a2a] bg-[#0a0a0a]/90 backdrop-blur-sm">
-      <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
+      {/* Desktop */}
+      <div className="hidden sm:flex max-w-6xl mx-auto px-6 items-center justify-between h-14">
         <span className="font-display font-bold text-lg tracking-tight">
           <span className="text-[#f97316]">RUN</span>
           <span className="text-white/60">DASH</span>
         </span>
-
         <div className="flex items-center gap-1">
           {navItems.map(({ href, label, icon: Icon }) => (
             <Link
@@ -46,7 +46,6 @@ export default function Nav() {
             </Link>
           ))}
         </div>
-
         <button
           onClick={handleSync}
           disabled={syncing}
@@ -55,6 +54,38 @@ export default function Nav() {
           <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
           {syncing ? 'Syncing…' : 'Sync Strava'}
         </button>
+      </div>
+
+      {/* Mobile — icon row at bottom of screen */}
+      <div className="sm:hidden flex items-center justify-between px-2 h-14">
+        <span className="font-display font-bold text-base tracking-tight">
+          <span className="text-[#f97316]">RUN</span>
+          <span className="text-white/60">DASH</span>
+        </span>
+        <div className="flex items-center gap-1">
+          {navItems.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all ${
+                path === href || (href !== '/' && path.startsWith(href))
+                  ? 'text-white'
+                  : 'text-[#6b7280]'
+              }`}
+            >
+              <Icon size={18} />
+              <span className="text-[9px] font-medium">{label}</span>
+            </Link>
+          ))}
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[#6b7280] disabled:opacity-50"
+          >
+            <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
+            <span className="text-[9px] font-medium">{syncing ? '…' : 'Sync'}</span>
+          </button>
+        </div>
       </div>
     </nav>
   )

@@ -38,7 +38,7 @@ export default async function RunsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#2a2a2a]">
-                  {['Date', 'Name', 'Type', 'Distance', 'Avg Pace', 'Time', 'HR', 'Suffer'].map(h => (
+                  {['Date', 'Type', 'Distance', 'Avg Pace', 'Time', 'HR', 'Suffer'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-[#6b7280] text-xs font-medium whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -51,13 +51,10 @@ export default async function RunsPage() {
                   return (
                     <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#151515] transition-colors">
                       <td className={`px-4 py-3 text-xs font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40 text-[#6b7280]' : 'text-[#6b7280]'}`}>
-                        {format(new Date(run.start_date), 'MMM d, yyyy')}
-                        {isTreadmill && <span className="ml-2 text-[10px] text-zinc-500">🏃 treadmill</span>}
-                      </td>
-                      <td className={`px-4 py-3 font-medium max-w-[180px] ${isTreadmill ? 'opacity-40' : ''}`}>
-                        <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors truncate block text-white">
-                          {run.name}
+                        <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
+                          {format(new Date(run.start_date), 'MMM d, yyyy')}
                         </Link>
+                        {isTreadmill && <span className="ml-2 text-[10px] text-zinc-500">🏃</span>}
                       </td>
                       <td className="px-4 py-2">
                         <RunTypeSelector activityId={run.id} current={run.run_type} />
@@ -82,7 +79,7 @@ export default async function RunsPage() {
                 })}
                 {activities.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-[#6b7280]">No runs yet.</td>
+                    <td colSpan={7} className="px-4 py-12 text-center text-[#6b7280]">No runs yet.</td>
                   </tr>
                 )}
               </tbody>

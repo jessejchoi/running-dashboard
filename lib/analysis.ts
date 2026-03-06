@@ -97,6 +97,7 @@ export interface RepEffort {
   avgHR?: number
   correctedPaceSec: number  // pace after rest correction
   correctedSecs: number     // estimated 5K time from this rep
+  correctionFactor: number
   weight: number
 }
 
@@ -176,6 +177,7 @@ function processLaps(
         avgHR: lap.average_heartrate ?? undefined,
         correctedPaceSec: 0,
         correctedSecs: 0,
+        correctionFactor: 0,
         weight: durSecs ** 2,  // squared so longer reps dominate the estimate
       })
     }

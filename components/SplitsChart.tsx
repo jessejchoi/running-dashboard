@@ -1,83 +1,65 @@
 'use client'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
 
 interface Split {
   distance: number
   moving_time: number
   average_speed: number
   average_heartrate?: number
-  elevation_difference?: number
 }
 
 interface Props {
   splits: Split[]
-  avgPace: number  // seconds per km
+  avgPace: number
+  label?: string
 }
 
 function paceLabel(s: number) {
-  if (!s) return ''
-  const m = Math.floor(s / 60)
-  const sec = Math.round(s % 60)
-  return `${m}:${sec.toString().padStart(2, '0')}`
+  if (!s || s > 900) return '—'
+  return `${Math.floor(s / 60)}:${Math.round(s % 60).toString().padStart(2, '0')}`
 }
 
-function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
-  const d = payload[0].payload
-  return (
-    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs">
-      <div className="text-[#6b7280] mb-1">km {label}</div>
-      <div className="font-mono text-white font-bold">{paceLabel(d.pace)}/km</div>
-      {d.hr && <div className="text-[#6b7280] mt-0.5">{Math.round(d.hr)} bpm</div>}
-    </div>
-  )
-}
-
-export default function SplitsChart({ splits, avgPace }: Props) {
+export default function SplitsChart({ splits, avgPace, label = 'km' }: Props) {
   const data = splits.map((s, i) => ({
-    km: i + 1,
+    index: i + 1,
     pace: s.average_speed ? parseFloat((1000 / s.average_speed).toFixed(1)) : 0,
-    hr: s.average_heartrate,
-  })).filter(d => d.pace > 0 && d.pace < 600)
+    time: s.moving_time ?? 0,
+    hr: s.average_heartrate ? Math.round(s.average_heartrate) : null,
+  })).filter(d => d.pace > 0 && d.pace < 900)
 
-  const allPaces = data.map(d => d.pace)
-  const minP = Math.min(...allPaces) - 15
-  const maxP = Math.max(...allPaces) + 15
+  if (data.length === 0) return null
+
+  const paces = data.map(d => d.pace)
+  const minP = Math.min(...paces)
+  const maxP = Math.max(...paces)
+  const range = maxP - minP || 1
+
+  const barWidth = (pace: number) =>
+    Math.round(20 + ((maxP - pace) / range) * 75)
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <BarChart data={data} barSize={20} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-        <XAxis
-          dataKey="km"
-          tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <YAxis
-          domain={[minP, maxP]}
-          reversed
-          tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-          tickFormatter={paceLabel}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-        <ReferenceLine
-          y={avgPace}
-          stroke="#f97316"
-          strokeDasharray="4 4"
-          strokeOpacity={0.5}
-          strokeWidth={1}
-        />
-        <Bar dataKey="pace" radius={[3, 3, 0, 0]}>
-          {data.map((entry, i) => (
-            <Cell
-              key={i}
-              fill={entry.pace <= avgPace ? '#34d399' : '#f87171'}
-            />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div className="space-y-1.5">
+      {data.map((d) => {
+        const fast = d.pace <= avgPace * 0.98
+        const slow = d.pace >= avgPace * 1.02
+        const color = fast ? '#34d399' : slow ? '#f87171' : '#f97316'
+        return (
+          <div key={d.index} className="flex items-center gap-2">
+            <div className="text-[#6b7280] text-xs font-mono w-8 shrink-0 text-right">
+              {label === 'km' ? `${d.index}` : `L${d.index}`}
+            </div>
+            <div className="flex-1 h-6 flex items-center">
+              <div className="h-5 rounded-sm" style={{ width: `${barWidth(d.pace)}%`, backgroundColor: color, opacity: 0.85 }} />
+            </div>
+            <div className="text-xs font-mono font-bold text-white w-14 shrink-0">{paceLabel(d.pace)}/km</div>
+            <div className="text-xs font-mono text-[#6b7280] w-14 shrink-0">{d.hr ? `${d.hr} bpm` : '—'}</div>
+          </div>
+        )
+      })}
+      <div className="flex items-center gap-4 pt-2 text-[10px] text-[#4b5563]">
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-emerald-400 inline-block" />faster</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#f97316] inline-block" />on pace</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-red-400 inline-block" />slower</span>
+      </div>
+    </div>
   )
 }

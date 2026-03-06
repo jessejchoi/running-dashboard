@@ -68,7 +68,7 @@ export default function RunTypeSelector({ activityId, current, onUpdate }: Props
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 min-w-[200px]">
+        <div className="absolute left-0 top-full mt-1 z-[200] bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 min-w-[200px]">
           {/* Clear option */}
           <button
             onClick={() => handleSelect(null)}

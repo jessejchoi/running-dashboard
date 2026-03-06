@@ -166,7 +166,7 @@ export default async function DashboardPage() {
             <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="border-b border-[#2a2a2a]">
-                  {['Date', 'Name', 'Type', 'Distance', 'Pace', 'Time'].map(h => (
+                  {['Date', 'Type', 'Distance', 'Pace', 'Time'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-[#6b7280] text-xs font-medium">{h}</th>
                   ))}
                 </tr>
@@ -175,11 +175,8 @@ export default async function DashboardPage() {
                 {recentRuns.map((run: any) => (
                   <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#1a1a1a] transition-colors">
                     <td className="px-4 py-3 text-[#6b7280] text-xs font-mono">
-                      {format(new Date(run.start_date), 'MMM d')}
-                    </td>
-                    <td className="px-4 py-3 text-white font-medium max-w-[160px]">
-                      <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors truncate block">
-                        {run.name}
+                      <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
+                        {format(new Date(run.start_date), 'MMM d')}
                       </Link>
                     </td>
                     <td className="px-4 py-3"><RunTypeBadge type={run.run_type} /></td>
@@ -190,7 +187,7 @@ export default async function DashboardPage() {
                 ))}
                 {recentRuns.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-[#6b7280] text-sm">
+                    <td colSpan={5} className="px-4 py-8 text-center text-[#6b7280] text-sm">
                       No runs yet. Sync your Strava activities to get started.
                     </td>
                   </tr>

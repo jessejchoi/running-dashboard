@@ -35,13 +35,13 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
     <div className="space-y-1.5">
       {/* Column headers */}
       <div className="flex items-center gap-2 pb-1 border-b border-[#1c1c1c]">
-        <div className="w-8 shrink-0" />
+        <div className="w-6 shrink-0" />
         <div className="flex-1" />
-        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-14 shrink-0 text-right">Pace</div>
+        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-12 sm:w-14 shrink-0 text-right">Pace</div>
         {showDistance && (
-          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-14 shrink-0 text-right">Dist</div>
+          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-10 sm:w-14 shrink-0 text-right">Dist</div>
         )}
-        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-16 shrink-0 text-right">Avg HR</div>
+        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-12 sm:w-16 shrink-0 text-right">Avg HR</div>
       </div>
 
       {/* Rows */}
@@ -49,21 +49,21 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
         const color = colorMode === 'lap-type' && lapTypes ? TYPE_COLOR[lapTypes[i]] : '#f97316'
         return (
           <div key={d.index} className="flex items-center gap-2">
-            <div className="text-[#6b7280] text-xs font-mono w-8 shrink-0 text-right">
+            <div className="text-[#6b7280] text-xs font-mono w-6 shrink-0 text-right">
               {label === 'km' ? `${d.index}` : `L${d.index}`}
             </div>
             <div className="flex-1 h-5 flex items-center">
               <div className="h-4 rounded-sm" style={{ width: `${barWidth(d.pace)}%`, backgroundColor: color, opacity: 0.8 }} />
             </div>
-            <div className="text-xs font-mono font-bold text-white w-14 shrink-0 text-right">
+            <div className="text-xs font-mono font-bold text-white w-12 sm:w-14 shrink-0 text-right">
               {paceLabel(d.pace)}
             </div>
             {showDistance && (
-              <div className="text-xs font-mono text-[#9ca3af] w-14 shrink-0 text-right">
+              <div className="text-xs font-mono text-[#9ca3af] w-10 sm:w-14 shrink-0 text-right">
                 {d.dist ?? '—'}
               </div>
             )}
-            <div className="text-xs font-mono text-[#6b7280] w-16 shrink-0 text-right">
+            <div className="text-xs font-mono text-[#6b7280] w-12 sm:w-16 shrink-0 text-right">
               {d.hr ?? '—'}
             </div>
           </div>

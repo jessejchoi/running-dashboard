@@ -13,7 +13,7 @@ interface Props {
   avgPace: number
   label?: string
   showDistance?: boolean
-  colorMode?: 'uniform' | 'lap-type'  // uniform = all orange, lap-type = warmup/interval/recovery
+  colorMode?: 'uniform' | 'lap-type'
 }
 
 export type LapType = 'warmup' | 'interval' | 'recovery' | 'cooldown' | 'steady'
@@ -24,13 +24,9 @@ export interface LapSegment {
   type: LapType
 }
 
-// Categorize laps by pace relative to avg — exported so HRChart can use it
 export function categorizeLaps(splits: Split[], avgPace: number): LapType[] {
   const paces = splits.map(s => s.average_speed ? 1000 / s.average_speed : 999)
   const n = paces.length
-
-  // A lap is "fast" if pace is >=12% quicker than avg (interval effort)
-  // A lap is "slow" if pace is >=15% slower than avg (recovery/warmup/cooldown)
   const isFast = (p: number) => p < avgPace * 0.88
   const isSlow = (p: number) => p > avgPace * 1.15
 
@@ -38,7 +34,6 @@ export function categorizeLaps(splits: Split[], avgPace: number): LapType[] {
     isFast(p) ? 'interval' : isSlow(p) ? 'recovery' : 'steady'
   )
 
-  // First and last "slow" blocks become warmup/cooldown
   let firstFastIdx = raw.findIndex(t => t === 'interval')
   let lastFastIdx = n - 1 - [...raw].reverse().findIndex(t => t === 'interval')
   if (firstFastIdx === -1) { firstFastIdx = n; lastFastIdx = -1 }
@@ -51,7 +46,6 @@ export function categorizeLaps(splits: Split[], avgPace: number): LapType[] {
   })
 }
 
-// Build time-based segments for HR chart overlay — exported
 export function buildLapSegments(splits: Split[], avgPace: number): LapSegment[] {
   const types = categorizeLaps(splits, avgPace)
   let cursor = 0
@@ -65,10 +59,10 @@ export function buildLapSegments(splits: Split[], avgPace: number): LapSegment[]
 
 const TYPE_COLOR: Record<LapType, string> = {
   warmup:   '#facc15',  // yellow
-  interval: '#f97316',  // orange
+  interval: '#f87171',  // red
   recovery: '#60a5fa',  // blue
   cooldown: '#a78bfa',  // purple
-  steady:   '#6b7280',  // grey
+  steady:   '#f97316',  // orange
 }
 
 function paceLabel(s: number) {
@@ -89,20 +83,26 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
   const paces = data.map(d => d.pace)
   const maxP = Math.max(...paces)
   const range = maxP - Math.min(...paces) || 1
-
   const barWidth = (pace: number) => Math.round(20 + ((maxP - pace) / range) * 75)
-
   const lapTypes = colorMode === 'lap-type' ? categorizeLaps(splits, avgPace) : null
-
-  // Legend for lap-type mode
   const usedTypes = lapTypes ? [...new Set(lapTypes)] : []
 
   return (
     <div className="space-y-1.5">
+      {/* Column headers */}
+      <div className="flex items-center gap-2 pb-1 border-b border-[#1c1c1c]">
+        <div className="w-8 shrink-0" />
+        <div className="flex-1" />
+        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-14 shrink-0 text-right">Pace</div>
+        {showDistance && (
+          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-14 shrink-0 text-right">Dist</div>
+        )}
+        <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-16 shrink-0 text-right">Avg HR</div>
+      </div>
+
+      {/* Rows */}
       {data.map((d, i) => {
-        const color = colorMode === 'lap-type' && lapTypes
-          ? TYPE_COLOR[lapTypes[i]]
-          : '#f97316'
+        const color = colorMode === 'lap-type' && lapTypes ? TYPE_COLOR[lapTypes[i]] : '#f97316'
         return (
           <div key={d.index} className="flex items-center gap-2">
             <div className="text-[#6b7280] text-xs font-mono w-8 shrink-0 text-right">
@@ -112,21 +112,21 @@ export default function SplitsChart({ splits, avgPace, label = 'km', showDistanc
               <div className="h-4 rounded-sm" style={{ width: `${barWidth(d.pace)}%`, backgroundColor: color, opacity: 0.8 }} />
             </div>
             <div className="text-xs font-mono font-bold text-white w-14 shrink-0 text-right">
-              {paceLabel(d.pace)}/km
+              {paceLabel(d.pace)}
             </div>
             {showDistance && (
               <div className="text-xs font-mono text-[#9ca3af] w-14 shrink-0 text-right">
-                {d.dist ? `${d.dist}km` : '—'}
+                {d.dist ?? '—'}
               </div>
             )}
             <div className="text-xs font-mono text-[#6b7280] w-16 shrink-0 text-right">
-              {d.hr ? `${d.hr} bpm` : '—'}
+              {d.hr ?? '—'}
             </div>
           </div>
         )
       })}
 
-      {/* Legend — lap-type mode only */}
+      {/* Legend */}
       {colorMode === 'lap-type' && usedTypes.length > 1 && (
         <div className="flex flex-wrap gap-3 pt-2">
           {usedTypes.map(t => (

@@ -14,12 +14,13 @@ interface Props {
   lapSegments?: LapSegment[]
 }
 
-const SEGMENT_COLOR: Record<string, string> = {
-  warmup:   '#facc1520',
-  interval: '#f9731620',
-  recovery: '#60a5fa20',
-  cooldown: '#a78bfa20',
-  steady:   'transparent',
+// Use solid colors with fillOpacity for recharts ReferenceArea
+const SEGMENT_FILL: Record<string, { fill: string; opacity: number }> = {
+  warmup:   { fill: '#facc15', opacity: 0.10 },
+  interval: { fill: '#f87171', opacity: 0.12 },
+  recovery: { fill: '#60a5fa', opacity: 0.10 },
+  cooldown: { fill: '#a78bfa', opacity: 0.10 },
+  steady:   { fill: '#ffffff', opacity: 0 },
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -51,7 +52,6 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
 
   return (
     <div>
-      {/* Stats */}
       <div className="flex gap-6 mb-4">
         {avgHR && (
           <div>
@@ -72,7 +72,7 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
       </div>
 
       {hasStream ? (
-        <ResponsiveContainer width="100%" height={180}>
+        <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
             <CartesianGrid stroke="#1a1a1a" vertical={false} />
             <XAxis
@@ -89,18 +89,20 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
             />
             <Tooltip content={<CustomTooltip />} />
 
-            {/* Lap segment background bands */}
+            {/* Lap segment background bands — rendered before the line so line draws on top */}
             {lapSegments?.map((seg, i) => {
-              const col = SEGMENT_COLOR[seg.type]
-              if (!col || col === 'transparent') return null
+              const style = SEGMENT_FILL[seg.type]
+              if (!style || style.opacity === 0) return null
               return (
                 <ReferenceArea
                   key={i}
                   x1={seg.startSec}
                   x2={seg.endSec}
-                  fill={col}
-                  fillOpacity={1}
+                  yAxisId={0}
+                  fill={style.fill}
+                  fillOpacity={style.opacity}
                   strokeOpacity={0}
+                  ifOverflow="visible"
                 />
               )
             })}

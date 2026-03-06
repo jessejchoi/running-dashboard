@@ -96,7 +96,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Heart Rate
             </h2>
-            <div className="pb-2">
+            <div className="pb-4">
             <HRChart
               streams={streams}
               avgHR={run.average_heartrate}
@@ -113,7 +113,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Km Splits
             </h2>
-            <div className="pb-2">
+            <div className="pb-4">
             <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" />
             </div>
           </div>
@@ -125,7 +125,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Laps ({laps.length})
             </h2>
-            <div className="pb-2">
+            <div className="pb-4">
             <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" />
             </div>
           </div>

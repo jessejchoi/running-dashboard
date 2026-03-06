@@ -16,22 +16,44 @@ interface Split {
 export function categorizeLaps(splits: Split[], avgPace: number): LapType[] {
   const paces = splits.map(s => s.average_speed ? 1000 / s.average_speed : 999)
   const n = paces.length
-  const isFast = (p: number) => p < avgPace * 0.88
-  const isSlow = (p: number) => p > avgPace * 1.15
+  if (n === 0) return []
+
+  // Use bimodal split: find the natural gap between fast and slow laps
+  // Sort paces, look for the biggest gap — that's the interval/recovery boundary
+  const sorted = [...paces].sort((a, b) => a - b)
+  let biggestGap = 0
+  let threshold = avgPace
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = sorted[i + 1] - sorted[i]
+    if (gap > biggestGap) {
+      biggestGap = gap
+      threshold = (sorted[i] + sorted[i + 1]) / 2
+    }
+  }
+
+  // Only use bimodal threshold if gap is significant (>25s/km difference)
+  // Otherwise fall back to % of avg
+  const useThreshold = biggestGap > 25
+    ? threshold
+    : avgPace * 0.94  // fallback: 6% faster = interval
 
   const raw: LapType[] = paces.map(p =>
-    isFast(p) ? 'interval' : isSlow(p) ? 'recovery' : 'steady'
+    p < useThreshold ? 'interval' : 'recovery'
   )
 
+  // Find first and last interval
   let firstFastIdx = raw.findIndex(t => t === 'interval')
   let lastFastIdx = n - 1 - [...raw].reverse().findIndex(t => t === 'interval')
-  if (firstFastIdx === -1) { firstFastIdx = n; lastFastIdx = -1 }
+  if (firstFastIdx === -1) {
+    // No intervals detected — everything is steady
+    return paces.map(() => 'steady')
+  }
 
   return raw.map((t, i) => {
-    if (t !== 'recovery' && t !== 'steady') return t
+    if (t === 'interval') return 'interval'
     if (i < firstFastIdx) return 'warmup'
     if (i > lastFastIdx) return 'cooldown'
-    return t
+    return 'recovery'
   })
 }
 

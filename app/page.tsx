@@ -87,7 +87,7 @@ export default async function DashboardPage() {
       <main className="max-w-6xl mx-auto px-6 pt-20 pb-16">
         <div className="flex items-center justify-between mb-8 fade-up">
           <div>
-            <h1 className="font-display font-extrabold text-3xl">
+            <h1 className="font-display font-extrabold text-3xl leading-normal pb-1">
               Hey, {athlete?.firstname ?? 'Runner'} 👋
             </h1>
             <p className="text-[#6b7280] text-sm mt-1">

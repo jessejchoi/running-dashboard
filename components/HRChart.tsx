@@ -1,7 +1,5 @@
 'use client'
-import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid, ReferenceLine, Tooltip } from 'recharts'
-import { RefreshCw } from 'lucide-react'
 
 interface StreamData {
   heartrate?: { data: number[] }
@@ -12,7 +10,7 @@ interface Props {
   streams: StreamData | null
   avgHR?: number | null
   maxHR?: number | null
-  activityId: number
+  activityId?: number
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -28,26 +26,9 @@ function CustomTooltip({ active, payload }: any) {
   )
 }
 
-export default function HRChart({ streams, avgHR, maxHR, activityId }: Props) {
-  const [syncing, setSyncing] = useState(false)
-  const [localStreams, setLocalStreams] = useState(streams)
-
-  async function handleSync() {
-    setSyncing(true)
-    const res = await fetch('/api/sync-run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activityId }),
-    })
-    if (res.ok) {
-      // Reload page to get fresh streams data
-      window.location.reload()
-    }
-    setSyncing(false)
-  }
-
-  const hrData = localStreams?.heartrate?.data ?? []
-  const timeData = localStreams?.time?.data ?? hrData.map((_, i) => i)
+export default function HRChart({ streams, avgHR, maxHR }: Props) {
+  const hrData = streams?.heartrate?.data ?? []
+  const timeData = streams?.time?.data ?? hrData.map((_, i) => i)
   const hasStream = hrData.length > 0
 
   const step = Math.max(1, Math.floor(hrData.length / 300))
@@ -61,34 +42,22 @@ export default function HRChart({ streams, avgHR, maxHR, activityId }: Props) {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex gap-6">
-          {avgHR && (
-            <div>
-              <div className="text-[#6b7280] text-xs mb-0.5">Avg HR</div>
-              <div className="font-mono font-bold text-white text-lg">
-                {Math.round(avgHR)} <span className="text-[#6b7280] text-xs font-normal">bpm</span>
-              </div>
+      <div className="flex gap-6 mb-4">
+        {avgHR && (
+          <div>
+            <div className="text-[#6b7280] text-xs mb-0.5">Avg HR</div>
+            <div className="font-mono font-bold text-white text-lg">
+              {Math.round(avgHR)} <span className="text-[#6b7280] text-xs font-normal">bpm</span>
             </div>
-          )}
-          {maxHR && (
-            <div>
-              <div className="text-[#6b7280] text-xs mb-0.5">Max HR</div>
-              <div className="font-mono font-bold text-red-400 text-lg">
-                {Math.round(maxHR)} <span className="text-[#6b7280] text-xs font-normal">bpm</span>
-              </div>
+          </div>
+        )}
+        {maxHR && (
+          <div>
+            <div className="text-[#6b7280] text-xs mb-0.5">Max HR</div>
+            <div className="font-mono font-bold text-red-400 text-lg">
+              {Math.round(maxHR)} <span className="text-[#6b7280] text-xs font-normal">bpm</span>
             </div>
-          )}
-        </div>
-        {!hasStream && (
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#6b7280] hover:text-white border border-[#2a2a2a] hover:border-[#3a3a3a] rounded-lg transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Fetching…' : 'Load HR chart'}
-          </button>
+          </div>
         )}
       </div>
 
@@ -116,8 +85,8 @@ export default function HRChart({ streams, avgHR, maxHR, activityId }: Props) {
           </LineChart>
         </ResponsiveContainer>
       ) : (
-        <div className="text-[#4b5563] text-xs text-center py-6">
-          Click "Load HR chart" to fetch the full heart rate trace for this run.
+        <div className="text-[#4b5563] text-xs text-center py-4">
+          HR stream will appear after the next sync.
         </div>
       )}
     </div>

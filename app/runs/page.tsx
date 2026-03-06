@@ -28,7 +28,7 @@ export default async function RunsPage() {
       <main className="max-w-6xl mx-auto px-6 pt-24 pb-16">
         <div className="flex items-center justify-between mb-8 fade-up">
           <div>
-            <h1 className="font-display font-extrabold text-3xl mb-1">Activity Log</h1>
+            <h1 className="font-display font-extrabold text-3xl leading-normal pb-1 mb-1">Activity Log</h1>
             <p className="text-[#6b7280] text-sm">{activities.length} runs</p>
           </div>
         </div>

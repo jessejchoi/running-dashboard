@@ -46,6 +46,8 @@
 
 .fade-up {
   animation: fadeUp 0.4s ease both;
+  overflow: visible;
+  padding-bottom: 0.1em;
 }
 
 @keyframes pulse-ring {

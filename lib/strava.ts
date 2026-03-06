@@ -132,13 +132,31 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
   const token = await getValidToken(athleteId)
   if (!token) throw new Error('No valid token')
 
-  const { data: activities } = await supabaseAdmin
+  // Fetch runs that are either not yet detail-synced OR missing stream data
+  const { data: unsynced } = await supabaseAdmin
     .from('activities')
     .select('id')
     .eq('athlete_id', athleteId)
     .eq('detail_synced', false)
     .order('start_date', { ascending: false })
     .limit(limit)
+
+  const { data: missingStreams } = await supabaseAdmin
+    .from('activities')
+    .select('id')
+    .eq('athlete_id', athleteId)
+    .eq('detail_synced', true)
+    .is('streams', null)
+    .order('start_date', { ascending: false })
+    .limit(limit)
+
+  // Deduplicate
+  const seen = new Set<number>()
+  const activities = [...(unsynced ?? []), ...(missingStreams ?? [])].filter(a => {
+    if (seen.has(a.id)) return false
+    seen.add(a.id)
+    return true
+  }).slice(0, limit)
 
   if (!activities?.length) return 0
 

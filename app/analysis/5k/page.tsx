@@ -165,7 +165,7 @@ export default async function FiveKAnalysisPage() {
       <Nav />
       <main className="max-w-full mx-auto px-6 pt-24 pb-16">
         <div className="mb-8 fade-up">
-          <h1 className="font-display font-extrabold text-3xl mb-1">5K Fitness Tracker</h1>
+          <h1 className="font-display font-extrabold text-3xl leading-normal pb-1 mb-1">5K Fitness Tracker</h1>
           <p className="text-[#6b7280] text-sm max-w-3xl">
             Three independent signals — each uses a different method suited to the run type.
           </p>

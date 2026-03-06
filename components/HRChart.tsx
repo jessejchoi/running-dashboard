@@ -1,6 +1,6 @@
 'use client'
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid, ReferenceLine, Tooltip, ReferenceArea } from 'recharts'
-import type { LapSegment } from './SplitsChart'
+import type { LapSegment } from '@/lib/lapUtils'
 
 interface StreamData {
   heartrate?: { data: number[] }

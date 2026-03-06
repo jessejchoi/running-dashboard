@@ -89,7 +89,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         </div>
 
         {/* HR Chart */}
-        {(streams || run.average_heartrate) && (
+        {run.average_heartrate && (
           <div className="card mb-6 fade-up">
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Heart Rate

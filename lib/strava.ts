@@ -64,6 +64,15 @@ export async function fetchActivityDetail(token: string, activityId: number) {
   return res.json()
 }
 
+export async function fetchActivityStreams(token: string, activityId: number) {
+  const res = await fetch(
+    `${STRAVA_API}/activities/${activityId}/streams?keys=heartrate,time&key_by_type=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) return null
+  return res.json()
+}
+
 export async function fetchAthlete(token: string) {
   const res = await fetch(`${STRAVA_API}/athlete`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -138,6 +147,7 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
   for (const act of activities) {
     try {
       const detail = await fetchActivityDetail(token, act.id)
+      const streams = await fetchActivityStreams(token, act.id)
       const laps = detail.laps ?? []
       const runType = categorizeRun({
         distance: detail.distance,
@@ -168,6 +178,7 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
           laps,
           run_type: newRunType,
           splits: detail.splits_metric ?? null,
+          streams: streams ?? null,
           detail_synced: true,
         })
         .eq('id', act.id)

@@ -62,7 +62,7 @@ export default async function RunsPage() {
                       <td className={`px-4 py-3 font-mono text-[#f97316] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
                         {(run.distance / 1000).toFixed(2)} km
                       </td>
-                      <td className={`px-4 py-3 font-mono whitespace-nowrap font-bold ${isTreadmill ? 'opacity-40 text-white' : isFast ? 'text-emerald-400' : 'text-white'}`}>
+                      <td className={`px-4 py-3 font-mono whitespace-nowrap font-bold ${isTreadmill ? 'opacity-40 text-[#9ca3af]' : isFast ? 'text-emerald-400' : 'text-[#d1d5db]'}`}>
                         {speedToPace(run.average_speed)}/km
                       </td>
                       <td className={`px-4 py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>

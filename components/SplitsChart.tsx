@@ -54,6 +54,31 @@ export default function SplitsChart({
 
   if (data.length === 0) return null
 
+  // Single-lap: render like a km split with a fixed 50% bar
+  if (label === 'lap' && data.length === 1) {
+    const d = data[0]
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 pb-1 border-b border-[#1c1c1c]">
+          <div className="w-5 shrink-0" />
+          <div className="flex-1" />
+          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">Pace</div>
+          {showDistance && <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">Dist</div>}
+          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">HR</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-[#6b7280] text-xs font-mono w-5 shrink-0 text-right">L1</div>
+          <div className="flex-1 flex items-center overflow-hidden" style={{ height: 22 }}>
+            <div className="rounded-sm" style={{ width: '50%', height: 16, backgroundColor: '#f97316', opacity: 0.8 }} />
+          </div>
+          <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace)}</div>
+          {showDistance && <div className="text-xs font-mono text-[#9ca3af] w-8 shrink-0 text-right">{d.distKm.toFixed(2)}</div>}
+          <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">{d.hr ?? '—'}</div>
+        </div>
+      </div>
+    )
+  }
+
   const lapTypes = colorMode === 'lap-type' ? categorizeLaps(splits, avgPace, runType) : null
   const usedTypes = lapTypes ? ([...new Set(lapTypes)] as LapType[]) : []
 
@@ -62,7 +87,7 @@ export default function SplitsChart({
   const maxP = Math.max(...paces)
   const minP = Math.min(...paces)
   const paceRange = maxP - minP || 1
-  const barWidth = (pace: number) => Math.round(20 + ((maxP - pace) / paceRange) * 75)
+  const barWidth = (pace: number) => Math.min(95, Math.round(20 + ((maxP - pace) / paceRange) * 75))
 
   // ── KM SPLITS ──────────────────────────────────────────────────────────────
   if (label === 'km') {
@@ -95,7 +120,7 @@ export default function SplitsChart({
   // ── LAP CHART ──────────────────────────────────────────────────────────────
   // Height = proportional to distance. Width = pace (faster = longer bar).
   const totalDist = data.reduce((s, d) => s + d.distKm, 0) || 1
-  const MIN_ROW = 20  // px min so text always fits
+  const MIN_ROW = 10  // px min — smaller bars allowed
 
   const targetTotalH = Math.max(kmSplitCount ? kmSplitCount * 25 : 200, data.length * MIN_ROW)
   const rawH = data.map(d => (d.distKm / totalDist) * targetTotalH)
@@ -119,8 +144,8 @@ export default function SplitsChart({
       </div>
 
       {/* Bars */}
-      <div style={{ height: totalH }}>
-        <div className="flex flex-col" style={{ gap: 2, height: totalH }}>
+      <div>
+        <div className="flex flex-col" style={{ gap: 2 }}>
           {data.map((d, i) => {
             const color = lapTypes ? TYPE_COLOR[lapTypes[i]] : '#f97316'
             const barH = lapHeights[i]
@@ -133,7 +158,7 @@ export default function SplitsChart({
                   L{d.index}
                 </div>
                 {/* Bar — width = pace, height = distance */}
-                <div className="flex-1 flex items-center" style={{ height: barH }}>
+                <div className="flex-1 flex items-center overflow-hidden" style={{ height: barH }}>
                   <div
                     className="rounded-sm"
                     style={{

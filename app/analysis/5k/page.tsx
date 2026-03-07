@@ -83,26 +83,26 @@ export default async function FiveKAnalysisPage() {
   function RepTable({ efforts, correctionFactor }: { efforts: any[]; correctionFactor: number }) {
     if (efforts.length === 0) return null
     return (
-      <div className="bg-[#111] rounded-lg overflow-hidden">
+      <div className="bg-[#111] rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#1c1c1c]">
-              {['Lap', 'Dist', 'Pace', 'Time', 'HR', 'Est. 5K'].map(h => (
-                <th key={h} className="text-left px-3 py-2 text-[#4b5563] font-medium">{h}</th>
+              {['Lap', 'Dist', 'Pace', 'Time', 'HR', 'Est.5K'].map(h => (
+                <th key={h} className="text-left px-2 py-2 text-[#4b5563] font-medium whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {efforts.map((rep: any, i: number) => (
               <tr key={i} className="border-b border-[#1a1a1a]">
-                <td className="px-3 py-2 text-[#6b7280] font-mono">{rep.lapIndex}</td>
-                <td className="px-3 py-2 font-mono text-white">
-                  {rep.distanceM >= 1000 ? `${(rep.distanceM/1000).toFixed(2)}km` : `${Math.round(rep.distanceM)}m`}
+                <td className="px-2 py-2 text-[#6b7280] font-mono">{rep.lapIndex}</td>
+                <td className="px-2 py-2 font-mono text-white whitespace-nowrap">
+                  {rep.distanceM >= 1000 ? `${(rep.distanceM/1000).toFixed(1)}km` : `${Math.round(rep.distanceM)}m`}
                 </td>
-                <td className="px-3 py-2 font-mono font-bold text-white">{speedToPace(1000/rep.paceSecPerKm)}/km</td>
-                <td className="px-3 py-2 font-mono text-[#9ca3af]">{formatDuration(rep.durationSecs)}</td>
-                <td className="px-3 py-2 font-mono text-[#9ca3af]">{rep.avgHR ? Math.round(rep.avgHR) : '—'}</td>
-                <td className={`px-3 py-2 font-mono font-bold ${rep.correctedSecs <= TARGET_SECS ? 'text-emerald-400' : 'text-white'}`}>
+                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm)}</td>
+                <td className="px-2 py-2 font-mono text-[#9ca3af] whitespace-nowrap">{formatDuration(rep.durationSecs)}</td>
+                <td className="px-2 py-2 font-mono text-[#9ca3af]">{rep.avgHR ? Math.round(rep.avgHR) : '—'}</td>
+                <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${rep.correctedSecs <= TARGET_SECS ? 'text-emerald-400' : 'text-white'}`}>
                   {formatTime(rep.correctedSecs)}
                 </td>
               </tr>
@@ -125,7 +125,7 @@ export default async function FiveKAnalysisPage() {
       <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">No lap data — use "Sync lap data" on the runs page.</div>
     )
     return (
-      <div className="bg-[#111] rounded-lg overflow-hidden">
+      <div className="bg-[#111] rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#1c1c1c]">

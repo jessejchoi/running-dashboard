@@ -27,8 +27,17 @@ export default async function RunDetailPage({ params }: { params: { id: string }
 
   const splits: any[] = run.splits ?? []
   const laps: any[] = run.laps ?? []
-  const paceSeconds = run.average_speed ? 1000 / run.average_speed : 0
-  const lapSegments = laps.length > 1 ? buildLapSegments(laps, paceSeconds, run.run_type) : []
+  // Prefer run-level average_speed; fall back to median of laps for better interval detection
+  let paceSeconds = run.average_speed ? 1000 / run.average_speed : 0
+  if (!paceSeconds && laps.length > 0) {
+    const lapPaces = laps.filter((l: any) => l.average_speed).map((l: any) => 1000 / l.average_speed)
+    if (lapPaces.length) {
+      lapPaces.sort((a: number, b: number) => a - b)
+      paceSeconds = lapPaces[Math.floor(lapPaces.length / 2)]
+    }
+  }
+  // Build segments for any run with laps (including single-lap for HR overlay)
+  const lapSegments = laps.length > 0 ? buildLapSegments(laps, paceSeconds, run.run_type) : []
 
   // Fetch HR stream from Strava if available (stored in raw or streams column)
   const streams = run.streams ?? null

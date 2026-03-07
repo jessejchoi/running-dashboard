@@ -297,7 +297,7 @@ function buildEstimate(
   for (let i = 0; i < numReps; i++) {
     const rep = repEfforts[i]
     const correction = repCorrectionFactor(restPerRep, rep.durationSecs, rep.avgHR)
-    const correctedPace = rep.paceSecPerKm * correction
+    const correctedPace = rep.paceSecPerKm * correction * 0.93
     const corrected5K = correctedPace * 5
     rep.correctedPaceSec = correctedPace
     rep.correctedSecs = corrected5K
@@ -312,7 +312,7 @@ function buildEstimate(
 
   // Scale down: correction model slightly over-penalises in absolute terms.
   // 0.93 brings estimates to the right level while preserving the short/long rep gap.
-  const estimatedPaceSec = (weightedPaceSum / totalWeight) * 0.93
+  const estimatedPaceSec = weightedPaceSum / totalWeight
   const estimatedSecs = Math.max(840, Math.min(3000, estimatedPaceSec * 5))
 
   const avgCorrection = repEfforts.reduce((s, e) => s + e.correctionFactor, 0) / repEfforts.length

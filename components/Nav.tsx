@@ -85,25 +85,23 @@ export default function Nav() {
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all ${
+              title={label}
+              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
                 path === href || (href !== '/' && path.startsWith(href))
-                  ? 'text-white'
+                  ? 'text-white bg-[#1c1c1c]'
                   : 'text-[#6b7280]'
               }`}
             >
-              <Icon size={18} />
-              <span className="text-[9px] font-medium">{label}</span>
+              <Icon size={17} />
             </Link>
           ))}
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[#6b7280] disabled:opacity-50"
+            title="Sync Strava"
+            className={`flex items-center justify-center w-9 h-9 rounded-lg border border-[#2a2a2a] transition-all disabled:opacity-50 ${syncMsg && !syncing ? 'text-emerald-400' : 'text-[#6b7280]'}`}
           >
-            <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
-            <span className={`text-[9px] font-medium ${syncMsg && !syncing ? 'text-emerald-400' : ''}`}>
-              {syncing ? '…' : syncMsg ?? 'Sync'}
-            </span>
+            <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>

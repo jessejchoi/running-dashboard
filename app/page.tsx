@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
+import OnboardingPage from '@/components/OnboardingPage'
 import WeeklyMileageChart from '@/components/WeeklyMileageChart'
 import GoalsSection from '@/components/GoalsSection'
 import TrainingLoadChart from '@/components/TrainingLoadChart'
@@ -52,30 +53,7 @@ export default async function DashboardPage() {
   const athleteId = cookieStore.get('athlete_id')?.value
 
   if (!athleteId) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-8 px-6">
-        <div className="text-center fade-up">
-          <h1 className="font-display font-extrabold text-5xl mb-3">
-            <span className="text-[#f97316]">RUN</span>DASH
-          </h1>
-          <p className="text-[#6b7280] text-lg max-w-sm">
-            Your personal running dashboard. Connect Strava to start tracking your training.
-          </p>
-        </div>
-        <Link
-          href="/api/auth/strava"
-          className="flex items-center gap-3 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold px-8 py-4 rounded-xl transition-colors text-base"
-        >
-          <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
-            <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-          </svg>
-          Connect with Strava
-        </Link>
-        <p className="text-[#4b5563] text-xs max-w-xs text-center">
-          Read-only access to your activities. No posting or data modification.
-        </p>
-      </div>
-    )
+    return <OnboardingPage />
   }
 
   const { activities, athlete, goals, estimates } = await getData(Number(athleteId))
@@ -127,7 +105,7 @@ export default async function DashboardPage() {
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Weekly Mileage
             </h2>
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-[200px]">
               <WeeklyMileageChart activities={activities} fillHeight />
             </div>
           </div>

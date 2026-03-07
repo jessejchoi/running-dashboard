@@ -17,7 +17,6 @@ import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
-import { type UserGoal } from '@/lib/goals'
 
 export const dynamic = 'force-dynamic'
 
@@ -176,6 +175,7 @@ export default async function FiveKAnalysisPage() {
     <>
       <Nav />
       <main className="max-w-full mx-auto px-6 pt-24 pb-16">
+        <div className="text-xs text-[#4b5563] font-mono mb-2">🎯 Analysis target: {Math.floor(TARGET_SECS/60)}:{String(TARGET_SECS%60).padStart(2,'0')} ({TARGET_SECS}s)</div>
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold text-3xl leading-normal pb-1 mb-1">5K Fitness Tracker</h1>
           <p className="text-[#6b7280] text-sm max-w-3xl">

@@ -24,14 +24,12 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
-  // Aggregate by week
   const weekMap: Record<string, number> = {}
   for (const a of activities) {
     const w = isoWeek(new Date(a.start_date))
     weekMap[w] = (weekMap[w] ?? 0) + metersToKm(a.distance)
   }
 
-  // Build last N weeks
   const data = Array.from({ length: weeks }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (weeks - 1 - i) * 7)
@@ -43,40 +41,34 @@ export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
     }
   })
 
-  const avg = data.reduce((s, d) => s + d.km, 0) / data.filter(d => d.km > 0).length || 0
+  const avg = data.reduce((s, d) => s + d.km, 0) / (data.filter(d => d.km > 0).length || 1)
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={data} barSize={14} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-        <XAxis
-          dataKey="week"
-          tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-          axisLine={false}
-          tickLine={false}
-          interval={3}
-        />
-        <YAxis
-          tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-        <ReferenceLine
-          y={avg}
-          stroke="#f97316"
-          strokeDasharray="4 4"
-          strokeOpacity={0.5}
-          strokeWidth={1}
-        />
-        <Bar dataKey="km" radius={[3, 3, 0, 0]}>
-          {data.map((entry, i) => (
-            <Cell
-              key={i}
-              fill={entry.isCurrentWeek ? '#f97316' : entry.km > avg ? '#3a3a3a' : '#242424'}
-            />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    // Explicit pixel height on a plain div — Recharts recommended pattern
+    <div style={{ width: '100%', height: '200px' }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} barSize={14} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+          <XAxis
+            dataKey="week"
+            tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+            axisLine={false}
+            tickLine={false}
+            interval={3}
+          />
+          <YAxis
+            tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <ReferenceLine y={avg} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.5} strokeWidth={1} />
+          <Bar dataKey="km" radius={[3, 3, 0, 0]}>
+            {data.map((entry, i) => (
+              <Cell key={i} fill={entry.isCurrentWeek ? '#f97316' : entry.km > avg ? '#3a3a3a' : '#242424'} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   )
 }

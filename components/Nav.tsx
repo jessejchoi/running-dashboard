@@ -5,11 +5,11 @@ import { Activity, List, RefreshCw, BarChart2, Calendar, Users } from 'lucide-re
 import { useState } from 'react'
 
 const navItems = [
-  { href: '/',              label: 'Dashboard', icon: Activity },
-  { href: '/runs',          label: 'Runs',      icon: List },
-  { href: '/analysis/5k',   label: 'Analysis',  icon: BarChart2 },
-  { href: '/plan',          label: 'Plan',      icon: Calendar },
-  { href: '/groups',        label: 'Groups',    icon: Users },
+  { href: '/',            label: 'Dashboard', icon: Activity },
+  { href: '/runs',        label: 'Runs',      icon: List },
+  { href: '/analysis/5k', label: 'Analysis',  icon: BarChart2 },
+  { href: '/plan',        label: 'Plan',      icon: Calendar },
+  { href: '/groups',      label: 'Groups',    icon: Users },
 ]
 
 export default function Nav() {
@@ -27,7 +27,6 @@ export default function Nav() {
       const msg = n > 0 ? `${n} synced` : 'Up to date'
       setSyncMsg(msg)
       setSyncing(false)
-      // Reload after a beat so the message is visible
       setTimeout(() => { window.location.reload() }, 1800)
     } catch {
       setSyncMsg('Error')
@@ -38,7 +37,8 @@ export default function Nav() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[#2a2a2a] bg-[#0a0a0a]/90 backdrop-blur-sm">
-      {/* Desktop */}
+
+      {/* ── Desktop ──────────────────────────────────────────── */}
       <div className="hidden sm:flex max-w-6xl mx-auto px-6 items-center justify-between h-14">
         <span className="font-display font-bold text-lg tracking-tight">
           <span className="text-[#f97316]">RUN</span>
@@ -74,31 +74,33 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Mobile — icon-only row, full width, no logo */}
-      <div className="sm:hidden flex items-center justify-around px-2 h-14">
-        {navItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            title={label}
-            className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all ${
-              path === href || (href !== '/' && path.startsWith(href))
-                ? 'text-white bg-[#1c1c1c]'
-                : 'text-[#6b7280]'
-            }`}
+      {/* ── Mobile — icon only, evenly spaced, no logo ───────── */}
+      <div className="sm:hidden h-14 flex items-center">
+        <div className="w-full flex items-center justify-around px-1">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const active = path === href || (href !== '/' && path.startsWith(href))
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-label={label}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 8, color: active ? '#fff' : '#6b7280', background: active ? '#1c1c1c' : 'transparent' }}
+              >
+                <Icon size={18} />
+              </Link>
+            )
+          })}
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            aria-label="Sync Strava"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 8, border: '1px solid #2a2a2a', color: (syncMsg && !syncing) ? '#34d399' : '#6b7280', background: 'transparent', opacity: syncing ? 0.5 : 1 }}
           >
-            <Icon size={18} />
-          </Link>
-        ))}
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          title="Sync Strava"
-          className={`flex items-center justify-center w-10 h-10 rounded-lg border border-[#2a2a2a] transition-all disabled:opacity-50 ${syncMsg && !syncing ? 'text-emerald-400 border-emerald-400/30' : 'text-[#6b7280]'}`}
-        >
-          <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
-        </button>
+            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
+
     </nav>
   )
 }

@@ -483,12 +483,13 @@ export function analyzeEasyRun(activity: {
   laps?: any[]
 }): EasyRunEfficiency | null {
   const stub = (excludedReason: string): EasyRunEfficiency => ({
-    date: activity.start_date.split('T')[0],
+    date: new Date(new Date(activity.start_date).getTime() + 7*60*60*1000).toISOString().split('T')[0],
     activityId: activity.id,
     activityName: activity.name,
     runType: activity.run_type ?? 'easy',
     excludedReason,
     normalizedPaceSec: 0, avgHR: 0, avgPaceSecPerKm: 0,
+    windowHR: 0, windowPace: 0, windowSecs: 0, windowSplitsCount: 0,
     slope: 0, r2: 0, splitsUsed: 0, splits: [],
     estimatedPace: '', estimatedTime: '',
   })
@@ -504,10 +505,16 @@ export function analyzeEasyRun(activity: {
   if (wholeRunAvgHR > 178) return stub('Avg HR above threshold zone — tag as threshold or interval instead')
   if (activity.moving_time < 900) return stub('Run too short (< 15 min)')
 
-  // Extract valid aerobic km splits (exclude first split, fast strides, HR outliers)
+  // Extract valid aerobic km splits from activity.splits (km splits, always multi-entry)
+  // Prefer splits over laps — a single-lap run still has multiple km splits.
   const allSplits: any[] = activity.splits ?? activity.laps ?? []
-  const validSplits = allSplits
-    .slice(1, -1)  // drop first (warmup) and last (cooldown) splits
+
+  // Drop first km split (warmup) and last partial km. For single-lap runs this
+  // still leaves the middle km splits intact for stride detection + window logic.
+  const dropLast = allSplits.length > 2 ? 1 : 0
+  const rawSplits = allSplits.slice(1, allSplits.length - dropLast)
+
+  const validSplits = rawSplits
     .filter((sp: any) => {
       if (!sp.average_heartrate || !sp.average_speed || !sp.distance) return false
       const pace = 1000 / sp.average_speed
@@ -521,51 +528,58 @@ export function analyzeEasyRun(activity: {
       duration: sp.moving_time ?? sp.elapsed_time ?? 60,
     }))
 
-  // Use last 15 min of steady running for HR/pace anchor.
-  //
-  // Strategy: strip the "stride tail" from the end of the run.
-  // A split is part of the stride tail if it is:
-  //   (a) a stride: pace > 30% faster than whole-run avg (pace < avgPace * 0.70), OR
-  //   (b) a recovery jog: slower than avg * 1.15, sitting right after a stride
-  // We walk backwards and strip until we hit genuinely steady running.
-  // Then we take the last 15 min of whatever remains.
+  // Strip stride tail from the end, then take last 15 min of steady running.
+  // Strides are ~50% faster than easy pace (pace number is ~50% of avg pace),
+  // so threshold is 0.50. Recovery jogs after strides are >40% slower.
   let avgHR   = wholeRunAvgHR
   let avgPace = wholeRunAvgPace
-  if (validSplits.length >= 2) {
-    const STRIDE_PACE_THRESHOLD = wholeRunAvgPace * 0.70   // >30% faster = stride
-    const RECOVERY_PACE_THRESHOLD = wholeRunAvgPace * 1.20 // >20% slower = recovery jog
+  let windowHR = wholeRunAvgHR
+  let windowPace = wholeRunAvgPace
+  let windowSecs = 0
+  let windowSplitsCount = 0
 
-    // Walk backwards, marking tail splits to drop
-    let tailStart = validSplits.length  // index of first tail split (exclusive end of steady)
+  const candidateSplits = validSplits.length >= 1 ? validSplits : []
+
+  if (candidateSplits.length >= 1) {
+    const STRIDE_PACE_THRESHOLD   = wholeRunAvgPace * 0.75  // >25% faster = stride (e.g. 4:00 on 6:00 avg)
+    const RECOVERY_PACE_THRESHOLD = wholeRunAvgPace * 1.30  // >30% slower = recovery after stride
+
+    // Walk backwards stripping stride+recovery tail
+    let tailStart = candidateSplits.length
     let prevWasStride = false
-    for (let i = validSplits.length - 1; i >= 0; i--) {
-      const pace = validSplits[i].paceSecPerKm
+    for (let i = candidateSplits.length - 1; i >= 0; i--) {
+      const pace = candidateSplits[i].paceSecPerKm
       const isStride   = pace < STRIDE_PACE_THRESHOLD
       const isRecovery = pace > RECOVERY_PACE_THRESHOLD && prevWasStride
       if (isStride || isRecovery) {
         tailStart = i
         prevWasStride = isStride
       } else {
-        break  // hit steady running — stop stripping
+        break
       }
     }
 
-    const steadySplits = validSplits.slice(0, tailStart)
-    const useSteady = steadySplits.length >= 2 ? steadySplits : validSplits
+    const steadySplits = candidateSplits.slice(0, tailStart)
+    // If stride stripping removed everything, fall back to all valid splits
+    const useSteady = steadySplits.length >= 1 ? steadySplits : candidateSplits
 
     // Take last 15 min of the steady portion
     const TARGET_WINDOW = 15 * 60
-    const windowSplits: typeof validSplits = []
-    let windowSecs = 0
-    for (let i = useSteady.length - 1; i >= 0 && windowSecs < TARGET_WINDOW; i--) {
+    const windowSplits: typeof candidateSplits = []
+    let wSecs = 0
+    for (let i = useSteady.length - 1; i >= 0 && wSecs < TARGET_WINDOW; i--) {
       windowSplits.unshift(useSteady[i])
-      windowSecs += useSteady[i].duration
+      wSecs += useSteady[i].duration
     }
-    const useSplits = windowSplits.length >= 2 ? windowSplits : useSteady
-    if (useSplits.length >= 2) {
-      const totalDur = useSplits.reduce((s, sp) => s + sp.duration, 0)
+    const useSplits = windowSplits.length >= 1 ? windowSplits : useSteady
+    const totalDur = useSplits.reduce((s, sp) => s + sp.duration, 0)
+    if (totalDur > 0) {
       avgHR   = useSplits.reduce((s, sp) => s + sp.hr   * sp.duration, 0) / totalDur
       avgPace = useSplits.reduce((s, sp) => s + sp.paceSecPerKm * sp.duration, 0) / totalDur
+      windowHR = avgHR
+      windowPace = avgPace
+      windowSecs = totalDur
+      windowSplitsCount = useSplits.length
     }
   }
 
@@ -610,13 +624,17 @@ export function analyzeEasyRun(activity: {
   if (normalizedPaceSec < 200 || normalizedPaceSec > 540) return stub('Normalised pace out of range — check HR data')
 
   return {
-    date: activity.start_date.split('T')[0],
+    date: new Date(new Date(activity.start_date).getTime() + 7*60*60*1000).toISOString().split('T')[0],
     activityId: activity.id,
     activityName: activity.name,
     runType: activity.run_type ?? 'easy',
     normalizedPaceSec: parseFloat(normalizedPaceSec.toFixed(1)),
     avgHR,
     avgPaceSecPerKm: parseFloat(avgPace.toFixed(1)),
+    windowHR: parseFloat(windowHR.toFixed(1)),
+    windowPace: parseFloat(windowPace.toFixed(1)),
+    windowSecs,
+    windowSplitsCount,
     slope: parseFloat(slope.toFixed(3)),
     r2: parseFloat(r2.toFixed(3)),
     splitsUsed: validSplits.length,

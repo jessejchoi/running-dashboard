@@ -322,21 +322,21 @@ export default async function FiveKAnalysisPage() {
                   {eff && !eff.excludedReason && (
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="bg-[#111] rounded-lg px-2 py-2">
-                        <div className="text-[#4b5563] mb-0.5">Actual</div>
-                        <div className="font-mono text-white font-bold">{formatPace(eff.avgPaceSecPerKm)}/km</div>
-                        <div className="text-[#4b5563] mt-0.5">{Math.round(eff.avgHR)} bpm</div>
+                        <div className="text-[#4b5563] mb-0.5">Last 15 min</div>
+                        <div className="font-mono text-white font-bold">{formatPace(eff.windowPace)}/km</div>
+                        <div className="text-[#4b5563] mt-0.5">{Math.round(eff.windowHR)} bpm · {Math.round(eff.windowSecs/60)}m/{eff.windowSplitsCount}km</div>
                       </div>
                       <div className="bg-[#111] rounded-lg px-2 py-2">
                         <div className="text-[#4b5563] mb-0.5">HR adj.</div>
                         <div className={`font-mono font-bold ${eff.avgHR > 150 ? 'text-emerald-400' : 'text-orange-400'}`}>
                           {eff.avgHR > 150 ? '▼' : '▲'}{Math.abs((eff.avgPaceSecPerKm - eff.normalizedPaceSec)).toFixed(1)}s
                         </div>
-                        <div className="text-[#4b5563] mt-0.5">{eff.avgHR > 150 ? '@ ref HR' : '@ ref HR'}</div>
+                        <div className="text-[#4b5563] mt-0.5">→ {formatPace(eff.normalizedPaceSec)}/km</div>
                       </div>
                       <div className="bg-[#111] rounded-lg px-2 py-2">
                         <div className="text-[#4b5563] mb-0.5">Slope</div>
                         <div className="font-mono text-purple-400 font-bold">{eff.r2 > 0 ? 'regr.' : 'fixed'}</div>
-                        <div className="text-[#4b5563] mt-0.5">{eff.r2 > 0 ? `R²=${eff.r2.toFixed(2)}` : '−2.0'}</div>
+                        <div className="text-[#4b5563] mt-0.5">{eff.r2 > 0 ? `R²=${eff.r2.toFixed(2)}` : '−3.0 s/bpm'}</div>
                       </div>
                     </div>
                   )}

@@ -4,7 +4,6 @@ import {
   ResponsiveContainer, ReferenceLine, CartesianGrid
 } from 'recharts'
 import { format } from 'date-fns'
-import { toJakartaDate } from '@/lib/utils'
 import { formatTime, formatPace } from '@/lib/analysis'
 
 export interface TrendPoint {
@@ -30,7 +29,7 @@ function buildTooltip(color: string) {
     if (!d) return null
     return (
       <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[220px]">
-        <div className="text-[#6b7280] mb-2">{format(toJakartaDate(d.date + 'T00:00:00Z'), 'MMM d, yyyy')}</div>
+        <div className="text-[#6b7280] mb-2">{format(new Date(d.date + 'T12:00:00'), 'MMM d, yyyy')}</div>
         <div className="font-display font-bold text-lg mb-0.5" style={{ color }}>{formatTime(d.estimatedSecs)}</div>
         <div className="font-mono mb-2 text-[#9ca3af]">{formatPace(d.estimatedSecs / 5)}/km</div>
         <div className="text-blue-400 font-mono text-xs mb-2">VDOT {d.vdot}</div>
@@ -46,7 +45,7 @@ function buildTooltip(color: string) {
 export default function FiveKTrendChart({ estimates, targetSecs, color = '#f97316' }: Props) {
   const data = [...estimates]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map(e => ({ ...e, label: format(toJakartaDate(e.date + 'T00:00:00Z'), 'MMM d') }))
+    .map(e => ({ ...e, label: format(new Date(e.date + 'T12:00:00'), 'MMM d') }))
 
   if (data.length === 0) {
     return (

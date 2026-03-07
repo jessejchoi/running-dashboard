@@ -103,7 +103,7 @@ export default function FiveKTrendChart({ estimates, targetSecs, color = '#f9731
 
         </div>
         <div>
-          <div className="text-[#6b7280] text-xs mb-1">Gap to sub-22:30</div>
+          <div className="text-[#6b7280] text-xs mb-1">Gap to goal</div>
           <div className={`font-mono font-bold ${gapSecs <= 0 ? 'text-emerald-400' : ''}`} style={gapSecs > 0 ? { color } : {}}>
             {gapSecs <= 0 ? '✓ At goal' : `−${formatTime(gapSecs)}`}
           </div>
@@ -147,7 +147,7 @@ export default function FiveKTrendChart({ estimates, targetSecs, color = '#f9731
             stroke="#f97316"
             strokeDasharray="5 4"
             strokeWidth={1.5}
-            label={{ value: 'Goal 22:30', position: 'insideTopRight', fill: '#f97316', fontSize: 9, fontFamily: 'var(--font-mono)' }}
+            label={{ value: `Goal ${formatTime(targetSecs)}`, position: 'insideTopRight', fill: '#f97316', fontSize: 9, fontFamily: 'var(--font-mono)' }}
           />
           <Line type="monotone" dataKey="trend" stroke="#2a2a2a" strokeWidth={2} dot={false} strokeDasharray="4 3" />
           <Line

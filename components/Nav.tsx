@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, List, RefreshCw, BarChart2, Calendar } from 'lucide-react'
+import { Activity, List, RefreshCw, BarChart2, Calendar, Users } from 'lucide-react'
 import { useState } from 'react'
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { href: '/runs',          label: 'Runs',      icon: List },
   { href: '/analysis/5k',   label: 'Analysis',  icon: BarChart2 },
   { href: '/plan',          label: 'Plan',      icon: Calendar },
+  { href: '/groups',        label: 'Groups',    icon: Users },
 ]
 
 export default function Nav() {

@@ -38,14 +38,36 @@ export async function GET(request: NextRequest) {
     refresh_token,
     expires_at,
     athlete_data: athlete,
+    athlete_name: [athlete.firstname, athlete.lastname].filter(Boolean).join(' '),
+    athlete_profile: athlete.profile_medium ?? athlete.profile ?? null,
+    athlete_gender: athlete.sex ?? null,  // 'M' or 'F'
     updated_at: new Date().toISOString(),
   }, { onConflict: 'athlete_id' })
+
+  // If a pending profile was collected during onboarding, save it now
+  const pendingProfile = request.cookies.get('pending_profile')?.value
+  if (pendingProfile) {
+    try {
+      const profile = JSON.parse(pendingProfile)
+      await supabaseAdmin.from('user_profiles').upsert({
+        athlete_id: athlete.id,
+        display_name: profile.display_name,
+        age: profile.age ?? null,
+        gender: profile.gender ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'athlete_id' })
+    } catch (e) {
+      console.error('Failed to save pending profile:', e)
+    }
+  }
 
   // Kick off initial sync in background
   syncActivities(athlete.id).catch(console.error)
 
   // Set athlete_id cookie and redirect to dashboard
   const response = NextResponse.redirect(`${appUrl}/?syncing=true`)
+  // Clear the pending profile cookie
+  response.cookies.set('pending_profile', '', { maxAge: 0, path: '/' })
   response.cookies.set('athlete_id', String(athlete.id), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

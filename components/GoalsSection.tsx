@@ -57,7 +57,7 @@ export default function GoalsSection({ initialGoals, estimates }: Props) {
           </button>
         </div>
       ) : (
-        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style={{ gridAutoFlow: "dense" }}>
           {goals.map(goal => (
             <GoalCard
               key={goal.id}

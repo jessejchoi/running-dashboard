@@ -33,7 +33,7 @@ export default async function FiveKAnalysisPage() {
   const { data: goalRow } = await supabaseAdmin
     .from('user_goals')
     .select('target_secs')
-    .eq('athlete_id', athleteId)
+    .eq('athlete_id', parseInt(athleteId))
     .eq('distance_key', '5k')
     .single()
   const TARGET_SECS = goalRow?.target_secs ?? (22 * 60 + 30)  // fallback if no goal set

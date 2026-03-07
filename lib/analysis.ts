@@ -531,9 +531,9 @@ export function analyzeEasyRun(activity: {
   // Then we take the last 15 min of whatever remains.
   let avgHR   = wholeRunAvgHR
   let avgPace = wholeRunAvgPace
-  if (validSplits.length >= 3) {
+  if (validSplits.length >= 2) {
     const STRIDE_PACE_THRESHOLD = wholeRunAvgPace * 0.70   // >30% faster = stride
-    const RECOVERY_PACE_THRESHOLD = wholeRunAvgPace * 1.15 // >15% slower = recovery jog
+    const RECOVERY_PACE_THRESHOLD = wholeRunAvgPace * 1.20 // >20% slower = recovery jog
 
     // Walk backwards, marking tail splits to drop
     let tailStart = validSplits.length  // index of first tail split (exclusive end of steady)

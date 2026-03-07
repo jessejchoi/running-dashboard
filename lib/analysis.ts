@@ -505,73 +505,85 @@ export function analyzeEasyRun(activity: {
   if (wholeRunAvgHR > 178) return stub('Avg HR above threshold zone — tag as threshold or interval instead')
   if (activity.moving_time < 900) return stub('Run too short (< 15 min)')
 
-  // Extract valid aerobic km splits from activity.splits (km splits, always multi-entry)
-  // Prefer splits over laps — a single-lap run still has multiple km splits.
-  const allSplits: any[] = activity.splits ?? activity.laps ?? []
+  // ── Lap-first window logic ──────────────────────────────────────────────────
+  // Walk laps backwards to find the last lap that is >= 15 min (steady block).
+  // Then take the last 15 min of that lap using km splits.
+  //
+  // Rules:
+  //   1 lap  → use it if >= 15 min, else exclude
+  //   2 laps → use last lap if >= 15 min, else exclude
+  //   3+ laps → walk backwards, skip short laps, use first one >= 15 min
 
-  // Drop first km split (warmup) and last partial km. For single-lap runs this
-  // still leaves the middle km splits intact for stride detection + window logic.
-  const dropLast = allSplits.length > 2 ? 1 : 0
-  const rawSplits = allSplits.slice(1, allSplits.length - dropLast)
+  const TARGET_WINDOW = 15 * 60  // 15 minutes in seconds
+  const laps: any[] = activity.laps ?? []
 
-  const validSplits = rawSplits
-    .filter((sp: any) => {
-      if (!sp.average_heartrate || !sp.average_speed || !sp.distance) return false
-      const pace = 1000 / sp.average_speed
-      const hr = sp.average_heartrate
-      return hr >= 115 && hr <= 178 && pace >= 226 && pace <= 600
-    })
-    .map((sp: any, i: number) => ({
-      km: i + 1,
-      paceSecPerKm: 1000 / sp.average_speed,
-      hr: sp.average_heartrate,
-      duration: sp.moving_time ?? sp.elapsed_time ?? 60,
+  // Find target lap
+  let targetLap: any = null
+  for (let i = laps.length - 1; i >= 0; i--) {
+    const lapTime = laps[i].moving_time ?? laps[i].elapsed_time ?? 0
+    if (lapTime >= TARGET_WINDOW) {
+      targetLap = laps[i]
+      break
+    }
+  }
+
+  if (!targetLap) return stub('No steady lap ≥ 15 min found — run may be all strides/short laps')
+
+  // Compute target lap's start time in the run (cumulative elapsed of all prior laps)
+  let lapStartSec = 0
+  for (const lap of laps) {
+    if (lap === targetLap) break
+    lapStartSec += lap.elapsed_time ?? lap.moving_time ?? 0
+  }
+  const lapDurSec = targetLap.moving_time ?? targetLap.elapsed_time ?? 0
+  const lapEndSec = lapStartSec + lapDurSec
+
+  // Map km splits (activity.splits) to cumulative run time, then filter to target lap
+  const kmSplits: any[] = activity.splits ?? []
+  let cumSec = 0
+  const timedKmSplits = kmSplits.map((sp: any) => {
+    const dur = sp.elapsed_time ?? sp.moving_time ?? 60
+    const item = { sp, tStart: cumSec, tEnd: cumSec + dur }
+    cumSec += dur
+    return item
+  })
+
+  // Keep km splits that overlap with target lap (with 30s tolerance for GPS drift)
+  const lapKmSplits = timedKmSplits
+    .filter(ts => ts.tStart >= lapStartSec - 30 && ts.tEnd <= lapEndSec + 30)
+    .filter(ts => ts.sp.average_heartrate && ts.sp.average_speed)
+    .map(ts => ({
+      paceSecPerKm: 1000 / ts.sp.average_speed,
+      hr: ts.sp.average_heartrate,
+      duration: ts.sp.elapsed_time ?? ts.sp.moving_time ?? 60,
     }))
 
-  // Strip stride tail from the end, then take last 15 min of steady running.
-  // Strides are ~50% faster than easy pace (pace number is ~50% of avg pace),
-  // so threshold is 0.50. Recovery jogs after strides are >40% slower.
+  // Fallback: if km split mapping failed (e.g. no splits data), use lap avg directly
   let avgHR   = wholeRunAvgHR
   let avgPace = wholeRunAvgPace
   let windowHR = wholeRunAvgHR
   let windowPace = wholeRunAvgPace
   let windowSecs = 0
   let windowSplitsCount = 0
+  // validSplits still used for regression below — use all km splits as before
+  const validSplits = kmSplits
+    .filter((sp: any) => sp.average_heartrate && sp.average_speed)
+    .map((sp: any, i: number) => ({
+      km: i + 1,
+      paceSecPerKm: 1000 / sp.average_speed,
+      hr: sp.average_heartrate,
+      duration: sp.elapsed_time ?? sp.moving_time ?? 60,
+    }))
 
-  const candidateSplits = validSplits.length >= 1 ? validSplits : []
-
-  if (candidateSplits.length >= 1) {
-    const STRIDE_PACE_THRESHOLD   = wholeRunAvgPace * 0.75  // >25% faster = stride (e.g. 4:00 on 6:00 avg)
-    const RECOVERY_PACE_THRESHOLD = wholeRunAvgPace * 1.30  // >30% slower = recovery after stride
-
-    // Walk backwards stripping stride+recovery tail
-    let tailStart = candidateSplits.length
-    let prevWasStride = false
-    for (let i = candidateSplits.length - 1; i >= 0; i--) {
-      const pace = candidateSplits[i].paceSecPerKm
-      const isStride   = pace < STRIDE_PACE_THRESHOLD
-      const isRecovery = pace > RECOVERY_PACE_THRESHOLD && prevWasStride
-      if (isStride || isRecovery) {
-        tailStart = i
-        prevWasStride = isStride
-      } else {
-        break
-      }
-    }
-
-    const steadySplits = candidateSplits.slice(0, tailStart)
-    // If stride stripping removed everything, fall back to all valid splits
-    const useSteady = steadySplits.length >= 1 ? steadySplits : candidateSplits
-
-    // Take last 15 min of the steady portion
-    const TARGET_WINDOW = 15 * 60
-    const windowSplits: typeof candidateSplits = []
+  if (lapKmSplits.length >= 1) {
+    // Take last 15 min of the target lap's km splits
+    const windowSplits: typeof lapKmSplits = []
     let wSecs = 0
-    for (let i = useSteady.length - 1; i >= 0 && wSecs < TARGET_WINDOW; i--) {
-      windowSplits.unshift(useSteady[i])
-      wSecs += useSteady[i].duration
+    for (let i = lapKmSplits.length - 1; i >= 0 && wSecs < TARGET_WINDOW; i--) {
+      windowSplits.unshift(lapKmSplits[i])
+      wSecs += lapKmSplits[i].duration
     }
-    const useSplits = windowSplits.length >= 1 ? windowSplits : useSteady
+    const useSplits = windowSplits.length >= 1 ? windowSplits : lapKmSplits
     const totalDur = useSplits.reduce((s, sp) => s + sp.duration, 0)
     if (totalDur > 0) {
       avgHR   = useSplits.reduce((s, sp) => s + sp.hr   * sp.duration, 0) / totalDur
@@ -580,6 +592,16 @@ export function analyzeEasyRun(activity: {
       windowPace = avgPace
       windowSecs = totalDur
       windowSplitsCount = useSplits.length
+    }
+  } else {
+    // No km splits mapped — fall back to target lap's own averages
+    if (targetLap.average_heartrate && targetLap.average_speed) {
+      avgHR   = targetLap.average_heartrate
+      avgPace = 1000 / targetLap.average_speed
+      windowHR = avgHR
+      windowPace = avgPace
+      windowSecs = lapDurSec
+      windowSplitsCount = 0
     }
   }
 

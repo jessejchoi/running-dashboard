@@ -6,12 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 
 // ─── Pace / speed conversions ─────────────────────────────────────────────────
 
-/** Converts m/s to min/km pace string e.g. "4:32" */
+/** Converts m/s to min/km pace string e.g. "4:32" — handles secs=60 rollover */
 export function speedToPace(speedMs: number): string {
   if (!speedMs || speedMs === 0) return '--'
   const secsPerKm = 1000 / speedMs
-  const mins = Math.floor(secsPerKm / 60)
-  const secs = Math.round(secsPerKm % 60)
+  let mins = Math.floor(secsPerKm / 60)
+  let secs = Math.round(secsPerKm % 60)
+  if (secs === 60) { mins += 1; secs = 0 }
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
@@ -48,12 +49,23 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// ─── Timezone ─────────────────────────────────────────────────────────────────
+
+/**
+ * Strava returns start_date in UTC. Convert to Jakarta local time (WIB = UTC+7).
+ * Use this instead of new Date(str) for all display purposes.
+ */
+export function toJakartaDate(utcStr: string): Date {
+  const d = new Date(utcStr)
+  return new Date(d.getTime() + 7 * 60 * 60 * 1000)
+}
+
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 export function getWeekStart(date: Date): Date {
   const d = new Date(date)
   const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Monday
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
   d.setDate(diff)
   d.setHours(0, 0, 0, 0)
   return d
@@ -68,9 +80,9 @@ export function isoWeek(date: Date): string {
 
 export interface RaceGoal {
   label: string
-  distance: number       // meters
-  targetPace: number     // seconds per km
-  targetTime: number     // seconds
+  distance: number
+  targetPace: number
+  targetTime: number
   raceDate: Date
 }
 
@@ -78,31 +90,31 @@ export const RACE_GOALS: RaceGoal[] = [
   {
     label: 'Sub 22:30 5K',
     distance: 5000,
-    targetPace: 270,          // 4:30/km
+    targetPace: 270,
     targetTime: 22 * 60 + 30,
     raceDate: new Date('2026-04-15'),
   },
   {
     label: 'Sub 45:00 10K',
     distance: 10000,
-    targetPace: 270,          // 4:30/km
+    targetPace: 270,
     targetTime: 45 * 60,
     raceDate: new Date('2026-07-15'),
   },
   {
     label: 'Sub 1:40 Half Marathon',
     distance: 21097,
-    targetPace: 284,          // 4:44/km  (100min / 21.097km)
+    targetPace: 284,
     targetTime: 100 * 60,
     raceDate: new Date('2026-10-31'),
   },
 ]
 
-// ─── VDOT (Jack Daniels) ───────────────────────────────────────────────────
-// Returns VDOT from a 5K time in seconds.
+// ─── VDOT (Jack Daniels) ──────────────────────────────────────────────────────
+
 export function vdotFrom5K(secsTotal: number): number {
   const tMin = secsTotal / 60
-  const speed = 5000 / tMin  // m/min
+  const speed = 5000 / tMin
   const pctVO2max = 0.8 + 0.1894393 * Math.exp(-0.012778 * tMin) + 0.2989558 * Math.exp(-0.1932605 * tMin)
   const vo2 = -4.6 + 0.182258 * speed + 0.000104 * speed * speed
   return Math.round(vo2 / pctVO2max * 10) / 10

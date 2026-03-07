@@ -199,7 +199,7 @@ export default async function FiveKAnalysisPage() {
                         <Link href={`/runs/${run.id}`} className="font-display font-bold text-base hover:text-[#f97316] transition-colors">{run.name}</Link>
                         <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
                       </div>
-                      <div className="text-[#6b7280] text-xs mt-0.5">{format(new Date(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}</div>
+                      <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}</div>
                     </div>
                     {estimate ? (
                       <div className="text-right shrink-0">
@@ -247,7 +247,7 @@ export default async function FiveKAnalysisPage() {
                         <Link href={`/runs/${run.id}`} className="font-display font-bold text-base hover:text-blue-400 transition-colors">{run.name}</Link>
                         <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
                       </div>
-                      <div className="text-[#6b7280] text-xs mt-0.5">{format(new Date(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}</div>
+                      <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}</div>
                     </div>
                     {estimate ? (
                       <div className="text-right shrink-0">
@@ -297,7 +297,7 @@ export default async function FiveKAnalysisPage() {
                         <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} autoExcludedReason={eff?.excludedReason} />
                       </div>
                       <div className="text-[#6b7280] text-xs mt-0.5">
-                        {format(new Date(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}
+                        {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}
                         {run.run_type && <span className="ml-2 text-purple-400 capitalize">{run.run_type.replace(/_/g, ' ')}</span>}
                       </div>
                     </div>

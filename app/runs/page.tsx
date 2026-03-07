@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import RunTypeSelector from '@/components/RunTypeSelector'
-import { speedToPace, formatDuration } from '@/lib/utils'
+import { speedToPace, formatDuration, toJakartaDate } from '@/lib/utils'
 import { format } from 'date-fns'
 import Link from 'next/link'
 
@@ -52,7 +52,7 @@ export default async function RunsPage() {
                     <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#151515] transition-colors">
                       <td className={`px-4 py-3 text-xs font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40 text-[#6b7280]' : 'text-[#6b7280]'}`}>
                         <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
-                          {format(new Date(run.start_date), 'MMM d, yyyy')}
+                          {format(toJakartaDate(run.start_date), 'MMM d, yyyy')}
                         </Link>
                         {isTreadmill && <span className="ml-2 text-[10px] text-zinc-500">🏃</span>}
                       </td>

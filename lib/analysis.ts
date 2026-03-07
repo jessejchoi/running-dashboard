@@ -38,14 +38,16 @@ function calcVdot(secs: number): number {
 }
 
 export function formatTime(secs: number): string {
-  const m = Math.floor(secs / 60)
-  const s = Math.round(secs % 60)
+  let m = Math.floor(secs / 60)
+  let s = Math.round(secs % 60)
+  if (s === 60) { m += 1; s = 0 }
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 export function formatPace(secsPerKm: number): string {
-  const m = Math.floor(secsPerKm / 60)
-  const s = Math.round(secsPerKm % 60)
+  let m = Math.floor(secsPerKm / 60)
+  let s = Math.round(secsPerKm % 60)
+  if (s === 60) { m += 1; s = 0 }
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
@@ -519,23 +521,51 @@ export function analyzeEasyRun(activity: {
       duration: sp.moving_time ?? sp.elapsed_time ?? 60,
     }))
 
-  // Use last 15 min of steady splits for HR/pace anchor — more representative
-  // than whole-run average as HR has fully drifted up, warmup excluded
-  let avgHR   = wholeRunAvgHR    // fallback to whole-run if not enough splits
+  // Use last 15 min of steady running for HR/pace anchor.
+  //
+  // Strategy: strip the "stride tail" from the end of the run.
+  // A split is part of the stride tail if it is:
+  //   (a) a stride: pace > 30% faster than whole-run avg (pace < avgPace * 0.70), OR
+  //   (b) a recovery jog: slower than avg * 1.15, sitting right after a stride
+  // We walk backwards and strip until we hit genuinely steady running.
+  // Then we take the last 15 min of whatever remains.
+  let avgHR   = wholeRunAvgHR
   let avgPace = wholeRunAvgPace
   if (validSplits.length >= 3) {
-    const TARGET_WINDOW = 15 * 60  // 15 minutes in seconds
-    let windowSecs = 0
-    let windowSplits: typeof validSplits = []
-    // Walk backwards through steady splits accumulating time
-    for (let i = validSplits.length - 1; i >= 0 && windowSecs < TARGET_WINDOW; i--) {
-      windowSplits.unshift(validSplits[i])
-      windowSecs += validSplits[i].duration
+    const STRIDE_PACE_THRESHOLD = wholeRunAvgPace * 0.70   // >30% faster = stride
+    const RECOVERY_PACE_THRESHOLD = wholeRunAvgPace * 1.15 // >15% slower = recovery jog
+
+    // Walk backwards, marking tail splits to drop
+    let tailStart = validSplits.length  // index of first tail split (exclusive end of steady)
+    let prevWasStride = false
+    for (let i = validSplits.length - 1; i >= 0; i--) {
+      const pace = validSplits[i].paceSecPerKm
+      const isStride   = pace < STRIDE_PACE_THRESHOLD
+      const isRecovery = pace > RECOVERY_PACE_THRESHOLD && prevWasStride
+      if (isStride || isRecovery) {
+        tailStart = i
+        prevWasStride = isStride
+      } else {
+        break  // hit steady running — stop stripping
+      }
     }
-    if (windowSplits.length >= 2) {
-      const totalDur = windowSplits.reduce((s, sp) => s + sp.duration, 0)
-      avgHR   = windowSplits.reduce((s, sp) => s + sp.hr   * sp.duration, 0) / totalDur
-      avgPace = windowSplits.reduce((s, sp) => s + sp.paceSecPerKm * sp.duration, 0) / totalDur
+
+    const steadySplits = validSplits.slice(0, tailStart)
+    const useSteady = steadySplits.length >= 2 ? steadySplits : validSplits
+
+    // Take last 15 min of the steady portion
+    const TARGET_WINDOW = 15 * 60
+    const windowSplits: typeof validSplits = []
+    let windowSecs = 0
+    for (let i = useSteady.length - 1; i >= 0 && windowSecs < TARGET_WINDOW; i--) {
+      windowSplits.unshift(useSteady[i])
+      windowSecs += useSteady[i].duration
+    }
+    const useSplits = windowSplits.length >= 2 ? windowSplits : useSteady
+    if (useSplits.length >= 2) {
+      const totalDur = useSplits.reduce((s, sp) => s + sp.duration, 0)
+      avgHR   = useSplits.reduce((s, sp) => s + sp.hr   * sp.duration, 0) / totalDur
+      avgPace = useSplits.reduce((s, sp) => s + sp.paceSecPerKm * sp.duration, 0) / totalDur
     }
   }
 

@@ -13,52 +13,53 @@ interface Split {
   [key: string]: any
 }
 
-export function categorizeLaps(splits: Split[], avgPace: number): LapType[] {
+const EASY_RUN_TYPES = new Set(['recovery', 'easy', 'easy_strides', 'long_easy', 'long_progressive'])
+
+export function categorizeLaps(splits: Split[], avgPace: number, runType?: string | null): LapType[] {
   const paces = splits.map(s => s.average_speed ? 1000 / s.average_speed : 999)
   const n = paces.length
   if (n === 0) return []
 
-  // Use bimodal split: find the natural gap between fast and slow laps
-  // Sort paces, look for the biggest gap — that's the interval/recovery boundary
+  const isEasy = runType ? EASY_RUN_TYPES.has(runType) : false
+
+  // Bimodal gap detection
   const sorted = [...paces].sort((a, b) => a - b)
   let biggestGap = 0
   let threshold = avgPace
   for (let i = 0; i < sorted.length - 1; i++) {
     const gap = sorted[i + 1] - sorted[i]
-    if (gap > biggestGap) {
-      biggestGap = gap
-      threshold = (sorted[i] + sorted[i + 1]) / 2
-    }
+    if (gap > biggestGap) { biggestGap = gap; threshold = (sorted[i] + sorted[i + 1]) / 2 }
   }
 
-  // Only use bimodal threshold if gap is significant (>25s/km difference)
-  // Otherwise fall back to % of avg
-  const useThreshold = biggestGap > 25
-    ? threshold
-    : avgPace * 0.94  // fallback: 6% faster = interval
+  // For easy runs: only mark as interval if truly stride-pace (>18% faster than avg)
+  // For hard runs: use bimodal gap if significant, else 6% threshold
+  let useThreshold: number
+  if (isEasy) {
+    useThreshold = avgPace * 0.82  // only real strides qualify as intervals
+  } else {
+    useThreshold = biggestGap > 25 ? threshold : avgPace * 0.94
+  }
 
   const raw: LapType[] = paces.map(p =>
-    p < useThreshold ? 'interval' : 'recovery'
+    p < useThreshold ? 'interval' : isEasy ? 'steady' : 'recovery'
   )
 
-  // Find first and last interval
   let firstFastIdx = raw.findIndex(t => t === 'interval')
   let lastFastIdx = n - 1 - [...raw].reverse().findIndex(t => t === 'interval')
   if (firstFastIdx === -1) {
-    // No intervals detected — everything is steady
-    return paces.map(() => 'steady')
+    return paces.map(() => isEasy ? 'steady' : 'steady')
   }
 
   return raw.map((t, i) => {
     if (t === 'interval') return 'interval'
     if (i < firstFastIdx) return 'warmup'
     if (i > lastFastIdx) return 'cooldown'
-    return 'recovery'
+    return t  // 'steady' for easy, 'recovery' for intervals
   })
 }
 
-export function buildLapSegments(splits: Split[], avgPace: number): LapSegment[] {
-  const types = categorizeLaps(splits, avgPace)
+export function buildLapSegments(splits: Split[], avgPace: number, runType?: string | null): LapSegment[] {
+  const types = categorizeLaps(splits, avgPace, runType)
   let cursor = 0
   return splits.map((s, i) => {
     const dur = s.moving_time ?? s.elapsed_time ?? 60

@@ -24,18 +24,27 @@ export default function RunTypeSelector({ activityId, current, onUpdate }: Props
 
   useEffect(() => { setMounted(true) }, [])
 
-  // Position dropdown below the button
-  useEffect(() => {
-    if (open && btnRef.current) {
+  // Position dropdown — fixed uses viewport coords, so use rect directly (no scrollY offset)
+  function updatePos() {
+    if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
-      setDropdownPos({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-      })
+      // Flip up if not enough space below
+      const dropH = 320
+      const spaceBelow = window.innerHeight - rect.bottom
+      const top = spaceBelow < dropH ? rect.top - dropH - 4 : rect.bottom + 4
+      // Flip left if would overflow right edge
+      const dropW = 200
+      const left = rect.left + dropW > window.innerWidth
+        ? Math.max(4, window.innerWidth - dropW - 8)
+        : rect.left
+      setDropdownPos({ top, left })
     }
+  }
+
+  useEffect(() => {
+    if (open) updatePos()
   }, [open])
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -43,9 +52,14 @@ export default function RunTypeSelector({ activityId, current, onUpdate }: Props
         dropRef.current && !dropRef.current.contains(e.target as Node)
       ) setOpen(false)
     }
+    function handleScroll() { if (open) updatePos() }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [open])
 
   async function handleSelect(type: RunType | null) {
     setSaving(true)

@@ -6,7 +6,7 @@ import RunTypeSelector from '@/components/RunTypeSelector'
 import SplitsChart from '@/components/SplitsChart'
 import { buildLapSegments } from '@/lib/lapUtils'
 import HRChart from '@/components/HRChart'
-import { speedToPace, formatDuration } from '@/lib/utils'
+import { speedToPace, formatDuration, toJakartaDate } from '@/lib/utils'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -28,7 +28,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
   const splits: any[] = run.splits ?? []
   const laps: any[] = run.laps ?? []
   const paceSeconds = run.average_speed ? 1000 / run.average_speed : 0
-  const lapSegments = laps.length > 1 ? buildLapSegments(laps, paceSeconds) : []
+  const lapSegments = laps.length > 1 ? buildLapSegments(laps, paceSeconds, run.run_type) : []
 
   // Fetch HR stream from Strava if available (stored in raw or streams column)
   const streams = run.streams ?? null
@@ -47,7 +47,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             <div>
               <h1 className="font-display font-extrabold text-3xl mb-2">{run.name}</h1>
               <p className="text-[#6b7280] text-sm">
-                {format(new Date(run.start_date), 'EEEE, MMMM d yyyy · h:mm a')}
+                {format(toJakartaDate(run.start_date), 'EEEE, MMMM d yyyy · h:mm a')}
               </p>
             </div>
             <div className="relative z-[100]">
@@ -114,7 +114,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
               Km Splits
             </h2>
             <div className="pb-4">
-            <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" />
+            <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" runType={run.run_type} />
             </div>
           </div>
         )}
@@ -126,7 +126,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
               Laps ({laps.length})
             </h2>
             <div className="pb-4">
-            <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" />
+            <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" runType={run.run_type} kmSplitCount={splits.length} />
             </div>
           </div>
         )}

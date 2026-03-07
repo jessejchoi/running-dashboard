@@ -46,15 +46,16 @@ export function categorizeLaps(splits: Split[], avgPace: number, runType?: strin
 
   if (isEasy) {
     // Easy run with strides:
-    // - Pre-stride block (steady or recovery) → 'steady' (it's the main run body, not warmup)
-    // - Recovery jogs between strides → 'recovery'
+    // - Pre-stride laps that are steady-pace → 'steady' (main run body)
+    // - Pre-stride laps that are recovery-pace (very slow) → 'recovery'
     // - Strides → 'interval'
-    // - Everything after last stride → 'cooldown'
+    // - Between strides → 'recovery'
+    // - After last stride → 'cooldown'
     return raw.map((t, i) => {
       if (t === 'interval') return 'interval'
-      if (i < firstInt) return 'steady'   // main run body before strides
-      if (i > lastInt)  return 'cooldown' // after last stride
-      return 'recovery'                   // between strides
+      if (i > lastInt)  return 'cooldown'
+      // Both pre-stride and between-stride: use the raw tag (steady or recovery)
+      return t === 'recovery' ? 'recovery' : 'steady'
     })
   }
 

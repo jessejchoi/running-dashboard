@@ -19,7 +19,7 @@ const SEGMENT_COLOR: Record<string, string> = {
   interval: 'rgba(248,113,113,0.18)',
   recovery: 'rgba(96,165,250,0.15)',
   cooldown: 'rgba(167,139,250,0.15)',
-  steady:   'transparent',
+  steady:   'rgba(249,115,22,0.12)',
 }
 
 function CustomTooltip({ active, payload }: any) {

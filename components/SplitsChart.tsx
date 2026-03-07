@@ -164,12 +164,12 @@ export default function SplitsChart({
         </div>
       </div>
 
-      {/* Legend — always below chart, never overlapping */}
+      {/* Legend — always below chart with solid background */}
       {colorMode === 'lap-type' && usedTypes.length > 1 && (
-        <div className="flex flex-wrap gap-3 pt-1 border-t border-[#1c1c1c]">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 mt-1 border-t border-[#2a2a2a]">
           {usedTypes.map(t => (
-            <span key={t} className="flex items-center gap-1.5 text-[10px] text-[#6b7280]">
-              <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: TYPE_COLOR[t] }} />
+            <span key={t} className="flex items-center gap-1.5 text-[11px] font-medium text-[#9ca3af]">
+              <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ backgroundColor: TYPE_COLOR[t] }} />
               {TYPE_LABEL[t]}
             </span>
           ))}

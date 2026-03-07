@@ -30,15 +30,14 @@ export default async function FiveKAnalysisPage() {
   if (!athleteId) redirect('/')
 
   // Fetch user's 5K goal for target line
-  const { data: goalRow } = await supabaseAdmin
+  const { data: goalRow, error: goalError } = await supabaseAdmin
     .from('user_goals')
     .select('target_secs')
     .eq('athlete_id', parseInt(athleteId))
     .eq('distance_key', '5k')
-    .single()
-  const TARGET_SECS = goalRow?.target_secs ?? (22 * 60 + 30)  // fallback if no goal set
-  // Debug: log to server console to verify value
-  console.log('[analysis] athleteId:', athleteId, 'goalRow:', goalRow, 'TARGET_SECS:', TARGET_SECS)
+    .maybeSingle()
+  const TARGET_SECS = goalRow?.target_secs ?? (22 * 60 + 30)
+  console.log('[analysis] athleteId:', athleteId, 'parseInt:', parseInt(athleteId), 'goalRow:', goalRow, 'goalError:', goalError, 'TARGET_SECS:', TARGET_SECS)
 
   const [{ data: intervalRuns }, { data: thresholdRuns }, { data: easyRuns }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }),

@@ -49,7 +49,7 @@ function newBlock(): RepBlock {
 function defaultConfig(): SessionConfig {
   return {
     warmupMin: 10, warmupPace: '6:00',
-    blocks: [newBlock()],
+    blocks: [],
     cooldownMin: 10, cooldownPace: '6:30',
   }
 }
@@ -185,6 +185,12 @@ export default function PlanSessionModal({ session, weekNum, dayIdx, onClose }: 
                 <Plus size={10} /> Add block
               </button>
             </div>
+
+            {config.blocks.length === 0 && (
+              <div className="text-[#4b5563] text-xs italic py-2">
+                No interval blocks — tap "Add block" to add intervals, or leave empty for a continuous run.
+              </div>
+            )}
 
             {config.blocks.map((b, bi) => (
               <div key={b.id} className="bg-[#161616] border border-[#2a2a2a] rounded-xl p-3 space-y-3">

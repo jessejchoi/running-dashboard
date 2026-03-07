@@ -23,14 +23,16 @@ export default function Nav() {
       const res = await fetch('/api/sync-all', { method: 'POST' })
       const data = await res.json()
       const n = (data.newRuns ?? 0) + (data.detailsSynced ?? 0)
-      setSyncMsg(n > 0 ? `${n} synced` : 'Up to date')
-      setTimeout(() => setSyncMsg(null), 4000)
+      const msg = n > 0 ? `${n} synced` : 'Up to date'
+      setSyncMsg(msg)
+      setSyncing(false)
+      // Reload after a beat so the message is visible
+      setTimeout(() => { window.location.reload() }, 1800)
     } catch {
       setSyncMsg('Error')
+      setSyncing(false)
       setTimeout(() => setSyncMsg(null), 3000)
     }
-    setSyncing(false)
-    window.location.reload()
   }
 
   return (

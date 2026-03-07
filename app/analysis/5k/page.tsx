@@ -12,7 +12,7 @@ import {
   formatTime, formatPace,
   type EasyRunEfficiency,
 } from '@/lib/analysis'
-import { speedToPace, formatDuration, vdotFrom5K } from '@/lib/utils'
+import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate } from '@/lib/utils'
 import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'

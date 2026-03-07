@@ -16,12 +16,20 @@ import { type UserGoal } from '@/lib/goals'
 export const dynamic = 'force-dynamic'
 
 async function getData(athleteId: number) {
-  const [{ data: activities }, { data: qualityRuns }, { data: tokenData }, { data: goalsData }] = await Promise.all([
+  const [{ data: activities }, { data: qualityRuns }, { data: tokenData }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(300),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
-    supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }),
   ])
+
+  // Isolated so a missing user_goals table doesn't crash the whole page
+  const goalsData = await supabaseAdmin
+    .from('user_goals')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .order('race_date', { ascending: true })
+    .then(r => r.data ?? [])
+    .catch(() => [])
 
   // Compute most recent 5K estimate from interval + threshold sessions
   const estimates = (qualityRuns ?? [])

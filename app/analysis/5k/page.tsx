@@ -17,8 +17,8 @@ import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
+import { type UserGoal } from '@/lib/goals'
 
-const TARGET_SECS = 22 * 60 + 30
 const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
 const isTreadmill = (run: any) => run.run_type === 'treadmill' || run.raw?.trainer === true
 
@@ -26,6 +26,15 @@ export default async function FiveKAnalysisPage() {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) redirect('/')
+
+  // Fetch user's 5K goal for target line
+  const { data: goalRow } = await supabaseAdmin
+    .from('user_goals')
+    .select('target_secs')
+    .eq('athlete_id', athleteId)
+    .eq('distance_key', '5k')
+    .single()
+  const TARGET_SECS = goalRow?.target_secs ?? (22 * 60 + 30)  // fallback if no goal set
 
   const [{ data: intervalRuns }, { data: thresholdRuns }, { data: easyRuns }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }),

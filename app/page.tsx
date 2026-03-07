@@ -3,20 +3,22 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import WeeklyMileageChart from '@/components/WeeklyMileageChart'
 import PaceTrendChart from '@/components/PaceTrendChart'
-import GoalCard from '@/components/GoalCard'
+import GoalsSection from '@/components/GoalsSection'
 import TrainingLoadChart from '@/components/TrainingLoadChart'
 import RunTypeBadge from '@/components/RunTypeBadge'
-import { formatDuration, speedToPace, RACE_GOALS, isoWeek } from '@/lib/utils'
+import { formatDuration, speedToPace, isoWeek } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { analyzeIntervalSession, analyzeThresholdSession } from '@/lib/analysis'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { type UserGoal } from '@/lib/goals'
 
 async function getData(athleteId: number) {
-  const [{ data: activities }, { data: qualityRuns }, { data: tokenData }] = await Promise.all([
+  const [{ data: activities }, { data: qualityRuns }, { data: tokenData }, { data: goalsData }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(300),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
+    supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }),
   ])
 
   // Compute most recent 5K estimate from interval + threshold sessions
@@ -34,9 +36,13 @@ async function getData(athleteId: number) {
   return {
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
-    latest5KSecs,
-    latest10KSecs: riegelFrom5K(10),
-    latestHMSecs: riegelFrom5K(21.097),
+    goals: (goalsData ?? []) as UserGoal[],
+    estimates: {
+      '5k':  latest5KSecs,
+      '10k': riegelFrom5K(10),
+      'hm':  riegelFrom5K(21.097),
+      'fm':  riegelFrom5K(42.195),
+    } as Record<string, number | null>,
   }
 }
 
@@ -140,19 +146,14 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Goals preview */}
+        {/* Goals */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Race Goals</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {RACE_GOALS.map((goal, i) => {
-              const estSecs = goal.distance === 5000 ? latest5KSecs
-                : goal.distance === 10000 ? latest10KSecs
-                : latestHMSecs
-              return <GoalCard key={i} goal={goal} activities={activities} currentEstimateSecs={estSecs} />
-            })}
-          </div>
+          <GoalsSection
+            initialGoals={goals}
+            estimates={Object.fromEntries(
+              Object.entries(estimates).filter(([, v]) => v != null)
+            ) as Record<string, number>}
+          />
         </div>
 
         {/* Recent runs */}

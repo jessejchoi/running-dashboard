@@ -77,7 +77,7 @@ export default async function DashboardPage() {
     )
   }
 
-  const { activities, athlete, latest5KSecs, latest10KSecs, latestHMSecs } = await getData(Number(athleteId))
+  const { activities, athlete, goals, estimates } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())

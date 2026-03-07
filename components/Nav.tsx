@@ -74,36 +74,30 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Mobile */}
-      <div className="sm:hidden flex items-center justify-between px-2 h-14">
-        <span className="font-display font-bold text-base tracking-tight">
-          <span className="text-[#f97316]">RUN</span>
-          <span className="text-white/60">DASH</span>
-        </span>
-        <div className="flex items-center gap-1">
-          {navItems.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              title={label}
-              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                path === href || (href !== '/' && path.startsWith(href))
-                  ? 'text-white bg-[#1c1c1c]'
-                  : 'text-[#6b7280]'
-              }`}
-            >
-              <Icon size={17} />
-            </Link>
-          ))}
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            title="Sync Strava"
-            className={`flex items-center justify-center w-9 h-9 rounded-lg border border-[#2a2a2a] transition-all disabled:opacity-50 ${syncMsg && !syncing ? 'text-emerald-400' : 'text-[#6b7280]'}`}
+      {/* Mobile — icon-only row, full width, no logo */}
+      <div className="sm:hidden flex items-center justify-around px-2 h-14">
+        {navItems.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            title={label}
+            className={`flex items-center justify-center w-10 h-10 rounded-lg transition-all ${
+              path === href || (href !== '/' && path.startsWith(href))
+                ? 'text-white bg-[#1c1c1c]'
+                : 'text-[#6b7280]'
+            }`}
           >
-            <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
-          </button>
-        </div>
+            <Icon size={18} />
+          </Link>
+        ))}
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          title="Sync Strava"
+          className={`flex items-center justify-center w-10 h-10 rounded-lg border border-[#2a2a2a] transition-all disabled:opacity-50 ${syncMsg && !syncing ? 'text-emerald-400 border-emerald-400/30' : 'text-[#6b7280]'}`}
+        >
+          <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+        </button>
       </div>
     </nav>
   )

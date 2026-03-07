@@ -101,13 +101,11 @@ export default async function DashboardPage() {
 
         {/* Charts row */}
         <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <div className="card fade-up flex flex-col">
+          <div className="card fade-up">
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
               Weekly Mileage
             </h2>
-            <div className="flex-1 min-h-[200px]">
-              <WeeklyMileageChart activities={activities} fillHeight />
-            </div>
+            <WeeklyMileageChart activities={activities} />
           </div>
           {trainingLoad.length > 0 && (
             <div className="card fade-up">

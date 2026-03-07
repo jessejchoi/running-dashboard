@@ -75,6 +75,15 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
   const maxHRVal = allHR.length ? Math.max(...allHR) + 5 : 200
   const totalDuration = timeData.length > 0 ? timeData[timeData.length - 1] : 1
 
+  // Extend last segment to fill the full stream — moving_time vs elapsed_time can leave a gap
+  const extendedSegments = lapSegments && lapSegments.length > 0
+    ? lapSegments.map((seg, i) =>
+        i === lapSegments.length - 1 && seg.endSec < totalDuration
+          ? { ...seg, endSec: totalDuration }
+          : seg
+      )
+    : lapSegments
+
   return (
     <div>
       <div className="flex gap-6 mb-4">
@@ -118,7 +127,7 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
                 const o = props.offset ?? {}
                 return (
                   <SegmentBands
-                    segments={lapSegments}
+                    segments={extendedSegments}
                     totalDuration={totalDuration}
                     chartX={o.left ?? 0}
                     chartY={o.top ?? 0}

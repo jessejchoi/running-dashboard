@@ -22,48 +22,35 @@ export function categorizeLaps(splits: Split[], avgPace: number, runType?: strin
 
   const isEasy = runType ? EASY_RUN_TYPES.has(runType) : false
 
-  // ── THRESHOLDS ──────────────────────────────────────────────────────────────
-  // Stride: >30% faster than avg pace
-  const STRIDE_FAST   = avgPace * 0.70   // pace < this = stride/interval
-  // Recovery jog: >30% slower than avg pace  
-  const RECOVERY_SLOW = avgPace * 1.30   // pace > this = recovery jog
-
-  // Tag each lap
-  const raw = paces.map(p =>
-    p < STRIDE_FAST   ? 'interval' :
-    p > RECOVERY_SLOW ? 'recovery' :
-    'steady'
-  ) as LapType[]
-
-  // Find first and last interval lap
-  const firstInt = raw.findIndex(t => t === 'interval')
-  const lastInt  = n - 1 - [...raw].reverse().findIndex(t => t === 'interval')
-
-  if (firstInt === -1) {
-    // No strides/intervals at all — everything steady
-    return raw.map(() => 'steady')
-  }
-
+  // ── EASY RUNS: use 30% threshold to find strides ───────────────────────────
   if (isEasy) {
-    // Easy run with strides:
-    // - Pre-stride laps that are steady-pace → 'steady' (main run body)
-    // - Pre-stride laps that are recovery-pace (very slow) → 'recovery'
-    // - Strides → 'interval'
-    // - Between strides → 'recovery'
-    // - After last stride → 'cooldown'
+    const STRIDE_FAST   = avgPace * 0.70  // >30% faster = stride
+    const RECOVERY_SLOW = avgPace * 1.30  // >30% slower = recovery jog
+
+    const raw = paces.map(p =>
+      p < STRIDE_FAST   ? 'interval' :
+      p > RECOVERY_SLOW ? 'recovery' :
+      'steady'
+    ) as LapType[]
+
+    const firstInt = raw.findIndex(t => t === 'interval')
+    const lastInt  = n - 1 - [...raw].reverse().findIndex(t => t === 'interval')
+
+    if (firstInt === -1) return paces.map(() => 'steady')
+
     return raw.map((t, i) => {
       if (t === 'interval') return 'interval'
-      if (i > lastInt)  return 'cooldown'
-      // Both pre-stride and between-stride: use the raw tag (steady or recovery)
+      if (i > lastInt) return 'cooldown'
       return t === 'recovery' ? 'recovery' : 'steady'
     })
   }
 
-  // ── INTERVAL/THRESHOLD RUN ──────────────────────────────────────────────────
-  // Use bimodal gap detection for the fast/slow boundary
+  // ── INTERVAL / THRESHOLD RUNS: bimodal gap detection ──────────────────────
+  // Find the biggest pace gap between any two adjacent sorted values.
+  // This naturally separates fast intervals from slow recovery laps.
   const sorted = [...paces].sort((a, b) => a - b)
   let biggestGap = 0
-  let bimodalThreshold = avgPace
+  let bimodalThreshold = avgPace * 0.94  // fallback if no clear gap
   for (let i = 0; i < sorted.length - 1; i++) {
     const gap = sorted[i + 1] - sorted[i]
     if (gap > biggestGap) {
@@ -71,15 +58,16 @@ export function categorizeLaps(splits: Split[], avgPace: number, runType?: strin
       bimodalThreshold = (sorted[i] + sorted[i + 1]) / 2
     }
   }
-  const useThreshold = biggestGap > 25 ? bimodalThreshold : avgPace * 0.94
+  // Only trust bimodal split if gap is at least 15 sec/km
+  const useThreshold = biggestGap >= 15 ? bimodalThreshold : avgPace * 0.94
 
-  const hardRaw = paces.map(p => p < useThreshold ? 'interval' : 'other') as string[]
-  const firstFast = hardRaw.findIndex(t => t === 'interval')
-  const lastFast  = n - 1 - [...hardRaw].reverse().findIndex(t => t === 'interval')
+  const tagged = paces.map(p => p < useThreshold ? 'interval' : 'other')
+  const firstFast = tagged.findIndex(t => t === 'interval')
+  const lastFast  = n - 1 - [...tagged].reverse().findIndex(t => t === 'interval')
 
   if (firstFast === -1) return paces.map(() => 'steady')
 
-  return hardRaw.map((t, i) => {
+  return tagged.map((t, i) => {
     if (t === 'interval') return 'interval'
     if (i < firstFast) return 'warmup'
     if (i > lastFast)  return 'cooldown'
@@ -91,7 +79,7 @@ export function buildLapSegments(splits: Split[], avgPace: number, runType?: str
   const types = categorizeLaps(splits, avgPace, runType)
   let cursor = 0
   return splits.map((s, i) => {
-    const dur = s.moving_time ?? s.elapsed_time ?? 60
+    const dur = s.elapsed_time ?? s.moving_time ?? 60  // use elapsed so it matches stream time
     const seg: LapSegment = { startSec: cursor, endSec: cursor + dur, type: types[i] }
     cursor += dur
     return seg

@@ -11,7 +11,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from('user_goals')
     .update(body)
     .eq('id', params.id)
-    .eq('athlete_id', athleteId)
+    .eq('athlete_id', parseInt(athleteId))
     .select()
     .single()
 
@@ -27,7 +27,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     .from('user_goals')
     .delete()
     .eq('id', params.id)
-    .eq('athlete_id', athleteId)
+    .eq('athlete_id', parseInt(athleteId))
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

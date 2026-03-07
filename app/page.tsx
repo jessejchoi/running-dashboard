@@ -2,7 +2,6 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import WeeklyMileageChart from '@/components/WeeklyMileageChart'
-import PaceTrendChart from '@/components/PaceTrendChart'
 import GoalsSection from '@/components/GoalsSection'
 import TrainingLoadChart from '@/components/TrainingLoadChart'
 import RunTypeBadge from '@/components/RunTypeBadge'
@@ -130,23 +129,15 @@ export default async function DashboardPage() {
             </h2>
             <WeeklyMileageChart activities={activities} />
           </div>
-          <div className="card fade-up">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
-              Pace Trend
-            </h2>
-            <PaceTrendChart activities={activities} targetPaceSeconds={270} />
-          </div>
+          {trainingLoad.length > 0 && (
+            <div className="card fade-up">
+              <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
+                Training Load
+              </h2>
+              <TrainingLoadChart data={trainingLoad} days={90} />
+            </div>
+          )}
         </div>
-
-        {/* Training Load */}
-        {trainingLoad.length > 0 && (
-          <div className="card mb-8 fade-up">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
-              Training Load
-            </h2>
-            <TrainingLoadChart data={trainingLoad} days={90} />
-          </div>
-        )}
 
         {/* Goals */}
         <div className="mb-8">

@@ -23,7 +23,7 @@ function CustomTooltip({ active, payload, label }: any) {
   )
 }
 
-export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
+export default function WeeklyMileageChart({ fillHeight = false, activities, weeks = 16 }: Props) {
   // Aggregate by week
   const weekMap: Record<string, number> = {}
   for (const a of activities) {
@@ -46,7 +46,7 @@ export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
   const avg = data.reduce((s, d) => s + d.km, 0) / data.filter(d => d.km > 0).length || 0
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={fillHeight ? "100%" : 200}>
       <BarChart data={data} barSize={14} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
         <XAxis
           dataKey="week"

@@ -57,7 +57,7 @@ export default function GoalsSection({ initialGoals, estimates }: Props) {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" style={{ gridAutoFlow: "dense" }}>
+        <div className={`grid gap-4 ${goals.length === 1 ? "grid-cols-1 max-w-sm" : goals.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
           {goals.map(goal => (
             <GoalCard
               key={goal.id}

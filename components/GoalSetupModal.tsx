@@ -20,9 +20,8 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
   const [distKey, setDistKey] = useState<DistanceKey>(existing?.distance_key ?? '5k')
   const dist = DISTANCE_OPTIONS.find(d => d.key === distKey)!
 
-  const [targetStr,  setTargetStr]  = useState(existing ? formatGoalTime(existing.target_secs)  : dist.defaultTarget)
+  const [targetStr,  setTargetStr]  = useState(existing ? formatGoalTime(existing.target_secs)  : '')
   const [currentStr, setCurrentStr] = useState(existing?.current_secs ? formatGoalTime(existing.current_secs) : '')
-  const [label,      setLabel]      = useState(existing?.label ?? '')
   const [raceDate,   setRaceDate]   = useState(existing?.race_date ?? '')
   const [saving,     setSaving]     = useState(false)
   const [error,      setError]      = useState('')
@@ -39,8 +38,9 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
   }
 
   async function handleSave() {
-    if (!targetSecs) { setError('Enter a valid target time (mm:ss or h:mm:ss)'); return }
-    if (!raceDate)   { setError('Pick a race date'); return }
+    if (!targetSecs)  { setError('Enter a valid target time (mm:ss or h:mm:ss)'); return }
+    if (!currentSecs) { setError('Enter your current estimated time'); return }
+    if (!raceDate)    { setError('Pick a race date'); return }
     setSaving(true); setError('')
     try {
       const res = await fetch(existing ? `/api/goals/${existing.id}` : '/api/goals', {
@@ -48,7 +48,7 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           distance_key: distKey,
-          label: label.trim() || autoLabel(),
+          label: autoLabel(),
           target_secs: targetSecs,
           current_secs: currentSecs || null,
           race_date: raceDate,
@@ -67,8 +67,7 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
   function changeDist(k: DistanceKey) {
     setDistKey(k)
     const d = DISTANCE_OPTIONS.find(x => x.key === k)!
-    if (!existing) setTargetStr(d.defaultTarget)
-    setLabel('')
+    if (!existing) { setTargetStr(''); setCurrentStr('') }
   }
 
   return (
@@ -111,7 +110,7 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
           {/* Current estimate */}
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-1.5 block">
-              Current Estimate <span className="text-[#4b5563] normal-case font-normal tracking-normal">(optional — just a starting point)</span>
+Current Estimate <span className="text-[#4b5563] normal-case font-normal tracking-normal">— your best guess is fine</span>
             </label>
             <input value={currentStr} onChange={e => setCurrentStr(e.target.value)} placeholder={dist.placeholder}
               className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2.5 font-mono text-white text-sm outline-none transition-colors" />
@@ -125,15 +124,6 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
             <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-1.5 block">Race Date</label>
             <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)}
               className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2.5 font-mono text-white text-sm outline-none transition-colors" />
-          </div>
-
-          {/* Custom label (optional) */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-1.5 block">
-              Goal Name <span className="text-[#4b5563] normal-case font-normal tracking-normal">(optional)</span>
-            </label>
-            <input value={label} onChange={e => setLabel(e.target.value)} placeholder={autoLabel()}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2.5 text-white text-sm outline-none transition-colors" />
           </div>
 
           {error && <p className="text-red-400 text-xs">{error}</p>}

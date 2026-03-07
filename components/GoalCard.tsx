@@ -45,13 +45,13 @@ export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete
   }
 
   const status =
-    !currentPace          ? 'unknown'
-    : currentPace <= targetPace         ? 'ahead'
-    : currentPace <= targetPace + 15    ? 'close'
+    !currentPace   ? 'unknown'
+    : progress >= 1     ? 'goal'
+    : progress >= 0.5   ? 'close'
     : 'behind'
 
-  const statusColor = { ahead: 'text-emerald-400', close: 'text-yellow-400', behind: 'text-red-400', unknown: 'text-[#6b7280]' }[status]
-  const statusLabel = { ahead: 'On target', close: 'Nearly there', behind: 'Work needed', unknown: 'No data yet' }[status]
+  const statusColor = { goal: 'text-emerald-400', close: 'text-yellow-400', behind: 'text-orange-400', unknown: 'text-[#6b7280]' }[status]
+  const statusLabel = { goal: 'On target! 🎯', close: 'Nearly there!', behind: 'Keep pushing!', unknown: 'No data yet' }[status]
 
   async function handleDelete() {
     if (!confirm(`Delete "${goal.label}"?`)) return

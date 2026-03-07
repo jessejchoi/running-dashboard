@@ -19,6 +19,8 @@ import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
 import { type UserGoal } from '@/lib/goals'
 
+export const dynamic = 'force-dynamic'
+
 const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
 const isTreadmill = (run: any) => run.run_type === 'treadmill' || run.raw?.trainer === true
 

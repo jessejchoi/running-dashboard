@@ -13,6 +13,8 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
 
+export const dynamic = 'force-dynamic'
+
 async function getData(athleteId: number) {
   const [{ data: activities }, { data: qualityRuns }, { data: tokenData }, { data: goalsData }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(300),

@@ -12,6 +12,7 @@ import { analyzeIntervalSession, analyzeThresholdSession } from '@/lib/analysis'
 import Link from 'next/link'
 import GroupLeaderboard from '@/components/GroupLeaderboard'
 import GroupFeed from '@/components/GroupFeed'
+import GroupGoalsSection from '@/components/GroupGoalsSection'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
 
@@ -142,11 +143,25 @@ async function getData(athleteId: number) {
         members.map((m: any) => [m.athlete_id, { name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }])
       )
 
+      // Fetch goals of other group members (not the current user)
+      const otherMemberIds = memberIds.filter((id: number) => id !== athleteId)
+      const memberGoals = otherMemberIds.length > 0 ? await (async () => {
+        const { data: goalsData } = await supabaseAdmin
+          .from('user_goals')
+          .select('*')
+          .in('athlete_id', otherMemberIds)
+        return (goalsData ?? []).map((g: any) => ({
+          ...g,
+          athlete_name: members.find((m: any) => m.athlete_id === g.athlete_id)?.name ?? 'Member',
+        }))
+      })() : []
+
       return {
         group,
         members,
         memberMap,
         feedRuns: groupActivities ?? [],
+        memberGoals,
       }
     } catch {
       return null
@@ -204,7 +219,7 @@ export default async function DashboardPage() {
 
         {/* Top stats */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Your Stats</h2>
+          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">My Stats</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[
@@ -245,17 +260,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Goals */}
-        <div className="mb-8">
-          <GoalsSection
-            initialGoals={goals}
-            estimates={Object.fromEntries(
-              Object.entries(estimates).filter(([, v]) => v != null)
-            ) as Record<string, number>}
-          />
-        </div>
-
-        {/* Group section — leaderboard + shared feed */}
+        {/* Group Stats */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
         </div>
@@ -288,48 +293,27 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Recent runs — your own */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Your Recent Runs</h2>
-            <Link href="/runs" className="text-xs text-[#f97316] hover:underline">All runs →</Link>
-          </div>
-          <div className="card p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[420px]">
-              <thead>
-                <tr className="border-b border-[#2a2a2a]">
-                  {['Date', 'Type', 'Distance', 'Pace', 'Time'].map(h => (
-                    <th key={h} className="text-left px-2 sm:px-4 py-2 sm:py-3 text-[#6b7280] text-xs font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentRuns.map((run: any) => (
-                  <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#1a1a1a] transition-colors">
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-[#6b7280] text-xs font-mono">
-                      <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
-                        {format(toJakartaDate(run.start_date), 'MMM d')}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3"><RunTypeBadge type={run.run_type} /></td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#f97316]">{(run.distance / 1000).toFixed(2)} km</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-mono">{speedToPace(run.average_speed)}/km</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#6b7280]">{formatDuration(run.moving_time)}</td>
-                  </tr>
-                ))}
-                {recentRuns.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-2 sm:px-4 py-6 sm:py-8 text-center text-[#6b7280] text-sm">
-                      No runs yet. Sync your Strava activities to get started.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            </div>
-          </div>
+        {/* My Race Goals */}
+        <div className="mb-8">
+          <GoalsSection
+            initialGoals={goals}
+            estimates={Object.fromEntries(
+              Object.entries(estimates).filter(([, v]) => v != null)
+            ) as Record<string, number>}
+          />
         </div>
+
+        {/* Group Race Goals */}
+        {groupData && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Race Goals</h2>
+            </div>
+            <GroupGoalsSection memberGoals={groupData.memberGoals} />
+          </div>
+        )}
+
+
       </main>
     </>
   )

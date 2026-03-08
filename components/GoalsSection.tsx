@@ -32,7 +32,7 @@ export default function GoalsSection({ initialGoals, estimates }: Props) {
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Race Goals</h2>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">My Race Goals</h2>
         <button onClick={() => setAdding(true)}
           className="flex items-center gap-1.5 text-xs font-bold text-[#f97316] hover:text-white border border-[#f97316]/30 hover:border-[#f97316] px-3 py-1.5 rounded-lg transition-colors">
           <Plus size={12} /> Add Goal

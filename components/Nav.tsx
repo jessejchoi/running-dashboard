@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Activity, List, RefreshCw, BarChart2, Calendar, Users } from 'lucide-react'
 import { useState, useTransition } from 'react'
 
@@ -14,19 +14,15 @@ const navItems = [
 
 export default function Nav() {
   const path = usePathname()
-  const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [pendingHref, setPendingHref] = useState<string | null>(null)
 
-  function handleNav(e: React.MouseEvent, href: string) {
-    e.preventDefault()
+  function handleNavClick(href: string) {
     if (href === path) return
     setPendingHref(href)
-    startTransition(() => {
-      router.push(href)
-    })
+    startTransition(() => {})
   }
 
   async function handleSync() {
@@ -61,20 +57,21 @@ export default function Nav() {
               const active = path === href || (href !== '/' && path.startsWith(href))
               const loading = pendingHref === href && isPending
               return (
-                <a
+                <Link
                   key={href}
                   href={href}
-                  onClick={(e) => handleNav(e, href)}
+                  prefetch={true}
+                  onClick={() => handleNavClick(href)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-100 ${
-                    active ? 'bg-[#1c1c1c] text-white'
-                    : loading ? 'bg-[#1c1c1c] text-white opacity-70'
-                    : 'text-[#6b7280] hover:text-white hover:bg-[#1a1a1a]'
+                    active || loading
+                      ? 'bg-[#1c1c1c] text-white'
+                      : 'text-[#6b7280] hover:text-white hover:bg-[#1a1a1a]'
                   }`}
-                  style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                  style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation', opacity: loading ? 0.75 : 1 }}
                 >
-                  <Icon size={14} className={loading ? 'animate-pulse' : ''} />
+                  <Icon size={14} />
                   {label}
-                </a>
+                </Link>
               )
             })}
           </div>
@@ -91,9 +88,8 @@ export default function Nav() {
             ) : 'Sync Strava'}
           </button>
         </div>
-        {/* Loading bar */}
         {isPending && (
-          <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316] animate-[loadbar_1s_ease-in-out_infinite]" style={{ width: '60%' }} />
+          <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316] animate-pulse" style={{ width: '40%' }} />
         )}
       </nav>
 
@@ -113,7 +109,7 @@ export default function Nav() {
           {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
         </button>
         {isPending && (
-          <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316]" style={{ width: '50%', transition: 'width 0.8s ease' }} />
+          <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316] animate-pulse" style={{ width: '40%' }} />
         )}
       </div>
 
@@ -123,10 +119,11 @@ export default function Nav() {
           const active = path === href || (href !== '/' && path.startsWith(href))
           const loading = pendingHref === href && isPending
           return (
-            <a
+            <Link
               key={href}
               href={href}
-              onClick={(e) => handleNav(e, href)}
+              prefetch={true}
+              onClick={() => handleNavClick(href)}
               className="flex flex-col items-center gap-0.5 flex-1 py-1.5 transition-opacity duration-75"
               style={{
                 color: active || loading ? '#f97316' : '#6b7280',
@@ -135,9 +132,9 @@ export default function Nav() {
                 touchAction: 'manipulation',
               }}
             >
-              <Icon size={19} className={loading ? 'animate-pulse' : ''} />
+              <Icon size={19} />
               <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.03em' }}>{label}</span>
-            </a>
+            </Link>
           )
         })}
       </div>

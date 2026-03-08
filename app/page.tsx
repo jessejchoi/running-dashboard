@@ -197,6 +197,9 @@ export default async function DashboardPage() {
         </div>
 
         {/* Top stats */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Your Stats</h2>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           {[
             { label: 'This week', value: `${weekKm.toFixed(1)}`, unit: 'km' },
@@ -225,11 +228,13 @@ export default async function DashboardPage() {
             </div>
           </div>
           {trainingLoad.length > 0 && (
-            <div className="card fade-up" style={{ padding: '1rem' }}>
-              <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3">
+            <div className="card fade-up" style={{ padding: '1rem', height: '220px', display: 'flex', flexDirection: 'column' }}>
+              <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3" style={{ flexShrink: 0 }}>
                 Training Load
               </h2>
-              <TrainingLoadChart data={trainingLoad} days={90} />
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <TrainingLoadChart data={trainingLoad} days={90} />
+              </div>
             </div>
           )}
         </div>
@@ -246,6 +251,10 @@ export default async function DashboardPage() {
 
         {/* Group section — leaderboard + shared feed */}
         {groupData && (
+          <>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
+          </div>
           <div className="grid md:grid-cols-2 gap-4 mb-8">
             <GroupLeaderboard
               members={groupData.members}
@@ -258,6 +267,7 @@ export default async function DashboardPage() {
               myAthleteId={Number(athleteId)}
             />
           </div>
+          </>
         )}
 
         {/* Recent runs — your own */}

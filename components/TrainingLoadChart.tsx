@@ -41,7 +41,7 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
   const today = data[data.length - 1]
 
   return (
-    <div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Subcards — colors match chart lines */}
       {today && (
         <div className="grid grid-cols-3 gap-2 mb-2">
@@ -62,7 +62,8 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
         </div>
       )}
 
-      <ResponsiveContainer width="100%" height={150}>
+      <div style={{ flex: 1, minHeight: 0 }}>
+      <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={visible} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <XAxis
             dataKey="label"
@@ -83,6 +84,7 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
           <Line type="monotone" dataKey="tsb" stroke="#34d399" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   )
 }

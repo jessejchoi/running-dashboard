@@ -10,6 +10,8 @@ import { formatDuration, speedToPace, isoWeek } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { analyzeIntervalSession, analyzeThresholdSession } from '@/lib/analysis'
 import Link from 'next/link'
+import GroupLeaderboard from '@/components/GroupLeaderboard'
+import GroupFeed from '@/components/GroupFeed'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
 
@@ -43,6 +45,110 @@ async function getData(athleteId: number) {
   const riegelFrom5K = (d2km: number) =>
     latest5KSecs ? latest5KSecs * Math.pow(d2km / 5, 1.06) : null
 
+  // ── Group data ────────────────────────────────────────────
+  // Fetch the first group this athlete belongs to (if any)
+  const groupData = await (async () => {
+    try {
+      const { data: memberships } = await supabaseAdmin
+        .from('group_members')
+        .select('group_id, role')
+        .eq('athlete_id', athleteId)
+        .limit(1)
+
+      if (!memberships?.length) return null
+
+      const groupId = memberships[0].group_id
+
+      const [{ data: group }, { data: allMembers }] = await Promise.all([
+        supabaseAdmin.from('groups').select('id, name').eq('id', groupId).single(),
+        supabaseAdmin.from('group_members').select('athlete_id, role').eq('group_id', groupId),
+      ])
+
+      if (!group) return null
+
+      const memberIds = (allMembers ?? []).map((m: any) => m.athlete_id)
+
+      // Fetch profiles
+      const { data: tokens } = await supabaseAdmin
+        .from('strava_tokens')
+        .select('athlete_id, athlete_name, athlete_profile')
+        .in('athlete_id', memberIds)
+
+      // Fetch this week's activities for all members
+      const weekStart = new Date()
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+      weekStart.setHours(0, 0, 0, 0)
+
+      // Last 7 days for the feed
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+      const { data: groupActivities } = await supabaseAdmin
+        .from('activities')
+        .select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type')
+        .in('athlete_id', memberIds)
+        .gte('start_date', sevenDaysAgo)
+        .order('start_date', { ascending: false })
+        .limit(30)
+
+      // Compute per-member stats
+      const members = memberIds.map((aid: number) => {
+        const token = tokens?.find((t: any) => t.athlete_id === aid)
+        const memberRuns = (groupActivities ?? []).filter((a: any) => a.athlete_id === aid)
+
+        // This week km
+        const weekKm = memberRuns
+          .filter((a: any) => new Date(a.start_date) >= weekStart)
+          .reduce((s: number, a: any) => s + a.distance / 1000, 0)
+
+        // Streak: consecutive days with a run going back from today
+        const runDates = new Set(
+          memberRuns.map((a: any) => {
+            const d = new Date(new Date(a.start_date).getTime() + 7 * 60 * 60 * 1000)
+            return d.toISOString().split('T')[0]
+          })
+        )
+        let streak = 0
+        const today = new Date(new Date().getTime() + 7 * 60 * 60 * 1000)
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(today)
+          d.setDate(d.getDate() - i)
+          if (runDates.has(d.toISOString().split('T')[0])) streak++
+          else if (i > 0) break
+        }
+
+        // Last run days ago
+        const lastRun = memberRuns[0]
+        const lastRunDaysAgo = lastRun
+          ? Math.floor((Date.now() - new Date(lastRun.start_date).getTime()) / 86400000)
+          : null
+
+        return {
+          athlete_id: aid,
+          name: token?.athlete_name ?? `Athlete ${aid}`,
+          profile_pic: token?.athlete_profile ?? null,
+          weekKm: parseFloat(weekKm.toFixed(1)),
+          streak,
+          lastRunDaysAgo,
+          is_me: aid === athleteId,
+        }
+      })
+
+      // Member map for feed
+      const memberMap = Object.fromEntries(
+        members.map((m: any) => [m.athlete_id, { name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }])
+      )
+
+      return {
+        group,
+        members,
+        memberMap,
+        feedRuns: groupActivities ?? [],
+      }
+    } catch {
+      return null
+    }
+  })()
+
   return {
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
@@ -53,6 +159,7 @@ async function getData(athleteId: number) {
       'hm':  riegelFrom5K(21.097),
       'fm':  riegelFrom5K(42.195),
     } as Record<string, number | null>,
+    groupData,
   }
 }
 
@@ -64,7 +171,7 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, goals, estimates } = await getData(Number(athleteId))
+  const { activities, athlete, goals, estimates, groupData } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
@@ -135,10 +242,26 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* Recent runs */}
+        {/* Group section — leaderboard + shared feed */}
+        {groupData && (
+          <div className="grid md:grid-cols-2 gap-4 mb-8">
+            <GroupLeaderboard
+              members={groupData.members}
+              groupId={groupData.group.id}
+              groupName={groupData.group.name}
+            />
+            <GroupFeed
+              runs={groupData.feedRuns}
+              memberMap={groupData.memberMap}
+              myAthleteId={Number(athleteId)}
+            />
+          </div>
+        )}
+
+        {/* Recent runs — your own */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Recent Runs</h2>
+            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Your Recent Runs</h2>
             <Link href="/runs" className="text-xs text-[#f97316] hover:underline">All runs →</Link>
           </div>
           <div className="card p-0 overflow-hidden">

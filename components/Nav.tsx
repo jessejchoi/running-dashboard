@@ -49,11 +49,13 @@ export default function Nav() {
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                prefetch
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all active:opacity-60 ${
                   path === href || (href !== '/' && path.startsWith(href))
                     ? 'bg-[#1c1c1c] text-white'
                     : 'text-[#6b7280] hover:text-white hover:bg-[#1a1a1a]'
                 }`}
+                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
               >
                 <Icon size={14} />
                 {label}

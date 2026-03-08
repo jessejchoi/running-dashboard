@@ -187,7 +187,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Nav />
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-14 sm:pt-20 pb-16">
+      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-14 sm:pt-20 pb-16">
         <div className="flex items-center justify-between mb-4 fade-up">
           <div>
             <h1 className="font-display font-extrabold text-3xl leading-normal pb-1">

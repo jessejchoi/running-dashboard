@@ -32,6 +32,7 @@ export const metadata: Metadata = {
   description: 'Personal running dashboard',
   icons: {
     icon: '/icon.svg',
+    apple: '/apple-touch-icon.png',
   },
   themeColor: '#0a0a0a',
 }

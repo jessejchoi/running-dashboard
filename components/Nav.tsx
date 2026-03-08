@@ -99,7 +99,7 @@ export default function Nav() {
 
       {/* ── Mobile top bar: logo + sync only ─────────────────── */}
       <div className="sm:hidden fixed top-0 left-0 right-0 z-50 h-12 border-b border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-between px-4">
-        <span className="font-display font-bold text-base tracking-tight">
+        <span className="font-display font-bold text-xl tracking-tight">
           <span className="text-[#f97316]">RUN</span>
           <span className="text-white/60">DASH</span>
         </span>
@@ -118,7 +118,7 @@ export default function Nav() {
       </div>
 
       {/* ── Mobile bottom tab bar ─────────────────────────────── */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-around h-14 px-1">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-around h-12 px-1">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = path === href || (href !== '/' && path.startsWith(href))
           const loading = pendingHref === href && isPending
@@ -143,7 +143,7 @@ export default function Nav() {
       </div>
 
       {/* Mobile bottom spacer */}
-      <div className="sm:hidden h-14" />
+      <div className="sm:hidden h-12" />
     </>
   )
 }

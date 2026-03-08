@@ -216,11 +216,13 @@ export default async function DashboardPage() {
 
         {/* Charts row */}
         <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <div className="card fade-up" style={{ padding: '1rem' }}>
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3">
+          <div className="card fade-up" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '220px' }}>
+            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3" style={{ flexShrink: 0 }}>
               Weekly Mileage
             </h2>
-            <WeeklyMileageChart activities={activities} />
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <WeeklyMileageChart activities={activities} />
+            </div>
           </div>
           {trainingLoad.length > 0 && (
             <div className="card fade-up" style={{ padding: '1rem' }}>

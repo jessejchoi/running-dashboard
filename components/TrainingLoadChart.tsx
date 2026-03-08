@@ -44,19 +44,18 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
     <div>
       {/* Subcards — colors match chart lines */}
       {today && (
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-[#1c1c1c] rounded-lg px-3 py-2">
-            <div className="text-[#6b7280] text-xs mb-1">Fitness (CTL)</div>
-            <div className="font-mono text-blue-400 text-lg font-bold">{today.ctl.toFixed(1)}</div>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <div className="bg-[#1c1c1c] rounded-lg px-3 py-1.5">
+            <div className="text-[#6b7280] text-[10px] mb-0.5">Fitness (CTL)</div>
+            <div className="font-mono text-blue-400 text-base font-bold">{today.ctl.toFixed(1)}</div>
           </div>
-          <div className="bg-[#1c1c1c] rounded-lg px-3 py-2">
-            <div className="text-[#6b7280] text-xs mb-1">Fatigue (ATL)</div>
-            <div className="font-mono text-orange-400 text-lg font-bold">{today.atl.toFixed(1)}</div>
+          <div className="bg-[#1c1c1c] rounded-lg px-3 py-1.5">
+            <div className="text-[#6b7280] text-[10px] mb-0.5">Fatigue (ATL)</div>
+            <div className="font-mono text-orange-400 text-base font-bold">{today.atl.toFixed(1)}</div>
           </div>
-          <div className="bg-[#1c1c1c] rounded-lg px-3 py-2">
-            <div className="text-[#6b7280] text-xs mb-1">Form (TSB)</div>
-            {/* TSB number always green to match the dashed green line */}
-            <div className="font-mono text-emerald-400 text-lg font-bold">
+          <div className="bg-[#1c1c1c] rounded-lg px-3 py-1.5">
+            <div className="text-[#6b7280] text-[10px] mb-0.5">Form (TSB)</div>
+            <div className="font-mono text-emerald-400 text-base font-bold">
               {today.tsb > 0 ? '+' : ''}{today.tsb.toFixed(1)}
             </div>
           </div>

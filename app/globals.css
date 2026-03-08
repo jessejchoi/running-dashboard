@@ -74,12 +74,12 @@
 
 /* Safari: nav is exactly the height of its content, capped at 48px */
 .mobile-nav {
-  min-height: 48px;
-  max-height: 48px;
+  min-height: 42px;
+  max-height: 42px;
   overflow: hidden;
 }
 .mobile-nav-spacer {
-  height: 48px;
+  height: 42px;
 }
 
 /* Standalone overrides
@@ -95,5 +95,5 @@ html.standalone .mobile-nav {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 html.standalone .mobile-nav-spacer {
-  height: calc(48px + env(safe-area-inset-bottom, 0px));
+  height: calc(42px + env(safe-area-inset-bottom, 0px));
 }

@@ -125,7 +125,7 @@ export default function Nav() {
               href={href}
               prefetch={true}
               onClick={() => handleNavClick(href)}
-              className="flex flex-col items-center gap-0.5 flex-1 py-1.5 transition-opacity duration-75"
+              className="flex flex-col items-center gap-0.5 flex-1 py-1 transition-opacity duration-75"
               style={{
                 color: active || loading ? '#f97316' : '#6b7280',
                 opacity: loading ? 0.7 : 1,

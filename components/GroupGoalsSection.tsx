@@ -162,14 +162,14 @@ function GoalRow({ goal }: { goal: MemberGoal }) {
             style={{ width: `${Math.max(2, progress * 100)}%`, opacity: 0.7 }}
           />
         </div>
-        {goal.current_secs && (
-          <div className="flex items-center justify-between mt-0.5">
-            <span className="text-[10px] text-[#4b5563] font-mono">
-              est. {formatGoalTime(goal.current_secs)}
-            </span>
-            <span className="text-[10px] text-[#4b5563]">{Math.round(progress * 100)}%</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between mt-0.5">
+          <span className="text-[10px] text-[#4b5563] font-mono">
+            {goal.current_secs ? `${formatGoalTime(goal.current_secs)} · ${paceStr(paceSecs(goal.current_secs, goal.distance_key as DistanceKey))}/km` : '—'}
+          </span>
+          <span className={`text-[10px] font-mono font-bold ${dist.color}`}>
+            {formatGoalTime(goal.target_secs)} · {paceStr(targetPace)}/km
+          </span>
+        </div>
       </div>
 
       {/* Countdown */}

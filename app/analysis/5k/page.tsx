@@ -18,7 +18,7 @@ import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
 const isTreadmill = (run: any) => run.run_type === 'treadmill' || run.raw?.trainer === true

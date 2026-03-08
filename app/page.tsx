@@ -15,8 +15,9 @@ import GroupFeed from '@/components/GroupFeed'
 import GroupGoalsSection from '@/components/GroupGoalsSection'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
+import { unstable_cache } from 'next/cache'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60  // revalidate page at most once per minute
 
 async function getData(athleteId: number) {
   const [
@@ -172,7 +173,12 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, goals, estimates, groupData } = await getData(Number(athleteId))
+  const cachedGetData = unstable_cache(
+    () => getData(Number(athleteId)),
+    [`dashboard-${athleteId}`],
+    { revalidate: 60 }
+  )
+  const { activities, athlete, goals, estimates, groupData } = await cachedGetData()
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())

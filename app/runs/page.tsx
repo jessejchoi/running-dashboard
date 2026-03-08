@@ -7,6 +7,8 @@ import { speedToPace, formatDuration, toJakartaDate } from '@/lib/utils'
 import { format } from 'date-fns'
 import Link from 'next/link'
 
+export const revalidate = 60
+
 export default async function RunsPage() {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value

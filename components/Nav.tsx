@@ -95,7 +95,7 @@ export default function Nav() {
       </nav>
 
       {/* ── Mobile top bar: logo + sync only ─────────────────── */}
-      <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 border-b border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-between px-4">
+      <div className="sm:hidden fixed top-0 left-0 right-0 z-50 h-12 border-b border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-between px-4">
         <span className="font-display font-bold text-xl tracking-tight">
           <span className="text-[#f97316]">RUN</span>
           <span className="text-white/60">DASH</span>

@@ -19,9 +19,6 @@ import { type UserGoal } from '@/lib/goals'
 export const dynamic = 'force-dynamic'
 
 async function getData(athleteId: number) {
-  // Selected columns only — avoids pulling the large 'raw' JSON for every activity
-  const activityCols = 'id,athlete_id,name,type,start_date,distance,moving_time,elapsed_time,average_speed,max_speed,average_heartrate,max_heartrate,average_cadence,suffer_score,splits,laps,hr_stream,pace_stream,run_type,excluded_from_analysis,detail_synced,total_elevation_gain'
-
   const [
     { data: activities },
     { data: qualityRuns },
@@ -29,8 +26,8 @@ async function getData(athleteId: number) {
     goalsData,
     { data: membership },
   ] = await Promise.all([
-    supabaseAdmin.from('activities').select(activityCols).eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(400),
-    supabaseAdmin.from('activities').select(activityCols).eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(400),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
     supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId).limit(1),

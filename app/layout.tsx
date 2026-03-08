@@ -20,6 +20,12 @@ const monoFont = Space_Mono({
   weight: ['400', '700'],
 })
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',  // enables safe-area-inset-* CSS env variables
+}
+
 export const metadata: Metadata = {
   title: 'RunDash',
   description: 'Personal running dashboard',

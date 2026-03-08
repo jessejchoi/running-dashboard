@@ -219,7 +219,7 @@ export default async function DashboardPage() {
 
         {/* Charts row */}
         <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <div className="card fade-up" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '220px' }}>
+          <div className="card fade-up" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '300px' }}>
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3" style={{ flexShrink: 0 }}>
               Weekly Mileage
             </h2>
@@ -228,7 +228,7 @@ export default async function DashboardPage() {
             </div>
           </div>
           {trainingLoad.length > 0 && (
-            <div className="card fade-up" style={{ padding: '1rem', height: '220px', display: 'flex', flexDirection: 'column' }}>
+            <div className="card fade-up" style={{ padding: '1rem', height: '300px', display: 'flex', flexDirection: 'column' }}>
               <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3" style={{ flexShrink: 0 }}>
                 Training Load
               </h2>

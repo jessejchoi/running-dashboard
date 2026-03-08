@@ -27,6 +27,7 @@ interface Props {
   runs: Run[]
   memberMap: MemberMap
   myAthleteId: number
+  groupId: string
 }
 
 const RUN_TYPE_COLORS: Record<string, string> = {
@@ -48,25 +49,28 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   )
 }
 
-export default function GroupFeed({ runs, memberMap, myAthleteId }: Props) {
-  if (runs.length === 0) {
-    return (
-      <div className="card fade-up">
-        <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
-          Group Activity
-        </h2>
-        <p className="text-[#4b5563] text-sm text-center py-6">No runs from the group this week.</p>
-      </div>
-    )
-  }
-
+export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Props) {
   return (
-    <div className="card fade-up">
-      <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
-        Group Activity
-      </h2>
-      <div className="space-y-3">
-        {runs.map(run => {
+    <div className="card fade-up" style={{ maxHeight: '280px', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
+        <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">
+          Group Activities This Week
+        </h2>
+        <Link
+          href={`/group/${groupId}/runs`}
+          className="flex items-center gap-1 text-xs text-[#f97316] hover:underline"
+          prefetch
+        >
+          All runs →
+        </Link>
+      </div>
+
+      {/* Scrollable feed */}
+      <div className="space-y-3 overflow-y-auto" style={{ flex: 1, minHeight: 0 }}>
+        {runs.length === 0 ? (
+          <p className="text-[#4b5563] text-sm text-center py-4">No runs this week yet.</p>
+        ) : runs.map(run => {
           const member = memberMap[run.athlete_id]
           const isMe = run.athlete_id === myAthleteId
           const dotColor = RUN_TYPE_COLORS[run.run_type ?? ''] ?? '#4b5563'
@@ -82,10 +86,7 @@ export default function GroupFeed({ runs, memberMap, myAthleteId }: Props) {
                   <span className="text-[#4b5563] text-[10px]">
                     {format(toJakartaDate(run.start_date), 'EEE MMM d')}
                   </span>
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: dotColor }}
-                  />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: dotColor }} />
                 </div>
                 <Link
                   href={`/runs/${run.id}`}

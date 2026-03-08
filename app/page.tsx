@@ -74,30 +74,34 @@ async function getData(athleteId: number) {
         .select('athlete_id, athlete_name, athlete_profile')
         .in('athlete_id', memberIds)
 
-      // Fetch this week's activities for all members
-      const weekStart = new Date()
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-      weekStart.setHours(0, 0, 0, 0)
-
-      // Last 7 days for the feed
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      // This week's Monday midnight in Jakarta (UTC+7)
+      const nowUtc = Date.now()
+      const jakartaOffset = 7 * 60 * 60 * 1000
+      const nowJakarta = new Date(nowUtc + jakartaOffset)
+      const dayOfWeek = nowJakarta.getUTCDay() // 0=Sun,1=Mon,...
+      const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      const mondayJakarta = new Date(nowJakarta)
+      mondayJakarta.setUTCDate(mondayJakarta.getUTCDate() - daysSinceMonday)
+      mondayJakarta.setUTCHours(0, 0, 0, 0)
+      // Convert back to UTC for DB query
+      const mondayUtc = new Date(mondayJakarta.getTime() - jakartaOffset)
+      const weekStartIso = mondayUtc.toISOString()
 
       const { data: groupActivities } = await supabaseAdmin
         .from('activities')
         .select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type')
         .in('athlete_id', memberIds)
-        .gte('start_date', sevenDaysAgo)
+        .gte('start_date', weekStartIso)
         .order('start_date', { ascending: false })
-        .limit(30)
+        .limit(50)
 
       // Compute per-member stats
       const members = memberIds.map((aid: number) => {
         const token = tokens?.find((t: any) => t.athlete_id === aid)
         const memberRuns = (groupActivities ?? []).filter((a: any) => a.athlete_id === aid)
 
-        // This week km
+        // This week km (all memberRuns are already filtered to this week from the query)
         const weekKm = memberRuns
-          .filter((a: any) => new Date(a.start_date) >= weekStart)
           .reduce((s: number, a: any) => s + a.distance / 1000, 0)
 
         // Streak: consecutive days with a run going back from today
@@ -179,6 +183,8 @@ export default async function DashboardPage() {
   const weekKm = weekActivities.reduce((s: number, a: any) => s + a.distance / 1000, 0)
   const weekTime = weekActivities.reduce((s: number, a: any) => s + a.moving_time, 0)
   const allKm = activities.reduce((s: number, a: any) => s + a.distance / 1000, 0)
+  const yearStart = new Date(new Date().getFullYear(), 0, 1)
+  const yearKm = activities.filter((a: any) => new Date(a.start_date) >= yearStart).reduce((s: number, a: any) => s + a.distance / 1000, 0)
   const recentRuns = activities.slice(0, 5)
 
   return (
@@ -205,7 +211,7 @@ export default async function DashboardPage() {
             { label: 'This week', value: `${weekKm.toFixed(1)}`, unit: 'km' },
             { label: 'Week runs', value: `${weekActivities.length}`, unit: 'runs' },
             { label: 'Week time', value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
-            { label: 'Lifetime km', value: `${Math.round(allKm)}`, unit: 'km' },
+            { label: 'This year', value: `${Math.round(yearKm)}`, unit: 'km' },
           ].map((s, i) => (
             <div key={i} className="card fade-up" style={{ animationDelay: `${i * 60}ms`, padding: '0.75rem 1rem' }}>
               <div className="text-[#6b7280] text-xs mb-1">{s.label}</div>
@@ -265,6 +271,7 @@ export default async function DashboardPage() {
               runs={groupData.feedRuns}
               memberMap={groupData.memberMap}
               myAthleteId={Number(athleteId)}
+              groupId={groupData.group.id}
             />
           </div>
           </>

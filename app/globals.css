@@ -77,4 +77,13 @@
   html.standalone .mobile-nav-spacer {
     height: calc(48px + env(safe-area-inset-bottom, 0px));
   }
+
+  /* Safari browser: floating address bar overlaps bottom ~50px.
+     Shift nav up so it sits above the bar, not behind it. */
+  html:not(.standalone) .mobile-nav {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html:not(.standalone) .mobile-nav-spacer {
+    height: calc(48px + env(safe-area-inset-bottom, 0px));
+  }
 }

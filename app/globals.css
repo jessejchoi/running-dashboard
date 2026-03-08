@@ -63,7 +63,21 @@
 }
 
 /* ── Standalone web app (saved to home screen) ─────────────────────────
-   .standalone class added by StandaloneDetector on iOS home screen launch */
+   .standalone class is added by StandaloneDetector.tsx on iOS home screen.
+   Regular Safari: no bottom padding, normal top padding.
+   Standalone: safe-area bottom padding, reduced top padding.            */
+
+/* Reduced header space in standalone */
 .standalone main {
   padding-top: 56px !important;
+}
+
+/* Bottom nav safe area — only in standalone */
+.standalone .mobile-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  height: auto !important;
+  min-height: 48px !important;
+}
+.standalone .mobile-nav-spacer {
+  height: calc(48px + env(safe-area-inset-bottom, 0px)) !important;
 }

@@ -7,28 +7,22 @@ export default function StandaloneDetector() {
     if (isStandalone) {
       document.documentElement.classList.add('standalone')
 
-      // Try every possible way to reduce top spacing
-      const main = document.querySelector('main') as HTMLElement
-      if (main) {
-        main.setAttribute('style', 'padding-top: 52px !important; margin-top: 0px !important;')
-        // Also check first child
-        const firstChild = main.firstElementChild as HTMLElement
-        if (firstChild) {
-          firstChild.setAttribute('style', firstChild.getAttribute('style') || '' + '; margin-top: 0px !important;')
-        }
+      // Get the actual status bar height
+      const safeTop = parseInt(
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('env(safe-area-inset-top)') || '0'
+      ) || 50 // fallback 50px for iPhone with notch/dynamic island
+
+      const topBar = document.querySelector('.mobile-top-bar') as HTMLElement
+      if (topBar) {
+        topBar.setAttribute('style', `padding-top: env(safe-area-inset-top); height: auto; min-height: 48px;`)
       }
 
-      // Debug: show computed padding
-      setTimeout(() => {
-        const m = document.querySelector('main') as HTMLElement
-        if (m) {
-          const computed = window.getComputedStyle(m).paddingTop
-          const banner = document.createElement('div')
-          banner.style.cssText = 'position:fixed;top:55px;left:0;right:0;z-index:9999;background:orange;color:black;font-size:11px;padding:3px;text-align:center;font-family:monospace'
-          banner.textContent = `computed pt: ${computed} | inline: ${m.style.paddingTop}`
-          document.body.appendChild(banner)
-        }
-      }, 500)
+      // Main padding = top bar content height (48px) + status bar
+      const main = document.querySelector('main') as HTMLElement
+      if (main) {
+        main.setAttribute('style', 'padding-top: calc(48px + env(safe-area-inset-top)) !important;')
+      }
     } else {
       document.documentElement.classList.remove('standalone')
     }

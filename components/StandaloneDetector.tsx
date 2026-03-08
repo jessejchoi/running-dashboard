@@ -1,33 +1,18 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 export default function StandaloneDetector() {
-  const [debug, setDebug] = useState<string | null>(null)
-
   useEffect(() => {
-    const navStandalone = (window.navigator as any).standalone
-    const mmStandalone = window.matchMedia('(display-mode: standalone)').matches
-    const isStandalone = navStandalone === true || mmStandalone
+    const isStandalone = (window.navigator as any).standalone === true
 
     if (isStandalone) {
       document.documentElement.classList.add('standalone')
+      // Override padding directly on the element via CSS variable
+      document.documentElement.style.setProperty('--main-pt', '56px')
     } else {
       document.documentElement.classList.remove('standalone')
+      document.documentElement.style.removeProperty('--main-pt')
     }
-
-    setDebug(`nav.standalone=${String(navStandalone)} | mm=${String(mmStandalone)} | class=${isStandalone ? 'SET' : 'NOT SET'}`)
   }, [])
-
-  if (!debug) return null
-
-  return (
-    <div style={{
-      position: 'fixed', top: 60, left: 0, right: 0, zIndex: 9999,
-      background: 'rgba(249,115,22,0.95)', color: '#000',
-      fontSize: 11, padding: '4px 8px', textAlign: 'center',
-      fontFamily: 'monospace'
-    }}>
-      {debug}
-    </div>
-  )
+  return null
 }

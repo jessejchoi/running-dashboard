@@ -63,12 +63,8 @@
 }
 
 /* ── Standalone web app (saved to home screen) ─────────────────────────
-   .standalone is added to <html> by StandaloneDetector.tsx              */
-
-/* Reduced header — standalone only */
-html.standalone .standalone-main {
-  padding-top: 56px !important;
-}
+   Padding controlled via --main-pt CSS var set by StandaloneDetector.tsx
+   Bottom nav safe area gated by html.standalone class                   */
 
 /* Safe area bottom — standalone only */
 html.standalone .mobile-nav {

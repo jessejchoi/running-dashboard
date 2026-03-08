@@ -81,7 +81,7 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
           <ReferenceLine y={0} stroke="#2a2a2a" strokeWidth={1} />
           <Line type="monotone" dataKey="ctl" stroke="#60a5fa" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="atl" stroke="#f97316" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="tsb" stroke="#34d399" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+          <Line type="monotone" dataKey="tsb" stroke="#34d399" strokeWidth={1.5} dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Activity, List, RefreshCw, BarChart2, Calendar, Users } from 'lucide-react'
 import { useState, useTransition } from 'react'
 
@@ -14,6 +14,7 @@ const navItems = [
 
 export default function Nav() {
   const path = usePathname()
+  const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -35,7 +36,7 @@ export default function Nav() {
       const msg = n > 0 ? `${n} synced` : 'Up to date'
       setSyncMsg(msg)
       setSyncing(false)
-      setTimeout(() => { window.location.reload() }, 1800)
+      setTimeout(() => router.refresh(), 800)
     } catch {
       setSyncMsg('Error')
       setSyncing(false)

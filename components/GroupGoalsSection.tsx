@@ -4,6 +4,7 @@ import { formatGoalTime, paceSecs, distanceKm, type UserGoal, type DistanceKey }
 
 interface MemberGoal extends UserGoal {
   athlete_name: string
+  athlete_profile: string | null
 }
 
 interface Props {
@@ -14,6 +15,16 @@ function paceStr(secs: number) {
   const m = Math.floor(secs / 60)
   const s = Math.round(secs % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function Avatar({ name, pic }: { name: string; pic: string | null }) {
+  if (pic) return <img src={pic} alt={name} className="w-9 h-9 rounded-full object-cover shrink-0" />
+  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div className="w-9 h-9 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs shrink-0">
+      {initials}
+    </div>
+  )
 }
 
 function GoalCard({ goal }: { goal: MemberGoal }) {
@@ -30,9 +41,17 @@ function GoalCard({ goal }: { goal: MemberGoal }) {
 
   return (
     <div className="card glow-orange fade-up" style={{ paddingBottom: '1.5rem' }}>
+      {/* Owner header */}
+      <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-[#1c1c1c]">
+        <Avatar name={goal.athlete_name} pic={goal.athlete_profile} />
+        <div>
+          <div className="font-bold text-white text-sm leading-tight">{goal.athlete_name.split(' ')[0]}</div>
+          <div className="text-[#4b5563] text-[10px]">{goal.athlete_name}</div>
+        </div>
+      </div>
+
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0">
-          <div className="text-[#6b7280] text-xs mb-0.5">{goal.athlete_name.split(' ')[0]}</div>
           <div className="font-display font-bold text-lg text-white leading-tight">{goal.label}</div>
           <div className="text-[#6b7280] text-xs mt-0.5">
             {format(new Date(goal.race_date), 'MMM d, yyyy')}

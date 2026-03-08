@@ -316,13 +316,22 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
       }))
 
     if (runs.length > 0) {
+      // Check which IDs are genuinely new before counting
+      const runIds = runs.map((r: any) => r.id)
+      const { data: existing } = await supabaseAdmin
+        .from('activities')
+        .select('id')
+        .in('id', runIds)
+      const existingIds = new Set((existing ?? []).map((r: any) => r.id))
+      const newCount = runs.filter((r: any) => !existingIds.has(r.id)).length
+
       // Only insert truly new runs — never overwrite existing rows so manual
       // run_type tags and excluded_from_analysis flags are preserved.
       await supabaseAdmin.from('activities').upsert(runs, {
         onConflict: 'id',
         ignoreDuplicates: true,
       })
-      totalSynced += runs.length
+      totalSynced += newCount
     }
 
     if (hasKnown || activities.length < 100) break

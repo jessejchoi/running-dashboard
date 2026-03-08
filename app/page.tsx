@@ -19,20 +19,22 @@ import { type UserGoal } from '@/lib/goals'
 export const dynamic = 'force-dynamic'
 
 async function getData(athleteId: number) {
-  const [{ data: activities }, { data: qualityRuns }, { data: tokenData }] = await Promise.all([
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(300),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
-    supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
-  ])
+  // Selected columns only — avoids pulling the large 'raw' JSON for every activity
+  const activityCols = 'id,athlete_id,name,type,start_date,distance,moving_time,elapsed_time,average_speed,max_speed,average_heartrate,max_heartrate,average_cadence,suffer_score,splits,laps,hr_stream,pace_stream,run_type,excluded_from_analysis,detail_synced,total_elevation_gain'
 
-  // Isolated so a missing user_goals table doesn't crash the whole page
-  const goalsData = await supabaseAdmin
-    .from('user_goals')
-    .select('*')
-    .eq('athlete_id', athleteId)
-    .order('race_date', { ascending: true })
-    .then(r => r.data ?? [])
-    .catch(() => [])
+  const [
+    { data: activities },
+    { data: qualityRuns },
+    { data: tokenData },
+    goalsData,
+    { data: membership },
+  ] = await Promise.all([
+    supabaseAdmin.from('activities').select(activityCols).eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(400),
+    supabaseAdmin.from('activities').select(activityCols).eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
+    supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
+    supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
+    supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId).limit(1),
+  ])
 
   // Compute most recent 5K estimate from interval + threshold sessions
   const estimates = (qualityRuns ?? [])
@@ -50,15 +52,9 @@ async function getData(athleteId: number) {
   // Fetch the first group this athlete belongs to (if any)
   const groupData = await (async () => {
     try {
-      const { data: memberships } = await supabaseAdmin
-        .from('group_members')
-        .select('group_id, role')
-        .eq('athlete_id', athleteId)
-        .limit(1)
+      if (!membership?.length) return null
 
-      if (!memberships?.length) return null
-
-      const groupId = memberships[0].group_id
+      const groupId = membership[0].group_id
 
       const [{ data: group }, { data: allMembers }] = await Promise.all([
         supabaseAdmin.from('groups').select('id, name').eq('id', groupId).single(),
@@ -69,32 +65,28 @@ async function getData(athleteId: number) {
 
       const memberIds = (allMembers ?? []).map((m: any) => m.athlete_id)
 
-      // Fetch profiles
-      const { data: tokens } = await supabaseAdmin
-        .from('strava_tokens')
-        .select('athlete_id, athlete_name, athlete_profile')
-        .in('athlete_id', memberIds)
-
       // This week's Monday midnight in Jakarta (UTC+7)
       const nowUtc = Date.now()
       const jakartaOffset = 7 * 60 * 60 * 1000
       const nowJakarta = new Date(nowUtc + jakartaOffset)
-      const dayOfWeek = nowJakarta.getUTCDay() // 0=Sun,1=Mon,...
+      const dayOfWeek = nowJakarta.getUTCDay()
       const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
       const mondayJakarta = new Date(nowJakarta)
       mondayJakarta.setUTCDate(mondayJakarta.getUTCDate() - daysSinceMonday)
       mondayJakarta.setUTCHours(0, 0, 0, 0)
-      // Convert back to UTC for DB query
       const mondayUtc = new Date(mondayJakarta.getTime() - jakartaOffset)
       const weekStartIso = mondayUtc.toISOString()
 
-      const { data: groupActivities } = await supabaseAdmin
-        .from('activities')
-        .select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type')
-        .in('athlete_id', memberIds)
-        .gte('start_date', weekStartIso)
-        .order('start_date', { ascending: false })
-        .limit(50)
+      const otherMemberIds = memberIds.filter((id: number) => id !== athleteId)
+
+      // Fetch profiles, activities, and other members' goals all in parallel
+      const [{ data: tokens }, { data: groupActivities }, { data: otherGoalsData }] = await Promise.all([
+        supabaseAdmin.from('strava_tokens').select('athlete_id, athlete_name, athlete_profile').in('athlete_id', memberIds),
+        supabaseAdmin.from('activities').select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type').in('athlete_id', memberIds).gte('start_date', weekStartIso).order('start_date', { ascending: false }).limit(50),
+        otherMemberIds.length > 0
+          ? supabaseAdmin.from('user_goals').select('*').in('athlete_id', otherMemberIds)
+          : Promise.resolve({ data: [] }),
+      ])
 
       // Compute per-member stats
       const members = memberIds.map((aid: number) => {
@@ -143,18 +135,11 @@ async function getData(athleteId: number) {
         members.map((m: any) => [m.athlete_id, { name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }])
       )
 
-      // Fetch goals of other group members (not the current user)
-      const otherMemberIds = memberIds.filter((id: number) => id !== athleteId)
-      const memberGoals = otherMemberIds.length > 0 ? await (async () => {
-        const { data: goalsData } = await supabaseAdmin
-          .from('user_goals')
-          .select('*')
-          .in('athlete_id', otherMemberIds)
-        return (goalsData ?? []).map((g: any) => ({
-          ...g,
-          athlete_name: members.find((m: any) => m.athlete_id === g.athlete_id)?.name ?? 'Member',
-        }))
-      })() : []
+      const memberGoals = (otherGoalsData ?? []).map((g: any) => ({
+        ...g,
+        athlete_name: members.find((m: any) => m.athlete_id === g.athlete_id)?.name ?? 'Member',
+        athlete_profile: members.find((m: any) => m.athlete_id === g.athlete_id)?.profile_pic ?? null,
+      }))
 
       return {
         group,

@@ -92,7 +92,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
         </div>
         <button
           onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors"
+          className="flex items-center gap-1.5 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors whitespace-nowrap"
         >
           <Plus size={14} /> New Group
         </button>

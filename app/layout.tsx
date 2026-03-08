@@ -24,7 +24,6 @@ const monoFont = Space_Mono({
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  viewportFit: 'cover',
 }
 
 export const metadata: Metadata = {

@@ -54,8 +54,8 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Pro
     <div className="card fade-up" style={{ maxHeight: '336px', display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
-        <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">
-          Group Activities This Week
+        <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest leading-tight">
+          Group Activities<br />This Week
         </h2>
         <Link
           href={`/group/${groupId}/runs`}

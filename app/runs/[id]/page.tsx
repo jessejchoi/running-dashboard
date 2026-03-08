@@ -20,7 +20,6 @@ export default async function RunDetailPage({ params }: { params: { id: string }
     .from('activities')
     .select('*')
     .eq('id', params.id)
-    .eq('athlete_id', athleteId)
     .single()
 
   if (!run) notFound()

@@ -63,27 +63,29 @@
 }
 
 /* ── Standalone web app (saved to home screen) ─────────────────────────
-   html.standalone set by StandaloneDetector.tsx (checks navigator.standalone) */
+   html.standalone set by StandaloneDetector.tsx (navigator.standalone)
+   viewportFit:cover is always on so env() works in standalone.
+   All env() usage MUST be gated behind .standalone to avoid Safari bleed. */
 
+/* Default (Safari): fixed 48px nav, no safe area */
+.mobile-nav {
+  height: 48px;
+}
+.mobile-nav-spacer {
+  height: 48px;
+}
+
+/* Standalone only: grow nav to include safe area */
 @layer utilities {
   html.standalone .standalone-main {
     padding-top: 56px;
   }
   html.standalone .mobile-nav {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: auto !important;
     min-height: 48px;
-    height: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   html.standalone .mobile-nav-spacer {
-    height: calc(48px + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* Safari browser: floating address bar overlaps bottom ~50px.
-     Shift nav up so it sits above the bar, not behind it. */
-  html:not(.standalone) .mobile-nav {
-    bottom: env(safe-area-inset-bottom, 0px);
-  }
-  html:not(.standalone) .mobile-nav-spacer {
-    height: calc(48px + env(safe-area-inset-bottom, 0px));
+    height: calc(48px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }

@@ -99,7 +99,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
       </div>
 
       {groups.length === 0 ? (
-        <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center pt-14 pb-28 text-center gap-4 fade-up">
+        <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-4 fade-up" style={{ paddingTop: 56, paddingBottom: 56 }}>
           <div className="w-14 h-14 rounded-full bg-[#f97316]/10 flex items-center justify-center">
             <Users size={22} className="text-[#f97316]" />
           </div>

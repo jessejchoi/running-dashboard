@@ -6,7 +6,7 @@ import WeeklyMileageChart from '@/components/WeeklyMileageChart'
 import GoalsSection from '@/components/GoalsSection'
 import TrainingLoadChart from '@/components/TrainingLoadChart'
 import RunTypeBadge from '@/components/RunTypeBadge'
-import { formatDuration, speedToPace, isoWeek } from '@/lib/utils'
+import { formatDuration, speedToPace, isoWeek, toJakartaDate } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { analyzeIntervalSession, analyzeThresholdSession } from '@/lib/analysis'
 import Link from 'next/link'
@@ -298,7 +298,7 @@ export default async function DashboardPage() {
                   <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#1a1a1a] transition-colors">
                     <td className="px-4 py-3 text-[#6b7280] text-xs font-mono">
                       <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
-                        {format(new Date(run.start_date), 'MMM d')}
+                        {format(toJakartaDate(run.start_date), 'MMM d')}
                       </Link>
                     </td>
                     <td className="px-4 py-3"><RunTypeBadge type={run.run_type} /></td>

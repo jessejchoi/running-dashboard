@@ -51,7 +51,7 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
 
 export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Props) {
   return (
-    <div className="card fade-up" style={{ maxHeight: '280px', display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
+    <div className="card fade-up" style={{ maxHeight: '336px', display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
         <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">
@@ -59,7 +59,7 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Pro
         </h2>
         <Link
           href={`/group/${groupId}/runs`}
-          className="flex items-center gap-1 text-xs text-[#f97316] hover:underline"
+          className="text-xs text-[#f97316] hover:underline whitespace-nowrap shrink-0 ml-2"
           prefetch
         >
           All runs →

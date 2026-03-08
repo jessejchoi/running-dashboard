@@ -33,7 +33,7 @@ export default function GroupLeaderboard({ members, groupId, groupName }: Props)
   const sorted = [...members].sort((a, b) => b.weekKm - a.weekKm)
 
   return (
-    <div className="card fade-up" style={{ maxHeight: '280px', display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
+    <div className="card fade-up" style={{ display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
       <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
         <div>
           <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">

@@ -115,7 +115,7 @@ export default function Nav() {
       </div>
 
       {/* ── Mobile bottom tab bar ─────────────────────────────── */}
-      <div className="mobile-nav sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-around px-1" style={{ height: 48 }}>
+      <div className="mobile-nav sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-around px-1" >
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = path === href || (href !== '/' && path.startsWith(href))
           const loading = pendingHref === href && isPending

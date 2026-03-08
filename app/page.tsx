@@ -198,14 +198,14 @@ export default async function DashboardPage() {
 
         {/* Top stats */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Your Stats</h2>
+          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Your Stats</h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[
             { label: 'This week', value: `${weekKm.toFixed(1)}`, unit: 'km' },
             { label: 'Week runs', value: `${weekActivities.length}`, unit: 'runs' },
             { label: 'Week time', value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
-            { label: 'Total km', value: `${Math.round(allKm)}`, unit: 'km' },
+            { label: 'Lifetime km', value: `${Math.round(allKm)}`, unit: 'km' },
           ].map((s, i) => (
             <div key={i} className="card fade-up" style={{ animationDelay: `${i * 60}ms`, padding: '0.75rem 1rem' }}>
               <div className="text-[#6b7280] text-xs mb-1">{s.label}</div>
@@ -253,7 +253,7 @@ export default async function DashboardPage() {
         {groupData && (
           <>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
+            <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
           </div>
           <div className="grid md:grid-cols-2 gap-4 mb-8">
             <GroupLeaderboard
@@ -273,7 +273,7 @@ export default async function DashboardPage() {
         {/* Recent runs — your own */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Your Recent Runs</h2>
+            <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Your Recent Runs</h2>
             <Link href="/runs" className="text-xs text-[#f97316] hover:underline">All runs →</Link>
           </div>
           <div className="card p-0 overflow-hidden">

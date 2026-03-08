@@ -45,7 +45,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
   return (
     <>
       <Nav />
-      <main className="max-w-4xl mx-auto px-6 pt-24 pb-16">
+      <main className="max-w-4xl mx-auto px-6 pt-14 sm:pt-24 pb-16">
         <Link href="/runs" className="flex items-center gap-2 text-[#6b7280] hover:text-white text-sm mb-6 transition-colors">
           <ArrowLeft size={14} /> All runs
         </Link>

@@ -24,7 +24,7 @@ const monoFont = Space_Mono({
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  viewportFit: 'cover',  // enables safe-area-inset-* CSS env variables
+  // viewportFit set dynamically by StandaloneDetector for standalone only
 }
 
 export const metadata: Metadata = {

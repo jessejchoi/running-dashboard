@@ -115,7 +115,7 @@ export default function GroupPageClient({ group, members, recentRuns, myRole, in
   const memberMap = Object.fromEntries(members.map(m => [m.athlete_id, m]))
 
   return (
-    <main className="max-w-4xl mx-auto px-4 pt-20 pb-16">
+    <main className="max-w-4xl mx-auto px-4 pt-14 sm:pt-20 pb-16">
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6 fade-up">

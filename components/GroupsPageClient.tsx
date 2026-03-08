@@ -84,7 +84,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 pt-20 pb-16">
+    <main className="max-w-2xl mx-auto px-4 pt-14 sm:pt-20 pb-16">
       <div className="flex items-center justify-between mb-6 fade-up">
         <div>
           <h1 className="font-display font-extrabold text-3xl">Groups</h1>
@@ -99,7 +99,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
       </div>
 
       {groups.length === 0 ? (
-        <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center pt-14 pb-20 text-center gap-4 fade-up">
+        <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center pt-14 pb-28 text-center gap-4 fade-up">
           <div className="w-14 h-14 rounded-full bg-[#f97316]/10 flex items-center justify-center">
             <Users size={22} className="text-[#f97316]" />
           </div>

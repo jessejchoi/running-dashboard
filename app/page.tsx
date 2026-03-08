@@ -15,9 +15,8 @@ import GroupFeed from '@/components/GroupFeed'
 import GroupGoalsSection from '@/components/GroupGoalsSection'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
-import { unstable_cache } from 'next/cache'
 
-export const revalidate = 60  // revalidate page at most once per minute
+export const dynamic = 'force-dynamic'
 
 async function getData(athleteId: number) {
   const [
@@ -27,7 +26,7 @@ async function getData(athleteId: number) {
     goalsData,
     { data: membership },
   ] = await Promise.all([
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(400),
+    supabaseAdmin.from('activities').select('id,start_date,distance,moving_time,suffer_score,run_type,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(200),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
@@ -173,12 +172,7 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const cachedGetData = unstable_cache(
-    () => getData(Number(athleteId)),
-    [`dashboard-${athleteId}`],
-    { revalidate: 60 }
-  )
-  const { activities, athlete, goals, estimates, groupData } = await cachedGetData()
+  const { activities, athlete, goals, estimates, groupData } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())

@@ -1,6 +1,6 @@
 'use client'
 import {
-  ComposedChart, Line, Bar, XAxis, YAxis, Tooltip,
+  ComposedChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ReferenceLine
 } from 'recharts'
 import { type TrainingLoadPoint } from '@/lib/strava'
@@ -63,7 +63,7 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
         </div>
       )}
 
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={150}>
         <ComposedChart data={visible} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <XAxis
             dataKey="label"
@@ -79,8 +79,6 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
           <ReferenceLine y={0} stroke="#2a2a2a" strokeWidth={1} />
-          {/* Gray bars = daily training load score (TRIMP). Kept subtle as context. */}
-          <Bar dataKey="load" fill="#2a2a2a" radius={[2, 2, 0, 0]} maxBarSize={6} opacity={0.6} />
           <Line type="monotone" dataKey="ctl" stroke="#60a5fa" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="atl" stroke="#f97316" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="tsb" stroke="#34d399" strokeWidth={1.5} dot={false} strokeDasharray="4 2" />

@@ -45,7 +45,7 @@ export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
 
   return (
     // Explicit pixel height on a plain div — Recharts recommended pattern
-    <div style={{ width: '100%', height: '200px' }}>
+    <div style={{ width: '100%', height: '150px' }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} barSize={14} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <XAxis

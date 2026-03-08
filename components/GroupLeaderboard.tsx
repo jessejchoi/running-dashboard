@@ -53,7 +53,12 @@ export default function GroupLeaderboard({ members, groupId, groupName }: Props)
       <div className="space-y-3 overflow-y-auto" style={{ flex: 1, minHeight: 0 }}>
         {sorted.map((m, i) => (
           <div key={m.athlete_id} className="flex items-center gap-3">
-            <span className="text-xs font-mono text-[#4b5563] w-3 shrink-0">{i + 1}</span>
+            <span className="w-4 shrink-0 flex items-center justify-center">
+              {i === 0 ? <span title="1st">🥇</span>
+               : i === 1 ? <span title="2nd">🥈</span>
+               : i === 2 ? <span title="3rd">🥉</span>
+               : <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>}
+            </span>
             <Avatar name={m.name} pic={m.profile_pic} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">

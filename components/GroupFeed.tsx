@@ -55,7 +55,8 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Pro
       {/* Header */}
       <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
         <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest leading-tight">
-          Group Activities<br />This Week
+          <span className="sm:hidden">Group Activities<br />This Week</span>
+          <span className="hidden sm:inline">Group Activities This Week</span>
         </h2>
         <Link
           href={`/group/${groupId}/runs`}

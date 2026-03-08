@@ -62,7 +62,7 @@ export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete
 
   return (
     <>
-      <div className="card glow-orange fade-up" style={{ paddingBottom: '2rem' }}>
+      <div className="card glow-orange fade-up" style={{ paddingBottom: '1.5rem' }}>
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 min-w-0">

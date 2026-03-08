@@ -256,11 +256,10 @@ export default async function DashboardPage() {
         </div>
 
         {/* Group section — leaderboard + shared feed */}
-        {groupData && (
-          <>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
+        </div>
+        {groupData ? (
           <div className="grid md:grid-cols-2 gap-4 mb-8">
             <GroupLeaderboard
               members={groupData.members}
@@ -274,7 +273,19 @@ export default async function DashboardPage() {
               groupId={groupData.group.id}
             />
           </div>
-          </>
+        ) : (
+          <div className="card fade-up mb-8 flex flex-col items-center justify-center text-center gap-4" style={{ paddingTop: 40, paddingBottom: 40 }}>
+            <div className="w-12 h-12 rounded-full bg-[#f97316]/10 flex items-center justify-center">
+              <span className="text-2xl">🏃</span>
+            </div>
+            <div>
+              <p className="font-bold text-white mb-1">You&apos;re not in a group yet</p>
+              <p className="text-[#6b7280] text-sm max-w-xs">Create a group and invite your training partners to run together.</p>
+            </div>
+            <Link href="/groups" className="flex items-center gap-2 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm" prefetch>
+              Create a group
+            </Link>
+          </div>
         )}
 
         {/* Recent runs — your own */}

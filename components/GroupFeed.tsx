@@ -50,8 +50,11 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
 }
 
 export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Props) {
+  // 15% taller: 336 * 1.15 ≈ 387px
+  const maxHeight = runs.length === 0 ? 'auto' : '387px'
+
   return (
-    <div className="card fade-up" style={{ maxHeight: '336px', display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
+    <div className="card fade-up" style={{ maxHeight, display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4" style={{ flexShrink: 0 }}>
         <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest leading-tight">

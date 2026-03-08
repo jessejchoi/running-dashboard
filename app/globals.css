@@ -63,23 +63,18 @@
 }
 
 /* ── Standalone web app (saved to home screen) ─────────────────────────
-   Use @layer to ensure these rules load AFTER Tailwind utilities         */
+   html.standalone set by StandaloneDetector.tsx (checks navigator.standalone) */
 
 @layer utilities {
-  /* Header — standalone only (JS class) */
   html.standalone .standalone-main {
     padding-top: 56px;
   }
-
-  /* Bottom nav safe area — standalone only via media query (more reliable than JS class for layout) */
-  @media (display-mode: standalone) {
-    .mobile-nav {
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-      min-height: 48px;
-      height: auto;
-    }
-    .mobile-nav-spacer {
-      height: calc(48px + env(safe-area-inset-bottom, 0px));
-    }
+  html.standalone .mobile-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    min-height: 48px;
+    height: auto;
+  }
+  html.standalone .mobile-nav-spacer {
+    height: calc(48px + env(safe-area-inset-bottom, 0px));
   }
 }

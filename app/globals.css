@@ -63,10 +63,7 @@
 }
 
 /* ── Standalone web app (saved to home screen) ─────────────────────────
-   iOS removes the Safari browser bar, so the fixed top nav sits lower.
-   Cut the page top padding from 56px down to 20px in standalone mode.   */
-@media all and (display-mode: standalone) {
-  main {
-    padding-top: 56px !important;  /* just enough to clear the fixed nav */
-  }
+   .standalone class added by StandaloneDetector on iOS home screen launch */
+.standalone main {
+  padding-top: 56px !important;
 }

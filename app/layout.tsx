@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import StandaloneDetector from '@/components/StandaloneDetector'
 import { Syne, Space_Mono, DM_Sans } from 'next/font/google'
 import './globals.css'
 
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
       <body className="bg-[#0a0a0a] text-white font-sans antialiased min-h-screen">
+        <StandaloneDetector />
         {children}
       </body>
     </html>

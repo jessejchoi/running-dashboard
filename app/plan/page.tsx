@@ -106,7 +106,7 @@ export default function PlanPage() {
   return (
     <>
       <Nav />
-      <main className="standalone-main max-w-6xl mx-auto px-4 pt-14 sm:pt-20 pb-16" style={{ paddingTop: "var(--main-pt)" }}>
+      <main className="standalone-main max-w-6xl mx-auto px-4 pt-14 sm:pt-20 pb-16">
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold text-3xl leading-normal pb-1 mb-1">Training Plan</h1>
           <p className="text-[#6b7280] text-sm">5K target — Apr 15, 2026</p>

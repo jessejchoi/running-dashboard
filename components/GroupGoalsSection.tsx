@@ -32,30 +32,52 @@ function CompactGoalRow({ goal }: { goal: MemberGoal }) {
   const daysLeft = differenceInDays(new Date(goal.race_date), new Date())
   const isPast = daysLeft < 0
   const targetPace = paceSecs(goal.target_secs, goal.distance_key as DistanceKey)
+  const progress = goal.current_secs && goal.target_secs
+    ? Math.min(1, Math.max(0, (goal.current_secs - goal.target_secs) / goal.current_secs))
+    : 0
   const statusColor = isPast ? 'text-[#4b5563]' : daysLeft <= 14 ? 'text-yellow-400' : 'text-emerald-400'
 
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-[#1c1c1c] last:border-0">
-      <Avatar name={goal.athlete_name} pic={goal.athlete_profile} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
+    <div className="py-2.5 border-b border-[#1c1c1c] last:border-0">
+      {/* Row 1: avatar, name, distance, days */}
+      <div className="flex items-center gap-3 mb-1.5">
+        <Avatar name={goal.athlete_name} pic={goal.athlete_profile} />
+        <div className="flex-1 min-w-0 flex items-center gap-2">
           <span className="text-white text-xs font-bold truncate">
             {goal.athlete_name.split(' ')[0]}
           </span>
           <span className="text-[#4b5563] text-[10px] shrink-0">{goal.label}</span>
+          <span className="text-[#6b7280] text-[10px] shrink-0">
+            {format(new Date(goal.race_date), 'MMM d')}
+          </span>
         </div>
-        <div className="flex items-center gap-3 text-[11px] font-mono">
-          <span className="text-[#f97316] font-bold">{formatGoalTime(goal.target_secs)}</span>
-          <span className="text-[#6b7280]">{paceStr(targetPace)}/km</span>
-          <span className="text-[#6b7280]">{distanceKm(goal.distance_key as DistanceKey)}km</span>
+        <div className="shrink-0 text-right">
+          <span className={`text-xs font-mono font-bold ${statusColor}`}>
+            {isPast ? 'Done' : `${daysLeft}d`}
+          </span>
         </div>
       </div>
-      <div className="text-right shrink-0">
-        <div className={`text-xs font-mono font-bold ${statusColor}`}>
-          {isPast ? 'Done' : `${daysLeft}d`}
+
+      {/* Row 2: stats */}
+      <div className="flex items-center gap-3 text-[11px] font-mono pl-10 mb-2">
+        <span className="text-[#f97316] font-bold">{formatGoalTime(goal.target_secs)}</span>
+        <span className="text-[#6b7280]">{paceStr(targetPace)}/km</span>
+        {goal.current_secs && (
+          <span className="text-[#6b7280]">est. {formatGoalTime(goal.current_secs)}</span>
+        )}
+      </div>
+
+      {/* Row 3: progress bar */}
+      <div className="pl-10">
+        <div className="h-1 bg-[#242424] rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full bg-[#f97316] transition-all duration-700"
+            style={{ width: `${progress * 100}%` }}
+          />
         </div>
-        <div className="text-[10px] text-[#4b5563]">
-          {format(new Date(goal.race_date), 'MMM d')}
+        <div className="flex justify-between text-[10px] text-[#3a3a3a] mt-0.5 font-mono">
+          <span>{Math.round(progress * 100)}%</span>
+          {goal.current_secs && <span>{formatGoalTime(goal.target_secs)}</span>}
         </div>
       </div>
     </div>
@@ -63,7 +85,7 @@ function CompactGoalRow({ goal }: { goal: MemberGoal }) {
 }
 
 const DISTANCE_LABELS: Record<string, string> = {
-  '5k': '5K', '10k': '10K', 'half_marathon': 'HM', 'marathon': 'FM'
+  '5k': '5K', '10k': '10K', 'half_marathon': 'Half Marathon', 'marathon': 'Marathon'
 }
 
 export default function GroupGoalsSection({ memberGoals }: Props) {
@@ -78,8 +100,7 @@ export default function GroupGoalsSection({ memberGoals }: Props) {
     )
   }
 
-  // Unique members and distances for filters
-  const members = Array.from(new Map(memberGoals.map(g => [g.athlete_id, g.athlete_name])).entries())
+  const members = Array.from(new Map(memberGoals.map(g => [String(g.athlete_id), g.athlete_name])).entries())
   const distances = Array.from(new Set(memberGoals.map(g => g.distance_key)))
 
   const filtered = memberGoals.filter(g => {
@@ -88,49 +109,33 @@ export default function GroupGoalsSection({ memberGoals }: Props) {
     return true
   })
 
+  const selectClass = "bg-[#1c1c1c] border border-[#2a2a2a] text-[#9ca3af] text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#f97316] cursor-pointer"
+
   return (
     <div className="card fade-up" style={{ paddingBottom: '1.5rem' }}>
       {/* Filters */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {/* Member filter */}
-        <div className="flex gap-1 flex-wrap">
-          <button
-            onClick={() => setMemberFilter('all')}
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${memberFilter === 'all' ? 'bg-[#f97316] text-white' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'}`}
-          >
-            All
-          </button>
+      <div className="flex items-center gap-2 mb-4">
+        <select
+          value={memberFilter}
+          onChange={e => setMemberFilter(e.target.value)}
+          className={selectClass}
+        >
+          <option value="all">All members</option>
           {members.map(([id, name]) => (
-            <button
-              key={id}
-              onClick={() => setMemberFilter(memberFilter === String(id) ? 'all' : String(id))}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${memberFilter === String(id) ? 'bg-[#f97316] text-white' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'}`}
-            >
-              {name.split(' ')[0]}
-            </button>
+            <option key={id} value={id}>{name.split(' ')[0]}</option>
           ))}
-        </div>
+        </select>
 
-        <div className="w-px h-4 bg-[#2a2a2a] mx-1" />
-
-        {/* Distance filter */}
-        <div className="flex gap-1 flex-wrap">
-          <button
-            onClick={() => setDistanceFilter('all')}
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${distanceFilter === 'all' ? 'bg-[#1c1c1c] text-white border border-[#3a3a3a]' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'}`}
-          >
-            All races
-          </button>
+        <select
+          value={distanceFilter}
+          onChange={e => setDistanceFilter(e.target.value)}
+          className={selectClass}
+        >
+          <option value="all">All races</option>
           {distances.map(d => (
-            <button
-              key={d}
-              onClick={() => setDistanceFilter(distanceFilter === d ? 'all' : d)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${distanceFilter === d ? 'bg-[#1c1c1c] text-white border border-[#3a3a3a]' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'}`}
-            >
-              {DISTANCE_LABELS[d] ?? d}
-            </button>
+            <option key={d} value={d}>{DISTANCE_LABELS[d] ?? d}</option>
           ))}
-        </div>
+        </select>
       </div>
 
       {/* Goal rows */}

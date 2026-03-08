@@ -64,7 +64,7 @@ export default function TrainingLoadChart({ data, days = 90 }: Props) {
 
       <div style={{ flex: 1, minHeight: 0 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={visible} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+        <ComposedChart data={visible} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
           <XAxis
             dataKey="label"
             tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}

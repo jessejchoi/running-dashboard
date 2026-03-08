@@ -25,7 +25,7 @@ export default async function RunsPage() {
   return (
     <>
       <Nav />
-      <main className="max-w-6xl mx-auto px-6 pt-14 sm:pt-24 pb-16">
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-14 sm:pt-24 pb-16">
         <div className="flex items-center justify-between mb-8 fade-up">
           <div>
             <h1 className="font-display font-extrabold text-3xl leading-normal pb-1 mb-1">Activity Log</h1>
@@ -39,7 +39,7 @@ export default async function RunsPage() {
               <thead>
                 <tr className="border-b border-[#2a2a2a]">
                   {['Date', 'Type', 'Distance', 'Avg Pace', 'Time', 'HR', 'Suffer'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[#6b7280] text-xs font-medium whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left px-2 sm:px-4 py-2 sm:py-3 text-[#6b7280] text-xs font-medium whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -50,28 +50,28 @@ export default async function RunsPage() {
                   const isTreadmill = run.run_type === 'treadmill' || run.raw?.trainer === true
                   return (
                     <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#151515] transition-colors">
-                      <td className={`px-4 py-3 text-xs font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40 text-[#6b7280]' : 'text-[#6b7280]'}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 text-xs font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40 text-[#6b7280]' : 'text-[#6b7280]'}`}>
                         <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
                           {format(toJakartaDate(run.start_date), 'MMM d, yyyy')}
                         </Link>
                         {isTreadmill && <span className="ml-2 text-[10px] text-zinc-500">🏃</span>}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 sm:px-4 py-1.5 sm:py-2">
                         <RunTypeSelector activityId={run.id} current={run.run_type} />
                       </td>
-                      <td className={`px-4 py-3 font-mono text-[#f97316] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#f97316] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
                         {(run.distance / 1000).toFixed(2)} km
                       </td>
-                      <td className={`px-4 py-3 font-mono whitespace-nowrap font-bold ${isTreadmill ? 'opacity-40 text-[#9ca3af]' : isFast ? 'text-emerald-400' : 'text-[#d1d5db]'}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap font-bold ${isTreadmill ? 'opacity-40 text-[#9ca3af]' : isFast ? 'text-emerald-400' : 'text-[#d1d5db]'}`}>
                         {speedToPace(run.average_speed)}/km
                       </td>
-                      <td className={`px-4 py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
                         {formatDuration(run.moving_time)}
                       </td>
-                      <td className={`px-4 py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
                         {run.average_heartrate ? `${Math.round(run.average_heartrate)} bpm` : '—'}
                       </td>
-                      <td className={`px-4 py-3 text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
                         {run.suffer_score ?? '—'}
                       </td>
                     </tr>
@@ -79,7 +79,7 @@ export default async function RunsPage() {
                 })}
                 {activities.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-[#6b7280]">No runs yet.</td>
+                    <td colSpan={7} className="px-2 sm:px-4 py-8 sm:py-12 text-center text-[#6b7280]">No runs yet.</td>
                   </tr>
                 )}
               </tbody>

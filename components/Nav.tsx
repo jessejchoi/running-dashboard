@@ -1,8 +1,8 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Activity, List, RefreshCw, BarChart2, Calendar, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 
 const navItems = [
   { href: '/',            label: 'Dashboard', icon: Activity },
@@ -14,8 +14,20 @@ const navItems = [
 
 export default function Nav() {
   const path = usePathname()
+  const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+
+  function handleNav(e: React.MouseEvent, href: string) {
+    e.preventDefault()
+    if (href === path) return
+    setPendingHref(href)
+    startTransition(() => {
+      router.push(href)
+    })
+  }
 
   async function handleSync() {
     setSyncing(true)
@@ -45,22 +57,26 @@ export default function Nav() {
             <span className="text-white/60">DASH</span>
           </span>
           <div className="flex items-center gap-1">
-            {navItems.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                prefetch
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all active:opacity-60 ${
-                  path === href || (href !== '/' && path.startsWith(href))
-                    ? 'bg-[#1c1c1c] text-white'
+            {navItems.map(({ href, label, icon: Icon }) => {
+              const active = path === href || (href !== '/' && path.startsWith(href))
+              const loading = pendingHref === href && isPending
+              return (
+                <a
+                  key={href}
+                  href={href}
+                  onClick={(e) => handleNav(e, href)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-100 ${
+                    active ? 'bg-[#1c1c1c] text-white'
+                    : loading ? 'bg-[#1c1c1c] text-white opacity-70'
                     : 'text-[#6b7280] hover:text-white hover:bg-[#1a1a1a]'
-                }`}
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
-              >
-                <Icon size={14} />
-                {label}
-              </Link>
-            ))}
+                  }`}
+                  style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                >
+                  <Icon size={14} className={loading ? 'animate-pulse' : ''} />
+                  {label}
+                </a>
+              )
+            })}
           </div>
           <button
             onClick={handleSync}
@@ -75,10 +91,14 @@ export default function Nav() {
             ) : 'Sync Strava'}
           </button>
         </div>
+        {/* Loading bar */}
+        {isPending && (
+          <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316] animate-[loadbar_1s_ease-in-out_infinite]" style={{ width: '60%' }} />
+        )}
       </nav>
 
       {/* ── Mobile top bar: logo + sync only ─────────────────── */}
-      <div className="sm:hidden fixed top-0 left-0 right-0 z-50 h-12 border-b border-[#2a2a2a] bg-[#0a0a0a]/90 backdrop-blur-sm flex items-center justify-between px-4">
+      <div className="sm:hidden fixed top-0 left-0 right-0 z-50 h-12 border-b border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-between px-4">
         <span className="font-display font-bold text-base tracking-tight">
           <span className="text-[#f97316]">RUN</span>
           <span className="text-white/60">DASH</span>
@@ -92,32 +112,37 @@ export default function Nav() {
           <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
           {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
         </button>
+        {isPending && (
+          <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316]" style={{ width: '50%', transition: 'width 0.8s ease' }} />
+        )}
       </div>
 
       {/* ── Mobile bottom tab bar ─────────────────────────────── */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#2a2a2a] bg-[#0a0a0a] flex items-center justify-around h-14 px-1">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = path === href || (href !== '/' && path.startsWith(href))
+          const loading = pendingHref === href && isPending
           return (
-            <Link
+            <a
               key={href}
               href={href}
-              prefetch
-              className="flex flex-col items-center gap-0.5 flex-1 py-1.5 active:opacity-60 transition-opacity duration-75"
+              onClick={(e) => handleNav(e, href)}
+              className="flex flex-col items-center gap-0.5 flex-1 py-1.5 transition-opacity duration-75"
               style={{
-                color: active ? '#f97316' : '#6b7280',
+                color: active || loading ? '#f97316' : '#6b7280',
+                opacity: loading ? 0.7 : 1,
                 WebkitTapHighlightColor: 'transparent',
                 touchAction: 'manipulation',
               }}
             >
-              <Icon size={19} />
+              <Icon size={19} className={loading ? 'animate-pulse' : ''} />
               <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.03em' }}>{label}</span>
-            </Link>
+            </a>
           )
         })}
       </div>
 
-      {/* Mobile bottom spacer so content isn't hidden behind tab bar */}
+      {/* Mobile bottom spacer */}
       <div className="sm:hidden h-14" />
     </>
   )

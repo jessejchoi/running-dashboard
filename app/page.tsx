@@ -190,7 +190,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Nav />
-      <main className="max-w-6xl mx-auto px-6 pt-14 sm:pt-20 pb-16">
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-14 sm:pt-20 pb-16">
         <div className="flex items-center justify-between mb-8 fade-up">
           <div>
             <h1 className="font-display font-extrabold text-3xl leading-normal pb-1">
@@ -296,31 +296,31 @@ export default async function DashboardPage() {
           </div>
           <div className="card p-0 overflow-hidden">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[500px]">
+            <table className="w-full text-sm min-w-[420px]">
               <thead>
                 <tr className="border-b border-[#2a2a2a]">
                   {['Date', 'Type', 'Distance', 'Pace', 'Time'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[#6b7280] text-xs font-medium">{h}</th>
+                    <th key={h} className="text-left px-2 sm:px-4 py-2 sm:py-3 text-[#6b7280] text-xs font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {recentRuns.map((run: any) => (
                   <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#1a1a1a] transition-colors">
-                    <td className="px-4 py-3 text-[#6b7280] text-xs font-mono">
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-[#6b7280] text-xs font-mono">
                       <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
                         {format(toJakartaDate(run.start_date), 'MMM d')}
                       </Link>
                     </td>
                     <td className="px-4 py-3"><RunTypeBadge type={run.run_type} /></td>
-                    <td className="px-4 py-3 font-mono text-[#f97316]">{(run.distance / 1000).toFixed(2)} km</td>
-                    <td className="px-4 py-3 font-mono">{speedToPace(run.average_speed)}/km</td>
-                    <td className="px-4 py-3 font-mono text-[#6b7280]">{formatDuration(run.moving_time)}</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#f97316]">{(run.distance / 1000).toFixed(2)} km</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-mono">{speedToPace(run.average_speed)}/km</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#6b7280]">{formatDuration(run.moving_time)}</td>
                   </tr>
                 ))}
                 {recentRuns.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-[#6b7280] text-sm">
+                    <td colSpan={5} className="px-2 sm:px-4 py-6 sm:py-8 text-center text-[#6b7280] text-sm">
                       No runs yet. Sync your Strava activities to get started.
                     </td>
                   </tr>

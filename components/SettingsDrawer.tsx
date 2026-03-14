@@ -75,9 +75,11 @@ export default function SettingsDrawer({ open, onClose }: Props) {
       // Update unit context immediately for instant client-side effect
       if (profile.unit) setUnit(profile.unit)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      // Refresh server components to pick up new unit cookie
-      router.refresh()
+      setTimeout(() => {
+        setSaved(false)
+        onClose()
+        router.refresh()
+      }, 1000)
     } finally {
       setSaving(false)
     }
@@ -195,11 +197,22 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                     </label>
                     <input
                       type="number"
-                      value={profile.weight_kg ?? ''}
-                      onChange={e => set('weight_kg', e.target.value ? Number(e.target.value) : null)}
+                      value={
+                        profile.weight_kg
+                          ? profile.unit === 'miles'
+                            ? +(profile.weight_kg * 2.20462).toFixed(1)
+                            : profile.weight_kg
+                          : ''
+                      }
+                      onChange={e => {
+                        if (!e.target.value) { set('weight_kg', null); return }
+                        const v = Number(e.target.value)
+                        set('weight_kg', profile.unit === 'miles' ? v / 2.20462 : v)
+                      }}
                       placeholder="—"
                       min={20}
-                      max={300}
+                      max={700}
+                      step={profile.unit === 'miles' ? 0.1 : 0.1}
                       className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4b5563] outline-none transition-colors"
                     />
                   </div>

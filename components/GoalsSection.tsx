@@ -4,13 +4,15 @@ import { Plus } from 'lucide-react'
 import GoalCard from './GoalCard'
 import GoalSetupModal from './GoalSetupModal'
 import { type UserGoal } from '@/lib/goals'
+import { type DistanceUnit } from '@/lib/utils'
 
 interface Props {
   initialGoals: UserGoal[]
   estimates: Record<string, number>   // distance_key → estimated finish secs from analysis
+  unit?: DistanceUnit
 }
 
-export default function GoalsSection({ initialGoals, estimates }: Props) {
+export default function GoalsSection({ initialGoals, estimates, unit = 'km' }: Props) {
   const [goals, setGoals]     = useState<UserGoal[]>(initialGoals)
   const [adding, setAdding]   = useState(false)
 
@@ -65,6 +67,7 @@ export default function GoalsSection({ initialGoals, estimates }: Props) {
               currentEstimateSecs={estimates[goal.distance_key] ?? null}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
+              unit={unit}
             />
           ))}
         </div>

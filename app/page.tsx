@@ -301,6 +301,7 @@ export default async function DashboardPage() {
             estimates={Object.fromEntries(
               Object.entries(estimates).filter(([, v]) => v != null)
             ) as Record<string, number>}
+            unit={unit}
           />
         </div>
 

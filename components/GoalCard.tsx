@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { differenceInDays, format } from 'date-fns'
 import { formatGoalTime, paceSecs, distanceKm, type UserGoal, type DistanceKey } from '@/lib/goals'
+import { paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import GoalSetupModal from './GoalSetupModal'
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
   currentEstimateSecs?: number | null   // from analysis engine
   onUpdate: (goal: UserGoal) => void
   onDelete: (id: string) => void
+  unit?: DistanceUnit
 }
 
 function paceStr(secs: number) {
@@ -18,7 +20,7 @@ function paceStr(secs: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete }: Props) {
+export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete, unit = 'km' }: Props) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -32,6 +34,11 @@ export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete
   const km          = distanceKm(goal.distance_key as DistanceKey)
   const targetPace  = paceSecs(goal.target_secs, goal.distance_key as DistanceKey)
   const currentPace = currentSecs ? currentSecs / km : null
+
+  // Convert sec/km → sec/mile for display when miles
+  const paceMultiplier = unit === 'miles' ? 1.60934 : 1
+  const displayTargetPace  = targetPace * paceMultiplier
+  const displayCurrentPace = currentPace ? currentPace * paceMultiplier : null
 
   // Progress bar: 0% = current_secs (starting point), 100% = target_secs
   // Baseline is user's current_secs (or 30s/km slower than target as fallback)
@@ -90,15 +97,15 @@ export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Target pace</div>
-            <div className="stat-num text-xl font-bold text-[#f97316]">{paceStr(targetPace)}</div>
-            <div className="text-[#6b7280] text-xs">/km</div>
+            <div className="stat-num text-xl font-bold text-[#f97316]">{paceStr(displayTargetPace)}</div>
+            <div className="text-[#6b7280] text-xs">{paceUnitLabel(unit)}</div>
           </div>
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Current pace</div>
             <div className={`stat-num text-xl font-bold ${statusColor}`}>
-              {currentPace ? paceStr(currentPace) : '--:--'}
+              {displayCurrentPace ? paceStr(displayCurrentPace) : '--:--'}
             </div>
-            <div className="text-[#6b7280] text-xs">/km est.</div>
+            <div className="text-[#6b7280] text-xs">{paceUnitLabel(unit)} est.</div>
           </div>
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Est. time</div>

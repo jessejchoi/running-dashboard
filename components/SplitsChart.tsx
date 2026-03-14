@@ -1,5 +1,6 @@
 'use client'
 import { categorizeLaps, type LapType } from '@/lib/lapUtils'
+import type { DistanceUnit } from '@/lib/utils'
 
 interface SplitData {
   average_speed?: number
@@ -18,6 +19,7 @@ interface Props {
   colorMode?: 'uniform' | 'lap-type'
   runType?: string | null
   kmSplitCount?: number
+  unit?: DistanceUnit
 }
 
 const TYPE_COLOR: Record<LapType, string> = {
@@ -33,17 +35,19 @@ const TYPE_LABEL: Record<LapType, string> = {
   cooldown: 'cooldown', steady: 'steady',
 }
 
-function paceStr(s: number) {
+// s is always sec/km; converts to sec/mile for display when unit === 'miles'
+function paceStr(s: number, unit: DistanceUnit = 'km') {
   if (!s || s > 900) return '—'
-  let m = Math.floor(s / 60)
-  let sec = Math.round(s % 60)
+  const display = unit === 'miles' ? s * 1.60934 : s
+  let m = Math.floor(display / 60)
+  let sec = Math.round(display % 60)
   if (sec === 60) { m += 1; sec = 0 }
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 export default function SplitsChart({
   splits, avgPace, label = 'km', showDistance = false,
-  colorMode = 'uniform', runType, kmSplitCount
+  colorMode = 'uniform', runType, kmSplitCount, unit = 'km'
 }: Props) {
   const data = splits.map((s, i) => ({
     index: i + 1,
@@ -71,7 +75,7 @@ export default function SplitsChart({
           <div className="flex-1 flex items-center overflow-hidden" style={{ height: 22 }}>
             <div className="rounded-sm" style={{ width: '50%', height: 16, backgroundColor: '#f97316', opacity: 0.8 }} />
           </div>
-          <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace)}</div>
+          <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace, unit)}</div>
           {showDistance && <div className="text-xs font-mono text-[#9ca3af] w-8 shrink-0 text-right">{d.distKm.toFixed(2)}</div>}
           <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">{d.hr ?? '—'}</div>
         </div>
@@ -109,7 +113,7 @@ export default function SplitsChart({
             <div className="flex-1 flex items-center" style={{ height: 22 }}>
               <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: 16, backgroundColor: '#f97316', opacity: 0.8 }} />
             </div>
-            <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace)}</div>
+            <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace, unit)}</div>
             <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">{d.hr ?? '—'}</div>
           </div>
         ))}
@@ -171,7 +175,7 @@ export default function SplitsChart({
                 </div>
                 {/* Pace */}
                 <div className="font-mono font-bold text-white shrink-0 text-right w-8" style={{ fontSize: fs }}>
-                  {paceStr(d.pace)}
+                  {paceStr(d.pace, unit)}
                 </div>
                 {/* Dist */}
                 {showDistance && (

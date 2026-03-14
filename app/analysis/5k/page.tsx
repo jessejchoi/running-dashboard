@@ -12,7 +12,7 @@ import {
   formatTime, formatPace,
   type EasyRunEfficiency,
 } from '@/lib/analysis'
-import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate, paceUnitLabel, metersToMiles, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
+import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate, paceUnitLabel, metersToMiles, distanceUnitLabel, formatDistanceShort, type DistanceUnit } from '@/lib/utils'
 import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
@@ -107,7 +107,7 @@ export default async function FiveKAnalysisPage() {
               <tr key={i} className="border-b border-[#1a1a1a]">
                 <td className="px-2 py-2 text-[#6b7280] font-mono">{rep.lapIndex}</td>
                 <td className="px-2 py-2 font-mono text-white whitespace-nowrap">
-                  {rep.distanceM >= 1000 ? `${(rep.distanceM/1000).toFixed(1)}km` : `${Math.round(rep.distanceM)}m`}
+                  {rep.distanceM >= 1000 ? formatDistanceShort(rep.distanceM, unit) : `${Math.round(rep.distanceM)}m`}
                 </td>
                 <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm, unit)}{paceUnitLabel(unit)}</td>
                 <td className="px-2 py-2 font-mono text-[#9ca3af] whitespace-nowrap">{formatDuration(rep.durationSecs)}</td>
@@ -139,7 +139,7 @@ export default async function FiveKAnalysisPage() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#1c1c1c]">
-              {[laps.length > 0 ? 'Lap' : 'km', 'Dist', 'Pace', 'Time', 'HR'].map(h => (
+              {[laps.length > 0 ? 'Lap' : (unit === 'miles' ? 'mi' : 'km'), 'Dist', 'Pace', 'Time', 'HR'].map(h => (
                 <th key={h} className="text-left px-3 py-2 text-[#4b5563] font-medium">{h}</th>
               ))}
             </tr>
@@ -153,7 +153,7 @@ export default async function FiveKAnalysisPage() {
                 <tr key={i} className="border-b border-[#1a1a1a]">
                   <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-[#6b7280]'}`}>{i+1}</td>
                   <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-white'}`}>
-                    {lap.distance >= 1000 ? `${(lap.distance/1000).toFixed(2)}km` : `${Math.round(lap.distance)}m`}
+                    {lap.distance >= 1000 ? formatDistanceShort(lap.distance, unit) : `${Math.round(lap.distance)}m`}
                   </td>
                   <td className={`px-3 py-2 font-mono font-bold ${isWarmCool ? 'text-[#3a3a3a]' : 'text-white'}`}>{speedToPace(lap.average_speed, unit)}{paceUnitLabel(unit)}</td>
                   <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-[#9ca3af]'}`}>{formatDuration(lap.moving_time)}</td>
@@ -215,7 +215,7 @@ export default async function FiveKAnalysisPage() {
                         <Link href={`/runs/${run.id}`} className="font-display font-bold text-base hover:text-[#f97316] transition-colors">{run.name}</Link>
                         <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
                       </div>
-                      <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}</div>
+                      <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
                     </div>
                     {estimate ? (
                       <div className="text-right shrink-0">
@@ -263,7 +263,7 @@ export default async function FiveKAnalysisPage() {
                         <Link href={`/runs/${run.id}`} className="font-display font-bold text-base hover:text-blue-400 transition-colors">{run.name}</Link>
                         <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
                       </div>
-                      <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}</div>
+                      <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
                     </div>
                     {estimate ? (
                       <div className="text-right shrink-0">
@@ -313,13 +313,13 @@ export default async function FiveKAnalysisPage() {
                         <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} autoExcludedReason={eff?.excludedReason} />
                       </div>
                       <div className="text-[#6b7280] text-xs mt-0.5">
-                        {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {(run.distance/1000).toFixed(1)} km · {formatDuration(run.moving_time)}
+                        {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
                         {run.run_type && <span className="ml-2 text-purple-400 capitalize">{run.run_type.replace(/_/g, ' ')}</span>}
                       </div>
                     </div>
                     {eff && !eff.excludedReason ? (
                       <div className="text-right shrink-0">
-                        <div className="stat-num text-xl font-bold text-purple-400">{formatPace(eff.normalizedPaceSec)}/km</div>
+                        <div className="stat-num text-xl font-bold text-purple-400">{speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
                         <div className="text-[#6b7280] text-xs">@ 150 bpm</div>
                       </div>
                     ) : null}
@@ -329,15 +329,15 @@ export default async function FiveKAnalysisPage() {
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="bg-[#111] rounded-lg px-2 py-2">
                         <div className="text-[#4b5563] mb-0.5">Last 15 min</div>
-                        <div className="font-mono text-white font-bold">{formatPace(eff.windowPace)}/km</div>
-                        <div className="text-[#4b5563] mt-0.5">{Math.round(eff.windowHR)} bpm · {Math.round(eff.windowSecs/60)}m/{eff.windowSplitsCount}km</div>
+                        <div className="font-mono text-white font-bold">{speedToPace(1000/eff.windowPace, unit)}{paceUnitLabel(unit)}</div>
+                        <div className="text-[#4b5563] mt-0.5">{Math.round(eff.windowHR)} bpm · {Math.round(eff.windowSecs/60)}m/{eff.windowSplitsCount}{unit === 'miles' ? 'mi' : 'km'}</div>
                       </div>
                       <div className="bg-[#111] rounded-lg px-2 py-2">
                         <div className="text-[#4b5563] mb-0.5">HR adj.</div>
                         <div className={`font-mono font-bold ${eff.avgHR > 150 ? 'text-emerald-400' : 'text-orange-400'}`}>
                           {eff.avgHR > 150 ? '▼' : '▲'}{Math.abs((eff.avgPaceSecPerKm - eff.normalizedPaceSec)).toFixed(1)}s
                         </div>
-                        <div className="text-[#4b5563] mt-0.5">→ {formatPace(eff.normalizedPaceSec)}/km</div>
+                        <div className="text-[#4b5563] mt-0.5">→ {speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
                       </div>
                       <div className="bg-[#111] rounded-lg px-2 py-2">
                         <div className="text-[#4b5563] mb-0.5">Slope</div>

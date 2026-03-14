@@ -116,14 +116,14 @@ export default async function RunDetailPage({ params }: { params: { id: string }
           </div>
         )}
 
-        {/* Km Splits */}
+        {/* Splits */}
         {splits.length > 0 && (
           <div className="card mb-6 fade-up">
             <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
-              Km Splits
+              {unit === 'miles' ? 'Mile Splits' : 'Km Splits'}
             </h2>
             <div className="pb-4">
-            <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" runType={run.run_type} />
+            <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" runType={run.run_type} unit={unit} />
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { X, Save } from 'lucide-react'
+import { X, Save, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useUnit } from '@/lib/unit-context'
 import type { DistanceUnit } from '@/lib/utils'
@@ -14,6 +14,12 @@ interface Profile {
   max_hr?: number | null
 }
 
+interface StravaData {
+  display_name: string | null
+  gender: string | null
+  weight_kg: number | null
+}
+
 interface Props {
   open: boolean
   onClose: () => void
@@ -24,6 +30,7 @@ export default function SettingsDrawer({ open, onClose }: Props) {
   const { setUnit } = useUnit()
 
   const [profile, setProfile] = useState<Profile>({})
+  const [strava, setStrava] = useState<StravaData | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -34,8 +41,16 @@ export default function SettingsDrawer({ open, onClose }: Props) {
     setLoading(true)
     fetch('/api/settings')
       .then(r => r.json())
-      .then(({ profile: p }) => {
-        setProfile(p ?? {})
+      .then(({ profile: p, strava: s }) => {
+        setStrava(s ?? null)
+        // Pre-fill null DB fields with Strava data
+        const merged: Profile = { ...(p ?? {}) }
+        if (s) {
+          if (!merged.display_name && s.display_name) merged.display_name = s.display_name
+          if (!merged.gender && s.gender) merged.gender = s.gender
+          if (!merged.weight_kg && s.weight_kg) merged.weight_kg = s.weight_kg
+        }
+        setProfile(merged)
       })
       .finally(() => setLoading(false))
   }, [open])
@@ -66,6 +81,16 @@ export default function SettingsDrawer({ open, onClose }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  function syncFromStrava() {
+    if (!strava) return
+    setProfile(prev => ({
+      ...prev,
+      display_name: strava.display_name ?? prev.display_name,
+      gender: strava.gender ?? prev.gender,
+      weight_kg: strava.weight_kg ?? prev.weight_kg,
+    }))
   }
 
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
@@ -106,7 +131,19 @@ export default function SettingsDrawer({ open, onClose }: Props) {
             <>
               {/* ── Profile ───────────────────────────────────────── */}
               <section>
-                <h3 className="text-[#6b7280] text-xs font-bold uppercase tracking-widest mb-3">Profile</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[#6b7280] text-xs font-bold uppercase tracking-widest">Profile</h3>
+                  {strava && (
+                    <button
+                      onClick={syncFromStrava}
+                      className="flex items-center gap-1 text-xs text-[#6b7280] hover:text-[#f97316] transition-colors"
+                      title="Re-fill from Strava"
+                    >
+                      <RefreshCw size={11} />
+                      Sync from Strava
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-[#9ca3af] mb-1.5">Display Name</label>

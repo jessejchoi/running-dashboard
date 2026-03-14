@@ -7,13 +7,27 @@ export async function GET() {
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabaseAdmin
-    .from('user_profiles')
-    .select('display_name, age, gender, unit, primary_group_id, weight_kg, max_hr')
-    .eq('athlete_id', athleteId)
-    .maybeSingle()
+  const [{ data: profile }, { data: tokenRow }] = await Promise.all([
+    supabaseAdmin
+      .from('user_profiles')
+      .select('display_name, age, gender, unit, primary_group_id, weight_kg, max_hr')
+      .eq('athlete_id', athleteId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('strava_tokens')
+      .select('athlete_data')
+      .eq('athlete_id', athleteId)
+      .maybeSingle(),
+  ])
 
-  return NextResponse.json({ profile: profile ?? {} })
+  const athlete = tokenRow?.athlete_data as any
+  const strava = athlete ? {
+    display_name: [athlete.firstname, athlete.lastname].filter(Boolean).join(' ') || null,
+    gender: (athlete.sex as string) ?? null,
+    weight_kg: athlete.weight ? Number(athlete.weight) : null,
+  } : null
+
+  return NextResponse.json({ profile: profile ?? {}, strava })
 }
 
 export async function PATCH(req: Request) {

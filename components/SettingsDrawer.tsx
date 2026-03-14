@@ -5,17 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useUnit } from '@/lib/unit-context'
 import type { DistanceUnit } from '@/lib/utils'
 
-interface Group {
-  id: string
-  name: string
-}
-
 interface Profile {
   display_name?: string
   age?: number | null
   gender?: string | null
   unit?: DistanceUnit
-  primary_group_id?: string | null
   weight_kg?: number | null
   max_hr?: number | null
 }
@@ -30,7 +24,6 @@ export default function SettingsDrawer({ open, onClose }: Props) {
   const { setUnit } = useUnit()
 
   const [profile, setProfile] = useState<Profile>({})
-  const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -41,9 +34,8 @@ export default function SettingsDrawer({ open, onClose }: Props) {
     setLoading(true)
     fetch('/api/settings')
       .then(r => r.json())
-      .then(({ profile: p, groups: g }) => {
+      .then(({ profile: p }) => {
         setProfile(p ?? {})
-        setGroups(g ?? [])
       })
       .finally(() => setLoading(false))
   }, [open])
@@ -212,22 +204,6 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                     </div>
                   </div>
 
-                  {groups.length > 0 && (
-                    <div>
-                      <label className="block text-xs text-[#9ca3af] mb-1.5">Primary Group</label>
-                      <select
-                        value={profile.primary_group_id ?? ''}
-                        onChange={e => set('primary_group_id', e.target.value || null)}
-                        className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm text-white outline-none transition-colors"
-                      >
-                        <option value="">None</option>
-                        {groups.map(g => (
-                          <option key={g.id} value={g.id}>{g.name}</option>
-                        ))}
-                      </select>
-                      <p className="text-[#4b5563] text-xs mt-1">Shown on your dashboard</p>
-                    </div>
-                  )}
                 </div>
               </section>
             </>

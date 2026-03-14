@@ -7,24 +7,13 @@ export async function GET() {
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const [{ data: profile }, { data: memberships }] = await Promise.all([
-    supabaseAdmin
-      .from('user_profiles')
-      .select('display_name, age, gender, unit, primary_group_id, weight_kg, max_hr')
-      .eq('athlete_id', athleteId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('group_members')
-      .select('group_id, groups(id, name)')
-      .eq('athlete_id', athleteId),
-  ])
+  const { data: profile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('display_name, age, gender, unit, primary_group_id, weight_kg, max_hr')
+    .eq('athlete_id', athleteId)
+    .maybeSingle()
 
-  const groups = (memberships ?? []).map((m: any) => ({
-    id: m.groups?.id ?? m.group_id,
-    name: m.groups?.name ?? 'Group',
-  }))
-
-  return NextResponse.json({ profile: profile ?? {}, groups })
+  return NextResponse.json({ profile: profile ?? {} })
 }
 
 export async function PATCH(req: Request) {
@@ -33,7 +22,7 @@ export async function PATCH(req: Request) {
   if (!athleteId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { display_name, age, gender, unit, primary_group_id, weight_kg, max_hr } = body
+  const { display_name, age, gender, unit, weight_kg, max_hr } = body
 
   const { data, error } = await supabaseAdmin
     .from('user_profiles')
@@ -43,7 +32,6 @@ export async function PATCH(req: Request) {
       age: age ? Number(age) : null,
       gender: gender ?? null,
       unit: unit ?? 'km',
-      primary_group_id: primary_group_id ?? null,
       weight_kg: weight_kg ? Number(weight_kg) : null,
       max_hr: max_hr ? Number(max_hr) : null,
       updated_at: new Date().toISOString(),

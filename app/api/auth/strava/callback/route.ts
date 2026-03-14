@@ -44,18 +44,48 @@ export async function GET(request: NextRequest) {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'athlete_id' })
 
-  // If a pending profile was collected during onboarding, save it now
+  // Seed or update user_profiles
   const pendingProfile = request.cookies.get('pending_profile')?.value
-  if (pendingProfile) {
+  const { data: existingProfile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('athlete_id, unit')
+    .eq('athlete_id', athlete.id)
+    .maybeSingle()
+
+  const stravaUnit: 'km' | 'miles' = athlete.measurement_preference === 'feet' ? 'miles' : 'km'
+
+  if (!existingProfile) {
+    // New user — seed profile from Strava data
+    const initialProfile: Record<string, unknown> = {
+      athlete_id: athlete.id,
+      display_name: [athlete.firstname, athlete.lastname].filter(Boolean).join(' ') || null,
+      gender: athlete.sex ?? null,
+      weight_kg: athlete.weight ? Number(athlete.weight) : null,
+      unit: stravaUnit,
+      updated_at: new Date().toISOString(),
+    }
+    // Merge onboarding fields on top (user-entered data takes precedence)
+    if (pendingProfile) {
+      try {
+        const pending = JSON.parse(pendingProfile)
+        if (pending.display_name) initialProfile.display_name = pending.display_name
+        if (pending.age != null) initialProfile.age = pending.age
+        if (pending.gender) initialProfile.gender = pending.gender
+      } catch (e) {
+        console.error('Failed to parse pending profile:', e)
+      }
+    }
+    await supabaseAdmin.from('user_profiles').insert(initialProfile)
+  } else if (pendingProfile) {
+    // Existing user reconnecting — only apply onboarding overrides if present
     try {
-      const profile = JSON.parse(pendingProfile)
-      await supabaseAdmin.from('user_profiles').upsert({
-        athlete_id: athlete.id,
-        display_name: profile.display_name,
-        age: profile.age ?? null,
-        gender: profile.gender ?? null,
+      const pending = JSON.parse(pendingProfile)
+      await supabaseAdmin.from('user_profiles').update({
+        ...(pending.display_name && { display_name: pending.display_name }),
+        ...(pending.age != null && { age: pending.age }),
+        ...(pending.gender && { gender: pending.gender }),
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'athlete_id' })
+      }).eq('athlete_id', athlete.id)
     } catch (e) {
       console.error('Failed to save pending profile:', e)
     }
@@ -72,8 +102,18 @@ export async function GET(request: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 365, // 1 year
+    maxAge: 60 * 60 * 24 * 365,
   })
+  // Set unit_pref for new users so units work immediately without visiting settings
+  if (!existingProfile) {
+    response.cookies.set('unit_pref', stravaUnit, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+      path: '/',
+    })
+  }
 
   return response
 }

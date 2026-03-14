@@ -51,11 +51,10 @@
 }
 
 /* h1.font-display has specificity 0,1,1 — beats Tailwind utility classes (0,1,0)
-   so this line-height applies regardless of which leading-* class is present,
-   ensuring deep descenders (g, y, p, etc.) in the Syne display font are never clipped. */
+   Generous line-height ensures deep descenders (g, y, p) in Syne ExtraBold
+   are never clipped by the line box. */
 h1.font-display {
-  line-height: 1.25;
-  padding-bottom: 0.2em;
+  line-height: 1.5;
   overflow: visible;
 }
 

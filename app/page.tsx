@@ -202,7 +202,7 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between mb-4 fade-up">
           <div>
             <h1 className="font-display font-extrabold text-3xl leading-normal pb-1">
-              Hey, {displayName ?? athlete?.firstname ?? 'Runner'} 👋
+              Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]} 👋
             </h1>
             <p className="text-[#6b7280] text-sm mt-1">
               {format(new Date(), 'EEEE, MMMM d')} · {activities.length} runs tracked

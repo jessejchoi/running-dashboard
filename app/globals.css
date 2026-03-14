@@ -50,6 +50,15 @@
   padding-bottom: 0.1em;
 }
 
+/* h1.font-display has specificity 0,1,1 — beats Tailwind utility classes (0,1,0)
+   so this line-height applies regardless of which leading-* class is present,
+   ensuring deep descenders (g, y, p, etc.) in the Syne display font are never clipped. */
+h1.font-display {
+  line-height: 1.25;
+  padding-bottom: 0.2em;
+  overflow: visible;
+}
+
 @keyframes pulse-ring {
   0%   { transform: scale(0.95); opacity: 0.7; }
   70%  { transform: scale(1.05); opacity: 0.2; }

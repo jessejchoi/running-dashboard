@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { X, Save, RefreshCw } from 'lucide-react'
+import { X, Save } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useUnit } from '@/lib/unit-context'
 import type { DistanceUnit } from '@/lib/utils'
@@ -85,16 +85,6 @@ export default function SettingsDrawer({ open, onClose }: Props) {
     }
   }
 
-  function syncFromStrava() {
-    if (!strava) return
-    setProfile(prev => ({
-      ...prev,
-      display_name: strava.display_name ?? prev.display_name,
-      gender: strava.gender ?? prev.gender,
-      weight_kg: strava.weight_kg ?? prev.weight_kg,
-    }))
-  }
-
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile(prev => ({ ...prev, [key]: value }))
   }
@@ -135,16 +125,6 @@ export default function SettingsDrawer({ open, onClose }: Props) {
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[#6b7280] text-xs font-bold uppercase tracking-widest">Profile</h3>
-                  {strava && (
-                    <button
-                      onClick={syncFromStrava}
-                      className="flex items-center gap-1 text-xs text-[#6b7280] hover:text-[#f97316] transition-colors"
-                      title="Re-fill from Strava"
-                    >
-                      <RefreshCw size={11} />
-                      Sync from Strava
-                    </button>
-                  )}
                 </div>
                 <div className="space-y-3">
                   <div>

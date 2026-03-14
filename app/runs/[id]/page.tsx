@@ -136,7 +136,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
               Laps ({laps.length})
             </h2>
             <div className="pb-4">
-            <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" runType={run.run_type} kmSplitCount={splits.length} />
+            <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" runType={run.run_type} kmSplitCount={rawSplits.length} unit={unit} />
             </div>
           </div>
         )}

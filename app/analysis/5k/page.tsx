@@ -29,14 +29,13 @@ export default async function FiveKAnalysisPage() {
   if (!athleteId) redirect('/')
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
-  // Fetch user's 5K goal for target line
-  const { data: goalRow, error: goalError } = await supabaseAdmin
-    .from('user_goals')
-    .select('target_secs')
-    .eq('athlete_id', parseInt(athleteId))
-    .eq('distance_key', '5k')
-    .maybeSingle()
+  // Fetch user's 5K goal and profile in parallel
+  const [{ data: goalRow }, { data: userProfile }] = await Promise.all([
+    supabaseAdmin.from('user_goals').select('target_secs').eq('athlete_id', parseInt(athleteId)).eq('distance_key', '5k').maybeSingle(),
+    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
+  ])
   const TARGET_SECS = goalRow?.target_secs ?? (22 * 60 + 30)
+  const maxHr: number | undefined = userProfile?.max_hr ?? undefined
 
   const [{ data: intervalRuns }, { data: thresholdRuns }, { data: easyRuns }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }),
@@ -44,8 +43,8 @@ export default async function FiveKAnalysisPage() {
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
   ])
 
-  const intervalEstimates  = analyzeAllIntervalSessions((intervalRuns ?? []).filter((r: any) => !r.excluded_from_analysis))
-  const thresholdEstimates = (thresholdRuns ?? []).filter((r: any) => !r.excluded_from_analysis).map(a => analyzeThresholdSession(a)).filter(Boolean) as NonNullable<ReturnType<typeof analyzeThresholdSession>>[]
+  const intervalEstimates  = analyzeAllIntervalSessions((intervalRuns ?? []).filter((r: any) => !r.excluded_from_analysis), maxHr)
+  const thresholdEstimates = (thresholdRuns ?? []).filter((r: any) => !r.excluded_from_analysis).map(a => analyzeThresholdSession(a, maxHr)).filter(Boolean) as NonNullable<ReturnType<typeof analyzeThresholdSession>>[]
   const easyRunResults = (easyRuns ?? []).map((r: any) => ({ run: r, result: analyzeEasyRun(r) }))
   const easyEstimates = easyRunResults
     .filter(({ run, result }) => result && !result.excludedReason && !run.excluded_from_analysis)
@@ -180,6 +179,12 @@ export default async function FiveKAnalysisPage() {
           <p className="text-[#6b7280] text-sm max-w-3xl">
             Three independent signals — each uses a different method suited to the run type.
           </p>
+          {!maxHr && (
+            <div className="flex items-center gap-2 bg-[#1a1a0a] border border-[#f97316]/30 rounded-xl px-4 py-3 mt-4 text-sm max-w-xl">
+              <span className="text-[#f97316] shrink-0">⚠</span>
+              <span className="text-[#9ca3af]">HR-based corrections use a default max HR of 195 bpm — open <span className="text-white font-medium">Settings</span> (gear icon) to add your actual max HR for personalised estimates.</span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

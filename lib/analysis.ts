@@ -53,7 +53,7 @@ export function formatPace(secsPerKm: number): string {
 
 // ─── Rest correction ──────────────────────────────────────────────────────────
 
-const MAX_HR = 195
+const DEFAULT_MAX_HR = 195
 const RACE_HR_FRACTION = 0.96  // 5K is run at ~96% HRmax
 
 /**
@@ -74,13 +74,13 @@ const RACE_HR_FRACTION = 0.96  // 5K is run at ~96% HRmax
  * Running faster always gives a better estimate regardless of HR.
  * Clamped to [1.0, 1.20].
  */
-function repCorrectionFactor(restPerRepSecs: number, repDurationSecs: number, repHR?: number): number {
+function repCorrectionFactor(restPerRepSecs: number, repDurationSecs: number, repHR?: number, maxHr: number = DEFAULT_MAX_HR): number {
   const anaerobicBonus = 0.38 * Math.exp(-repDurationSecs / 160)
   const restBonus      = 0.06 * (1 - Math.exp(-restPerRepSecs / 120))
   const base = 1 + anaerobicBonus + restBonus
 
   if (repHR && repHR > 100) {
-    const targetHR = MAX_HR * RACE_HR_FRACTION
+    const targetHR = maxHr * RACE_HR_FRACTION
     const hrDelta = (targetHR - repHR) / targetHR  // negative if HR above target
     const hrMod = 1 - hrDelta * 0.3                // ±3% max adjustment
     return Math.min(1.20, Math.max(1.0, base * hrMod))
@@ -215,9 +215,9 @@ function processLaps(
  */
 const DANIELS_RATIO = 0.92  // interval-format threshold → 5K (above standard 0.907 to account for rest)
 
-function danielsRatio(avgHR?: number): number {
+function danielsRatio(avgHR?: number, maxHr: number = DEFAULT_MAX_HR): number {
   if (!avgHR || avgHR <= 100) return DANIELS_RATIO
-  const expectedThresholdHR = MAX_HR * 0.88
+  const expectedThresholdHR = maxHr * 0.88
   const hrDelta = expectedThresholdHR - avgHR  // positive = ran easier than threshold → larger ratio → slower 5K
   return Math.max(0.91, Math.min(0.97, DANIELS_RATIO - hrDelta * 0.001))
 }
@@ -225,7 +225,8 @@ function danielsRatio(avgHR?: number): number {
 function buildThresholdEstimate(
   repEfforts: RepEffort[],
   recoveryLaps: RecoveryLap[],
-  activity: { id: number; name: string; start_date: string; average_heartrate?: number }
+  activity: { id: number; name: string; start_date: string; average_heartrate?: number },
+  maxHr: number = DEFAULT_MAX_HR
 ): FiveKEstimate | null {
   if (repEfforts.length === 0) return null
 
@@ -236,7 +237,7 @@ function buildThresholdEstimate(
   const workRestRatio = totalRestSecs > 0 ? totalWorkSecs / totalRestSecs : 99
 
   // Use activity-level HR for Daniels ratio (best proxy for overall effort)
-  const ratio = danielsRatio(activity.average_heartrate)
+  const ratio = danielsRatio(activity.average_heartrate, maxHr)
 
   let totalWeight = 0
   let weightedPaceSum = 0
@@ -244,10 +245,10 @@ function buildThresholdEstimate(
   for (const rep of repEfforts) {
     // Step 1: threshold pace → 5K pace via Daniels ratio
     // Use per-rep HR if available, fall back to activity-level HR
-    const repRatio = danielsRatio(rep.avgHR ?? activity.average_heartrate)
+    const repRatio = danielsRatio(rep.avgHR ?? activity.average_heartrate, maxHr)
     const fiveKPace = rep.paceSecPerKm * repRatio
     // Step 2: apply rest+duration correction (same as intervals)
-    const correction = repCorrectionFactor(restPerRep, rep.durationSecs, rep.avgHR)
+    const correction = repCorrectionFactor(restPerRep, rep.durationSecs, rep.avgHR, maxHr)
     const correctedPace = fiveKPace * correction
     rep.correctedPaceSec = correctedPace
     rep.correctedSecs = correctedPace * 5
@@ -281,7 +282,8 @@ function buildThresholdEstimate(
 function buildEstimate(
   repEfforts: RepEffort[],
   recoveryLaps: RecoveryLap[],
-  activity: { id: number; name: string; start_date: string }
+  activity: { id: number; name: string; start_date: string },
+  maxHr: number = DEFAULT_MAX_HR
 ): FiveKEstimate | null {
   if (repEfforts.length === 0) return null
 
@@ -296,7 +298,7 @@ function buildEstimate(
 
   for (let i = 0; i < numReps; i++) {
     const rep = repEfforts[i]
-    const correction = repCorrectionFactor(restPerRep, rep.durationSecs, rep.avgHR)
+    const correction = repCorrectionFactor(restPerRep, rep.durationSecs, rep.avgHR, maxHr)
     const correctedPace = rep.paceSecPerKm * correction * 0.93
     const corrected5K = correctedPace * 5
     rep.correctedPaceSec = correctedPace
@@ -344,16 +346,16 @@ export function analyzeIntervalSession(activity: {
   average_speed: number
   laps?: any[]
   splits?: any[]
-}): FiveKEstimate | null {
+}, maxHr?: number): FiveKEstimate | null {
   const laps: any[] = activity.laps ?? activity.splits ?? []
   if (laps.length < 2) return null
   const avgPace = activity.average_speed ? 1000 / activity.average_speed : 999
   const { repEfforts, recoveryLaps } = processLaps(laps, avgPace)
-  return buildEstimate(repEfforts, recoveryLaps, activity)
+  return buildEstimate(repEfforts, recoveryLaps, activity, maxHr ?? DEFAULT_MAX_HR)
 }
 
-export function analyzeAllIntervalSessions(activities: any[]): FiveKEstimate[] {
-  return activities.map(a => analyzeIntervalSession(a)).filter(Boolean) as FiveKEstimate[]
+export function analyzeAllIntervalSessions(activities: any[], maxHr?: number): FiveKEstimate[] {
+  return activities.map(a => analyzeIntervalSession(a, maxHr)).filter(Boolean) as FiveKEstimate[]
 }
 
 // ─── Threshold session analysis ───────────────────────────────────────────────
@@ -368,17 +370,18 @@ export function analyzeThresholdSession(activity: {
   average_heartrate?: number
   laps?: any[]
   splits?: any[]
-}): FiveKEstimate | null {
+}, maxHr?: number): FiveKEstimate | null {
   if (!activity.average_speed || !activity.distance || !activity.moving_time) return null
 
   const laps: any[] = activity.laps ?? activity.splits ?? []
   const avgPace = activity.average_speed ? 1000 / activity.average_speed : 999
+  const effectiveMaxHr = maxHr ?? DEFAULT_MAX_HR
 
   // Try structured first (has recovery laps)
   if (laps.length >= 3) {
     const { repEfforts, recoveryLaps } = processLaps(laps, avgPace, 180, 390)
     if (repEfforts.length >= 1 && recoveryLaps.length >= 1) {
-      return buildThresholdEstimate(repEfforts, recoveryLaps, activity)
+      return buildThresholdEstimate(repEfforts, recoveryLaps, activity, effectiveMaxHr)
     }
   }
 
@@ -409,7 +412,7 @@ export function analyzeThresholdSession(activity: {
   const paceSec = distM > 0 ? (durSecs / distM) * 1000 : 999
   if (paceSec < 180 || paceSec > 420) return null
 
-  const ratio = danielsRatio(activity.average_heartrate)
+  const ratio = danielsRatio(activity.average_heartrate, effectiveMaxHr)
   const fiveKPaceSec = paceSec * ratio
   const estimatedSecs = Math.max(840, Math.min(3000, fiveKPaceSec * 5))
 

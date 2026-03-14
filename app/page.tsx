@@ -32,12 +32,14 @@ async function getData(athleteId: number) {
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
     supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId),
-    supabaseAdmin.from('user_profiles').select('display_name, primary_group_id').eq('athlete_id', athleteId).maybeSingle(),
+    supabaseAdmin.from('user_profiles').select('display_name, primary_group_id, max_hr').eq('athlete_id', athleteId).maybeSingle(),
   ])
+
+  const maxHr = userProfile?.max_hr ?? undefined
 
   // Compute most recent 5K estimate from interval + threshold sessions
   const estimates = (qualityRuns ?? [])
-    .map((a: any) => a.run_type === 'interval_5k' ? analyzeIntervalSession(a) : analyzeThresholdSession(a))
+    .map((a: any) => a.run_type === 'interval_5k' ? analyzeIntervalSession(a, maxHr) : analyzeThresholdSession(a, maxHr))
     .filter(Boolean)
   const latest5KSecs = estimates.length > 0
     ? estimates.sort((a: any, b: any) => b.date.localeCompare(a.date))[0]!.estimatedSecs
@@ -160,6 +162,7 @@ async function getData(athleteId: number) {
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
     displayName: userProfile?.display_name ?? null,
+    hasMaxHr: !!userProfile?.max_hr,
     goals: (goalsData ?? []) as UserGoal[],
     estimates: {
       '5k':  latest5KSecs,
@@ -180,7 +183,7 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, goals, estimates, groupData } = await getData(Number(athleteId))
+  const { activities, athlete, displayName, hasMaxHr, goals, estimates, groupData } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
@@ -287,6 +290,12 @@ export default async function DashboardPage() {
 
         {/* My Race Goals */}
         <div className="mb-8">
+          {!hasMaxHr && Object.values(estimates).some(v => v != null) && (
+            <div className="flex items-center gap-2 bg-[#1a1a0a] border border-[#f97316]/30 rounded-xl px-4 py-3 mb-4 text-sm">
+              <span className="text-[#f97316] shrink-0">⚠</span>
+              <span className="text-[#9ca3af]">Race projections use a default max HR of 195 bpm — open <span className="text-white font-medium">Settings</span> (gear icon) to add your actual max HR for more accurate estimates.</span>
+            </div>
+          )}
           <GoalsSection
             initialGoals={goals}
             estimates={Object.fromEntries(

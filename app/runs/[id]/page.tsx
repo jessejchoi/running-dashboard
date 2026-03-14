@@ -6,7 +6,7 @@ import RunTypeSelector from '@/components/RunTypeSelector'
 import SplitsChart from '@/components/SplitsChart'
 import { buildLapSegments } from '@/lib/lapUtils'
 import HRChart from '@/components/HRChart'
-import { speedToPace, formatDuration, toJakartaDate } from '@/lib/utils'
+import { speedToPace, formatDuration, toJakartaDate, formatDistance, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -15,6 +15,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) redirect('/')
+  const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
   const { data: run } = await supabaseAdmin
     .from('activities')
@@ -67,8 +68,8 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         {/* Key stats — 4 cards, no HR (moved to chart) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 fade-up">
           {[
-            { label: 'Distance',  value: (run.distance / 1000).toFixed(2), unit: 'km' },
-            { label: 'Avg Pace',  value: speedToPace(run.average_speed),   unit: '/km' },
+            { label: 'Distance',  value: formatDistance(run.distance, unit).split(' ')[0], unit: unit === 'miles' ? 'mi' : 'km' },
+            { label: 'Avg Pace',  value: speedToPace(run.average_speed, unit), unit: paceUnitLabel(unit) },
             { label: 'Time',      value: formatDuration(run.moving_time),  unit: '' },
             { label: 'Elevation', value: run.total_elevation_gain ? `↑${Math.round(run.total_elevation_gain)}` : '—', unit: 'm' },
           ].map((s, i) => (

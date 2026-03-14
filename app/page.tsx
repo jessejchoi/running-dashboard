@@ -6,7 +6,7 @@ import WeeklyMileageChart from '@/components/WeeklyMileageChart'
 import GoalsSection from '@/components/GoalsSection'
 import TrainingLoadChart from '@/components/TrainingLoadChart'
 import RunTypeBadge from '@/components/RunTypeBadge'
-import { formatDuration, speedToPace, isoWeek, toJakartaDate } from '@/lib/utils'
+import { formatDuration, speedToPace, isoWeek, toJakartaDate, formatDistanceShort, distanceUnitLabel, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { analyzeIntervalSession, analyzeThresholdSession } from '@/lib/analysis'
 import Link from 'next/link'
@@ -25,12 +25,14 @@ async function getData(athleteId: number) {
     { data: tokenData },
     goalsData,
     { data: membership },
+    { data: userProfile },
   ] = await Promise.all([
     supabaseAdmin.from('activities').select('id,start_date,distance,moving_time,suffer_score,run_type,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(200),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
-    supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId).limit(1),
+    supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId),
+    supabaseAdmin.from('user_profiles').select('display_name, primary_group_id').eq('athlete_id', athleteId).maybeSingle(),
   ])
 
   // Compute most recent 5K estimate from interval + threshold sessions
@@ -51,7 +53,11 @@ async function getData(athleteId: number) {
     try {
       if (!membership?.length) return null
 
-      const groupId = membership[0].group_id
+      // Use primary group from settings if set, otherwise fall back to first membership
+      const primaryGroupId = userProfile?.primary_group_id
+      const groupId = primaryGroupId && membership.some((m: any) => m.group_id === primaryGroupId)
+        ? primaryGroupId
+        : membership[0].group_id
 
       const [{ data: group }, { data: allMembers }] = await Promise.all([
         supabaseAdmin.from('groups').select('id, name').eq('id', groupId).single(),
@@ -153,6 +159,7 @@ async function getData(athleteId: number) {
   return {
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
+    displayName: userProfile?.display_name ?? null,
     goals: (goalsData ?? []) as UserGoal[],
     estimates: {
       '5k':  latest5KSecs,
@@ -167,22 +174,23 @@ async function getData(athleteId: number) {
 export default async function DashboardPage() {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
+  const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
   if (!athleteId) {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, goals, estimates, groupData } = await getData(Number(athleteId))
+  const { activities, athlete, displayName, goals, estimates, groupData } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
   const weekActivities = activities.filter((a: any) => isoWeek(new Date(a.start_date)) === thisWeek)
-  const weekKm = weekActivities.reduce((s: number, a: any) => s + a.distance / 1000, 0)
+  const weekDist = weekActivities.reduce((s: number, a: any) => s + a.distance, 0)
   const weekTime = weekActivities.reduce((s: number, a: any) => s + a.moving_time, 0)
-  const allKm = activities.reduce((s: number, a: any) => s + a.distance / 1000, 0)
   const yearStart = new Date(new Date().getFullYear(), 0, 1)
-  const yearKm = activities.filter((a: any) => new Date(a.start_date) >= yearStart).reduce((s: number, a: any) => s + a.distance / 1000, 0)
+  const yearDist = activities.filter((a: any) => new Date(a.start_date) >= yearStart).reduce((s: number, a: any) => s + a.distance, 0)
   const recentRuns = activities.slice(0, 5)
+  const unitLabel = distanceUnitLabel(unit)
 
   return (
     <>
@@ -191,7 +199,7 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between mb-4 fade-up">
           <div>
             <h1 className="font-display font-extrabold text-3xl leading-normal pb-1">
-              Hey, {athlete?.firstname ?? 'Runner'} 👋
+              Hey, {displayName ?? athlete?.firstname ?? 'Runner'} 👋
             </h1>
             <p className="text-[#6b7280] text-sm mt-1">
               {format(new Date(), 'EEEE, MMMM d')} · {activities.length} runs tracked
@@ -205,10 +213,10 @@ export default async function DashboardPage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[
-            { label: 'This week', value: `${weekKm.toFixed(1)}`, unit: 'km' },
+            { label: 'This week', value: formatDistanceShort(weekDist, unit).split(' ')[0], unit: unitLabel },
             { label: 'Week runs', value: `${weekActivities.length}`, unit: 'runs' },
             { label: 'Week time', value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
-            { label: 'This year', value: `${Math.round(yearKm)}`, unit: 'km' },
+            { label: 'This year', value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel },
           ].map((s, i) => (
             <div key={i} className="card fade-up" style={{ animationDelay: `${i * 60}ms`, padding: '0.75rem 1rem' }}>
               <div className="text-[#6b7280] text-xs mb-1">{s.label}</div>
@@ -252,12 +260,14 @@ export default async function DashboardPage() {
               members={groupData.members}
               groupId={groupData.group.id}
               groupName={groupData.group.name}
+              unit={unit}
             />
             <GroupFeed
               runs={groupData.feedRuns}
               memberMap={groupData.memberMap}
               myAthleteId={Number(athleteId)}
               groupId={groupData.group.id}
+              unit={unit}
             />
           </div>
         ) : (

@@ -12,7 +12,7 @@ import {
   formatTime, formatPace,
   type EasyRunEfficiency,
 } from '@/lib/analysis'
-import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate } from '@/lib/utils'
+import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate, paceUnitLabel, metersToMiles, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
@@ -27,6 +27,7 @@ export default async function FiveKAnalysisPage() {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) redirect('/')
+  const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
   // Fetch user's 5K goal for target line
   const { data: goalRow, error: goalError } = await supabaseAdmin
@@ -109,7 +110,7 @@ export default async function FiveKAnalysisPage() {
                 <td className="px-2 py-2 font-mono text-white whitespace-nowrap">
                   {rep.distanceM >= 1000 ? `${(rep.distanceM/1000).toFixed(1)}km` : `${Math.round(rep.distanceM)}m`}
                 </td>
-                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm)}</td>
+                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm, unit)}{paceUnitLabel(unit)}</td>
                 <td className="px-2 py-2 font-mono text-[#9ca3af] whitespace-nowrap">{formatDuration(rep.durationSecs)}</td>
                 <td className="px-2 py-2 font-mono text-[#9ca3af]">{rep.avgHR ? Math.round(rep.avgHR) : '—'}</td>
                 <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${rep.correctedSecs <= TARGET_SECS ? 'text-emerald-400' : 'text-white'}`}>
@@ -155,7 +156,7 @@ export default async function FiveKAnalysisPage() {
                   <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-white'}`}>
                     {lap.distance >= 1000 ? `${(lap.distance/1000).toFixed(2)}km` : `${Math.round(lap.distance)}m`}
                   </td>
-                  <td className={`px-3 py-2 font-mono font-bold ${isWarmCool ? 'text-[#3a3a3a]' : 'text-white'}`}>{speedToPace(lap.average_speed)}/km</td>
+                  <td className={`px-3 py-2 font-mono font-bold ${isWarmCool ? 'text-[#3a3a3a]' : 'text-white'}`}>{speedToPace(lap.average_speed, unit)}{paceUnitLabel(unit)}</td>
                   <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-[#9ca3af]'}`}>{formatDuration(lap.moving_time)}</td>
                   <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-[#9ca3af]'}`}>{lap.average_heartrate ? `${Math.round(lap.average_heartrate)}` : '—'}</td>
                 </tr>

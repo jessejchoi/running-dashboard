@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import StandaloneDetector from '@/components/StandaloneDetector'
 import { Syne, Space_Mono, DM_Sans } from 'next/font/google'
+import { cookies } from 'next/headers'
+import { UnitProvider } from '@/lib/unit-context'
+import type { DistanceUnit } from '@/lib/utils'
 import './globals.css'
 
 const displayFont = Syne({
@@ -37,11 +40,16 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = cookies()
+  const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
+
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
       <body className="bg-[#0a0a0a] text-white font-sans antialiased min-h-screen">
         <StandaloneDetector />
-        {children}
+        <UnitProvider unit={unit}>
+          {children}
+        </UnitProvider>
       </body>
     </html>
   )

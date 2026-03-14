@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { ChevronRight, Flame } from 'lucide-react'
+import { distanceUnitLabel, metersToMiles, type DistanceUnit } from '@/lib/utils'
 
 interface Member {
   athlete_id: number
@@ -16,6 +17,7 @@ interface Props {
   members: Member[]
   groupId: string
   groupName: string
+  unit?: DistanceUnit
 }
 
 function Avatar({ name, pic }: { name: string; pic: string | null }) {
@@ -28,8 +30,11 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   )
 }
 
-export default function GroupLeaderboard({ members, groupId, groupName }: Props) {
-  const maxKm = Math.max(...members.map(m => m.weekKm), 1)
+export default function GroupLeaderboard({ members, groupId, groupName, unit = 'km' }: Props) {
+  const label = distanceUnitLabel(unit)
+  // weekKm is stored as km; convert to miles for display if needed
+  const toDisplayDist = (km: number) => unit === 'miles' ? metersToMiles(km * 1000) : km
+  const maxDist = Math.max(...members.map(m => toDisplayDist(m.weekKm)), 1)
   const sorted = [...members].sort((a, b) => b.weekKm - a.weekKm)
 
   return (
@@ -78,14 +83,14 @@ export default function GroupLeaderboard({ members, groupId, groupName }: Props)
                   )}
                 </div>
                 <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${m.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
-                  {m.weekKm.toFixed(1)} km
+                  {toDisplayDist(m.weekKm).toFixed(1)} {label}
                 </span>
               </div>
               <div className="h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${(m.weekKm / maxKm) * 100}%`,
+                    width: `${(toDisplayDist(m.weekKm) / maxDist) * 100}%`,
                     background: m.is_me ? '#f97316' : '#3a3a3a',
                   }}
                 />

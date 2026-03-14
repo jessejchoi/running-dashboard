@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import RunTypeSelector from '@/components/RunTypeSelector'
-import { speedToPace, formatDuration, toJakartaDate } from '@/lib/utils'
+import { speedToPace, formatDuration, toJakartaDate, formatDistance, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { format } from 'date-fns'
 import Link from 'next/link'
 
@@ -13,6 +13,7 @@ export default async function RunsPage() {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) redirect('/')
+  const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
   const { data: runs } = await supabaseAdmin
     .from('activities')
@@ -62,10 +63,10 @@ export default async function RunsPage() {
                         <RunTypeSelector activityId={run.id} current={run.run_type} />
                       </td>
                       <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#f97316] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
-                        {(run.distance / 1000).toFixed(2)} km
+                        {formatDistance(run.distance, unit)}
                       </td>
                       <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap font-bold ${isTreadmill ? 'opacity-40 text-[#9ca3af]' : isFast ? 'text-emerald-400' : 'text-[#d1d5db]'}`}>
-                        {speedToPace(run.average_speed)}/km
+                        {speedToPace(run.average_speed, unit)}{paceUnitLabel(unit)}
                       </td>
                       <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
                         {formatDuration(run.moving_time)}

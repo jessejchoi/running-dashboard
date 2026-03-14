@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { toJakartaDate, speedToPace, formatDuration } from '@/lib/utils'
+import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 
 interface Run {
   id: number
@@ -28,6 +28,7 @@ interface Props {
   memberMap: MemberMap
   myAthleteId: number
   groupId: string
+  unit?: DistanceUnit
 }
 
 const RUN_TYPE_COLORS: Record<string, string> = {
@@ -49,7 +50,7 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   )
 }
 
-export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Props) {
+export default function GroupFeed({ runs, memberMap, myAthleteId, groupId, unit = 'km' }: Props) {
   // 15% taller: 336 * 1.15 ≈ 387px
   const maxHeight = runs.length === 0 ? 'auto' : '387px'
 
@@ -101,10 +102,10 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId }: Pro
                 </Link>
                 <div className="flex gap-3 text-xs font-mono">
                   <span className={isMe ? 'text-[#f97316] font-bold' : 'text-[#6b7280]'}>
-                    {(run.distance / 1000).toFixed(1)} km
+                    {formatDistanceShort(run.distance, unit)}
                   </span>
                   <span className={isMe ? 'text-white' : 'text-[#6b7280]'}>
-                    {speedToPace(run.average_speed)}/km
+                    {speedToPace(run.average_speed, unit)}{paceUnitLabel(unit)}
                   </span>
                   <span className="text-[#4b5563]">{formatDuration(run.moving_time)}</span>
                   {run.average_heartrate && (

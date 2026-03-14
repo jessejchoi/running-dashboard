@@ -1,8 +1,9 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Activity, List, RefreshCw, BarChart2, Calendar, Users } from 'lucide-react'
+import { Activity, List, RefreshCw, BarChart2, Calendar, Users, Settings } from 'lucide-react'
 import { useState, useTransition } from 'react'
+import SettingsDrawer from './SettingsDrawer'
 
 const navItems = [
   { href: '/',            label: 'Dashboard', icon: Activity },
@@ -19,6 +20,7 @@ export default function Nav() {
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [pendingHref, setPendingHref] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   function handleNavClick(href: string) {
     if (href === path) return
@@ -88,6 +90,13 @@ export default function Nav() {
               </span>
             ) : 'Sync Strava'}
           </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-2 text-[#6b7280] hover:text-white border border-[#2a2a2a] hover:border-[#3a3a3a] rounded-lg transition-all"
+            title="Settings"
+          >
+            <Settings size={14} />
+          </button>
         </div>
         {isPending && (
           <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316] animate-pulse" style={{ width: '40%' }} />
@@ -100,15 +109,23 @@ export default function Nav() {
           <span className="text-[#f97316]">RUN</span>
           <span className="text-white/60">DASH</span>
         </span>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-[#2a2a2a] rounded-lg transition-all disabled:opacity-50"
-          style={{ color: syncMsg && !syncing ? '#34d399' : '#6b7280' }}
-        >
-          <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-[#2a2a2a] rounded-lg transition-all disabled:opacity-50"
+            style={{ color: syncMsg && !syncing ? '#34d399' : '#6b7280' }}
+          >
+            <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
+          </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-1.5 text-[#6b7280] border border-[#2a2a2a] rounded-lg transition-all"
+          >
+            <Settings size={14} />
+          </button>
+        </div>
         {isPending && (
           <div className="absolute bottom-0 left-0 h-[2px] bg-[#f97316] animate-pulse" style={{ width: '40%' }} />
         )}
@@ -142,6 +159,9 @@ export default function Nav() {
 
       {/* Mobile bottom spacer */}
       <div className="mobile-nav-spacer sm:hidden" />
+
+      {/* Settings drawer */}
+      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
-import { metersToKm, isoWeek } from '@/lib/utils'
+import { metersToKm, metersToMiles, distanceUnitLabel, isoWeek } from '@/lib/utils'
+import { useUnit } from '@/lib/unit-context'
 import { format, parseISO } from 'date-fns'
 
 interface Activity {
@@ -13,21 +14,25 @@ interface Props {
   weeks?: number
 }
 
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, unitLabel }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs">
       <div className="text-[#6b7280] mb-1">{label}</div>
-      <div className="font-mono text-white font-bold">{payload[0].value.toFixed(1)} km</div>
+      <div className="font-mono text-white font-bold">{payload[0].value.toFixed(1)} {unitLabel}</div>
     </div>
   )
 }
 
 export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
+  const { unit } = useUnit()
+  const unitLabel = distanceUnitLabel(unit)
+
   const weekMap: Record<string, number> = {}
   for (const a of activities) {
     const w = isoWeek(new Date(a.start_date))
-    weekMap[w] = (weekMap[w] ?? 0) + metersToKm(a.distance)
+    const dist = unit === 'miles' ? metersToMiles(a.distance) : metersToKm(a.distance)
+    weekMap[w] = (weekMap[w] ?? 0) + dist
   }
 
   const data = Array.from({ length: weeks }, (_, i) => {
@@ -60,7 +65,7 @@ export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
           <ReferenceLine y={avg} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.5} strokeWidth={1} />
           <Bar dataKey="km" radius={[3, 3, 0, 0]}>
             {data.map((entry, i) => (

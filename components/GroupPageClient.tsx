@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { Copy, Check, Users, Target, Activity, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
-import { toJakartaDate, speedToPace, formatDuration } from '@/lib/utils'
+import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel } from '@/lib/utils'
+import { useUnit } from '@/lib/unit-context'
 
 interface Goal {
   id: string
@@ -104,6 +105,7 @@ function RunTypeDot({ type }: { type: string | null }) {
 export default function GroupPageClient({ group, members, recentRuns, myRole, inviteUrl, myAthleteId }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'feed' | 'members' | 'goals'>('feed')
+  const { unit } = useUnit()
 
   function copyInvite() {
     navigator.clipboard.writeText(inviteUrl)
@@ -207,8 +209,8 @@ export default function GroupPageClient({ group, members, recentRuns, myRole, in
                       {run.name}
                     </a>
                     <div className="flex gap-4 text-xs font-mono">
-                      <span className="text-[#f97316] font-bold">{(run.distance / 1000).toFixed(1)} km</span>
-                      <span className="text-white">{speedToPace(run.average_speed)}/km</span>
+                      <span className="text-[#f97316] font-bold">{formatDistanceShort(run.distance, unit)}</span>
+                      <span className="text-white">{speedToPace(run.average_speed, unit)}{paceUnitLabel(unit)}</span>
                       <span className="text-[#6b7280]">{formatDuration(run.moving_time)}</span>
                       {run.average_heartrate && (
                         <span className="text-[#6b7280]">{Math.round(run.average_heartrate)} bpm</span>
@@ -284,7 +286,7 @@ export default function GroupPageClient({ group, members, recentRuns, myRole, in
                         <div className="flex gap-3 text-xs mb-2">
                           <div>
                             <div className="text-[#4b5563] mb-0.5">Target</div>
-                            <div className="font-mono text-[#f97316] font-bold">{paceStr(targetPace)}/km</div>
+                            <div className="font-mono text-[#f97316] font-bold">{paceStr(targetPace)}{paceUnitLabel(unit)}</div>
                           </div>
                           {goal.current_secs && (
                             <div>

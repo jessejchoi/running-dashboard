@@ -4,16 +4,32 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
 }
 
+// ─── Unit types ───────────────────────────────────────────────────────────────
+
+export type DistanceUnit = 'km' | 'miles'
+
+const METERS_PER_MILE = 1609.344
+
+export function metersToMiles(m: number): number {
+  return m / METERS_PER_MILE
+}
+
 // ─── Pace / speed conversions ─────────────────────────────────────────────────
 
-/** Converts m/s to min/km pace string e.g. "4:32" — handles secs=60 rollover */
-export function speedToPace(speedMs: number): string {
+/** Converts m/s to pace string e.g. "4:32" — handles secs=60 rollover */
+export function speedToPace(speedMs: number, unit: DistanceUnit = 'km'): string {
   if (!speedMs || speedMs === 0) return '--'
-  const secsPerKm = 1000 / speedMs
-  let mins = Math.floor(secsPerKm / 60)
-  let secs = Math.round(secsPerKm % 60)
+  const metersPerUnit = unit === 'miles' ? METERS_PER_MILE : 1000
+  const secsPerUnit = metersPerUnit / speedMs
+  let mins = Math.floor(secsPerUnit / 60)
+  let secs = Math.round(secsPerUnit % 60)
   if (secs === 60) { mins += 1; secs = 0 }
   return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+/** Pace unit label string e.g. "/km" or "/mi" */
+export function paceUnitLabel(unit: DistanceUnit): string {
+  return unit === 'miles' ? '/mi' : '/km'
 }
 
 /** Converts min/km pace string to seconds per km */
@@ -34,8 +50,20 @@ export function metersToKm(m: number): number {
   return m / 1000
 }
 
-export function formatDistance(m: number): string {
+export function formatDistance(m: number, unit: DistanceUnit = 'km'): string {
+  if (unit === 'miles') return `${metersToMiles(m).toFixed(2)} mi`
   return `${(m / 1000).toFixed(2)} km`
+}
+
+/** Short distance (1 decimal) with unit label */
+export function formatDistanceShort(m: number, unit: DistanceUnit = 'km'): string {
+  if (unit === 'miles') return `${metersToMiles(m).toFixed(1)} mi`
+  return `${(m / 1000).toFixed(1)} km`
+}
+
+/** Distance unit label: "km" or "mi" */
+export function distanceUnitLabel(unit: DistanceUnit): string {
+  return unit === 'miles' ? 'mi' : 'km'
 }
 
 // ─── Time formatting ──────────────────────────────────────────────────────────

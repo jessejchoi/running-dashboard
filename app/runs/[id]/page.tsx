@@ -55,7 +55,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         <div className="mb-8 fade-up">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="font-display font-extrabold text-3xl mb-2">{run.name}</h1>
+              <h1 className="font-display font-extrabold text-4xl mb-2">{run.name}</h1>
               <p className="text-[#6b7280] text-sm">
                 {format(toJakartaDate(run.start_date), 'EEEE, MMMM d yyyy · h:mm a')}
               </p>

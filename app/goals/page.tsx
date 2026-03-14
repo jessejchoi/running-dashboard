@@ -40,7 +40,7 @@ export default async function GoalsPage() {
       <Nav />
       <main className="max-w-5xl mx-auto px-6 pt-24 pb-16">
         <div className="mb-8 fade-up">
-          <h1 className="font-display font-extrabold text-3xl mb-1">Race Goals</h1>
+          <h1 className="font-display font-extrabold text-4xl mb-1">Race Goals</h1>
           <p className="text-[#6b7280] text-sm">
             Tracking your path to three target races in 2026
           </p>

@@ -201,7 +201,7 @@ export default async function DashboardPage() {
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-16">
         <div className="flex items-center justify-between mb-4 fade-up">
           <div>
-            <h1 className="font-display font-extrabold text-3xl leading-normal pb-1">
+            <h1 className="font-display font-extrabold text-4xl">
               Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]} 👋
             </h1>
             <p className="text-[#6b7280] text-sm mt-1">

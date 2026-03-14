@@ -87,7 +87,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
     <main className="max-w-2xl mx-auto px-4 pt-14 sm:pt-20 pb-16">
       <div className="flex items-center justify-between mb-6 fade-up">
         <div>
-          <h1 className="font-display font-extrabold text-3xl">Groups</h1>
+          <h1 className="font-display font-extrabold text-4xl">Groups</h1>
           <p className="text-[#6b7280] text-sm mt-1">Train with friends and stay accountable.</p>
         </div>
         <button

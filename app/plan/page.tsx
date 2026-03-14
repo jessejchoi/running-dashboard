@@ -108,7 +108,7 @@ export default function PlanPage() {
       <Nav />
       <main className="standalone-main max-w-6xl mx-auto px-4 pt-8 sm:pt-20 pb-16">
         <div className="mb-8 fade-up">
-          <h1 className="font-display font-extrabold text-3xl leading-normal pb-1 mb-1">Training Plan</h1>
+          <h1 className="font-display font-extrabold text-4xl mb-1">Training Plan</h1>
           <p className="text-[#6b7280] text-sm">5K target — Apr 15, 2026</p>
         </div>
 

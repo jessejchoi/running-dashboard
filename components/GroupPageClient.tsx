@@ -122,7 +122,7 @@ export default function GroupPageClient({ group, members, recentRuns, myRole, in
       {/* Header */}
       <div className="flex items-start justify-between mb-6 fade-up">
         <div>
-          <h1 className="font-display font-extrabold text-3xl">{group.name}</h1>
+          <h1 className="font-display font-extrabold text-4xl">{group.name}</h1>
           <p className="text-[#6b7280] text-sm mt-1">
             {members.length} member{members.length !== 1 ? 's' : ''} · Created {format(new Date(group.created_at), 'MMM d, yyyy')}
           </p>

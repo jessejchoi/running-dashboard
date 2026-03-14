@@ -76,7 +76,7 @@ export default function SplitsChart({
             <div className="rounded-sm" style={{ width: '50%', height: 16, backgroundColor: '#f97316', opacity: 0.8 }} />
           </div>
           <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace, unit)}</div>
-          {showDistance && <div className="text-xs font-mono text-[#9ca3af] w-8 shrink-0 text-right">{d.distKm.toFixed(2)}</div>}
+          {showDistance && <div className="text-xs font-mono text-[#9ca3af] w-8 shrink-0 text-right">{unit === 'miles' ? (d.distKm * 0.621371).toFixed(2) : d.distKm.toFixed(2)}</div>}
           <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">{d.hr ?? '—'}</div>
         </div>
       </div>
@@ -180,7 +180,7 @@ export default function SplitsChart({
                 {/* Dist */}
                 {showDistance && (
                   <div className="font-mono text-[#9ca3af] shrink-0 text-right w-8" style={{ fontSize: fs }}>
-                    {d.distKm.toFixed(2)}
+                    {unit === 'miles' ? (d.distKm * 0.621371).toFixed(2) : d.distKm.toFixed(2)}
                   </div>
                 )}
                 {/* HR */}

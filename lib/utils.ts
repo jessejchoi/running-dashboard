@@ -138,6 +138,67 @@ export const RACE_GOALS: RaceGoal[] = [
   },
 ]
 
+// ─── Mile splits aggregation ──────────────────────────────────────────────────
+
+/**
+ * Strava stores km splits. This re-aggregates them into mile splits by
+ * proportionally splitting each km chunk at the mile boundaries.
+ */
+export function aggregateToMileSplits(splits: {
+  distance?: number
+  moving_time?: number
+  average_speed?: number
+  average_heartrate?: number
+  [key: string]: any
+}[]): typeof splits {
+  const MILE_M = 1609.344
+  const result: typeof splits = []
+
+  let accDist = 0
+  let accTime = 0
+  let accHRWeighted = 0
+  let accHasHR = false
+
+  function flush() {
+    if (accDist < 10) return
+    result.push({
+      distance: accDist,
+      moving_time: accTime,
+      average_speed: accDist / (accTime || 1),
+      average_heartrate: accHasHR ? Math.round(accHRWeighted / (accTime || 1)) : undefined,
+    })
+    accDist = 0; accTime = 0; accHRWeighted = 0; accHasHR = false
+  }
+
+  for (const split of splits) {
+    let remDist = split.distance ?? 0
+    let remTime = split.moving_time ?? 0
+    const hr = split.average_heartrate ?? null
+
+    while (remDist > 0.5) {
+      const space = MILE_M - accDist
+      if (remDist <= space) {
+        accDist += remDist
+        accTime += remTime
+        if (hr) { accHRWeighted += hr * remTime; accHasHR = true }
+        remDist = 0
+      } else {
+        // Split proportionally at mile boundary
+        const frac = space / remDist
+        const fillTime = Math.round(remTime * frac)
+        accDist += space
+        accTime += fillTime
+        if (hr) { accHRWeighted += hr * fillTime; accHasHR = true }
+        flush()
+        remDist -= space
+        remTime -= fillTime
+      }
+    }
+  }
+  flush() // partial last mile
+  return result
+}
+
 // ─── VDOT (Jack Daniels) ──────────────────────────────────────────────────────
 
 export function vdotFrom5K(secsTotal: number): number {

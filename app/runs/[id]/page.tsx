@@ -6,7 +6,7 @@ import RunTypeSelector from '@/components/RunTypeSelector'
 import SplitsChart from '@/components/SplitsChart'
 import { buildLapSegments } from '@/lib/lapUtils'
 import HRChart from '@/components/HRChart'
-import { speedToPace, formatDuration, toJakartaDate, formatDistance, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
+import { speedToPace, formatDuration, toJakartaDate, formatDistance, paceUnitLabel, aggregateToMileSplits, type DistanceUnit } from '@/lib/utils'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -25,7 +25,8 @@ export default async function RunDetailPage({ params }: { params: { id: string }
 
   if (!run) notFound()
 
-  const splits: any[] = run.splits ?? []
+  const rawSplits: any[] = run.splits ?? []
+  const splits = unit === 'miles' ? aggregateToMileSplits(rawSplits) : rawSplits
   const laps: any[] = run.laps ?? []
   // Prefer run-level average_speed; fall back to median of laps for better interval detection
   let paceSeconds = run.average_speed ? 1000 / run.average_speed : 0

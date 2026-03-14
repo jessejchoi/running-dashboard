@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { differenceInDays, format } from 'date-fns'
 import { formatGoalTime, paceSecs, distanceKm, type UserGoal, type DistanceKey } from '@/lib/goals'
+import { paceUnitLabel, type DistanceUnit } from '@/lib/utils'
+import { useUnit } from '@/lib/unit-context'
 import { ChevronDown, Check } from 'lucide-react'
 
 interface MemberGoal extends UserGoal {
@@ -120,11 +122,12 @@ function FilterDropdown({ value, onChange, options, placeholder }: DropdownProps
 }
 
 // ── Goal row ──────────────────────────────────────────────────────────────────
-function GoalRow({ goal }: { goal: MemberGoal }) {
+function GoalRow({ goal, unit }: { goal: MemberGoal; unit: DistanceUnit }) {
   const daysLeft = differenceInDays(new Date(goal.race_date), new Date())
   const isPast = daysLeft < 0
   const dist = DISTANCE_CONFIG[goal.distance_key] ?? DISTANCE_CONFIG['5k']
-  const targetPace = paceSecs(goal.target_secs, goal.distance_key as DistanceKey)
+  const paceMultiplier = unit === 'miles' ? 1.60934 : 1
+  const targetPace = paceSecs(goal.target_secs, goal.distance_key as DistanceKey) * paceMultiplier
   const progress = goal.current_secs && goal.target_secs
     ? Math.min(1, Math.max(0, (goal.current_secs - goal.target_secs) / goal.current_secs))
     : 0
@@ -154,7 +157,7 @@ function GoalRow({ goal }: { goal: MemberGoal }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <span className="font-mono text-white text-xs font-bold">{formatGoalTime(goal.target_secs)}</span>
-          <span className="font-mono text-[#6b7280] text-[10px]">{paceStr(targetPace)}/km</span>
+          <span className="font-mono text-[#6b7280] text-[10px]">{paceStr(targetPace)}{paceUnitLabel(unit)}</span>
         </div>
         <div className="h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
           <div
@@ -164,10 +167,10 @@ function GoalRow({ goal }: { goal: MemberGoal }) {
         </div>
         <div className="flex items-center justify-between mt-0.5">
           <span className="text-[10px] text-[#4b5563] font-mono">
-            {goal.current_secs ? `${formatGoalTime(goal.current_secs)} · ${paceStr(paceSecs(goal.current_secs, goal.distance_key as DistanceKey))}/km` : '—'}
+            {goal.current_secs ? `${formatGoalTime(goal.current_secs)} · ${paceStr(paceSecs(goal.current_secs, goal.distance_key as DistanceKey) * paceMultiplier)}${paceUnitLabel(unit)}` : '—'}
           </span>
           <span className={`text-[10px] font-mono font-bold ${dist.color}`}>
-            {formatGoalTime(goal.target_secs)} · {paceStr(targetPace)}/km
+            {formatGoalTime(goal.target_secs)} · {paceStr(targetPace)}{paceUnitLabel(unit)}
           </span>
         </div>
       </div>
@@ -187,6 +190,7 @@ function GoalRow({ goal }: { goal: MemberGoal }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function GroupGoalsSection({ memberGoals }: Props) {
+  const { unit } = useUnit()
   const [memberFilter, setMemberFilter] = useState('all')
   const [distanceFilter, setDistanceFilter] = useState('all')
 
@@ -250,7 +254,7 @@ export default function GroupGoalsSection({ memberGoals }: Props) {
         <p className="text-[#4b5563] text-sm text-center py-4">No goals match the selected filters.</p>
       ) : (
         <div>
-          {filtered.map(goal => <GoalRow key={goal.id} goal={goal} />)}
+          {filtered.map(goal => <GoalRow key={goal.id} goal={goal} unit={unit} />)}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon, Bot } from 'lucide-react'
+import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon } from 'lucide-react'
 import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
@@ -317,7 +317,7 @@ export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId,
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans' | 'coach'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
 
   // Leaderboard
   const [leaderRange, setLeaderRange] = useState<LeaderRange>('week')
@@ -616,7 +616,6 @@ export default function GroupPageClient({
           { key: 'feed',      label: 'Runs',      icon: Activity },
           { key: 'goals',     label: 'Goals',     icon: Target },
           { key: 'plans',     label: 'Plans',     icon: CalendarDays },
-          { key: 'coach',     label: 'Coach',     icon: Bot },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -847,6 +846,12 @@ export default function GroupPageClient({
 
         return (
           <div className="fade-up space-y-8">
+
+            {/* RDCoach section */}
+            <div>
+              <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">RDCoach</p>
+              <GroupCoachTab groupId={group.id} myRole={myRole} members={members} />
+            </div>
 
             {/* Leaderboard section */}
             <div>
@@ -1316,10 +1321,6 @@ export default function GroupPageClient({
       })()}
 
 
-      {/* ── Coach tab ──────────────────────────────────────────────────────── */}
-      {tab === 'coach' && (
-        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} />
-      )}
 
       {/* ── Create challenge modal ─────────────────────────────────────────── */}
       {showCreate && (

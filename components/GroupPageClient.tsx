@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil } from 'lucide-react'
+import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon } from 'lucide-react'
 import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
@@ -1100,8 +1100,15 @@ export default function GroupPageClient({
           return d
         })
 
+        // Me first
+        const sortedMembers = [...members].sort((a, b) => {
+          if (a.athlete_id === myAthleteId) return -1
+          if (b.athlete_id === myAthleteId) return 1
+          return 0
+        })
+
         return (
-          <div className="fade-up space-y-4">
+          <div className="fade-up space-y-6">
             {plansLoading ? (
               <div className="card text-center py-10">
                 <p className="text-[#6b7280] text-sm">Loading plans…</p>
@@ -1111,12 +1118,12 @@ export default function GroupPageClient({
                 const dateStr = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`
                 const isToday = day.toDateString() === new Date().toDateString()
                 const dayPlans = plans.filter(p => p.plan_date === dateStr)
-                const myPlan = dayPlans.find(p => p.athlete_id === myAthleteId)
 
                 return (
                   <div key={dateStr}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-bold text-white">
+                    {/* Day header */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`text-sm font-bold ${isToday ? 'text-[#f97316]' : 'text-white'}`}>
                         {format(day, 'EEE, MMM d')}
                       </span>
                       {isToday && (
@@ -1124,49 +1131,65 @@ export default function GroupPageClient({
                       )}
                     </div>
 
-                    <div className="space-y-1.5">
-                      {members.map(m => {
+                    {/* Member session cards */}
+                    <div className="space-y-2">
+                      {sortedMembers.map(m => {
                         const plan = dayPlans.find(p => p.athlete_id === m.athlete_id)
-                        const sessionMeta = PLAN_SESSION_TYPES.find(s => s.key === plan?.session_type)
+                        const sessionMeta = plan ? PLAN_SESSION_TYPES.find(s => s.key === plan.session_type) : null
                         const isMe = m.athlete_id === myAthleteId
+                        const isRest = plan?.session_type === 'rest'
 
                         return (
                           <div
                             key={m.athlete_id}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
-                              isMe
-                                ? 'bg-[#141414] border-[#2a2a2a] hover:border-[#3a3a3a] cursor-pointer'
-                                : 'bg-[#0f0f0f] border-[#1c1c1c]'
-                            }`}
                             onClick={isMe ? () => openPlanEdit(dateStr) : undefined}
+                            className={`rounded-xl px-3 py-2.5 transition-all ${isMe ? 'cursor-pointer' : ''} ${
+                              isRest
+                                ? `bg-[#150f1e] border border-[#3b2060]${isMe ? ' hover:border-[#5b3090]' : ''}`
+                                : plan
+                                  ? `bg-[#1a1a1a]${isMe ? ' hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110' : ''}`
+                                  : isMe
+                                    ? 'border border-dashed border-[#3a3a3a] hover:border-[#f97316]/30'
+                                    : 'border border-dashed border-[#1c1c1c]'
+                            }`}
                           >
-                            <Avatar name={m.name} pic={m.profile_pic} size={6} />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-xs font-medium ${isMe ? 'text-white' : 'text-[#9ca3af]'}`}>
-                                  {isMe ? 'You' : m.name.split(' ')[0]}
-                                </span>
-                                {isMe && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1 py-0.5 rounded">You</span>}
-                              </div>
-                              {plan ? (
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  {sessionMeta && (
-                                    <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
-                                  )}
-                                  <span className="text-xs text-[#d1d5db] truncate">
-                                    {sessionMeta?.label ?? plan.session_type}
-                                    {plan.target_distance_meters && ` · ${toDisplay(plan.target_distance_meters).toFixed(1)} ${label}`}
-                                    {plan.description && ` · ${plan.description}`}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-[#4b5563] mt-0.5 block">
-                                  {isMe ? 'Tap to add plan' : '—'}
-                                </span>
-                              )}
+                            {/* Member name row */}
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Avatar name={m.name} pic={m.profile_pic} size={4} />
+                              <span className={`text-[10px] font-bold ${isMe ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                                {isMe ? 'You' : m.name.split(' ')[0]}
+                              </span>
+                              {isMe && plan && <Pencil size={10} className="text-[#4b5563] ml-auto" />}
                             </div>
-                            {isMe && (
-                              <Pencil size={12} className="text-[#4b5563] shrink-0" />
+
+                            {/* Session content */}
+                            {isRest ? (
+                              <div className={`flex items-center gap-1.5 ${isMe ? 'text-[#a78bfa]' : 'text-[#7c5fa8]'}`}>
+                                <Moon size={11} className="opacity-70" />
+                                <span className="text-xs">Rest day</span>
+                              </div>
+                            ) : plan ? (
+                              <>
+                                {plan.description && (
+                                  <div className="text-xs font-medium text-white leading-tight">{plan.description}</div>
+                                )}
+                                {sessionMeta && (
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
+                                    <span className="text-[#9ca3af] text-[10px]">{sessionMeta.label}</span>
+                                  </div>
+                                )}
+                                {plan.target_distance_meters && (
+                                  <div className="text-[#4b5563] mt-0.5 text-[10px] font-mono">
+                                    {toDisplay(plan.target_distance_meters).toFixed(1)} {label}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className={`flex items-center gap-1 ${isMe ? 'text-[#4b5563]' : 'text-[#333]'}`}>
+                                {isMe && <Plus size={10} />}
+                                <span className="text-[10px]">{isMe ? 'Add plan' : '—'}</span>
+                              </div>
                             )}
                           </div>
                         )

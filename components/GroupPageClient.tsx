@@ -361,9 +361,10 @@ export default function GroupPageClient({
   }
 
   async function loadPlans() {
-    if (plansLoaded) return
-    setPlansLoading(true)
-    const res = await fetch(`/api/groups/${group.id}/plans`)
+    if (!plansLoaded) setPlansLoading(true)
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+    const res = await fetch(`/api/groups/${group.id}/plans?today=${todayStr}`)
     const data = await res.json()
     setPlans(data.plans ?? [])
     setPlansLoaded(true)
@@ -1105,7 +1106,7 @@ export default function GroupPageClient({
               </div>
             ) : (
               days.map(day => {
-                const dateStr = day.toISOString().slice(0, 10)
+                const dateStr = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`
                 const isToday = day.toDateString() === new Date().toDateString()
                 const dayPlans = plans.filter(p => p.plan_date === dateStr)
                 const myPlan = dayPlans.find(p => p.athlete_id === myAthleteId)

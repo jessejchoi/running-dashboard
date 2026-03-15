@@ -79,6 +79,15 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     .order('start_date', { ascending: false })
     .limit(50)
 
+  // Fetch last 6 months of activities for leaderboard
+  const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: leaderboardRuns } = await supabaseAdmin
+    .from('activities')
+    .select('id, athlete_id, distance, start_date')
+    .in('athlete_id', memberIds)
+    .gte('start_date', sixMonthsAgo)
+    .order('start_date', { ascending: false })
+
   // Compose member profiles
   const memberProfiles = (members ?? []).map(m => {
     const token = tokens?.find(t => t.athlete_id === m.athlete_id)
@@ -104,6 +113,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         group={group}
         members={memberProfiles}
         recentRuns={recentRuns ?? []}
+        leaderboardRuns={leaderboardRuns ?? []}
         myRole={myMembership.role}
         inviteUrl={inviteUrl}
         myAthleteId={parseInt(athleteId)}

@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check, Users, Target, Activity, Trash2 } from 'lucide-react'
+import { Copy, Check, Users, Target, Activity, Trash2, BarChart2 } from 'lucide-react'
 import { format } from 'date-fns'
-import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel } from '@/lib/utils'
+import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
 
 interface Goal {
@@ -46,10 +46,18 @@ interface Group {
   created_at: string
 }
 
+interface LeaderboardRun {
+  id: number
+  athlete_id: number
+  distance: number
+  start_date: string
+}
+
 interface Props {
   group: Group
   members: Member[]
   recentRuns: Run[]
+  leaderboardRuns: LeaderboardRun[]
   myRole: string
   inviteUrl: string
   myAthleteId: number
@@ -102,9 +110,57 @@ function RunTypeDot({ type }: { type: string | null }) {
   )
 }
 
-export default function GroupPageClient({ group, members, recentRuns, myRole, inviteUrl, myAthleteId }: Props) {
+type LeaderRange = 'week' | 'month' | 'ytd' | '6m'
+
+function getRangeStart(range: LeaderRange): Date {
+  const now = new Date()
+  if (range === 'week') {
+    const d = new Date(now)
+    const day = d.getDay() // 0=Sun
+    const diff = day === 0 ? 6 : day - 1 // shift to Monday
+    d.setDate(d.getDate() - diff)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  if (range === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  }
+  if (range === 'ytd') {
+    return new Date(now.getFullYear(), 0, 1)
+  }
+  // 6m
+  return new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
+}
+
+function computeLeaderboard(
+  runs: LeaderboardRun[],
+  range: LeaderRange,
+  members: Member[]
+) {
+  const cutoff = getRangeStart(range)
+  const filtered = runs.filter(r => new Date(r.start_date) >= cutoff)
+  const totals: Record<number, { distance: number; count: number }> = {}
+  for (const r of filtered) {
+    if (!totals[r.athlete_id]) totals[r.athlete_id] = { distance: 0, count: 0 }
+    totals[r.athlete_id].distance += r.distance
+    totals[r.athlete_id].count += 1
+  }
+  return members
+    .map(m => ({
+      athlete_id: m.athlete_id,
+      name: m.name,
+      profile_pic: m.profile_pic,
+      is_me: m.is_me,
+      distance: totals[m.athlete_id]?.distance ?? 0,
+      count: totals[m.athlete_id]?.count ?? 0,
+    }))
+    .sort((a, b) => b.distance - a.distance)
+}
+
+export default function GroupPageClient({ group, members, recentRuns, leaderboardRuns, myRole, inviteUrl, myAthleteId }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'feed' | 'members' | 'goals'>('feed')
+  const [tab, setTab] = useState<'feed' | 'members' | 'goals' | 'leaderboard'>('feed')
+  const [leaderRange, setLeaderRange] = useState<LeaderRange>('week')
   const { unit } = useUnit()
 
   function copyInvite() {
@@ -160,9 +216,10 @@ export default function GroupPageClient({ group, members, recentRuns, myRole, in
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 border-b border-[#1c1c1c] fade-up">
         {([
-          { key: 'feed',    label: 'Recent Runs', icon: Activity },
-          { key: 'members', label: 'Members',     icon: Users },
-          { key: 'goals',   label: 'Goals',       icon: Target },
+          { key: 'feed',        label: 'Recent Runs', icon: Activity },
+          { key: 'members',     label: 'Members',     icon: Users },
+          { key: 'goals',       label: 'Goals',       icon: Target },
+          { key: 'leaderboard', label: 'Leaderboard', icon: BarChart2 },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -307,6 +364,91 @@ export default function GroupPageClient({ group, members, recentRuns, myRole, in
           ))}
         </div>
       )}
+      {/* Leaderboard tab */}
+      {tab === 'leaderboard' && (() => {
+        const label = distanceUnitLabel(unit)
+        const toDisplay = (m: number) => unit === 'miles' ? metersToMiles(m) : m / 1000
+        const board = computeLeaderboard(leaderboardRuns, leaderRange, members)
+        const maxDist = Math.max(...board.map(e => e.distance), 1)
+        const ranges: { key: LeaderRange; label: string }[] = [
+          { key: 'week',  label: 'This Week' },
+          { key: 'month', label: 'This Month' },
+          { key: 'ytd',   label: 'Year to Date' },
+          { key: '6m',    label: 'Last 6 Months' },
+        ]
+        return (
+          <div className="fade-up">
+            {/* Range toggle */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {ranges.map(r => (
+                <button
+                  key={r.key}
+                  onClick={() => setLeaderRange(r.key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                    leaderRange === r.key
+                      ? 'bg-[#f97316] text-black'
+                      : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+
+            {board.every(e => e.distance === 0) ? (
+              <div className="card text-center py-10">
+                <p className="text-[#6b7280] text-sm">No runs recorded in this period.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {board.map((entry, i) => {
+                  const dist = toDisplay(entry.distance)
+                  const pct = (entry.distance / maxDist) * 100
+                  return (
+                    <div key={entry.athlete_id} className="card">
+                      <div className="flex items-center gap-3">
+                        <span className="w-5 shrink-0 flex items-center justify-center text-base">
+                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (
+                            <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>
+                          )}
+                        </span>
+                        <Avatar name={entry.name} pic={entry.profile_pic} size={8} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-sm font-bold ${entry.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
+                                {entry.is_me ? 'You' : entry.name.split(' ')[0]}
+                              </span>
+                              {entry.is_me && (
+                                <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>
+                              )}
+                              <span className="text-[#4b5563] text-xs">
+                                {entry.count} run{entry.count !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <span className={`text-sm font-mono font-bold shrink-0 ml-2 ${entry.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
+                              {dist.toFixed(1)} {label}
+                            </span>
+                          </div>
+                          <div className="h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${pct}%`,
+                                background: entry.is_me ? '#f97316' : '#3a3a3a',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </main>
   )
 }

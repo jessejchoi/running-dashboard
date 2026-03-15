@@ -56,7 +56,7 @@ function newContinuous(): ContinuousBlock {
   return { id: Math.random().toString(36).slice(2), kind: 'continuous', label: '', mode: 'time', distanceM: 0, durationMin: 0, targetPace: '' }
 }
 function newInterval(): IntervalBlock {
-  return { id: Math.random().toString(36).slice(2), kind: 'interval', reps: 1, mode: 'distance', distanceM: 0, durationMin: 0, targetPace: '', recoveryMode: 'time', recoveryM: 0, recoveryMin: 0, recoveryPace: '' }
+  return { id: Math.random().toString(36).slice(2), kind: 'interval', reps: 0, mode: 'distance', distanceM: 0, durationMin: 0, targetPace: '', recoveryMode: 'time', recoveryM: 0, recoveryMin: 0, recoveryPace: '' }
 }
 export function defaultConfig(): SessionConfig {
   return { name: '', sessionType: 'easy', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
@@ -217,7 +217,8 @@ export function summarizeParts(config: SessionConfig, unit: DistanceUnit = 'km')
       } else {
         effort = `${b.durationMin}min`
       }
-      parts.push({ text: b.label ? `${effort} ${b.label}` : effort, color: 'text-[#f97316]' })
+      const paceStr = b.targetPace ? ` @ ${b.targetPace}${paceUnitLabel(unit)}` : ''
+      parts.push({ text: `${effort}${b.label ? ` ${b.label}` : ''}${paceStr}`, color: 'text-[#f97316]' })
     }
   }
   if (config.cooldownMin > 0) parts.push({ text: `${config.cooldownMin}min CD`, color: 'text-[#a78bfa]' })
@@ -249,14 +250,38 @@ function SectionLabel({ color, children }: { color: string; children: React.Reac
   return <div className={`text-[10px] font-bold uppercase tracking-widest ${color}`}>{children}</div>
 }
 
+function validate(config: SessionConfig): string | null {
+  if (config.sessionType === 'rest') return null
+  for (let i = 0; i < config.blocks.length; i++) {
+    const b = config.blocks[i]
+    const n = i + 1
+    if (b.kind === 'continuous') {
+      if (b.mode === 'distance' && b.distanceM <= 0) return `Block ${n}: enter a distance`
+      if (b.mode === 'time' && b.durationMin <= 0) return `Block ${n}: enter a duration`
+      if (!b.targetPace) return `Block ${n}: enter a pace`
+    } else {
+      if (b.reps <= 0) return `Block ${n}: enter number of reps`
+      if (b.mode === 'distance' && b.distanceM <= 0) return `Block ${n}: enter a distance`
+      if (b.mode === 'time' && b.durationMin <= 0) return `Block ${n}: enter a duration`
+      if (!b.targetPace) return `Block ${n}: enter a pace`
+    }
+  }
+  return null
+}
+
 export default function PlanSessionModal({ displayDate, initialConfig, onClose, onSave, onDelete }: Props) {
   const { unit } = useUnit()
   const [config, setConfig] = useState<SessionConfig>(initialConfig ?? defaultConfig())
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const initialSnapshot = useRef(JSON.stringify(initialConfig ?? defaultConfig()))
+
+  const dirty = JSON.stringify(config) !== initialSnapshot.current
 
   function update(c: SessionConfig) {
     setConfig(c)
-    onSave(c)
+    setValidationError(null)
   }
 
   function addContinuous() { update({ ...config, blocks: [...config.blocks, newContinuous()] }) }
@@ -264,6 +289,17 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
   function removeBlock(id: string) { update({ ...config, blocks: config.blocks.filter(b => b.id !== id) }) }
   function updateBlock(id: string, patch: Partial<Block>) {
     update({ ...config, blocks: config.blocks.map(b => b.id === id ? { ...b, ...patch } as Block : b) })
+  }
+
+  function handleSave() {
+    const err = validate(config)
+    if (err) { setValidationError(err); return }
+    onSave(config)
+    onClose()
+  }
+
+  function handleClose() {
+    if (dirty) { setConfirmClose(true) } else { onClose() }
   }
 
   const totalMeters = calcDist(config, unit)
@@ -308,7 +344,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center" onClick={handleClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className="relative bg-[#111] border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto z-[9999] shadow-2xl"
@@ -326,7 +362,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            {isExisting && !confirmDelete && (
+            {isExisting && !confirmDelete && !confirmClose && (
               <button
                 onClick={() => setConfirmDelete(true)}
                 className="text-[#6b7280] hover:text-red-400 transition-colors p-1"
@@ -341,7 +377,16 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                 <button onClick={() => setConfirmDelete(false)} className="text-xs text-[#6b7280] hover:text-white">No</button>
               </div>
             )}
-            <button onClick={onClose} className="text-[#6b7280] hover:text-white p-1"><X size={18} /></button>
+            {confirmClose && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#6b7280]">Discard changes?</span>
+                <button onClick={onClose} className="text-xs text-red-400 hover:text-red-300 font-medium">Yes</button>
+                <button onClick={() => setConfirmClose(false)} className="text-xs text-[#6b7280] hover:text-white">No</button>
+              </div>
+            )}
+            {!confirmDelete && !confirmClose && (
+              <button onClick={handleClose} className="text-[#6b7280] hover:text-white p-1"><X size={18} /></button>
+            )}
           </div>
         </div>
 
@@ -371,7 +416,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           <div className="space-y-2">
             <SectionLabel color="text-[#facc15]">Warmup</SectionLabel>
             <div className="flex items-center gap-2 flex-wrap">
-              <Inp value={config.warmupMin} onChange={v => update({ ...config, warmupMin: parseFloat(v) || 0 })} className="w-14" type="number" />
+              <Inp value={config.warmupMin || ''} onChange={v => update({ ...config, warmupMin: parseFloat(v) || 0 })} className="w-14" type="number" />
               <span className="text-[#6b7280] text-xs">min</span>
               <Inp value={config.warmupPace} onChange={v => update({ ...config, warmupPace: v })} className="w-16" placeholder="mm:ss" />
               <span className="text-[#6b7280] text-xs">{paceLabel}</span>
@@ -422,9 +467,9 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                         <Tog active={b.mode === 'distance'} onClick={() => updateBlock(b.id, { mode: 'distance' })}>Distance</Tog>
                       </div>
                       {b.mode === 'time' ? (
-                        <><Inp value={b.durationMin} onChange={v => updateBlock(b.id, { durationMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+                        <><Inp value={b.durationMin || ''} onChange={v => updateBlock(b.id, { durationMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
                       ) : (
-                        <><Inp value={b.distanceM} onChange={v => updateBlock(b.id, { distanceM: parseInt(v) || 0 })} className="w-20" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+                        <><Inp value={b.distanceM || ''} onChange={v => updateBlock(b.id, { distanceM: parseInt(v) || 0 })} className="w-20" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
                       )}
                       <Inp value={b.targetPace} onChange={v => updateBlock(b.id, { targetPace: v })} className="w-16" placeholder="mm:ss" />
                       <span className="text-[#6b7280] text-xs">{paceLabel}</span>
@@ -437,7 +482,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="flex items-center gap-1.5">
-                        <Inp value={b.reps} onChange={v => updateBlock(b.id, { reps: parseInt(v) || 1 })} className="w-12" type="number" />
+                        <Inp value={b.reps || ''} onChange={v => updateBlock(b.id, { reps: parseInt(v) || 0 })} className="w-12" type="number" />
                         <span className="text-[#6b7280] text-xs">×</span>
                       </div>
                       <div className="flex gap-1">
@@ -445,8 +490,8 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                         <Tog active={b.mode === 'time'} onClick={() => updateBlock(b.id, { mode: 'time' })}>Time</Tog>
                       </div>
                       {b.mode === 'distance'
-                        ? <><Inp value={b.distanceM} onChange={v => updateBlock(b.id, { distanceM: parseInt(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
-                        : <><Inp value={b.durationMin} onChange={v => updateBlock(b.id, { durationMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+                        ? <><Inp value={b.distanceM || ''} onChange={v => updateBlock(b.id, { distanceM: parseInt(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+                        : <><Inp value={b.durationMin || ''} onChange={v => updateBlock(b.id, { durationMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
                       }
                       <Inp value={b.targetPace} onChange={v => updateBlock(b.id, { targetPace: v })} className="w-16" placeholder="mm:ss" />
                       <span className="text-[#6b7280] text-xs">{paceLabel}</span>
@@ -458,8 +503,8 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                         <Tog active={b.recoveryMode === 'distance'} onClick={() => updateBlock(b.id, { recoveryMode: 'distance' })}>Dist</Tog>
                       </div>
                       {b.recoveryMode === 'distance'
-                        ? <><Inp value={b.recoveryM} onChange={v => updateBlock(b.id, { recoveryM: parseInt(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
-                        : <><Inp value={b.recoveryMin} onChange={v => updateBlock(b.id, { recoveryMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+                        ? <><Inp value={b.recoveryM || ''} onChange={v => updateBlock(b.id, { recoveryM: parseInt(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+                        : <><Inp value={b.recoveryMin || ''} onChange={v => updateBlock(b.id, { recoveryMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
                       }
                       <Inp value={b.recoveryPace} onChange={v => updateBlock(b.id, { recoveryPace: v })} className="w-16" placeholder="mm:ss" />
                       <span className="text-[#6b7280] text-xs">{paceLabel}</span>
@@ -477,7 +522,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           <div className="space-y-2">
             <SectionLabel color="text-[#a78bfa]">Cooldown</SectionLabel>
             <div className="flex items-center gap-2 flex-wrap">
-              <Inp value={config.cooldownMin} onChange={v => update({ ...config, cooldownMin: parseFloat(v) || 0 })} className="w-14" type="number" />
+              <Inp value={config.cooldownMin || ''} onChange={v => update({ ...config, cooldownMin: parseFloat(v) || 0 })} className="w-14" type="number" />
               <span className="text-[#6b7280] text-xs">min</span>
               <Inp value={config.cooldownPace} onChange={v => update({ ...config, cooldownPace: v })} className="w-16" placeholder="mm:ss" />
               <span className="text-[#6b7280] text-xs">{paceLabel}</span>
@@ -499,6 +544,17 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
 
           </>)}
 
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-[#111] border-t border-[#1c1c1c] px-5 py-3 flex items-center justify-between gap-3">
+          <span className="text-xs text-red-400 min-h-[1rem]">{validationError ?? ''}</span>
+          <button
+            onClick={handleSave}
+            className="bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors shrink-0"
+          >
+            Save
+          </button>
         </div>
       </div>
     </div>

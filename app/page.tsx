@@ -32,7 +32,7 @@ async function getData(athleteId: number) {
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
     supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId),
-    supabaseAdmin.from('user_profiles').select('display_name, primary_group_id, max_hr').eq('athlete_id', athleteId).maybeSingle(),
+    supabaseAdmin.from('user_profiles').select('display_name, primary_group_id, max_hr, group_order').eq('athlete_id', athleteId).maybeSingle(),
   ])
 
   const maxHr = userProfile?.max_hr ?? undefined
@@ -67,9 +67,18 @@ async function getData(athleteId: number) {
       const mondayUtc = new Date(mondayJakarta.getTime() - jakartaOffset)
       const weekStartIso = mondayUtc.toISOString()
 
-      // Sort memberships: primary group first, then rest
+      // Sort memberships by saved group_order, falling back to primary_group_id then insertion order
+      const groupOrder: string[] = userProfile?.group_order ?? []
       const primaryGroupId = userProfile?.primary_group_id
       const sortedMemberships = [...(membership ?? [])].sort((a: any, b: any) => {
+        const ai = groupOrder.length > 0 ? groupOrder.indexOf(a.group_id) : -1
+        const bi = groupOrder.length > 0 ? groupOrder.indexOf(b.group_id) : -1
+        if (ai !== -1 || bi !== -1) {
+          if (ai === -1) return 1
+          if (bi === -1) return -1
+          return ai - bi
+        }
+        // Fallback: primary group first
         if (a.group_id === primaryGroupId) return -1
         if (b.group_id === primaryGroupId) return 1
         return 0

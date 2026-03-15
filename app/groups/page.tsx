@@ -11,12 +11,13 @@ export default async function GroupsPage() {
   if (!athleteId) redirect('/')
 
   // Fetch groups this athlete belongs to
-  const { data: memberships } = await supabaseAdmin
-    .from('group_members')
-    .select('group_id, role')
-    .eq('athlete_id', parseInt(athleteId))
+  const [{ data: memberships }, { data: userProfile }] = await Promise.all([
+    supabaseAdmin.from('group_members').select('group_id, role').eq('athlete_id', parseInt(athleteId)),
+    supabaseAdmin.from('user_profiles').select('group_order').eq('athlete_id', parseInt(athleteId)).maybeSingle(),
+  ])
 
   const groupIds = (memberships ?? []).map(m => m.group_id)
+  const groupOrder: string[] = userProfile?.group_order ?? []
 
   let groups: any[] = []
   if (groupIds.length > 0) {
@@ -37,6 +38,16 @@ export default async function GroupsPage() {
       g.member_count = (allMembers ?? []).filter(m => m.group_id === g.id).length
       g.my_role = memberships?.find(m => m.group_id === g.id)?.role ?? 'member'
     }
+
+    // Apply saved order: groups in groupOrder come first (in that order), rest appended
+    groups.sort((a, b) => {
+      const ai = groupOrder.indexOf(a.id)
+      const bi = groupOrder.indexOf(b.id)
+      if (ai === -1 && bi === -1) return 0
+      if (ai === -1) return 1
+      if (bi === -1) return -1
+      return ai - bi
+    })
   }
 
   return (

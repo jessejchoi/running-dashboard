@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Users, ChevronRight, X } from 'lucide-react'
+import { Plus, Users, ChevronUp, ChevronDown, LogOut, Trash2, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 
@@ -71,18 +71,123 @@ function CreateGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate
   )
 }
 
+function ConfirmModal({
+  group,
+  type,
+  onConfirm,
+  onCancel,
+  loading,
+  error,
+}: {
+  group: Group
+  type: 'leave' | 'delete'
+  onConfirm: () => void
+  onCancel: () => void
+  loading: boolean
+  error: string
+}) {
+  return (
+    <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center" onClick={onCancel}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative bg-[#111] border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm z-[9999] shadow-2xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c1c1c]">
+          <h2 className="font-display font-bold text-lg">
+            {type === 'leave' ? 'Leave group?' : 'Delete group?'}
+          </h2>
+          <button onClick={onCancel} className="text-[#6b7280] hover:text-white"><X size={18} /></button>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          <p className="text-[#9ca3af] text-sm">
+            {type === 'leave'
+              ? <>Are you sure you want to leave <span className="text-white font-medium">{group.name}</span>?</>
+              : <>This will permanently delete <span className="text-white font-medium">{group.name}</span> and remove all members.</>
+            }
+          </p>
+          {error && <p className="text-red-400 text-xs">{error}</p>}
+          <div className="flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 bg-[#1a1a1a] hover:bg-[#222] text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className={`flex-1 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-colors text-sm ${type === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#f97316] hover:bg-[#ea580c]'}`}
+            >
+              {loading ? '…' : type === 'leave' ? 'Leave' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function GroupsPageClient({ initialGroups }: { initialGroups: Group[] }) {
   const [groups, setGroups] = useState<Group[]>(initialGroups)
   const [creating, setCreating] = useState(false)
+  const [confirm, setConfirm] = useState<{ group: Group; type: 'leave' | 'delete' } | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
   const router = useRouter()
 
   const atLimit = groups.length >= 3
 
   function handleCreate(g: Group) {
-    setGroups(gs => [...gs, g])
+    const newGroups = [...groups, g]
+    setGroups(newGroups)
     setCreating(false)
-    // Navigate to the new group
+    saveOrder(newGroups)
     router.push(`/group/${g.id}`)
+  }
+
+  function saveOrder(ordered: Group[]) {
+    fetch('/api/groups/reorder', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: ordered.map(g => g.id) }),
+    })
+  }
+
+  function moveGroup(index: number, direction: 'up' | 'down') {
+    const swapWith = direction === 'up' ? index - 1 : index + 1
+    const newGroups = [...groups]
+    ;[newGroups[index], newGroups[swapWith]] = [newGroups[swapWith], newGroups[index]]
+    setGroups(newGroups)
+    saveOrder(newGroups)
+  }
+
+  async function handleConfirm() {
+    if (!confirm) return
+    setActionLoading(true)
+    setActionError('')
+    try {
+      const { group, type } = confirm
+      if (type === 'leave') {
+        const res = await fetch(`/api/groups/${group.id}/leave`, { method: 'POST' })
+        if (!res.ok) {
+          const body = await res.json()
+          throw new Error(body.error ?? 'Failed to leave group')
+        }
+      } else {
+        const res = await fetch(`/api/groups/${group.id}`, { method: 'DELETE' })
+        if (!res.ok) {
+          const body = await res.json()
+          throw new Error(body.error ?? 'Failed to delete group')
+        }
+      }
+      const newGroups = groups.filter(g => g.id !== group.id)
+      setGroups(newGroups)
+      saveOrder(newGroups)
+      setConfirm(null)
+    } catch (e: any) {
+      setActionError(e.message)
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   return (
@@ -125,16 +230,40 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
         </div>
       ) : (
         <div className="space-y-3 fade-up">
-          {groups.map(g => (
-            <a
+          {groups.map((g, i) => (
+            <div
               key={g.id}
-              href={`/group/${g.id}`}
-              className="card flex items-center gap-4 hover:border-[#f97316]/30 transition-colors cursor-pointer no-underline"
+              className="card flex items-center gap-3"
             >
+              {/* Reorder arrows */}
+              {groups.length > 1 && (
+                <div className="flex flex-col gap-0.5 shrink-0">
+                  <button
+                    onClick={() => moveGroup(i, 'up')}
+                    disabled={i === 0}
+                    className="text-[#4b5563] hover:text-white disabled:opacity-20 disabled:cursor-not-allowed p-0.5 transition-colors"
+                    title="Move up"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => moveGroup(i, 'down')}
+                    disabled={i === groups.length - 1}
+                    className="text-[#4b5563] hover:text-white disabled:opacity-20 disabled:cursor-not-allowed p-0.5 transition-colors"
+                    title="Move down"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+              )}
+
+              {/* Icon */}
               <div className="w-10 h-10 rounded-full bg-[#f97316]/15 flex items-center justify-center shrink-0">
                 <Users size={16} className="text-[#f97316]" />
               </div>
-              <div className="flex-1 min-w-0">
+
+              {/* Info — clicking navigates to group */}
+              <a href={`/group/${g.id}`} className="flex-1 min-w-0 no-underline">
                 <div className="flex items-center gap-2">
                   <span className="font-bold truncate">{g.name}</span>
                   {g.my_role === 'admin' && (
@@ -144,9 +273,17 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
                 <p className="text-[#6b7280] text-xs mt-0.5">
                   {g.member_count} member{g.member_count !== 1 ? 's' : ''} · Created {format(new Date(g.created_at), 'MMM d, yyyy')}
                 </p>
-              </div>
-              <ChevronRight size={16} className="text-[#4b5563] shrink-0" />
-            </a>
+              </a>
+
+              {/* Leave / Delete */}
+              <button
+                onClick={() => { setActionError(''); setConfirm({ group: g, type: g.my_role === 'admin' ? 'delete' : 'leave' }) }}
+                className={`shrink-0 p-2 rounded-lg transition-colors ${g.my_role === 'admin' ? 'text-red-500/60 hover:text-red-500 hover:bg-red-500/10' : 'text-[#4b5563] hover:text-[#6b7280] hover:bg-[#1a1a1a]'}`}
+                title={g.my_role === 'admin' ? 'Delete group' : 'Leave group'}
+              >
+                {g.my_role === 'admin' ? <Trash2 size={15} /> : <LogOut size={15} />}
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -155,6 +292,17 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
         <CreateGroupModal
           onClose={() => setCreating(false)}
           onCreate={handleCreate}
+        />
+      )}
+
+      {confirm && (
+        <ConfirmModal
+          group={confirm.group}
+          type={confirm.type}
+          onConfirm={handleConfirm}
+          onCancel={() => { setConfirm(null); setActionError('') }}
+          loading={actionLoading}
+          error={actionError}
         />
       )}
     </main>

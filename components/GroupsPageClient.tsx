@@ -84,7 +84,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 pt-14 sm:pt-20 pb-16">
+    <main className="max-w-2xl mx-auto px-4 pt-8 sm:pt-20 pb-16">
       <div className="flex items-center justify-between mb-6 fade-up">
         <div>
           <h1 className="font-display font-extrabold text-4xl">Groups</h1>

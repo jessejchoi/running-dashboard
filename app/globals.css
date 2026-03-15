@@ -46,16 +46,11 @@
 
 .fade-up {
   animation: fadeUp 0.4s ease both;
-  overflow: visible;
-  padding-bottom: 0.1em;
 }
 
-/* h1.font-display has specificity 0,1,1 — beats Tailwind utility classes (0,1,0)
-   Generous line-height ensures deep descenders (g, y, p) in Syne ExtraBold
-   are never clipped by the line box. */
 h1.font-display {
-  line-height: 1.5;
-  overflow: visible;
+  font-size: 1.875rem;
+  line-height: 1.1;
   text-transform: uppercase;
 }
 

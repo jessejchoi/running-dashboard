@@ -210,7 +210,7 @@ export default function PlanPage() {
                             ) : isRest ? (
                               <button
                                 onClick={() => !past && clearRest(dateStr)}
-                                className="w-full min-h-[56px] rounded-lg px-2 py-2 text-xs bg-[#111] border border-[#1c1c1c] flex flex-col items-center justify-center gap-1 text-[#4b5563] hover:text-[#6b7280] hover:border-[#2a2a2a] transition-colors group"
+                                className="w-full min-h-[56px] rounded-lg px-2 py-2 text-xs bg-[#150f1e] border border-[#3b2060] flex flex-col items-center justify-center gap-1 text-[#7c5fa8] hover:text-[#a78bfa] hover:border-[#5b3090] transition-colors group"
                               >
                                 <Moon size={13} className="opacity-50 group-hover:opacity-70" />
                                 <span>Rest</span>
@@ -324,14 +324,14 @@ export default function PlanPage() {
 
                     if (isRest) {
                       return (
-                        <div key={dateStr} className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 bg-[#111] border border-[#1c1c1c] ${past ? 'opacity-40 pointer-events-none' : ''}`}>
+                        <div key={dateStr} className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 bg-[#150f1e] border border-[#3b2060] ${past ? 'opacity-40 pointer-events-none' : ''}`}>
                           {dateCol}
-                          <div className="flex-1 flex items-center gap-2 text-[#4b5563]">
-                            <Moon size={13} className="shrink-0 opacity-50" />
+                          <div className="flex-1 flex items-center gap-2 text-[#7c5fa8]">
+                            <Moon size={13} className="shrink-0" />
                             <span className="text-xs">Rest day</span>
                           </div>
                           {!past && (
-                            <button onClick={() => clearRest(dateStr)} className="text-[#3a3a3a] hover:text-[#6b7280] transition-colors text-xs px-1">✕</button>
+                            <button onClick={() => clearRest(dateStr)} className="text-[#4a2d70] hover:text-[#a78bfa] transition-colors text-xs px-1">✕</button>
                           )}
                         </div>
                       )

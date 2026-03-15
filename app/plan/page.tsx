@@ -301,7 +301,7 @@ export default function PlanPage() {
                           className={`w-full flex items-start gap-3 rounded-xl px-4 py-3 text-left transition-all bg-[#141414] hover:brightness-110 ${past ? 'opacity-40 pointer-events-none' : ''}`}
                         >
                           {dateCol}
-                          <div className="w-20 shrink-0 pt-0.5">
+                          <div className="w-28 shrink-0 pt-0.5">
                             <div className="text-sm font-medium text-white leading-snug">{config.name || <span className="text-[#6b7280] italic text-xs">Untitled</span>}</div>
                             {distVal && distVal !== '0.0' && distVal !== '0.00' && (
                               <div className="text-xs text-[#f97316]/70 font-mono mt-0.5">{distVal} {unitLabel}</div>

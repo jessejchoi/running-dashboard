@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Plus, Trash2, ChevronDown, Check } from 'lucide-react'
 import { useUnit } from '@/lib/unit-context'
 import { paceUnitLabel, distanceUnitLabel, metersToMiles, DistanceUnit } from '@/lib/utils'
@@ -63,20 +64,59 @@ export function defaultConfig(): SessionConfig {
 
 function SessionTypeDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
   const current = PLAN_SESSION_TYPES.find(s => s.key === value)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  function updatePos() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+  }
+
+  useEffect(() => { if (open) updatePos() }, [open])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (
+        btnRef.current && !btnRef.current.contains(e.target as Node) &&
+        dropRef.current && !dropRef.current.contains(e.target as Node)
+      ) setOpen(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  const dropdown = mounted && open ? createPortal(
+    <div
+      ref={dropRef}
+      style={{ top: pos.top, left: pos.left, width: pos.width }}
+      className="fixed z-[10000] bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1"
+    >
+      {PLAN_SESSION_TYPES.map(s => (
+        <button
+          key={s.key}
+          onClick={() => { onChange(s.key); setOpen(false) }}
+          className="w-full text-left px-3 py-2 text-sm hover:bg-[#242424] flex items-center gap-2.5 transition-colors"
+        >
+          <span className={`w-2 h-2 rounded-full ${s.color} shrink-0`} />
+          <span className={value === s.key ? 'text-white font-medium' : 'text-[#9ca3af]'}>{s.label}</span>
+          {value === s.key && <Check size={12} className="ml-auto text-[#f97316]" />}
+        </button>
+      ))}
+    </div>,
+    document.body
+  ) : null
+
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={btnRef}
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] hover:border-[#3a3a3a] text-sm w-full transition-colors"
       >
@@ -84,21 +124,7 @@ function SessionTypeDropdown({ value, onChange }: { value: string; onChange: (v:
         <span className="text-white flex-1 text-left">{current?.label ?? 'Select type'}</span>
         <ChevronDown size={14} className={`text-[#6b7280] transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 z-10">
-          {PLAN_SESSION_TYPES.map(s => (
-            <button
-              key={s.key}
-              onClick={() => { onChange(s.key); setOpen(false) }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-[#242424] flex items-center gap-2.5 transition-colors"
-            >
-              <span className={`w-2 h-2 rounded-full ${s.color} shrink-0`} />
-              <span className={value === s.key ? 'text-white font-medium' : 'text-[#9ca3af]'}>{s.label}</span>
-              {value === s.key && <Check size={12} className="ml-auto text-[#f97316]" />}
-            </button>
-          ))}
-        </div>
-      )}
+      {dropdown}
     </div>
   )
 }

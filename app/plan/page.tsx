@@ -90,6 +90,33 @@ export default function PlanPage() {
     }
     setPlans(loaded)
     setRestDays(loadedRest)
+
+    // Bulk-sync all localStorage plans to Supabase on load
+    for (const [date, config] of Object.entries(loaded)) {
+      const totalMeters = calcDist(config)
+      const name = config.name.toLowerCase()
+      let session_type = 'easy'
+      if (config.blocks.some(b => b.kind === 'interval')) session_type = 'interval_5k'
+      else if (name.includes('long')) session_type = 'long_easy'
+      else if (name.includes('tempo') || name.includes('threshold')) session_type = 'threshold'
+      else if (name.includes('recovery')) session_type = 'recovery'
+      else if (name.includes('race')) session_type = 'race'
+      else if (name.includes('stride')) session_type = 'easy_strides'
+      fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_date: date, session_type, description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }),
+      }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync load]', date, d)) })
+        .catch(e => console.error('[plan sync load]', date, e))
+    }
+    for (const date of Object.keys(loadedRest)) {
+      fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }),
+      }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync load rest]', date, d)) })
+        .catch(e => console.error('[plan sync load rest]', date, e))
+    }
   }, [allDates])
 
   function deriveSessionType(config: SessionConfig): string {
@@ -114,7 +141,8 @@ export default function PlanPage() {
         description: config.name || summarizeSession(config, unit) || null,
         target_distance_meters: totalMeters > 0 ? totalMeters : null,
       }),
-    }).catch(() => {})
+    }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync save]', date, d)) })
+      .catch(e => console.error('[plan sync save]', date, e))
   }
 
   function syncRestToApi(date: string) {
@@ -122,11 +150,14 @@ export default function PlanPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }),
-    }).catch(() => {})
+    }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync rest]', date, d)) })
+      .catch(e => console.error('[plan sync rest]', date, e))
   }
 
   function deleteFromApi(date: string) {
-    fetch(`/api/plans?date=${date}`, { method: 'DELETE' }).catch(() => {})
+    fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
+      .then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync delete]', date, d)) })
+      .catch(e => console.error('[plan sync delete]', date, e))
   }
 
   function savePlan(date: string, config: SessionConfig) {

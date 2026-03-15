@@ -367,34 +367,51 @@ export default function GroupPageClient({
     try {
       const s = localStorage.getItem(`plan_v2_${date}`)
       if (s) config = JSON.parse(s)
+      else if (localStorage.getItem(`plan_rest_v1_${date}`) === '1')
+        config = { name: '', sessionType: 'rest', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
     } catch {}
     setModalConfig(config)
     setEditingDate(date)
   }
 
   function handlePlanSave(date: string, config: SessionConfig) {
-    try { localStorage.setItem(`plan_v2_${date}`, JSON.stringify(config)) } catch {}
-    const totalMeters = calcDist(config, unit)
-    fetch('/api/plans', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        plan_date: date,
-        session_type: config.sessionType || 'easy',
-        description: config.name || null,
-        target_distance_meters: totalMeters > 0 ? totalMeters : null,
-      }),
-    }).then(r => { if (!r.ok) r.json().then(d => console.error('[group plan sync]', d)) })
-      .catch(e => console.error('[group plan sync]', e))
-    setPlans(prev => {
-      const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
-      return [...filtered, { id: 'local', athlete_id: myAthleteId, plan_date: date, session_type: config.sessionType || 'easy', description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }]
-        .sort((a, b) => a.plan_date.localeCompare(b.plan_date))
-    })
+    if (config.sessionType === 'rest') {
+      try { localStorage.removeItem(`plan_v2_${date}`); localStorage.setItem(`plan_rest_v1_${date}`, '1') } catch {}
+      fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }),
+      }).then(r => { if (!r.ok) r.json().then(d => console.error('[group plan sync rest]', d)) })
+        .catch(e => console.error('[group plan sync rest]', e))
+      setPlans(prev => {
+        const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
+        return [...filtered, { id: 'local', athlete_id: myAthleteId, plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }]
+          .sort((a, b) => a.plan_date.localeCompare(b.plan_date))
+      })
+    } else {
+      try { localStorage.removeItem(`plan_rest_v1_${date}`); localStorage.setItem(`plan_v2_${date}`, JSON.stringify(config)) } catch {}
+      const totalMeters = calcDist(config, unit)
+      fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan_date: date,
+          session_type: config.sessionType || 'easy',
+          description: config.name || null,
+          target_distance_meters: totalMeters > 0 ? totalMeters : null,
+        }),
+      }).then(r => { if (!r.ok) r.json().then(d => console.error('[group plan sync]', d)) })
+        .catch(e => console.error('[group plan sync]', e))
+      setPlans(prev => {
+        const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
+        return [...filtered, { id: 'local', athlete_id: myAthleteId, plan_date: date, session_type: config.sessionType || 'easy', description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }]
+          .sort((a, b) => a.plan_date.localeCompare(b.plan_date))
+      })
+    }
   }
 
   function handlePlanDelete(date: string) {
-    try { localStorage.removeItem(`plan_v2_${date}`) } catch {}
+    try { localStorage.removeItem(`plan_v2_${date}`); localStorage.removeItem(`plan_rest_v1_${date}`) } catch {}
     fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
       .catch(e => console.error('[group plan delete]', e))
     setPlans(prev => prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date)))

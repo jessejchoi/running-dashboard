@@ -1,9 +1,9 @@
 'use client'
-import { useState } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, Plus, Trash2, ChevronDown, Check } from 'lucide-react'
 import { useUnit } from '@/lib/unit-context'
 import { paceUnitLabel, distanceUnitLabel, metersToMiles, DistanceUnit } from '@/lib/utils'
-import { RUN_SESSION_TYPES } from '@/lib/planTypes'
+import { PLAN_SESSION_TYPES } from '@/lib/planTypes'
 
 export interface ContinuousBlock {
   id: string
@@ -57,8 +57,50 @@ function newContinuous(): ContinuousBlock {
 function newInterval(): IntervalBlock {
   return { id: Math.random().toString(36).slice(2), kind: 'interval', reps: 1, mode: 'distance', distanceM: 0, durationMin: 0, targetPace: '', recoveryMode: 'time', recoveryM: 0, recoveryMin: 0, recoveryPace: '' }
 }
-function defaultConfig(): SessionConfig {
+export function defaultConfig(): SessionConfig {
   return { name: '', sessionType: 'easy', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
+}
+
+function SessionTypeDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = PLAN_SESSION_TYPES.find(s => s.key === value)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] hover:border-[#3a3a3a] text-sm w-full transition-colors"
+      >
+        {current && <span className={`w-2 h-2 rounded-full ${current.color} shrink-0`} />}
+        <span className="text-white flex-1 text-left">{current?.label ?? 'Select type'}</span>
+        <ChevronDown size={14} className={`text-[#6b7280] transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 z-10">
+          {PLAN_SESSION_TYPES.map(s => (
+            <button
+              key={s.key}
+              onClick={() => { onChange(s.key); setOpen(false) }}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-[#242424] flex items-center gap-2.5 transition-colors"
+            >
+              <span className={`w-2 h-2 rounded-full ${s.color} shrink-0`} />
+              <span className={value === s.key ? 'text-white font-medium' : 'text-[#9ca3af]'}>{s.label}</span>
+              {value === s.key && <Check size={12} className="ml-auto text-[#f97316]" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function paceToSec(p: string): number {
@@ -249,7 +291,10 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           <div>
             <div className="text-[#6b7280] text-xs mb-0.5">{displayDate}</div>
             <h2 className="font-display font-bold text-lg text-white leading-tight">
-              {config.name || <span className="text-[#4b5563]">Untitled run</span>}
+              {config.sessionType === 'rest'
+                ? <span className="text-[#a78bfa]">Rest Day</span>
+                : (config.name || <span className="text-[#4b5563]">Untitled run</span>)
+              }
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -277,16 +322,10 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           {/* Session type */}
           <div className="space-y-2">
             <SectionLabel color="text-[#6b7280]">Session Type</SectionLabel>
-            <select
-              value={config.sessionType}
-              onChange={e => update({ ...config, sessionType: e.target.value })}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316] transition-colors appearance-none"
-            >
-              {RUN_SESSION_TYPES.map(s => (
-                <option key={s.key} value={s.key}>{s.label}</option>
-              ))}
-            </select>
+            <SessionTypeDropdown value={config.sessionType} onChange={v => update({ ...config, sessionType: v })} />
           </div>
+
+          {config.sessionType !== 'rest' && (<>
 
           {/* Session name */}
           <div className="space-y-2">
@@ -429,6 +468,8 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
               <span className="font-mono text-white text-sm">{formatSessionTime(totalSecs)}</span>
             </div>
           </div>
+
+          </>)}
 
         </div>
       </div>

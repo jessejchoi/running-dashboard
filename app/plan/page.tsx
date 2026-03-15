@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import Nav from '@/components/Nav'
-import PlanSessionModal, { SessionConfig, calcDist, calcDuration, summarizeParts, summarizeSession, SummaryPart } from '@/components/PlanSessionModal'
+import PlanSessionModal, { SessionConfig, calcDist, calcDuration, summarizeParts, summarizeSession, SummaryPart, defaultConfig } from '@/components/PlanSessionModal'
 import { Plus, Moon } from 'lucide-react'
 import { useUnit } from '@/lib/unit-context'
 import { distanceUnitLabel, metersToMiles } from '@/lib/utils'
@@ -179,7 +179,9 @@ export default function PlanPage() {
     }, 0)
   }
 
-  const modalConfig = modalDate ? (plans[modalDate] ?? null) : null
+  const modalConfig = modalDate
+    ? (plans[modalDate] ?? (restDays[modalDate] ? { ...defaultConfig(), sessionType: 'rest' } : null))
+    : null
   const modalDisplayDate = modalDate
     ? (() => {
         const d = new Date(modalDate + 'T00:00:00')
@@ -262,7 +264,7 @@ export default function PlanPage() {
                               </button>
                             ) : isRest ? (
                               <button
-                                onClick={() => !past && clearRest(dateStr)}
+                                onClick={() => !past && setModalDate(dateStr)}
                                 className="w-full min-h-[56px] rounded-lg px-2 py-2 text-xs bg-[#150f1e] border border-[#3b2060] flex flex-col items-center justify-center gap-1 text-[#7c5fa8] hover:text-[#a78bfa] hover:border-[#5b3090] transition-colors group"
                               >
                                 <Moon size={13} className="opacity-50 group-hover:opacity-70" />
@@ -377,16 +379,17 @@ export default function PlanPage() {
 
                     if (isRest) {
                       return (
-                        <div key={dateStr} className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 bg-[#150f1e] border border-[#3b2060] ${past ? 'opacity-40 pointer-events-none' : ''}`}>
+                        <button
+                          key={dateStr}
+                          onClick={() => !past && setModalDate(dateStr)}
+                          className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 bg-[#150f1e] border border-[#3b2060] text-left ${past ? 'opacity-40 pointer-events-none' : 'hover:border-[#5b3090] transition-colors'}`}
+                        >
                           {dateCol}
                           <div className="flex-1 flex items-center gap-2 text-[#7c5fa8]">
                             <Moon size={13} className="shrink-0" />
                             <span className="text-xs">Rest day</span>
                           </div>
-                          {!past && (
-                            <button onClick={() => clearRest(dateStr)} className="text-[#4a2d70] hover:text-[#a78bfa] transition-colors text-xs px-1">✕</button>
-                          )}
-                        </div>
+                        </button>
                       )
                     }
 
@@ -423,8 +426,16 @@ export default function PlanPage() {
           displayDate={modalDisplayDate}
           initialConfig={modalConfig}
           onClose={() => setModalDate(null)}
-          onSave={(config) => savePlan(modalDate, config)}
-          onDelete={() => { deletePlan(modalDate); setModalDate(null) }}
+          onSave={(config) => {
+            if (config.sessionType === 'rest') {
+              deletePlan(modalDate)
+              setRest(modalDate)
+            } else {
+              clearRest(modalDate)
+              savePlan(modalDate, config)
+            }
+          }}
+          onDelete={() => { deletePlan(modalDate); clearRest(modalDate); setModalDate(null) }}
         />
       )}
     </>

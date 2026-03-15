@@ -763,23 +763,19 @@ export default function GroupPageClient({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest">Challenges</p>
-                {myRole === 'admin' && (
-                  <button
-                    onClick={() => setShowCreate(true)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-[#f97316] hover:bg-[#ea580c] text-black rounded-lg transition-colors"
-                  >
-                    <Plus size={12} />
-                    New
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-[#f97316] hover:bg-[#ea580c] text-black rounded-lg transition-colors"
+                >
+                  <Plus size={12} />
+                  New
+                </button>
               </div>
               {challenges.length === 0 ? (
                 <div className="card text-center py-8">
                   <Trophy size={24} className="text-[#2a2a2a] mx-auto mb-2" />
                   <p className="text-[#6b7280] text-sm">No challenges yet.</p>
-                  {myRole === 'admin' && (
-                    <p className="text-[#4b5563] text-xs mt-1">Create one to motivate the group!</p>
-                  )}
+                  <p className="text-[#4b5563] text-xs mt-1">Create one to motivate the group!</p>
                 </div>
               ) : (
                 <div className="space-y-6">

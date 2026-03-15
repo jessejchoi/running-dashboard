@@ -13,8 +13,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .eq('athlete_id', parseInt(athleteId))
     .maybeSingle()
 
-  if (membership?.role !== 'admin') {
-    return NextResponse.json({ error: 'Only admins can create challenges' }, { status: 403 })
+  if (!membership) {
+    return NextResponse.json({ error: 'Not a group member' }, { status: 403 })
   }
 
   const body = await req.json()

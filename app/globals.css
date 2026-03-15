@@ -55,8 +55,8 @@
    are never clipped by the line box. */
 h1.font-display {
   line-height: 1.5;
-  padding-bottom: 0.4em;
   overflow: visible;
+  text-transform: uppercase;
 }
 
 @keyframes pulse-ring {

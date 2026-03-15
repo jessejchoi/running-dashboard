@@ -197,9 +197,9 @@ export default function PlanPage() {
                                 onClick={() => !past && setModalDate(dateStr)}
                                 className="w-full max-w-[160px] min-h-[56px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all bg-[#1a1a1a] text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110"
                               >
-                                <div className="font-medium truncate">{config.name || <span className="text-[#6b7280] italic">Untitled</span>}</div>
+                                <div className="font-medium">{config.name || <span className="text-[#6b7280] italic">Untitled</span>}</div>
                                 {summary && (
-                                  <div className="text-[#6b7280] mt-0.5 text-[10px] leading-relaxed line-clamp-2">{summary}</div>
+                                  <div className="text-[#6b7280] mt-0.5 text-[10px] leading-relaxed">{summary}</div>
                                 )}
                                 {(cellDist || cellTime) && (
                                   <div className="text-[#4b5563] mt-1 text-[10px] font-mono">

@@ -31,7 +31,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const { data: plans, error } = await supabaseAdmin
     .from('user_plans')
-    .select('id, athlete_id, plan_date, session_type, description, target_distance_meters')
+    .select('id, athlete_id, plan_date, session_index, session_type, description, target_distance_meters')
+    .order('session_index', { ascending: true })
     .in('athlete_id', memberIds)
     .gte('plan_date', from)
     .lte('plan_date', to)

@@ -304,6 +304,7 @@ interface UserPlan {
   id: string
   athlete_id: number
   plan_date: string
+  session_index: number
   session_type: string | null
   description: string | null
   target_distance_meters: number | null
@@ -332,6 +333,7 @@ export default function GroupPageClient({
   const [plansLoaded, setPlansLoaded] = useState(false)
   const [plansLoading, setPlansLoading] = useState(false)
   const [editingDate, setEditingDate] = useState<string | null>(null)
+  const [editingSessionIdx, setEditingSessionIdx] = useState<number | null>(null)
   const [modalConfig, setModalConfig] = useState<SessionConfig | null>(null)
 
   // Challenges
@@ -362,60 +364,133 @@ export default function GroupPageClient({
     setPlansLoading(false)
   }
 
-  function openPlanEdit(date: string) {
-    let config: SessionConfig | null = null
+  function loadSessionsLocal(date: string): SessionConfig[] {
     try {
-      const s = localStorage.getItem(`plan_v2_${date}`)
-      if (s) config = JSON.parse(s)
-      else if (localStorage.getItem(`plan_rest_v1_${date}`) === '1')
-        config = { name: '', sessionType: 'rest', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
+      const s = localStorage.getItem(`plan_sessions_v3_${date}`)
+      if (s) return JSON.parse(s)
+      // Legacy migration
+      const run = localStorage.getItem(`plan_v2_${date}`)
+      if (run) {
+        const sessions = [JSON.parse(run) as SessionConfig]
+        localStorage.setItem(`plan_sessions_v3_${date}`, JSON.stringify(sessions))
+        localStorage.removeItem(`plan_v2_${date}`)
+        return sessions
+      }
+      if (localStorage.getItem(`plan_rest_v1_${date}`) === '1') {
+        const sessions = [{ name: '', sessionType: 'rest', warmupMode: 'time' as const, warmupMin: 0, warmupM: 0, warmupPace: '', blocks: [], cooldownMode: 'time' as const, cooldownMin: 0, cooldownM: 0, cooldownPace: '' }]
+        localStorage.setItem(`plan_sessions_v3_${date}`, JSON.stringify(sessions))
+        localStorage.removeItem(`plan_rest_v1_${date}`)
+        return sessions
+      }
     } catch {}
+    return []
+  }
+
+  function openPlanEdit(date: string, sessionIdx: number | null) {
+    const sessions = loadSessionsLocal(date)
+    const config = sessionIdx !== null ? (sessions[sessionIdx] ?? null) : null
     setModalConfig(config)
     setEditingDate(date)
+    setEditingSessionIdx(sessionIdx)
   }
 
-  function handlePlanSave(date: string, config: SessionConfig) {
-    if (config.sessionType === 'rest') {
-      try { localStorage.removeItem(`plan_v2_${date}`); localStorage.setItem(`plan_rest_v1_${date}`, '1') } catch {}
-      fetch('/api/plans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }),
-      }).then(r => { if (!r.ok) r.json().then(d => console.error('[group plan sync rest]', d)) })
-        .catch(e => console.error('[group plan sync rest]', e))
-      setPlans(prev => {
-        const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
-        return [...filtered, { id: 'local', athlete_id: myAthleteId, plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }]
-          .sort((a, b) => a.plan_date.localeCompare(b.plan_date))
-      })
+  function handlePlanSave(date: string, sessionIdx: number | null, config: SessionConfig) {
+    const existing = loadSessionsLocal(date)
+    let next: SessionConfig[]
+    if (sessionIdx === null) {
+      next = [...existing, config]
     } else {
-      try { localStorage.removeItem(`plan_rest_v1_${date}`); localStorage.setItem(`plan_v2_${date}`, JSON.stringify(config)) } catch {}
-      const totalMeters = calcDist(config, unit)
-      fetch('/api/plans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          plan_date: date,
-          session_type: config.sessionType || 'easy',
-          description: config.name || null,
-          target_distance_meters: totalMeters > 0 ? totalMeters : null,
-        }),
-      }).then(r => { if (!r.ok) r.json().then(d => console.error('[group plan sync]', d)) })
-        .catch(e => console.error('[group plan sync]', e))
-      setPlans(prev => {
-        const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
-        return [...filtered, { id: 'local', athlete_id: myAthleteId, plan_date: date, session_type: config.sessionType || 'easy', description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }]
-          .sort((a, b) => a.plan_date.localeCompare(b.plan_date))
-      })
+      next = existing.map((s, i) => i === sessionIdx ? config : s)
     }
+    try { localStorage.setItem(`plan_sessions_v3_${date}`, JSON.stringify(next)) } catch {}
+
+    // Sync all to API (delete all first to handle re-indexing, then re-sync)
+    fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
+      .then(() => {
+        next.forEach((s, i) => {
+          const isRest = s.sessionType === 'rest'
+          const totalMeters = isRest ? null : (calcDist(s, unit) > 0 ? calcDist(s, unit) : null)
+          fetch('/api/plans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              plan_date: date,
+              session_index: i,
+              session_type: s.sessionType || 'easy',
+              description: isRest ? null : (s.name || null),
+              target_distance_meters: totalMeters,
+            }),
+          }).catch(e => console.error('[group plan sync]', e))
+        })
+      })
+      .catch(e => console.error('[group plan sync delete-first]', e))
+
+    setPlans(prev => {
+      const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
+      const newEntries = next.map((s, i) => ({
+        id: 'local',
+        athlete_id: myAthleteId,
+        plan_date: date,
+        session_index: i,
+        session_type: s.sessionType || 'easy',
+        description: s.sessionType === 'rest' ? null : (s.name || null),
+        target_distance_meters: s.sessionType === 'rest' ? null : (calcDist(s, unit) > 0 ? calcDist(s, unit) : null),
+      }))
+      return [...filtered, ...newEntries].sort((a, b) =>
+        a.plan_date.localeCompare(b.plan_date) || a.session_index - b.session_index
+      )
+    })
   }
 
-  function handlePlanDelete(date: string) {
-    try { localStorage.removeItem(`plan_v2_${date}`); localStorage.removeItem(`plan_rest_v1_${date}`) } catch {}
+  function handlePlanDelete(date: string, sessionIdx: number) {
+    const existing = loadSessionsLocal(date)
+    const next = existing.filter((_, i) => i !== sessionIdx)
+    try {
+      if (next.length === 0) {
+        localStorage.removeItem(`plan_sessions_v3_${date}`)
+      } else {
+        localStorage.setItem(`plan_sessions_v3_${date}`, JSON.stringify(next))
+      }
+    } catch {}
+
+    // Delete all rows, then re-sync remaining
     fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
+      .then(() => {
+        next.forEach((s, i) => {
+          const isRest = s.sessionType === 'rest'
+          const totalMeters = isRest ? null : (calcDist(s, unit) > 0 ? calcDist(s, unit) : null)
+          fetch('/api/plans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              plan_date: date,
+              session_index: i,
+              session_type: s.sessionType || 'easy',
+              description: isRest ? null : (s.name || null),
+              target_distance_meters: totalMeters,
+            }),
+          }).catch(e => console.error('[group plan resync]', e))
+        })
+      })
       .catch(e => console.error('[group plan delete]', e))
-    setPlans(prev => prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date)))
+
+    setPlans(prev => {
+      const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
+      const newEntries = next.map((s, i) => ({
+        id: 'local',
+        athlete_id: myAthleteId,
+        plan_date: date,
+        session_index: i,
+        session_type: s.sessionType || 'easy',
+        description: s.sessionType === 'rest' ? null : (s.name || null),
+        target_distance_meters: s.sessionType === 'rest' ? null : (calcDist(s, unit) > 0 ? calcDist(s, unit) : null),
+      }))
+      return [...filtered, ...newEntries].sort((a, b) =>
+        a.plan_date.localeCompare(b.plan_date) || a.session_index - b.session_index
+      )
+    })
     setEditingDate(null)
+    setEditingSessionIdx(null)
   }
 
   async function loadMoreRuns() {
@@ -1134,62 +1209,97 @@ export default function GroupPageClient({
                     {/* Member session cards */}
                     <div className="space-y-2">
                       {sortedMembers.map(m => {
-                        const plan = dayPlans.find(p => p.athlete_id === m.athlete_id)
-                        const sessionMeta = plan ? PLAN_SESSION_TYPES.find(s => s.key === plan.session_type) : null
+                        const memberPlans = dayPlans.filter(p => p.athlete_id === m.athlete_id)
+                          .sort((a, b) => a.session_index - b.session_index)
                         const isMe = m.athlete_id === myAthleteId
-                        const isRest = plan?.session_type === 'rest'
+                        const hasRest = memberPlans.some(p => p.session_type === 'rest')
 
                         return (
-                          <div
-                            key={m.athlete_id}
-                            onClick={isMe ? () => openPlanEdit(dateStr) : undefined}
-                            className={`rounded-xl px-3 py-2.5 transition-all ${isMe ? 'cursor-pointer' : ''} ${
-                              isRest
-                                ? `bg-[#150f1e] border border-[#3b2060]${isMe ? ' hover:border-[#5b3090]' : ''}`
-                                : plan
-                                  ? `bg-[#1a1a1a]${isMe ? ' hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110' : ''}`
-                                  : isMe
-                                    ? 'border border-dashed border-[#3a3a3a] hover:border-[#f97316]/30'
-                                    : 'border border-dashed border-[#1c1c1c]'
-                            }`}
-                          >
-                            {/* Member name row */}
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <Avatar name={m.name} pic={m.profile_pic} size={4} />
-                              <span className={`text-[10px] font-bold ${isMe ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
-                                {isMe ? 'You' : m.name.split(' ')[0]}
-                              </span>
-                              {isMe && plan && <Pencil size={10} className="text-[#4b5563] ml-auto" />}
-                            </div>
-
-                            {/* Session content */}
-                            {isRest ? (
-                              <div className={`flex items-center gap-1.5 ${isMe ? 'text-[#a78bfa]' : 'text-[#7c5fa8]'}`}>
-                                <Moon size={11} className="opacity-70" />
-                                <span className="text-xs">Rest day</span>
+                          <div key={m.athlete_id} className="space-y-1">
+                            {memberPlans.length === 0 ? (
+                              <div
+                                onClick={isMe ? () => openPlanEdit(dateStr, null) : undefined}
+                                className={`rounded-xl px-3 py-2.5 transition-all ${isMe ? 'cursor-pointer border border-dashed border-[#3a3a3a] hover:border-[#f97316]/30' : 'border border-dashed border-[#1c1c1c]'}`}
+                              >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <Avatar name={m.name} pic={m.profile_pic} size={4} />
+                                  <span className={`text-[10px] font-bold ${isMe ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                                    {isMe ? 'You' : m.name.split(' ')[0]}
+                                  </span>
+                                </div>
+                                <div className={`flex items-center gap-1 ${isMe ? 'text-[#4b5563]' : 'text-[#333]'}`}>
+                                  {isMe && <Plus size={10} />}
+                                  <span className="text-[10px]">{isMe ? 'Add plan' : '—'}</span>
+                                </div>
                               </div>
-                            ) : plan ? (
+                            ) : (
                               <>
-                                {plan.description && (
-                                  <div className="text-xs font-medium text-white leading-tight">{plan.description}</div>
-                                )}
-                                {sessionMeta && (
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
-                                    <span className="text-[#9ca3af] text-[10px]">{sessionMeta.label}</span>
-                                  </div>
-                                )}
-                                {plan.target_distance_meters && (
-                                  <div className="text-[#4b5563] mt-0.5 text-[10px] font-mono">
-                                    {toDisplay(plan.target_distance_meters).toFixed(1)} {label}
-                                  </div>
+                                {memberPlans.map((plan, pi) => {
+                                  const sessionMeta = PLAN_SESSION_TYPES.find(s => s.key === plan.session_type)
+                                  const isRest = plan.session_type === 'rest'
+                                  return (
+                                    <div
+                                      key={plan.session_index}
+                                      onClick={isMe ? () => openPlanEdit(dateStr, plan.session_index) : undefined}
+                                      className={`rounded-xl px-3 py-2.5 transition-all ${isMe ? 'cursor-pointer' : ''} ${
+                                        isRest
+                                          ? `bg-[#150f1e] border border-[#3b2060]${isMe ? ' hover:border-[#5b3090]' : ''}`
+                                          : `bg-[#1a1a1a]${isMe ? ' hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110' : ''}`
+                                      }`}
+                                    >
+                                      {/* Member name row — only on first card */}
+                                      {pi === 0 && (
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                          <Avatar name={m.name} pic={m.profile_pic} size={4} />
+                                          <span className={`text-[10px] font-bold ${isMe ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                                            {isMe ? 'You' : m.name.split(' ')[0]}
+                                          </span>
+                                          {isMe && <Pencil size={10} className="text-[#4b5563] ml-auto" />}
+                                        </div>
+                                      )}
+                                      {pi > 0 && (
+                                        <div className="flex items-center gap-1.5 mb-1.5 ml-5">
+                                          {isMe && <Pencil size={10} className="text-[#4b5563] ml-auto" />}
+                                        </div>
+                                      )}
+
+                                      {/* Session content */}
+                                      {isRest ? (
+                                        <div className={`flex items-center gap-1.5 ${isMe ? 'text-[#a78bfa]' : 'text-[#7c5fa8]'}`}>
+                                          <Moon size={11} className="opacity-70" />
+                                          <span className="text-xs">Rest day</span>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          {plan.description && (
+                                            <div className="text-xs font-medium text-white leading-tight">{plan.description}</div>
+                                          )}
+                                          {sessionMeta && (
+                                            <div className="flex items-center gap-1 mt-0.5">
+                                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
+                                              <span className="text-[#9ca3af] text-[10px]">{sessionMeta.label}</span>
+                                            </div>
+                                          )}
+                                          {plan.target_distance_meters && (
+                                            <div className="text-[#4b5563] mt-0.5 text-[10px] font-mono">
+                                              {toDisplay(plan.target_distance_meters).toFixed(1)} {label}
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                                {/* Add another run button — only for me, no rest */}
+                                {isMe && !hasRest && (
+                                  <button
+                                    onClick={() => openPlanEdit(dateStr, null)}
+                                    className="w-full rounded-lg py-1 text-[10px] text-[#4b5563] hover:text-[#f97316] border border-dashed border-[#2a2a2a] hover:border-[#f97316]/30 flex items-center justify-center gap-1 transition-colors"
+                                  >
+                                    <Plus size={9} /> Add run
+                                  </button>
                                 )}
                               </>
-                            ) : (
-                              <div className={`flex items-center gap-1 ${isMe ? 'text-[#4b5563]' : 'text-[#333]'}`}>
-                                {isMe && <Plus size={10} />}
-                                <span className="text-[10px]">{isMe ? 'Add plan' : '—'}</span>
-                              </div>
                             )}
                           </div>
                         )
@@ -1348,9 +1458,9 @@ export default function GroupPageClient({
         <PlanSessionModal
           displayDate={format(new Date(editingDate + 'T00:00:00'), 'EEE, MMM d')}
           initialConfig={modalConfig}
-          onClose={() => setEditingDate(null)}
-          onSave={(config) => handlePlanSave(editingDate, config)}
-          onDelete={() => handlePlanDelete(editingDate)}
+          onClose={() => { setEditingDate(null); setEditingSessionIdx(null) }}
+          onSave={(config) => handlePlanSave(editingDate, editingSessionIdx, config)}
+          onDelete={editingSessionIdx !== null ? () => handlePlanDelete(editingDate, editingSessionIdx) : undefined}
         />
       )}
     </main>

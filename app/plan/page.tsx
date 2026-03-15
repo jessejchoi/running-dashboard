@@ -59,15 +59,52 @@ function formatSessionTime(secs: number): string {
   return `${m}min`
 }
 
-const STORAGE_KEY = (date: string) => `plan_v2_${date}`
-const REST_KEY = (date: string) => `plan_rest_v1_${date}`
+// New multi-session storage key
+const SESSIONS_KEY = (date: string) => `plan_sessions_v3_${date}`
+// Legacy keys (read-only for migration)
+const LEGACY_RUN_KEY = (date: string) => `plan_v2_${date}`
+const LEGACY_REST_KEY = (date: string) => `plan_rest_v1_${date}`
+
+function loadSessions(date: string): SessionConfig[] {
+  try {
+    const s = localStorage.getItem(SESSIONS_KEY(date))
+    if (s) return JSON.parse(s)
+    // Migrate from legacy keys
+    const run = localStorage.getItem(LEGACY_RUN_KEY(date))
+    if (run) {
+      const config = JSON.parse(run) as SessionConfig
+      const sessions = [config]
+      localStorage.setItem(SESSIONS_KEY(date), JSON.stringify(sessions))
+      localStorage.removeItem(LEGACY_RUN_KEY(date))
+      return sessions
+    }
+    if (localStorage.getItem(LEGACY_REST_KEY(date)) === '1') {
+      const sessions = [{ ...defaultConfig(), sessionType: 'rest' }]
+      localStorage.setItem(SESSIONS_KEY(date), JSON.stringify(sessions))
+      localStorage.removeItem(LEGACY_REST_KEY(date))
+      return sessions
+    }
+  } catch {}
+  return []
+}
+
+function saveSessions(date: string, sessions: SessionConfig[]) {
+  try {
+    if (sessions.length === 0) {
+      localStorage.removeItem(SESSIONS_KEY(date))
+    } else {
+      localStorage.setItem(SESSIONS_KEY(date), JSON.stringify(sessions))
+    }
+  } catch {}
+}
 
 export default function PlanPage() {
   const { unit } = useUnit()
   const unitLabel = distanceUnitLabel(unit)
-  const [plans, setPlans] = useState<Record<string, SessionConfig>>({})
-  const [restDays, setRestDays] = useState<Record<string, boolean>>({})
+  // plans: date -> array of sessions
+  const [plans, setPlans] = useState<Record<string, SessionConfig[]>>({})
   const [modalDate, setModalDate] = useState<string | null>(null)
+  const [modalSessionIdx, setModalSessionIdx] = useState<number | null>(null) // null = new session
 
   const weeks = useMemo(() => {
     const monday = getMondayOfWeek(new Date())
@@ -80,108 +117,125 @@ export default function PlanPage() {
   const allDates = useMemo(() => weeks.flatMap(w => w.dates.map(toDateStr)), [weeks])
 
   useEffect(() => {
-    const loaded: Record<string, SessionConfig> = {}
-    const loadedRest: Record<string, boolean> = {}
+    const loaded: Record<string, SessionConfig[]> = {}
     for (const date of allDates) {
-      try {
-        const s = localStorage.getItem(STORAGE_KEY(date))
-        if (s) loaded[date] = JSON.parse(s)
-        if (localStorage.getItem(REST_KEY(date)) === '1') loadedRest[date] = true
-      } catch {}
+      const sessions = loadSessions(date)
+      if (sessions.length > 0) loaded[date] = sessions
     }
     setPlans(loaded)
-    setRestDays(loadedRest)
 
-    // Bulk-sync all localStorage plans to Supabase on load
-    for (const [date, config] of Object.entries(loaded)) {
-      const totalMeters = calcDist(config)
-      fetch('/api/plans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_date: date, session_type: config.sessionType || 'easy', description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }),
-      }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync load]', date, d)) })
-        .catch(e => console.error('[plan sync load]', date, e))
-    }
-    for (const date of Object.keys(loadedRest)) {
-      fetch('/api/plans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }),
-      }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync load rest]', date, d)) })
-        .catch(e => console.error('[plan sync load rest]', date, e))
+    // Bulk-sync to Supabase on load
+    for (const [date, sessions] of Object.entries(loaded)) {
+      sessions.forEach((config, idx) => {
+        const isRest = config.sessionType === 'rest'
+        const totalMeters = isRest ? null : (calcDist(config) > 0 ? calcDist(config) : null)
+        fetch('/api/plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            plan_date: date,
+            session_index: idx,
+            session_type: config.sessionType || 'easy',
+            description: isRest ? null : (config.name || null),
+            target_distance_meters: totalMeters,
+          }),
+        }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync load]', date, idx, d)) })
+          .catch(e => console.error('[plan sync load]', date, idx, e))
+      })
     }
   }, [allDates])
 
-  function syncRunToApi(date: string, config: SessionConfig) {
+  function syncToApi(date: string, idx: number, config: SessionConfig) {
+    const isRest = config.sessionType === 'rest'
     const totalMeters = calcDist(config, unit)
     fetch('/api/plans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         plan_date: date,
+        session_index: idx,
         session_type: config.sessionType || 'easy',
-        description: config.name || summarizeSession(config, unit) || null,
-        target_distance_meters: totalMeters > 0 ? totalMeters : null,
+        description: isRest ? null : (config.name || summarizeSession(config, unit) || null),
+        target_distance_meters: isRest || totalMeters <= 0 ? null : totalMeters,
       }),
-    }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync save]', date, d)) })
-      .catch(e => console.error('[plan sync save]', date, e))
+    }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync save]', date, idx, d)) })
+      .catch(e => console.error('[plan sync save]', date, idx, e))
   }
 
-  function syncRestToApi(date: string) {
-    fetch('/api/plans', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }),
-    }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync rest]', date, d)) })
-      .catch(e => console.error('[plan sync rest]', date, e))
+  function deleteFromApi(date: string, idx: number) {
+    fetch(`/api/plans?date=${date}&session_index=${idx}`, { method: 'DELETE' })
+      .then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync delete]', date, idx, d)) })
+      .catch(e => console.error('[plan sync delete]', date, idx, e))
   }
 
-  function deleteFromApi(date: string) {
+  function deleteAllFromApi(date: string) {
     fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
-      .then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync delete]', date, d)) })
-      .catch(e => console.error('[plan sync delete]', date, e))
+      .catch(e => console.error('[plan sync delete all]', date, e))
   }
 
-  function savePlan(date: string, config: SessionConfig) {
-    setPlans(prev => ({ ...prev, [date]: config }))
-    try { localStorage.setItem(STORAGE_KEY(date), JSON.stringify(config)) } catch {}
-    syncRunToApi(date, config)
+  function saveSession(date: string, idx: number | null, config: SessionConfig) {
+    setPlans(prev => {
+      const existing = prev[date] ?? []
+      let next: SessionConfig[]
+      if (idx === null) {
+        // New session
+        next = [...existing, config]
+      } else {
+        next = existing.map((s, i) => i === idx ? config : s)
+      }
+      saveSessions(date, next)
+      next.forEach((s, i) => syncToApi(date, i, s))
+      return { ...prev, [date]: next }
+    })
   }
 
-  function deletePlan(date: string) {
-    setPlans(prev => { const next = { ...prev }; delete next[date]; return next })
-    try { localStorage.removeItem(STORAGE_KEY(date)) } catch {}
-    deleteFromApi(date)
+  function deleteSession(date: string, idx: number) {
+    setPlans(prev => {
+      const existing = prev[date] ?? []
+      const next = existing.filter((_, i) => i !== idx)
+      if (next.length === 0) {
+        saveSessions(date, [])
+        deleteAllFromApi(date)
+        const updated = { ...prev }
+        delete updated[date]
+        return updated
+      }
+      // Re-index: delete all then re-sync
+      saveSessions(date, next)
+      deleteAllFromApi(date)
+      next.forEach((s, i) => syncToApi(date, i, s))
+      return { ...prev, [date]: next }
+    })
   }
 
-  function setRest(date: string) {
-    setRestDays(prev => ({ ...prev, [date]: true }))
-    try { localStorage.setItem(REST_KEY(date), '1') } catch {}
-    syncRestToApi(date)
-  }
-
-  function clearRest(date: string) {
-    setRestDays(prev => { const next = { ...prev }; delete next[date]; return next })
-    try { localStorage.removeItem(REST_KEY(date)) } catch {}
-    deleteFromApi(date)
+  function openModal(date: string, idx: number | null) {
+    setModalDate(date)
+    setModalSessionIdx(idx)
   }
 
   function weekDist(dates: Date[]): number {
     return dates.reduce((sum, d) => {
-      const c = plans[toDateStr(d)]
-      return sum + (c ? (unit === 'miles' ? metersToMiles(calcDist(c, unit)) : calcDist(c, unit) / 1000) : 0)
+      const sessions = plans[toDateStr(d)] ?? []
+      return sum + sessions.reduce((s, c) => {
+        if (c.sessionType === 'rest') return s
+        return s + (unit === 'miles' ? metersToMiles(calcDist(c, unit)) : calcDist(c, unit) / 1000)
+      }, 0)
     }, 0)
   }
 
   function weekTime(dates: Date[]): number {
     return dates.reduce((sum, d) => {
-      const c = plans[toDateStr(d)]
-      return sum + (c ? calcDuration(c, unit) : 0)
+      const sessions = plans[toDateStr(d)] ?? []
+      return sum + sessions.reduce((s, c) => {
+        if (c.sessionType === 'rest') return s
+        return s + calcDuration(c, unit)
+      }, 0)
     }, 0)
   }
 
-  const modalConfig = modalDate
-    ? (plans[modalDate] ?? (restDays[modalDate] ? { ...defaultConfig(), sessionType: 'rest' } : null))
+  const modalSessions = modalDate ? (plans[modalDate] ?? []) : []
+  const modalInitialConfig = modalDate
+    ? (modalSessionIdx !== null ? (modalSessions[modalSessionIdx] ?? null) : null)
     : null
   const modalDisplayDate = modalDate
     ? (() => {
@@ -239,61 +293,82 @@ export default function PlanPage() {
                       <td className="pb-4 px-3" />
                       {week.dates.map((d) => {
                         const dateStr = toDateStr(d)
-                        const config = plans[dateStr]
-                        const isRest = restDays[dateStr]
-                        const parts = config ? summarizeParts(config, unit) : []
-                        const summary = parts.map(p => p.text).join(' · ')
+                        const sessions = plans[dateStr] ?? []
                         const past = isPast(d)
-                        const cellDist = config ? (unit === 'miles' ? metersToMiles(calcDist(config, unit)).toFixed(2) : (calcDist(config, unit) / 1000).toFixed(1)) : null
-                        const cellTime = config ? formatSessionTime(calcDuration(config, unit)) : null
-                        const sessionMeta = config ? PLAN_SESSION_TYPES.find(s => s.key === config.sessionType) : null
                         return (
                           <td key={dateStr} className={`pb-4 px-1 align-top ${past ? 'opacity-40 cursor-default pointer-events-none' : ''}`}>
-                            {config ? (
-                              <button
-                                onClick={() => !past && setModalDate(dateStr)}
-                                className="w-full max-w-[160px] min-h-[56px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all bg-[#1a1a1a] text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110"
-                              >
-                                <div className="font-medium">{config.name || <span className="text-[#6b7280] italic">Untitled</span>}</div>
-                                {sessionMeta && (
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
-                                    <span className="text-[#9ca3af] text-[10px]">{sessionMeta.label}</span>
-                                  </div>
-                                )}
-                                {summary && (
-                                  <div className="text-[#6b7280] mt-0.5 text-[10px] leading-relaxed">{summary}</div>
-                                )}
-                                {(cellDist || cellTime) && (
-                                  <div className="text-[#4b5563] mt-1 text-[10px] font-mono">
-                                    {cellDist && `${cellDist} ${unitLabel}`}{cellDist && cellTime && ' · '}{cellTime}
-                                  </div>
-                                )}
-                              </button>
-                            ) : isRest ? (
-                              <button
-                                onClick={() => !past && setModalDate(dateStr)}
-                                className="w-full min-h-[56px] rounded-lg px-2 py-2 text-xs bg-[#150f1e] border border-[#3b2060] flex flex-col items-center justify-center gap-1 text-[#7c5fa8] hover:text-[#a78bfa] hover:border-[#5b3090] transition-colors group"
-                              >
-                                <Moon size={13} className="opacity-50 group-hover:opacity-70" />
-                                <span>Rest</span>
-                              </button>
-                            ) : (
-                              <div className="w-full min-h-[56px] rounded-lg border border-dashed border-[#3a3a3a] flex flex-col items-center justify-center gap-0.5 hover:border-[#f97316]/30 transition-colors">
-                                <button
-                                  onClick={() => !past && setModalDate(dateStr)}
-                                  className="flex items-center gap-1 text-[10px] text-[#6b7280] hover:text-[#f97316] transition-colors px-2 py-0.5 rounded"
-                                >
-                                  <Plus size={10} /> Run
-                                </button>
-                                <button
-                                  onClick={() => !past && setRest(dateStr)}
-                                  className="text-[9px] text-[#4b5563] hover:text-[#6b7280] transition-colors px-2 py-0.5 rounded"
-                                >
-                                  Rest
-                                </button>
-                              </div>
-                            )}
+                            <div className="flex flex-col gap-1 w-full max-w-[160px]">
+                              {sessions.length === 0 ? (
+                                <div className="w-full min-h-[56px] rounded-lg border border-dashed border-[#3a3a3a] flex flex-col items-center justify-center gap-0.5 hover:border-[#f97316]/30 transition-colors">
+                                  <button
+                                    onClick={() => !past && openModal(dateStr, null)}
+                                    className="flex items-center gap-1 text-[10px] text-[#6b7280] hover:text-[#f97316] transition-colors px-2 py-0.5 rounded"
+                                  >
+                                    <Plus size={10} /> Run
+                                  </button>
+                                  <button
+                                    onClick={() => !past && saveSession(dateStr, null, { ...defaultConfig(), sessionType: 'rest' })}
+                                    className="text-[9px] text-[#4b5563] hover:text-[#6b7280] transition-colors px-2 py-0.5 rounded"
+                                  >
+                                    Rest
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  {sessions.map((config, idx) => {
+                                    const isRest = config.sessionType === 'rest'
+                                    const parts = isRest ? [] : summarizeParts(config, unit)
+                                    const summary = parts.map(p => p.text).join(' · ')
+                                    const cellDist = !isRest && calcDist(config, unit) > 0
+                                      ? (unit === 'miles' ? metersToMiles(calcDist(config, unit)).toFixed(2) : (calcDist(config, unit) / 1000).toFixed(1))
+                                      : null
+                                    const cellTime = !isRest ? formatSessionTime(calcDuration(config, unit)) : null
+                                    const sessionMeta = !isRest ? PLAN_SESSION_TYPES.find(s => s.key === config.sessionType) : null
+                                    return isRest ? (
+                                      <button
+                                        key={idx}
+                                        onClick={() => !past && openModal(dateStr, idx)}
+                                        className="w-full min-h-[40px] rounded-lg px-2 py-1.5 text-xs bg-[#150f1e] border border-[#3b2060] flex flex-col items-center justify-center gap-0.5 text-[#7c5fa8] hover:text-[#a78bfa] hover:border-[#5b3090] transition-colors group"
+                                      >
+                                        <Moon size={11} className="opacity-50 group-hover:opacity-70" />
+                                        <span>Rest</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        key={idx}
+                                        onClick={() => !past && openModal(dateStr, idx)}
+                                        className="w-full min-h-[48px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all bg-[#1a1a1a] text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110"
+                                      >
+                                        <div className="font-medium">{config.name || <span className="text-[#6b7280] italic">Untitled</span>}</div>
+                                        {sessionMeta && (
+                                          <div className="flex items-center gap-1 mt-0.5">
+                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
+                                            <span className="text-[#9ca3af] text-[10px]">{sessionMeta.label}</span>
+                                          </div>
+                                        )}
+                                        {summary && (
+                                          <div className="text-[#6b7280] mt-0.5 text-[10px] leading-relaxed">{summary}</div>
+                                        )}
+                                        {(cellDist || cellTime) && (
+                                          <div className="text-[#4b5563] mt-1 text-[10px] font-mono">
+                                            {cellDist && `${cellDist} ${unitLabel}`}{cellDist && cellTime && ' · '}{cellTime}
+                                          </div>
+                                        )}
+                                      </button>
+                                    )
+                                  })}
+                                  {/* Add another run button — only show if no rest day */}
+                                  {!sessions.some(s => s.sessionType === 'rest') && (
+                                    <button
+                                      onClick={() => !past && openModal(dateStr, null)}
+                                      className="w-full rounded-md py-0.5 text-[9px] text-[#4b5563] hover:text-[#f97316] border border-dashed border-[#2a2a2a] hover:border-[#f97316]/30 flex items-center justify-center gap-0.5 transition-colors"
+                                    >
+                                      <Plus size={8} /> Add run
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </td>
                         )
                       })}
@@ -324,7 +399,6 @@ export default function PlanPage() {
             const timeSecs = weekTime(week.dates)
             return (
               <div key={week.weekNum}>
-                {/* Week header */}
                 <div className="flex items-center justify-between mb-3">
                   <span className="bg-[#f97316] text-white text-xs font-bold rounded px-2 py-1">
                     {shortDate(week.dates[0])} – {shortDate(week.dates[6])}
@@ -337,18 +411,12 @@ export default function PlanPage() {
                   )}
                 </div>
 
-                {/* Day rows */}
                 <div className="space-y-2">
                   {week.dates.map((d) => {
                     const dateStr = toDateStr(d)
-                    const config = plans[dateStr]
-                    const isRest = restDays[dateStr]
+                    const sessions = plans[dateStr] ?? []
                     const isDay = checkToday(d)
                     const past = isPast(d)
-                    const parts: SummaryPart[] = config ? summarizeParts(config, unit) : []
-                    const distVal = config ? (unit === 'miles' ? metersToMiles(calcDist(config, unit)).toFixed(2) : (calcDist(config, unit) / 1000).toFixed(1)) : null
-                    const timeVal = config ? formatSessionTime(calcDuration(config, unit)) : null
-                    const sessionMeta = config ? PLAN_SESSION_TYPES.find(s => s.key === config.sessionType) : null
 
                     const dateCol = (
                       <div className="w-14 shrink-0 pt-0.5">
@@ -357,75 +425,99 @@ export default function PlanPage() {
                       </div>
                     )
 
-                    if (config) {
+                    if (sessions.length === 0) {
                       return (
-                        <button
-                          key={dateStr}
-                          onClick={() => !past && setModalDate(dateStr)}
-                          className={`w-full flex items-start gap-3 rounded-xl px-4 py-3 text-left transition-all bg-[#141414] hover:brightness-110 ${past ? 'opacity-40 pointer-events-none' : ''}`}
-                        >
+                        <div key={dateStr} className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 border border-dashed border-[#2a2a2a] ${past ? 'opacity-40 pointer-events-none' : ''}`}>
                           {dateCol}
-                          <div className="w-28 shrink-0 pt-0.5">
-                            <div className="text-sm font-medium text-white leading-snug">{config.name || <span className="text-[#6b7280] italic text-xs">Untitled</span>}</div>
-                            {sessionMeta && (
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
-                                <span className="text-[#9ca3af] text-xs">{sessionMeta.label}</span>
-                              </div>
-                            )}
-                            {distVal && distVal !== '0.0' && distVal !== '0.00' && (
-                              <div className="text-xs text-[#f97316]/70 font-mono mt-0.5">{distVal} {unitLabel}</div>
-                            )}
-                            {timeVal && (
-                              <div className="text-xs text-[#6b7280] font-mono">{timeVal}</div>
-                            )}
+                          <div className="flex-1 flex items-center gap-3 pt-0.5">
+                            <button
+                              onClick={() => !past && openModal(dateStr, null)}
+                              className="flex items-center gap-1.5 text-xs text-[#4b5563] hover:text-[#f97316] transition-colors"
+                            >
+                              <Plus size={13} className="shrink-0" /> Run
+                            </button>
+                            <span className="text-[#2a2a2a] text-xs">·</span>
+                            <button
+                              onClick={() => !past && saveSession(dateStr, null, { ...defaultConfig(), sessionType: 'rest' })}
+                              className="text-xs text-[#4b5563] hover:text-[#6b7280] transition-colors"
+                            >
+                              Rest
+                            </button>
                           </div>
-                          <div className="flex-1 min-w-0 pt-0.5 space-y-0.5">
-                            {parts.length > 0
-                              ? parts.map((p, i) => (
-                                  <div key={i} className={`text-xs ${p.color}`}>{p.text}</div>
-                                ))
-                              : <div className="text-xs text-[#4b5563] italic">No blocks added</div>
-                            }
-                          </div>
-                        </button>
-                      )
-                    }
-
-                    if (isRest) {
-                      return (
-                        <button
-                          key={dateStr}
-                          onClick={() => !past && setModalDate(dateStr)}
-                          className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 bg-[#150f1e] border border-[#3b2060] text-left ${past ? 'opacity-40 pointer-events-none' : 'hover:border-[#5b3090] transition-colors'}`}
-                        >
-                          {dateCol}
-                          <div className="flex-1 flex items-center gap-2 text-[#7c5fa8]">
-                            <Moon size={13} className="shrink-0" />
-                            <span className="text-xs">Rest day</span>
-                          </div>
-                        </button>
+                        </div>
                       )
                     }
 
                     return (
-                      <div key={dateStr} className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 border border-dashed border-[#2a2a2a] ${past ? 'opacity-40 pointer-events-none' : ''}`}>
-                        {dateCol}
-                        <div className="flex-1 flex items-center gap-3 pt-0.5">
+                      <div key={dateStr} className={`space-y-1.5 ${past ? 'opacity-40 pointer-events-none' : ''}`}>
+                        {sessions.map((config, idx) => {
+                          const isRest = config.sessionType === 'rest'
+                          const parts: SummaryPart[] = !isRest ? summarizeParts(config, unit) : []
+                          const distVal = !isRest && calcDist(config, unit) > 0
+                            ? (unit === 'miles' ? metersToMiles(calcDist(config, unit)).toFixed(2) : (calcDist(config, unit) / 1000).toFixed(1))
+                            : null
+                          const timeVal = !isRest ? formatSessionTime(calcDuration(config, unit)) : null
+                          const sessionMeta = !isRest ? PLAN_SESSION_TYPES.find(s => s.key === config.sessionType) : null
+
+                          if (isRest) {
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => !past && openModal(dateStr, idx)}
+                                className="w-full flex items-center gap-3 rounded-xl px-4 py-3 bg-[#150f1e] border border-[#3b2060] text-left hover:border-[#5b3090] transition-colors"
+                              >
+                                {idx === 0 ? dateCol : <div className="w-14 shrink-0" />}
+                                <div className="flex-1 flex items-center gap-2 text-[#7c5fa8]">
+                                  <Moon size={13} className="shrink-0" />
+                                  <span className="text-xs">Rest day</span>
+                                </div>
+                              </button>
+                            )
+                          }
+
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => !past && openModal(dateStr, idx)}
+                              className="w-full flex items-start gap-3 rounded-xl px-4 py-3 text-left transition-all bg-[#141414] hover:brightness-110"
+                            >
+                              {idx === 0 ? dateCol : <div className="w-14 shrink-0" />}
+                              <div className="w-28 shrink-0 pt-0.5">
+                                <div className="text-sm font-medium text-white leading-snug">{config.name || <span className="text-[#6b7280] italic text-xs">Untitled</span>}</div>
+                                {sessionMeta && (
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
+                                    <span className="text-[#9ca3af] text-xs">{sessionMeta.label}</span>
+                                  </div>
+                                )}
+                                {distVal && distVal !== '0.0' && distVal !== '0.00' && (
+                                  <div className="text-xs text-[#f97316]/70 font-mono mt-0.5">{distVal} {unitLabel}</div>
+                                )}
+                                {timeVal && (
+                                  <div className="text-xs text-[#6b7280] font-mono">{timeVal}</div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0 pt-0.5 space-y-0.5">
+                                {parts.length > 0
+                                  ? parts.map((p, i) => (
+                                      <div key={i} className={`text-xs ${p.color}`}>{p.text}</div>
+                                    ))
+                                  : <div className="text-xs text-[#4b5563] italic">No blocks added</div>
+                                }
+                              </div>
+                            </button>
+                          )
+                        })}
+                        {/* Add another run — only if no rest */}
+                        {!past && !sessions.some(s => s.sessionType === 'rest') && (
                           <button
-                            onClick={() => !past && setModalDate(dateStr)}
-                            className="flex items-center gap-1.5 text-xs text-[#4b5563] hover:text-[#f97316] transition-colors"
+                            onClick={() => openModal(dateStr, null)}
+                            className="w-full flex items-center gap-2 rounded-xl px-4 py-2 border border-dashed border-[#2a2a2a] hover:border-[#f97316]/30 text-[#4b5563] hover:text-[#f97316] transition-colors"
                           >
-                            <Plus size={13} className="shrink-0" /> Run
+                            <Plus size={12} />
+                            <span className="text-xs">Add another run</span>
                           </button>
-                          <span className="text-[#2a2a2a] text-xs">·</span>
-                          <button
-                            onClick={() => !past && setRest(dateStr)}
-                            className="text-xs text-[#4b5563] hover:text-[#6b7280] transition-colors"
-                          >
-                            Rest
-                          </button>
-                        </div>
+                        )}
                       </div>
                     )
                   })}
@@ -439,18 +531,16 @@ export default function PlanPage() {
       {modalDate && (
         <PlanSessionModal
           displayDate={modalDisplayDate}
-          initialConfig={modalConfig}
-          onClose={() => setModalDate(null)}
+          initialConfig={modalInitialConfig}
+          onClose={() => { setModalDate(null); setModalSessionIdx(null) }}
           onSave={(config) => {
-            if (config.sessionType === 'rest') {
-              deletePlan(modalDate)
-              setRest(modalDate)
-            } else {
-              clearRest(modalDate)
-              savePlan(modalDate, config)
-            }
+            saveSession(modalDate, modalSessionIdx, config)
           }}
-          onDelete={() => { deletePlan(modalDate); clearRest(modalDate); setModalDate(null) }}
+          onDelete={modalSessionIdx !== null ? () => {
+            deleteSession(modalDate, modalSessionIdx)
+            setModalDate(null)
+            setModalSessionIdx(null)
+          } : undefined}
         />
       )}
     </>

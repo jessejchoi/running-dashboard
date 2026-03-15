@@ -53,7 +53,7 @@ interface Props {
   initialConfig: SessionConfig | null
   onClose: () => void
   onSave: (config: SessionConfig) => void
-  onDelete: () => void
+  onDelete?: () => void
 }
 
 function newContinuous(): ContinuousBlock {
@@ -459,7 +459,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            {isExisting && !confirmDelete && !confirmClose && (
+            {isExisting && onDelete && !confirmDelete && !confirmClose && (
               <button
                 onClick={() => setConfirmDelete(true)}
                 className="text-[#6b7280] hover:text-red-400 transition-colors p-1"
@@ -470,7 +470,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             {confirmDelete && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[#6b7280]">Delete?</span>
-                <button onClick={onDelete} className="text-xs text-red-400 hover:text-red-300 font-medium">Yes</button>
+                <button onClick={() => onDelete?.()} className="text-xs text-red-400 hover:text-red-300 font-medium">Yes</button>
                 <button onClick={() => setConfirmDelete(false)} className="text-xs text-[#6b7280] hover:text-white">No</button>
               </div>
             )}

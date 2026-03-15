@@ -50,13 +50,13 @@ interface Props {
 }
 
 function newContinuous(): ContinuousBlock {
-  return { id: Math.random().toString(36).slice(2), kind: 'continuous', label: 'Steady', mode: 'time', distanceM: 3000, durationMin: 20, targetPace: '5:30' }
+  return { id: Math.random().toString(36).slice(2), kind: 'continuous', label: '', mode: 'time', distanceM: 0, durationMin: 0, targetPace: '' }
 }
 function newInterval(): IntervalBlock {
-  return { id: Math.random().toString(36).slice(2), kind: 'interval', reps: 4, mode: 'distance', distanceM: 400, durationMin: 1, targetPace: '4:30', recoveryMode: 'time', recoveryM: 200, recoveryMin: 1.5, recoveryPace: '6:30' }
+  return { id: Math.random().toString(36).slice(2), kind: 'interval', reps: 1, mode: 'distance', distanceM: 0, durationMin: 0, targetPace: '', recoveryMode: 'time', recoveryM: 0, recoveryMin: 0, recoveryPace: '' }
 }
 function defaultConfig(): SessionConfig {
-  return { name: '', warmupMin: 10, warmupPace: '6:00', blocks: [], cooldownMin: 10, cooldownPace: '6:30' }
+  return { name: '', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
 }
 
 function paceToSec(p: string): number {

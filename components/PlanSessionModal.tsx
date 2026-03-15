@@ -299,7 +299,8 @@ function PaceInp({ value, onChange, className = '' }: {
     if (digits.length <= 2) {
       onChange(digits)
     } else {
-      onChange(digits.slice(0, 2) + ':' + digits.slice(2))
+      const secs = Math.min(59, parseInt(digits.slice(2), 10))
+      onChange(digits.slice(0, 2) + ':' + String(secs).padStart(2, '0'))
     }
   }
   return (
@@ -562,9 +563,6 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                 {b.kind === 'continuous' ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Inp value={b.label} onChange={v => updateBlock(b.id, { label: v })} className="w-28" placeholder="Label (e.g. Tempo)" />
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex gap-1">
                         <Tog active={b.mode === 'time'} onClick={() => updateBlock(b.id, { mode: 'time' })}>Time</Tog>
                         <Tog active={b.mode === 'distance'} onClick={() => updateBlock(b.id, { mode: 'distance' })}>Distance</Tog>
@@ -585,7 +583,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="flex items-center gap-1.5">
-                        <Inp value={b.reps || ''} onChange={v => updateBlock(b.id, { reps: Math.max(0, parseInt(v) || 0) })} className="w-12" type="number" />
+                        <Inp value={b.reps || ''} onChange={v => updateBlock(b.id, { reps: Math.min(50, Math.max(0, parseInt(v) || 0)) })} className="w-12" type="number" />
                         <span className="text-[#6b7280] text-xs">×</span>
                       </div>
                       <div className="flex gap-1">

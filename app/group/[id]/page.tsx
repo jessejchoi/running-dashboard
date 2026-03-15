@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import GroupPageClient from '@/components/GroupPageClient'
 import { format } from 'date-fns'
+import { calculateTrainingLoad } from '@/lib/strava'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,14 +80,25 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     .order('start_date', { ascending: false })
     .limit(100)
 
-  // Fetch last 6 months of activities for leaderboard + challenge progress
+  // Fetch last 6 months of activities for leaderboard + challenge progress + training load
   const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
   const { data: leaderboardRuns } = await supabaseAdmin
     .from('activities')
-    .select('id, athlete_id, distance, start_date, average_speed, run_type')
+    .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type')
     .in('athlete_id', memberIds)
     .gte('start_date', sixMonthsAgo)
     .order('start_date', { ascending: false })
+
+  // Compute current training load (ATL/CTL/TSB) for each member
+  const memberTrainingLoads: Record<number, { ctl: number; atl: number; tsb: number }> = {}
+  for (const memberId of memberIds) {
+    const memberRuns = (leaderboardRuns ?? []).filter(r => r.athlete_id === memberId)
+    const loadPoints = calculateTrainingLoad(memberRuns)
+    const latest = loadPoints[loadPoints.length - 1]
+    memberTrainingLoads[memberId] = latest
+      ? { ctl: latest.ctl, atl: latest.atl, tsb: latest.tsb }
+      : { ctl: 0, atl: 0, tsb: 0 }
+  }
 
   // Fetch group challenges
   const { data: challenges } = await supabaseAdmin
@@ -125,6 +137,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         myRole={myMembership.role}
         inviteUrl={inviteUrl}
         myAthleteId={parseInt(athleteId)}
+        memberTrainingLoads={memberTrainingLoads}
       />
     </div>
   )

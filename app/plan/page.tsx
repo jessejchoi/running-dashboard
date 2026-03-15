@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import Nav from '@/components/Nav'
-import PlanSessionModal, { SessionConfig, calcDist, calcDuration, summarizeParts, SummaryPart } from '@/components/PlanSessionModal'
+import PlanSessionModal, { SessionConfig, calcDist, calcDuration, summarizeParts, summarizeSession, SummaryPart } from '@/components/PlanSessionModal'
 import { Plus, Moon } from 'lucide-react'
 import { useUnit } from '@/lib/unit-context'
 import { distanceUnitLabel, metersToMiles } from '@/lib/utils'
@@ -92,24 +92,65 @@ export default function PlanPage() {
     setRestDays(loadedRest)
   }, [allDates])
 
+  function deriveSessionType(config: SessionConfig): string {
+    const name = config.name.toLowerCase()
+    if (config.blocks.some(b => b.kind === 'interval')) return 'interval_5k'
+    if (name.includes('long')) return 'long_easy'
+    if (name.includes('tempo') || name.includes('threshold')) return 'threshold'
+    if (name.includes('recovery')) return 'recovery'
+    if (name.includes('race')) return 'race'
+    if (name.includes('stride')) return 'easy_strides'
+    return 'easy'
+  }
+
+  function syncRunToApi(date: string, config: SessionConfig) {
+    const totalMeters = calcDist(config, unit)
+    fetch('/api/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plan_date: date,
+        session_type: deriveSessionType(config),
+        description: config.name || summarizeSession(config, unit) || null,
+        target_distance_meters: totalMeters > 0 ? totalMeters : null,
+      }),
+    }).catch(() => {})
+  }
+
+  function syncRestToApi(date: string) {
+    fetch('/api/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan_date: date, session_type: 'rest', description: null, target_distance_meters: null }),
+    }).catch(() => {})
+  }
+
+  function deleteFromApi(date: string) {
+    fetch(`/api/plans?date=${date}`, { method: 'DELETE' }).catch(() => {})
+  }
+
   function savePlan(date: string, config: SessionConfig) {
     setPlans(prev => ({ ...prev, [date]: config }))
     try { localStorage.setItem(STORAGE_KEY(date), JSON.stringify(config)) } catch {}
+    syncRunToApi(date, config)
   }
 
   function deletePlan(date: string) {
     setPlans(prev => { const next = { ...prev }; delete next[date]; return next })
     try { localStorage.removeItem(STORAGE_KEY(date)) } catch {}
+    deleteFromApi(date)
   }
 
   function setRest(date: string) {
     setRestDays(prev => ({ ...prev, [date]: true }))
     try { localStorage.setItem(REST_KEY(date), '1') } catch {}
+    syncRestToApi(date)
   }
 
   function clearRest(date: string) {
     setRestDays(prev => { const next = { ...prev }; delete next[date]; return next })
     try { localStorage.removeItem(REST_KEY(date)) } catch {}
+    deleteFromApi(date)
   }
 
   function weekDist(dates: Date[]): number {

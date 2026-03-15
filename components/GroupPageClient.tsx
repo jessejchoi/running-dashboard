@@ -885,38 +885,35 @@ export default function GroupPageClient({
                   <p className="text-[#6b7280] text-sm">No runs recorded in this period.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {board.map((entry, i) => {
-                    const dist = toDisplay(entry.distance)
-                    const pct = (entry.distance / maxDist) * 100
-                    return (
-                      <div key={entry.athlete_id} className="card">
-                        <div className="flex items-center gap-3">
-                          <span className="w-5 shrink-0 flex items-center justify-center text-base">
+                <div className="card">
+                  <div className="space-y-3">
+                    {board.map((entry, i) => {
+                      const dist = toDisplay(entry.distance)
+                      const pct = (entry.distance / maxDist) * 100
+                      return (
+                        <div key={entry.athlete_id} className="flex items-center gap-3">
+                          <span className="w-4 shrink-0 flex items-center justify-center">
                             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (
                               <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>
                             )}
                           </span>
-                          <Avatar name={entry.name} pic={entry.profile_pic} size={8} />
+                          <Avatar name={entry.name} pic={entry.profile_pic} size={7} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-sm font-bold ${entry.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`text-xs font-bold truncate ${entry.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
                                   {entry.is_me ? 'You' : entry.name.split(' ')[0]}
                                 </span>
-                                {entry.is_me && (
-                                  <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>
-                                )}
                                 {entry.streak >= 2 && (
-                                  <span className="flex items-center gap-0.5 text-orange-400 text-[10px] font-bold">
+                                  <span className="flex items-center gap-0.5 text-orange-400 text-[10px] font-bold shrink-0">
                                     <Flame size={10} />{entry.streak}w
                                   </span>
                                 )}
-                                <span className="text-[#4b5563] text-xs">
+                                <span className="text-[#4b5563] text-[10px] shrink-0">
                                   {entry.count} run{entry.count !== 1 ? 's' : ''}
                                 </span>
                               </div>
-                              <span className={`text-sm font-mono font-bold shrink-0 ml-2 ${entry.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
+                              <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${entry.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
                                 {dist.toFixed(1)} {label}
                               </span>
                             </div>
@@ -928,9 +925,9 @@ export default function GroupPageClient({
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -988,30 +985,30 @@ export default function GroupPageClient({
                   const hasData = load.ctl > 0 || load.atl > 0
                   return (
                     <div key={m.athlete_id} className="card p-3">
-                      <div className="flex items-center gap-1.5 mb-2">
+                      <div className="flex items-center gap-1.5 mb-2.5">
                         <Avatar name={m.name} pic={m.profile_pic} size={5} />
                         <span className={`text-xs font-bold truncate ${m.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
                           {m.is_me ? 'You' : m.name.split(' ')[0]}
                         </span>
+                        {hasData && (
+                          <span className={`text-[9px] font-bold shrink-0 ${tsbColor}`}>{formLabel}</span>
+                        )}
                       </div>
                       {hasData ? (
-                        <>
-                          <div className="flex justify-between mb-1.5">
-                            <div>
-                              <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-0.5">Fit</p>
-                              <p className="text-xs font-mono font-bold text-sky-400">{load.ctl.toFixed(0)}</p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-0.5">Fat</p>
-                              <p className="text-xs font-mono font-bold text-orange-400">{load.atl.toFixed(0)}</p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-0.5">Form</p>
-                              <p className={`text-xs font-mono font-bold ${tsbColor}`}>{load.tsb > 0 ? '+' : ''}{load.tsb.toFixed(0)}</p>
-                            </div>
+                        <div className="flex justify-between">
+                          <div>
+                            <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Fit</p>
+                            <p className="text-base font-mono font-bold text-sky-400">{load.ctl.toFixed(0)}</p>
                           </div>
-                          <p className={`text-[9px] font-bold ${tsbColor}`}>{formLabel}</p>
-                        </>
+                          <div>
+                            <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Fat</p>
+                            <p className="text-base font-mono font-bold text-orange-400">{load.atl.toFixed(0)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Form</p>
+                            <p className={`text-base font-mono font-bold ${tsbColor}`}>{load.tsb > 0 ? '+' : ''}{load.tsb.toFixed(0)}</p>
+                          </div>
+                        </div>
                       ) : (
                         <p className="text-[10px] text-[#4b5563]">No data</p>
                       )}

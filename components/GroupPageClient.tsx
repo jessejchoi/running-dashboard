@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X } from 'lucide-react'
+import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
@@ -297,13 +297,33 @@ const RUN_TYPE_LABELS: Record<string, string> = {
   recovery: 'Recovery',
 }
 
+const PLAN_SESSION_TYPES = [
+  { key: 'easy',        label: 'Easy',          color: 'bg-emerald-500' },
+  { key: 'long_easy',   label: 'Long Easy',     color: 'bg-sky-500' },
+  { key: 'threshold',   label: 'Threshold',     color: 'bg-orange-500' },
+  { key: 'interval_5k', label: 'Intervals',     color: 'bg-red-500' },
+  { key: 'easy_strides',label: 'Easy + Strides',color: 'bg-teal-500' },
+  { key: 'recovery',    label: 'Recovery',      color: 'bg-green-400' },
+  { key: 'race',        label: 'Race',          color: 'bg-pink-500' },
+  { key: 'rest',        label: 'Rest',          color: 'bg-zinc-600' },
+]
+
+interface UserPlan {
+  id: string
+  athlete_id: number
+  plan_date: string
+  session_type: string | null
+  description: string | null
+  target_distance_meters: number | null
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId,
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
 
   // Leaderboard
   const [leaderRange, setLeaderRange] = useState<LeaderRange>('week')
@@ -314,6 +334,14 @@ export default function GroupPageClient({
   const [loadingMore, setLoadingMore] = useState(false)
   const [feedMember, setFeedMember] = useState<number | 'all'>('all')
   const [feedType, setFeedType] = useState<string | 'all'>('all')
+
+  // Plans
+  const [plans, setPlans] = useState<UserPlan[]>([])
+  const [plansLoaded, setPlansLoaded] = useState(false)
+  const [plansLoading, setPlansLoading] = useState(false)
+  const [editingDate, setEditingDate] = useState<string | null>(null)
+  const [planForm, setPlanForm] = useState({ sessionType: 'easy', description: '', targetDist: '' })
+  const [planSaving, setPlanSaving] = useState(false)
 
   // Challenges
   const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges)
@@ -330,6 +358,61 @@ export default function GroupPageClient({
     navigator.clipboard.writeText(inviteUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function loadPlans() {
+    if (plansLoaded) return
+    setPlansLoading(true)
+    const res = await fetch(`/api/groups/${group.id}/plans`)
+    const data = await res.json()
+    setPlans(data.plans ?? [])
+    setPlansLoaded(true)
+    setPlansLoading(false)
+  }
+
+  function openPlanEdit(date: string) {
+    const existing = plans.find(p => p.athlete_id === myAthleteId && p.plan_date === date)
+    setPlanForm({
+      sessionType: existing?.session_type ?? 'easy',
+      description: existing?.description ?? '',
+      targetDist: existing?.target_distance_meters
+        ? (unit === 'miles' ? metersToMiles(existing.target_distance_meters).toFixed(1) : (existing.target_distance_meters / 1000).toFixed(1))
+        : '',
+    })
+    setEditingDate(date)
+  }
+
+  async function savePlan() {
+    if (!editingDate) return
+    setPlanSaving(true)
+    const target_distance_meters = planForm.targetDist
+      ? (unit === 'miles' ? parseFloat(planForm.targetDist) * 1609.344 : parseFloat(planForm.targetDist) * 1000)
+      : null
+    const res = await fetch('/api/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plan_date: editingDate,
+        session_type: planForm.sessionType,
+        description: planForm.description.trim() || null,
+        target_distance_meters: isNaN(target_distance_meters as number) ? null : target_distance_meters,
+      }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setPlans(prev => {
+        const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === editingDate))
+        return [...filtered, data].sort((a, b) => a.plan_date.localeCompare(b.plan_date))
+      })
+    }
+    setPlanSaving(false)
+    setEditingDate(null)
+  }
+
+  async function deletePlan(date: string) {
+    const res = await fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
+    if (res.ok) setPlans(prev => prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date)))
+    setEditingDate(null)
   }
 
   async function loadMoreRuns() {
@@ -453,10 +536,11 @@ export default function GroupPageClient({
           { key: 'dashboard', label: 'Dashboard', icon: BarChart2 },
           { key: 'feed',      label: 'Runs',      icon: Activity },
           { key: 'goals',     label: 'Goals',     icon: Target },
+          { key: 'plans',     label: 'Plans',     icon: CalendarDays },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => { setTab(key); if (key === 'plans') loadPlans() }}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === key
                 ? 'border-[#f97316] text-white'
@@ -1000,6 +1084,100 @@ export default function GroupPageClient({
       )}
 
 
+      {/* ── Plans tab ─────────────────────────────────────────────────────── */}
+      {tab === 'plans' && (() => {
+        const toDisplay = (m: number) => unit === 'miles' ? metersToMiles(m) : m / 1000
+        const label = distanceUnitLabel(unit)
+
+        // Build 7-day list starting today
+        const days: Date[] = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date()
+          d.setHours(0, 0, 0, 0)
+          d.setDate(d.getDate() + i)
+          return d
+        })
+
+        return (
+          <div className="fade-up space-y-4">
+            {plansLoading ? (
+              <div className="card text-center py-10">
+                <p className="text-[#6b7280] text-sm">Loading plans…</p>
+              </div>
+            ) : (
+              days.map(day => {
+                const dateStr = day.toISOString().slice(0, 10)
+                const isToday = day.toDateString() === new Date().toDateString()
+                const dayPlans = plans.filter(p => p.plan_date === dateStr)
+                const myPlan = dayPlans.find(p => p.athlete_id === myAthleteId)
+
+                return (
+                  <div key={dateStr}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-white">
+                        {format(day, 'EEE, MMM d')}
+                      </span>
+                      {isToday && (
+                        <span className="text-[10px] font-bold text-[#f97316] bg-[#f97316]/10 px-1.5 py-0.5 rounded">Today</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {members.map(m => {
+                        const plan = dayPlans.find(p => p.athlete_id === m.athlete_id)
+                        const sessionMeta = PLAN_SESSION_TYPES.find(s => s.key === plan?.session_type)
+                        const isMe = m.athlete_id === myAthleteId
+
+                        return (
+                          <div
+                            key={m.athlete_id}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
+                              isMe
+                                ? 'bg-[#141414] border-[#2a2a2a] hover:border-[#3a3a3a] cursor-pointer'
+                                : 'bg-[#0f0f0f] border-[#1c1c1c]'
+                            }`}
+                            onClick={isMe ? () => openPlanEdit(dateStr) : undefined}
+                          >
+                            <Avatar name={m.name} pic={m.profile_pic} size={6} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs font-medium ${isMe ? 'text-white' : 'text-[#9ca3af]'}`}>
+                                  {isMe ? 'You' : m.name.split(' ')[0]}
+                                </span>
+                                {isMe && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1 py-0.5 rounded">You</span>}
+                              </div>
+                              {plan ? (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  {sessionMeta && (
+                                    <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
+                                  )}
+                                  <span className="text-xs text-[#d1d5db] truncate">
+                                    {sessionMeta?.label ?? plan.session_type}
+                                    {plan.target_distance_meters && ` · ${toDisplay(plan.target_distance_meters).toFixed(1)} ${label}`}
+                                    {plan.description && ` · ${plan.description}`}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-[#4b5563] mt-0.5 block">
+                                  {isMe ? 'Tap to add plan' : '—'}
+                                </span>
+                              )}
+                            </div>
+                            {isMe && (
+                              <Pencil size={12} className="text-[#4b5563] shrink-0" />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        )
+      })()}
+
+
       {/* ── Create challenge modal ─────────────────────────────────────────── */}
       {showCreate && (
         <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1135,6 +1313,92 @@ export default function GroupPageClient({
               >
                 {formSaving ? 'Creating…' : 'Create Challenge'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Plan edit modal ────────────────────────────────────────────────── */}
+      {editingDate && (
+        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-sm p-6 z-[9999]">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-display font-bold text-base">
+                {format(new Date(editingDate + 'T00:00:00'), 'EEE, MMM d')}
+              </h2>
+              <button onClick={() => setEditingDate(null)} className="text-[#6b7280] hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#6b7280] mb-2">Session type</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PLAN_SESSION_TYPES.map(s => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => setPlanForm(f => ({ ...f, sessionType: s.key }))}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
+                        planForm.sessionType === s.key
+                          ? 'border-[#f97316] bg-[#f97316]/10 text-white'
+                          : 'border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#3a3a3a]'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${s.color}`} />
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {planForm.sessionType !== 'rest' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-[#6b7280] mb-1.5">
+                      Target distance ({unit === 'miles' ? 'miles' : 'km'})
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={planForm.targetDist}
+                      onChange={e => setPlanForm(f => ({ ...f, targetDist: e.target.value }))}
+                      placeholder="e.g. 10"
+                      className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Notes</label>
+                    <input
+                      type="text"
+                      value={planForm.description}
+                      onChange={e => setPlanForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="e.g. 6×4min at 5K pace"
+                      className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                {plans.some(p => p.athlete_id === myAthleteId && p.plan_date === editingDate) && (
+                  <button
+                    onClick={() => deletePlan(editingDate)}
+                    className="px-3 py-2.5 text-xs font-bold border border-[#2a2a2a] hover:border-red-500/50 text-[#6b7280] hover:text-red-400 rounded-lg transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+                <button
+                  onClick={savePlan}
+                  disabled={planSaving}
+                  className="flex-1 py-2.5 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-50 text-black font-bold text-sm rounded-lg transition-colors"
+                >
+                  {planSaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

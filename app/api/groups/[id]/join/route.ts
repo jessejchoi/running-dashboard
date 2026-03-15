@@ -27,6 +27,16 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ ok: true, already_member: true, group_id: params.id })
   }
 
+  // Check group limit
+  const { count } = await supabaseAdmin
+    .from('group_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('athlete_id', parseInt(athleteId))
+
+  if ((count ?? 0) >= 3) {
+    return NextResponse.json({ error: 'You can be in a maximum of 3 groups' }, { status: 400 })
+  }
+
   // Join
   const { error: memErr } = await supabaseAdmin
     .from('group_members')

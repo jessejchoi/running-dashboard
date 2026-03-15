@@ -76,6 +76,8 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
   const [creating, setCreating] = useState(false)
   const router = useRouter()
 
+  const atLimit = groups.length >= 3
+
   function handleCreate(g: Group) {
     setGroups(gs => [...gs, g])
     setCreating(false)
@@ -90,13 +92,18 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
           <h1 className="font-display font-extrabold text-4xl">Groups</h1>
           <p className="text-[#6b7280] text-sm mt-1">Train with friends and stay accountable.</p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors whitespace-nowrap"
-        >
-          <Plus size={14} /> New Group
-        </button>
+        {!atLimit && (
+          <button
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-1.5 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors whitespace-nowrap"
+          >
+            <Plus size={14} /> New Group
+          </button>
+        )}
       </div>
+      {atLimit && (
+        <p className="text-[#6b7280] text-xs mb-4">You&apos;ve reached the 3-group limit. Leave a group to join or create a new one.</p>
+      )}
 
       {groups.length === 0 ? (
         <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-4 fade-up" style={{ paddingTop: 56, paddingBottom: 56 }}>

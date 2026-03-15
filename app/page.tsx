@@ -50,25 +50,10 @@ async function getData(athleteId: number) {
     latest5KSecs ? latest5KSecs * Math.pow(d2km / 5, 1.06) : null
 
   // ── Group data ────────────────────────────────────────────
-  // Fetch the first group this athlete belongs to (if any)
-  const groupData = await (async () => {
+  // Fetch data for all groups this athlete belongs to (up to 3)
+  const allGroupsData = await (async () => {
     try {
-      if (!membership?.length) return null
-
-      // Use primary group from settings if set, otherwise fall back to first membership
-      const primaryGroupId = userProfile?.primary_group_id
-      const groupId = primaryGroupId && membership.some((m: any) => m.group_id === primaryGroupId)
-        ? primaryGroupId
-        : membership[0].group_id
-
-      const [{ data: group }, { data: allMembers }] = await Promise.all([
-        supabaseAdmin.from('groups').select('id, name').eq('id', groupId).single(),
-        supabaseAdmin.from('group_members').select('athlete_id, role').eq('group_id', groupId),
-      ])
-
-      if (!group) return null
-
-      const memberIds = (allMembers ?? []).map((m: any) => m.athlete_id)
+      if (!membership?.length) return []
 
       // This week's Monday midnight in Jakarta (UTC+7)
       const nowUtc = Date.now()
@@ -82,79 +67,91 @@ async function getData(athleteId: number) {
       const mondayUtc = new Date(mondayJakarta.getTime() - jakartaOffset)
       const weekStartIso = mondayUtc.toISOString()
 
-      const otherMemberIds = memberIds.filter((id: number) => id !== athleteId)
-
-      // Fetch profiles, activities, and other members' goals all in parallel
-      const [{ data: tokens }, { data: groupActivities }, { data: otherGoalsData }] = await Promise.all([
-        supabaseAdmin.from('strava_tokens').select('athlete_id, athlete_name, athlete_profile').in('athlete_id', memberIds),
-        supabaseAdmin.from('activities').select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type').in('athlete_id', memberIds).gte('start_date', weekStartIso).order('start_date', { ascending: false }).limit(50),
-        otherMemberIds.length > 0
-          ? supabaseAdmin.from('user_goals').select('*').in('athlete_id', otherMemberIds)
-          : Promise.resolve({ data: [] }),
-      ])
-
-      // Compute per-member stats
-      const members = memberIds.map((aid: number) => {
-        const token = tokens?.find((t: any) => t.athlete_id === aid)
-        const memberRuns = (groupActivities ?? []).filter((a: any) => a.athlete_id === aid)
-
-        // This week km (all memberRuns are already filtered to this week from the query)
-        const weekKm = memberRuns
-          .reduce((s: number, a: any) => s + a.distance / 1000, 0)
-
-        // Streak: consecutive days with a run going back from today
-        const runDates = new Set(
-          memberRuns.map((a: any) => {
-            const d = new Date(new Date(a.start_date).getTime() + 7 * 60 * 60 * 1000)
-            return d.toISOString().split('T')[0]
-          })
-        )
-        let streak = 0
-        const today = new Date(new Date().getTime() + 7 * 60 * 60 * 1000)
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(today)
-          d.setDate(d.getDate() - i)
-          if (runDates.has(d.toISOString().split('T')[0])) streak++
-          else if (i > 0) break
-        }
-
-        // Last run days ago
-        const lastRun = memberRuns[0]
-        const lastRunDaysAgo = lastRun
-          ? Math.floor((Date.now() - new Date(lastRun.start_date).getTime()) / 86400000)
-          : null
-
-        return {
-          athlete_id: aid,
-          name: token?.athlete_name ?? `Athlete ${aid}`,
-          profile_pic: token?.athlete_profile ?? null,
-          weekKm: parseFloat(weekKm.toFixed(1)),
-          streak,
-          lastRunDaysAgo,
-          is_me: aid === athleteId,
-        }
+      // Sort memberships: primary group first, then rest
+      const primaryGroupId = userProfile?.primary_group_id
+      const sortedMemberships = [...(membership ?? [])].sort((a: any, b: any) => {
+        if (a.group_id === primaryGroupId) return -1
+        if (b.group_id === primaryGroupId) return 1
+        return 0
       })
+      const groupIds = sortedMemberships.slice(0, 3).map((m: any) => m.group_id)
 
-      // Member map for feed
-      const memberMap = Object.fromEntries(
-        members.map((m: any) => [m.athlete_id, { name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }])
-      )
+      const results = await Promise.all(groupIds.map(async (groupId: string) => {
+        try {
+          const [{ data: group }, { data: allMembers }] = await Promise.all([
+            supabaseAdmin.from('groups').select('id, name').eq('id', groupId).single(),
+            supabaseAdmin.from('group_members').select('athlete_id, role').eq('group_id', groupId),
+          ])
 
-      const memberGoals = (otherGoalsData ?? []).map((g: any) => ({
-        ...g,
-        athlete_name: members.find((m: any) => m.athlete_id === g.athlete_id)?.name ?? 'Member',
-        athlete_profile: members.find((m: any) => m.athlete_id === g.athlete_id)?.profile_pic ?? null,
+          if (!group) return null
+
+          const memberIds = (allMembers ?? []).map((m: any) => m.athlete_id)
+          const otherMemberIds = memberIds.filter((id: number) => id !== athleteId)
+
+          const [{ data: tokens }, { data: groupActivities }, { data: otherGoalsData }] = await Promise.all([
+            supabaseAdmin.from('strava_tokens').select('athlete_id, athlete_name, athlete_profile').in('athlete_id', memberIds),
+            supabaseAdmin.from('activities').select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type').in('athlete_id', memberIds).gte('start_date', weekStartIso).order('start_date', { ascending: false }).limit(50),
+            otherMemberIds.length > 0
+              ? supabaseAdmin.from('user_goals').select('*').in('athlete_id', otherMemberIds)
+              : Promise.resolve({ data: [] }),
+          ])
+
+          const members = memberIds.map((aid: number) => {
+            const token = tokens?.find((t: any) => t.athlete_id === aid)
+            const memberRuns = (groupActivities ?? []).filter((a: any) => a.athlete_id === aid)
+
+            const weekKm = memberRuns.reduce((s: number, a: any) => s + a.distance / 1000, 0)
+
+            const runDates = new Set(
+              memberRuns.map((a: any) => {
+                const d = new Date(new Date(a.start_date).getTime() + 7 * 60 * 60 * 1000)
+                return d.toISOString().split('T')[0]
+              })
+            )
+            let streak = 0
+            const today = new Date(new Date().getTime() + 7 * 60 * 60 * 1000)
+            for (let i = 0; i < 7; i++) {
+              const d = new Date(today)
+              d.setDate(d.getDate() - i)
+              if (runDates.has(d.toISOString().split('T')[0])) streak++
+              else if (i > 0) break
+            }
+
+            const lastRun = memberRuns[0]
+            const lastRunDaysAgo = lastRun
+              ? Math.floor((Date.now() - new Date(lastRun.start_date).getTime()) / 86400000)
+              : null
+
+            return {
+              athlete_id: aid,
+              name: token?.athlete_name ?? `Athlete ${aid}`,
+              profile_pic: token?.athlete_profile ?? null,
+              weekKm: parseFloat(weekKm.toFixed(1)),
+              streak,
+              lastRunDaysAgo,
+              is_me: aid === athleteId,
+            }
+          })
+
+          const memberMap = Object.fromEntries(
+            members.map((m: any) => [m.athlete_id, { name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }])
+          )
+
+          const memberGoals = (otherGoalsData ?? []).map((g: any) => ({
+            ...g,
+            athlete_name: members.find((m: any) => m.athlete_id === g.athlete_id)?.name ?? 'Member',
+            athlete_profile: members.find((m: any) => m.athlete_id === g.athlete_id)?.profile_pic ?? null,
+          }))
+
+          return { group, members, memberMap, feedRuns: groupActivities ?? [], memberGoals }
+        } catch {
+          return null
+        }
       }))
 
-      return {
-        group,
-        members,
-        memberMap,
-        feedRuns: groupActivities ?? [],
-        memberGoals,
-      }
+      return results.filter(Boolean)
     } catch {
-      return null
+      return []
     }
   })()
 
@@ -170,7 +167,7 @@ async function getData(athleteId: number) {
       'hm':  riegelFrom5K(21.097),
       'fm':  riegelFrom5K(42.195),
     } as Record<string, number | null>,
-    groupData,
+    allGroupsData,
   }
 }
 
@@ -183,7 +180,7 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, hasMaxHr, goals, estimates, groupData } = await getData(Number(athleteId))
+  const { activities, athlete, displayName, hasMaxHr, goals, estimates, allGroupsData } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
@@ -254,38 +251,55 @@ export default async function DashboardPage() {
         </div>
 
         {/* Group Stats */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
-        </div>
-        {groupData ? (
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
-            <GroupLeaderboard
-              members={groupData.members}
-              groupId={groupData.group.id}
-              groupName={groupData.group.name}
-              unit={unit}
-            />
-            <GroupFeed
-              runs={groupData.feedRuns}
-              memberMap={groupData.memberMap}
-              myAthleteId={Number(athleteId)}
-              groupId={groupData.group.id}
-              unit={unit}
-            />
-          </div>
+        {allGroupsData.length > 0 ? (
+          allGroupsData.map((groupData: any) => (
+            <div key={groupData.group.id}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">{groupData.group.name} Group Stats</h2>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4 mb-8">
+                <GroupLeaderboard
+                  members={groupData.members}
+                  groupId={groupData.group.id}
+                  groupName={groupData.group.name}
+                  unit={unit}
+                />
+                <GroupFeed
+                  runs={groupData.feedRuns}
+                  memberMap={groupData.memberMap}
+                  myAthleteId={Number(athleteId)}
+                  groupId={groupData.group.id}
+                  unit={unit}
+                />
+              </div>
+              {groupData.memberGoals.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">{groupData.group.name} Race Goals</h2>
+                  </div>
+                  <GroupGoalsSection memberGoals={groupData.memberGoals} />
+                </div>
+              )}
+            </div>
+          ))
         ) : (
-          <div className="card fade-up mb-8 flex flex-col items-center justify-center text-center gap-4" style={{ paddingTop: 40, paddingBottom: 40 }}>
-            <div className="w-12 h-12 rounded-full bg-[#f97316]/10 flex items-center justify-center">
-              <span className="text-2xl">🏃</span>
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
             </div>
-            <div>
-              <p className="font-bold text-white mb-1">You&apos;re not in a group yet</p>
-              <p className="text-[#6b7280] text-sm max-w-xs">Create a group and invite your training partners to run together.</p>
+            <div className="card fade-up mb-8 flex flex-col items-center justify-center text-center gap-4" style={{ paddingTop: 40, paddingBottom: 40 }}>
+              <div className="w-12 h-12 rounded-full bg-[#f97316]/10 flex items-center justify-center">
+                <span className="text-2xl">🏃</span>
+              </div>
+              <div>
+                <p className="font-bold text-white mb-1">You&apos;re not in a group yet</p>
+                <p className="text-[#6b7280] text-sm max-w-xs">Create a group and invite your training partners to run together.</p>
+              </div>
+              <Link href="/groups" className="flex items-center gap-2 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm" prefetch>
+                Create a group
+              </Link>
             </div>
-            <Link href="/groups" className="flex items-center gap-2 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm" prefetch>
-              Create a group
-            </Link>
-          </div>
+          </>
         )}
 
         {/* My Race Goals */}
@@ -304,16 +318,6 @@ export default async function DashboardPage() {
             unit={unit}
           />
         </div>
-
-        {/* Group Race Goals */}
-        {groupData && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Race Goals</h2>
-            </div>
-            <GroupGoalsSection memberGoals={groupData.memberGoals} />
-          </div>
-        )}
 
 
       </main>

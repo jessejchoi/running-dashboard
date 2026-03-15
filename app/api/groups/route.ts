@@ -53,6 +53,16 @@ export async function POST(req: NextRequest) {
   const { name } = await req.json()
   if (!name?.trim()) return NextResponse.json({ error: 'Group name required' }, { status: 400 })
 
+  // Check group limit
+  const { count } = await supabaseAdmin
+    .from('group_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('athlete_id', parseInt(athleteId))
+
+  if ((count ?? 0) >= 3) {
+    return NextResponse.json({ error: 'You can be in a maximum of 3 groups' }, { status: 400 })
+  }
+
   // Create group
   const { data: group, error: grpErr } = await supabaseAdmin
     .from('groups')

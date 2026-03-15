@@ -18,9 +18,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const body = await req.json()
-  const { name, description, target_meters, start_date, end_date } = body
+  const { name, description, target_meters, start_date, end_date, challenge_type = 'group_distance', config = {} } = body
 
-  if (!name || !target_meters || !start_date || !end_date) {
+  if (!name || !start_date || !end_date) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  // target_meters required for group_distance and weekly_quota
+  if (challenge_type !== 'fastest_effort' && !target_meters) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
@@ -30,10 +35,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       group_id: params.id,
       name,
       description: description || null,
-      target_meters,
+      target_meters: challenge_type === 'fastest_effort' ? null : target_meters,
       start_date,
       end_date,
       created_by: parseInt(athleteId),
+      challenge_type,
+      config,
     })
     .select()
     .single()

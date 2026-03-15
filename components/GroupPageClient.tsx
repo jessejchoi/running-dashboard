@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X } from 'lucide-react'
 import { format } from 'date-fns'
-import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles } from '@/lib/utils'
+import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
 
 interface Goal {
@@ -51,6 +51,8 @@ interface LeaderboardRun {
   athlete_id: number
   distance: number
   start_date: string
+  average_speed?: number
+  run_type?: string | null
 }
 
 interface Challenge {
@@ -58,11 +60,13 @@ interface Challenge {
   group_id: string
   name: string
   description: string | null
-  target_meters: number
+  target_meters: number | null
   start_date: string
   end_date: string
   created_by: number
   created_at: string
+  challenge_type: string
+  config: Record<string, unknown>
 }
 
 interface Props {
@@ -133,7 +137,7 @@ function computeStreak(allRuns: LeaderboardRun[], athleteId: number): number {
   const runs = allRuns.filter(r => r.athlete_id === athleteId)
   if (runs.length === 0) return 0
 
-  const getWeekStart = (d: Date) => {
+  const getWS = (d: Date) => {
     const date = new Date(d)
     date.setHours(0, 0, 0, 0)
     const day = date.getDay()
@@ -141,8 +145,8 @@ function computeStreak(allRuns: LeaderboardRun[], athleteId: number): number {
     return date.getTime()
   }
 
-  const weeks = Array.from(new Set(runs.map(r => getWeekStart(new Date(r.start_date))))).sort((a, b) => b - a)
-  const thisWeek = getWeekStart(new Date())
+  const weeks = Array.from(new Set(runs.map(r => getWS(new Date(r.start_date))))).sort((a, b) => b - a)
+  const thisWeek = getWS(new Date())
   const lastWeek = thisWeek - 7 * 24 * 60 * 60 * 1000
 
   if (weeks[0] !== thisWeek && weeks[0] !== lastWeek) return 0
@@ -212,6 +216,87 @@ function computeChallengeProgress(
   return { totalMeters, byMember }
 }
 
+function computeWeeklyQuota(
+  leaderboardRuns: LeaderboardRun[],
+  challenge: Challenge,
+  members: Member[],
+) {
+  const challengeStart = new Date(challenge.start_date)
+  const challengeEnd = new Date(challenge.end_date)
+  challengeEnd.setHours(23, 59, 59, 999)
+  const weeklyMeters = (challenge.config.weekly_meters as number) ?? 0
+
+  // Build list of Mon-anchored week starts that overlap the challenge
+  const weeks: Date[] = []
+  const firstWeekStart = getWeekStart(challengeStart)
+  let cur = new Date(firstWeekStart)
+  while (cur <= challengeEnd) {
+    weeks.push(new Date(cur))
+    cur = new Date(cur.getTime() + 7 * 24 * 60 * 60 * 1000)
+  }
+
+  const byMember = members.map(m => {
+    const memberRuns = leaderboardRuns.filter(r =>
+      r.athlete_id === m.athlete_id &&
+      new Date(r.start_date) >= challengeStart &&
+      new Date(r.start_date) <= challengeEnd
+    )
+    const weekResults = weeks.map(ws => {
+      const we = new Date(ws.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
+      const total = memberRuns
+        .filter(r => {
+          const d = new Date(r.start_date)
+          return d >= ws && d <= we
+        })
+        .reduce((sum, r) => sum + r.distance, 0)
+      return total >= weeklyMeters
+    })
+    return { athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me, weekResults }
+  })
+
+  return { weeks, byMember }
+}
+
+function computeFastestEffort(
+  leaderboardRuns: LeaderboardRun[],
+  challenge: Challenge,
+  members: Member[],
+) {
+  const start = new Date(challenge.start_date)
+  const end = new Date(challenge.end_date)
+  end.setHours(23, 59, 59, 999)
+  const targetRunType = challenge.config.run_type as string | undefined
+
+  const relevant = leaderboardRuns.filter(r => {
+    const d = new Date(r.start_date)
+    return d >= start && d <= end && r.run_type === targetRunType
+  })
+
+  const byMember = members.map(m => {
+    const memberRuns = relevant.filter(r => r.athlete_id === m.athlete_id)
+    const bestSpeed = memberRuns.length > 0
+      ? Math.max(...memberRuns.map(r => r.average_speed ?? 0))
+      : null
+    return { athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me, bestSpeed }
+  }).sort((a, b) => {
+    if (a.bestSpeed === null && b.bestSpeed === null) return 0
+    if (a.bestSpeed === null) return 1
+    if (b.bestSpeed === null) return -1
+    return b.bestSpeed - a.bestSpeed
+  })
+
+  return { byMember }
+}
+
+const RUN_TYPE_LABELS: Record<string, string> = {
+  interval_5k: 'Interval (5K)',
+  threshold: 'Threshold',
+  long_easy: 'Long Easy',
+  easy: 'Easy',
+  easy_strides: 'Easy + Strides',
+  recovery: 'Recovery',
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function GroupPageClient({
@@ -233,7 +318,8 @@ export default function GroupPageClient({
   // Challenges
   const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges)
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '' })
+  const [challengeType, setChallengeType] = useState<'group_distance' | 'weekly_quota' | 'fastest_effort'>('group_distance')
+  const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'interval_5k' })
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
 
@@ -258,8 +344,7 @@ export default function GroupPageClient({
 
   async function createChallenge() {
     setFormError('')
-    const dist = parseFloat(form.targetDist)
-    if (!form.name.trim() || isNaN(dist) || dist <= 0 || !form.startDate || !form.endDate) {
+    if (!form.name.trim() || !form.startDate || !form.endDate) {
       setFormError('Please fill in all required fields.')
       return
     }
@@ -267,7 +352,23 @@ export default function GroupPageClient({
       setFormError('End date must be after start date.')
       return
     }
-    const target_meters = unit === 'miles' ? dist * 1609.344 : dist * 1000
+
+    let target_meters: number | null = null
+    let config: Record<string, unknown> = {}
+
+    if (challengeType === 'group_distance') {
+      const dist = parseFloat(form.targetDist)
+      if (isNaN(dist) || dist <= 0) { setFormError('Please enter a valid target distance.'); return }
+      target_meters = unit === 'miles' ? dist * 1609.344 : dist * 1000
+    } else if (challengeType === 'weekly_quota') {
+      const dist = parseFloat(form.targetDist)
+      if (isNaN(dist) || dist <= 0) { setFormError('Please enter a valid weekly quota.'); return }
+      target_meters = unit === 'miles' ? dist * 1609.344 : dist * 1000
+      config = { weekly_meters: target_meters }
+    } else if (challengeType === 'fastest_effort') {
+      config = { run_type: form.runType }
+    }
+
     setFormSaving(true)
     const res = await fetch(`/api/groups/${group.id}/challenges`, {
       method: 'POST',
@@ -278,6 +379,8 @@ export default function GroupPageClient({
         target_meters,
         start_date: form.startDate,
         end_date: form.endDate,
+        challenge_type: challengeType,
+        config,
       }),
     })
     const data = await res.json()
@@ -285,7 +388,8 @@ export default function GroupPageClient({
     if (!res.ok) { setFormError(data.error ?? 'Failed to create challenge.'); return }
     setChallenges(prev => [data, ...prev])
     setShowCreate(false)
-    setForm({ name: '', description: '', targetDist: '', startDate: '', endDate: '' })
+    setForm({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'interval_5k' })
+    setChallengeType('group_distance')
   }
 
   async function deleteChallenge(id: string) {
@@ -384,12 +488,11 @@ export default function GroupPageClient({
 
         function ChallengeCard({ c }: { c: Challenge }) {
           const status = challengeStatus(c)
-          const { totalMeters, byMember } = computeChallengeProgress(leaderboardRuns, c, members)
-          const pct = Math.min(100, (totalMeters / c.target_meters) * 100)
-          const daysLeft = Math.ceil((new Date(c.end_date).getTime() - Date.now()) / 86400000)
           const isPast = status === 'past'
           const isUpcoming = status === 'upcoming'
+          const daysLeft = Math.ceil((new Date(c.end_date).getTime() - Date.now()) / 86400000)
           const daysToStart = Math.ceil((new Date(c.start_date).getTime() - Date.now()) / 86400000)
+          const cType = c.challenge_type ?? 'group_distance'
 
           return (
             <div className={`card ${status === 'active' ? 'border-[#f97316]/30' : ''}`}>
@@ -424,52 +527,156 @@ export default function GroupPageClient({
                 <p className="text-[#6b7280] text-xs mb-3">{c.description}</p>
               )}
 
-              {/* Progress */}
-              <div className="mb-3">
-                <div className="flex items-baseline justify-between mb-1.5">
-                  <span className="text-xs text-[#6b7280]">
-                    {toDisplay(totalMeters).toFixed(1)} / {toDisplay(c.target_meters).toFixed(0)} {label}
-                  </span>
-                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-emerald-400' : 'text-[#9ca3af]') : 'text-[#f97316]'}`}>
-                    {pct.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${pct}%`,
-                      background: isPast ? (pct >= 100 ? '#34d399' : '#3a3a3a') : '#f97316',
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Member breakdown */}
-              {!isUpcoming && byMember.some(m => m.meters > 0) && (
-                <div className="space-y-1.5">
-                  {byMember.map(m => {
-                    const memberPct = Math.min(100, (m.meters / c.target_meters) * 100)
-                    return (
-                      <div key={m.athlete_id} className="flex items-center gap-2">
-                        <Avatar name={m.name} pic={m.profile_pic} size={5} />
-                        <span className={`text-xs w-16 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
-                          {m.is_me ? 'You' : m.name.split(' ')[0]}
+              {/* ── group_distance ── */}
+              {cType === 'group_distance' && (() => {
+                const { totalMeters, byMember } = computeChallengeProgress(leaderboardRuns, c, members)
+                const pct = Math.min(100, (totalMeters / (c.target_meters ?? 1)) * 100)
+                return (
+                  <>
+                    <div className="mb-3">
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="text-xs text-[#6b7280]">
+                          {toDisplay(totalMeters).toFixed(1)} / {toDisplay(c.target_meters ?? 0).toFixed(0)} {label}
                         </span>
-                        <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${memberPct}%`, background: m.is_me ? '#f97316' : '#3a3a3a' }}
-                          />
-                        </div>
-                        <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
-                          {toDisplay(m.meters).toFixed(1)} {label}
+                        <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-emerald-400' : 'text-[#9ca3af]') : 'text-[#f97316]'}`}>
+                          {pct.toFixed(0)}%
                         </span>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
+                      <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${pct}%`,
+                            background: isPast ? (pct >= 100 ? '#34d399' : '#3a3a3a') : '#f97316',
+                          }}
+                        />
+                      </div>
+                    </div>
+                    {!isUpcoming && byMember.some(m => m.meters > 0) && (
+                      <div className="space-y-1.5">
+                        {byMember.map(m => {
+                          const memberPct = Math.min(100, (m.meters / (c.target_meters ?? 1)) * 100)
+                          return (
+                            <div key={m.athlete_id} className="flex items-center gap-2">
+                              <Avatar name={m.name} pic={m.profile_pic} size={5} />
+                              <span className={`text-xs w-16 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
+                                {m.is_me ? 'You' : m.name.split(' ')[0]}
+                              </span>
+                              <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{ width: `${memberPct}%`, background: m.is_me ? '#f97316' : '#3a3a3a' }}
+                                />
+                              </div>
+                              <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                                {toDisplay(m.meters).toFixed(1)} {label}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+
+              {/* ── weekly_quota ── */}
+              {cType === 'weekly_quota' && (() => {
+                const weeklyMeters = (c.config.weekly_meters as number) ?? 0
+                const { weeks, byMember } = computeWeeklyQuota(leaderboardRuns, c, members)
+                const now = new Date()
+                return (
+                  <>
+                    <p className="text-xs text-[#6b7280] mb-3">
+                      Weekly quota: <span className="text-white font-mono font-bold">{toDisplay(weeklyMeters).toFixed(0)} {label}</span> / week
+                    </p>
+                    {isUpcoming ? (
+                      <p className="text-xs text-[#4b5563]">Challenge hasn&apos;t started yet.</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {byMember.map(m => {
+                          const hitCount = m.weekResults.filter(Boolean).length
+                          const totalWeeks = m.weekResults.length
+                          return (
+                            <div key={m.athlete_id} className="flex items-center gap-2">
+                              <Avatar name={m.name} pic={m.profile_pic} size={5} />
+                              <span className={`text-xs w-16 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
+                                {m.is_me ? 'You' : m.name.split(' ')[0]}
+                              </span>
+                              <div className="flex gap-1 flex-1">
+                                {weeks.map((ws, i) => {
+                                  const isFuture = ws > now
+                                  const hit = m.weekResults[i]
+                                  return (
+                                    <span
+                                      key={i}
+                                      title={`Week of ${format(ws, 'MMM d')}`}
+                                      className={`w-4 h-4 rounded-full border text-[9px] flex items-center justify-center shrink-0 ${
+                                        isFuture
+                                          ? 'border-[#2a2a2a] bg-transparent'
+                                          : hit
+                                          ? 'bg-emerald-500 border-emerald-500 text-black'
+                                          : 'bg-red-500/20 border-red-500/40'
+                                      }`}
+                                    />
+                                  )
+                                })}
+                              </div>
+                              <span className={`text-xs font-mono shrink-0 ${m.is_me ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                                {hitCount}/{totalWeeks}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+
+              {/* ── fastest_effort ── */}
+              {cType === 'fastest_effort' && (() => {
+                const { byMember } = computeFastestEffort(leaderboardRuns, c, members)
+                const runTypeLabel = RUN_TYPE_LABELS[c.config.run_type as string] ?? (c.config.run_type as string)
+                const hasAny = byMember.some(m => m.bestSpeed !== null)
+                return (
+                  <>
+                    <p className="text-xs text-[#6b7280] mb-3">
+                      Best pace · <span className="text-white">{runTypeLabel}</span>
+                    </p>
+                    {isUpcoming ? (
+                      <p className="text-xs text-[#4b5563]">Challenge hasn&apos;t started yet.</p>
+                    ) : !hasAny ? (
+                      <p className="text-xs text-[#4b5563]">No matching runs yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {byMember.map((m, i) => (
+                          <div key={m.athlete_id} className="flex items-center gap-2">
+                            <span className="w-5 shrink-0 flex items-center justify-center text-base">
+                              {m.bestSpeed !== null
+                                ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (
+                                  <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>
+                                ))
+                                : <span className="text-xs font-mono text-[#4b5563]">–</span>
+                              }
+                            </span>
+                            <Avatar name={m.name} pic={m.profile_pic} size={5} />
+                            <span className={`text-xs flex-1 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
+                              {m.is_me ? 'You' : m.name.split(' ')[0]}
+                            </span>
+                            <span className={`text-xs font-mono shrink-0 ${m.bestSpeed !== null ? (m.is_me ? 'text-[#f97316]' : 'text-white') : 'text-[#4b5563]'}`}>
+                              {m.bestSpeed !== null
+                                ? `${speedToPace(m.bestSpeed, unit)}${paceUnitLabel(unit)}`
+                                : 'No runs'
+                              }
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )
         }
@@ -809,13 +1016,42 @@ export default function GroupPageClient({
             </div>
 
             <div className="space-y-4">
+              {/* Type selector */}
+              <div>
+                <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Type</label>
+                <div className="flex gap-2">
+                  {([
+                    { key: 'group_distance', label: 'Group Distance' },
+                    { key: 'weekly_quota',   label: 'Weekly Quota' },
+                    { key: 'fastest_effort', label: 'Fastest Effort' },
+                  ] as const).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setChallengeType(key)}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
+                        challengeType === key
+                          ? 'bg-[#f97316] border-[#f97316] text-black'
+                          : 'bg-transparent border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#4b5563]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Name *</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. March 200km"
+                  placeholder={
+                    challengeType === 'group_distance' ? 'e.g. March 200km' :
+                    challengeType === 'weekly_quota'   ? 'e.g. Weekly 30km Club' :
+                    'e.g. Speed King'
+                  }
                   className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
                 />
               </div>
@@ -831,19 +1067,45 @@ export default function GroupPageClient({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#6b7280] mb-1.5">
-                  Group target ({unit === 'miles' ? 'miles' : 'km'}) *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.targetDist}
-                  onChange={e => setForm(f => ({ ...f, targetDist: e.target.value }))}
-                  placeholder={unit === 'miles' ? '150' : '200'}
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
-                />
-              </div>
+              {/* Distance field (group_distance + weekly_quota) */}
+              {(challengeType === 'group_distance' || challengeType === 'weekly_quota') && (
+                <div>
+                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">
+                    {challengeType === 'group_distance'
+                      ? `Group target (${unit === 'miles' ? 'miles' : 'km'}) *`
+                      : `Weekly quota per member (${unit === 'miles' ? 'miles' : 'km'}) *`
+                    }
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.targetDist}
+                    onChange={e => setForm(f => ({ ...f, targetDist: e.target.value }))}
+                    placeholder={
+                      challengeType === 'group_distance'
+                        ? (unit === 'miles' ? '150' : '200')
+                        : (unit === 'miles' ? '18' : '30')
+                    }
+                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+              )}
+
+              {/* Run type selector (fastest_effort) */}
+              {challengeType === 'fastest_effort' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Run type *</label>
+                  <select
+                    value={form.runType}
+                    onChange={e => setForm(f => ({ ...f, runType: e.target.value }))}
+                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                  >
+                    {Object.entries(RUN_TYPE_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

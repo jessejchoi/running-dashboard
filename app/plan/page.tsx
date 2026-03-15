@@ -94,18 +94,10 @@ export default function PlanPage() {
     // Bulk-sync all localStorage plans to Supabase on load
     for (const [date, config] of Object.entries(loaded)) {
       const totalMeters = calcDist(config)
-      const name = config.name.toLowerCase()
-      let session_type = 'easy'
-      if (config.blocks.some(b => b.kind === 'interval')) session_type = 'interval_5k'
-      else if (name.includes('long')) session_type = 'long_easy'
-      else if (name.includes('tempo') || name.includes('threshold')) session_type = 'threshold'
-      else if (name.includes('recovery')) session_type = 'recovery'
-      else if (name.includes('race')) session_type = 'race'
-      else if (name.includes('stride')) session_type = 'easy_strides'
       fetch('/api/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_date: date, session_type, description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }),
+        body: JSON.stringify({ plan_date: date, session_type: config.sessionType || 'easy', description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }),
       }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync load]', date, d)) })
         .catch(e => console.error('[plan sync load]', date, e))
     }
@@ -119,17 +111,6 @@ export default function PlanPage() {
     }
   }, [allDates])
 
-  function deriveSessionType(config: SessionConfig): string {
-    const name = config.name.toLowerCase()
-    if (config.blocks.some(b => b.kind === 'interval')) return 'interval_5k'
-    if (name.includes('long')) return 'long_easy'
-    if (name.includes('tempo') || name.includes('threshold')) return 'threshold'
-    if (name.includes('recovery')) return 'recovery'
-    if (name.includes('race')) return 'race'
-    if (name.includes('stride')) return 'easy_strides'
-    return 'easy'
-  }
-
   function syncRunToApi(date: string, config: SessionConfig) {
     const totalMeters = calcDist(config, unit)
     fetch('/api/plans', {
@@ -137,7 +118,7 @@ export default function PlanPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         plan_date: date,
-        session_type: deriveSessionType(config),
+        session_type: config.sessionType || 'easy',
         description: config.name || summarizeSession(config, unit) || null,
         target_distance_meters: totalMeters > 0 ? totalMeters : null,
       }),

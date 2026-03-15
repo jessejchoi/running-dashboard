@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { useUnit } from '@/lib/unit-context'
 import { paceUnitLabel, distanceUnitLabel, metersToMiles, DistanceUnit } from '@/lib/utils'
+import { RUN_SESSION_TYPES } from '@/lib/planTypes'
 
 export interface ContinuousBlock {
   id: string
@@ -32,6 +33,7 @@ export type Block = ContinuousBlock | IntervalBlock
 
 export interface SessionConfig {
   name: string
+  sessionType: string
   warmupMin: number
   warmupPace: string
   blocks: Block[]
@@ -56,7 +58,7 @@ function newInterval(): IntervalBlock {
   return { id: Math.random().toString(36).slice(2), kind: 'interval', reps: 1, mode: 'distance', distanceM: 0, durationMin: 0, targetPace: '', recoveryMode: 'time', recoveryM: 0, recoveryMin: 0, recoveryPace: '' }
 }
 function defaultConfig(): SessionConfig {
-  return { name: '', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
+  return { name: '', sessionType: 'easy', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
 }
 
 function paceToSec(p: string): number {
@@ -271,6 +273,28 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
         </div>
 
         <div className="px-5 py-4 space-y-5">
+
+          {/* Session type */}
+          <div className="space-y-2">
+            <SectionLabel color="text-[#6b7280]">Session Type</SectionLabel>
+            <div className="grid grid-cols-2 gap-1.5">
+              {RUN_SESSION_TYPES.map(s => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => update({ ...config, sessionType: s.key })}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
+                    config.sessionType === s.key
+                      ? 'border-[#f97316] bg-[#f97316]/10 text-white'
+                      : 'border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#3a3a3a]'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${s.color}`} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Session name */}
           <div className="space-y-2">

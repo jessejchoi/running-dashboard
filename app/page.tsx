@@ -13,6 +13,7 @@ import Link from 'next/link'
 import GroupLeaderboard from '@/components/GroupLeaderboard'
 import GroupFeed from '@/components/GroupFeed'
 import GroupGoalsSection from '@/components/GroupGoalsSection'
+import GroupCoachTab from '@/components/GroupCoachTab'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
 
@@ -152,7 +153,8 @@ async function getData(athleteId: number) {
             athlete_profile: members.find((m: any) => m.athlete_id === g.athlete_id)?.profile_pic ?? null,
           }))
 
-          return { group, members, memberMap, feedRuns: groupActivities ?? [], memberGoals }
+          const myRole = allMembers?.find((m: any) => m.athlete_id === athleteId)?.role ?? 'member'
+          return { group, members, memberMap, feedRuns: groupActivities ?? [], memberGoals, myRole }
         } catch {
           return null
         }
@@ -265,6 +267,10 @@ export default async function DashboardPage() {
             <div key={groupData.group.id}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">{groupData.group.name} Group Stats</h2>
+              </div>
+              <div className="mb-8">
+                <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">RDCoach</p>
+                <GroupCoachTab groupId={groupData.group.id} myRole={groupData.myRole} members={groupData.members} />
               </div>
               <div className="grid md:grid-cols-2 gap-4 mb-8">
                 <GroupLeaderboard

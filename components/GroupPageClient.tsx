@@ -980,52 +980,41 @@ export default function GroupPageClient({
             {/* Training Load section */}
             <div>
               <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">Training Load</p>
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                 {members.map(m => {
                   const load = memberTrainingLoads[m.athlete_id] ?? { ctl: 0, atl: 0, tsb: 0 }
-                  const tsbColor = load.tsb > 5
-                    ? 'text-emerald-400'
-                    : load.tsb >= -10
-                    ? 'text-yellow-400'
-                    : 'text-red-400'
+                  const tsbColor = load.tsb > 5 ? 'text-emerald-400' : load.tsb >= -10 ? 'text-yellow-400' : 'text-red-400'
                   const formLabel = load.tsb > 5 ? 'Fresh' : load.tsb >= -10 ? 'Tired' : 'Very Tired'
                   const hasData = load.ctl > 0 || load.atl > 0
                   return (
-                    <div key={m.athlete_id} className="card">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={m.name} pic={m.profile_pic} size={8} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-sm font-bold ${m.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
-                              {m.is_me ? 'You' : m.name.split(' ')[0]}
-                            </span>
-                            {m.is_me && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>}
-                            {hasData && (
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tsbColor}`}>{formLabel}</span>
-                            )}
-                          </div>
-                          {hasData ? (
-                            <div className="flex gap-4">
-                              <div className="text-center">
-                                <p className="text-[10px] text-[#6b7280] uppercase tracking-wide mb-0.5">Fitness</p>
-                                <p className="text-sm font-mono font-bold text-sky-400">{load.ctl.toFixed(0)}</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-[10px] text-[#6b7280] uppercase tracking-wide mb-0.5">Fatigue</p>
-                                <p className="text-sm font-mono font-bold text-orange-400">{load.atl.toFixed(0)}</p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-[10px] text-[#6b7280] uppercase tracking-wide mb-0.5">Form</p>
-                                <p className={`text-sm font-mono font-bold ${tsbColor}`}>
-                                  {load.tsb > 0 ? '+' : ''}{load.tsb.toFixed(0)}
-                                </p>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-[#4b5563]">No data</p>
-                          )}
-                        </div>
+                    <div key={m.athlete_id} className="card p-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Avatar name={m.name} pic={m.profile_pic} size={5} />
+                        <span className={`text-xs font-bold truncate ${m.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
+                          {m.is_me ? 'You' : m.name.split(' ')[0]}
+                        </span>
                       </div>
+                      {hasData ? (
+                        <>
+                          <div className="flex justify-between mb-1.5">
+                            <div>
+                              <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-0.5">Fit</p>
+                              <p className="text-xs font-mono font-bold text-sky-400">{load.ctl.toFixed(0)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-0.5">Fat</p>
+                              <p className="text-xs font-mono font-bold text-orange-400">{load.atl.toFixed(0)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-0.5">Form</p>
+                              <p className={`text-xs font-mono font-bold ${tsbColor}`}>{load.tsb > 0 ? '+' : ''}{load.tsb.toFixed(0)}</p>
+                            </div>
+                          </div>
+                          <p className={`text-[9px] font-bold ${tsbColor}`}>{formLabel}</p>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-[#4b5563]">No data</p>
+                      )}
                     </div>
                   )
                 })}

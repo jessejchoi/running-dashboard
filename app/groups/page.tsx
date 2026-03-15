@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import GroupsPageClient from '@/components/GroupsPageClient'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function GroupsPage() {
   const athleteId = cookies().get('athlete_id')?.value

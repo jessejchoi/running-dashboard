@@ -144,12 +144,16 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
     router.push(`/group/${g.id}`)
   }
 
-  function saveOrder(ordered: Group[]) {
-    fetch('/api/groups/reorder', {
+  async function saveOrder(ordered: Group[]) {
+    const res = await fetch('/api/groups/reorder', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order: ordered.map(g => g.id) }),
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      console.error('Failed to save group order:', body.error ?? res.status)
+    }
   }
 
   function moveGroup(index: number, direction: 'up' | 'down') {

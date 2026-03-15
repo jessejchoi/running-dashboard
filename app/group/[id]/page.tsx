@@ -69,23 +69,30 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     .in('athlete_id', memberIds)
     .order('race_date', { ascending: true })
 
-  // Fetch last 7 days of activities for each member (for run feed)
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  // Fetch last 30 days of activities for each member (for run feed + load more)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const { data: recentRuns } = await supabaseAdmin
     .from('activities')
     .select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type')
     .in('athlete_id', memberIds)
-    .gte('start_date', sevenDaysAgo)
+    .gte('start_date', thirtyDaysAgo)
     .order('start_date', { ascending: false })
-    .limit(50)
+    .limit(100)
 
-  // Fetch last 6 months of activities for leaderboard
+  // Fetch last 6 months of activities for leaderboard + challenge progress
   const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
   const { data: leaderboardRuns } = await supabaseAdmin
     .from('activities')
     .select('id, athlete_id, distance, start_date')
     .in('athlete_id', memberIds)
     .gte('start_date', sixMonthsAgo)
+    .order('start_date', { ascending: false })
+
+  // Fetch group challenges
+  const { data: challenges } = await supabaseAdmin
+    .from('group_challenges')
+    .select('*')
+    .eq('group_id', params.id)
     .order('start_date', { ascending: false })
 
   // Compose member profiles
@@ -114,6 +121,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         members={memberProfiles}
         recentRuns={recentRuns ?? []}
         leaderboardRuns={leaderboardRuns ?? []}
+        initialChallenges={challenges ?? []}
         myRole={myMembership.role}
         inviteUrl={inviteUrl}
         myAthleteId={parseInt(athleteId)}

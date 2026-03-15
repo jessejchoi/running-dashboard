@@ -277,23 +277,15 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           {/* Session type */}
           <div className="space-y-2">
             <SectionLabel color="text-[#6b7280]">Session Type</SectionLabel>
-            <div className="grid grid-cols-2 gap-1.5">
+            <select
+              value={config.sessionType}
+              onChange={e => update({ ...config, sessionType: e.target.value })}
+              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316] transition-colors appearance-none"
+            >
               {RUN_SESSION_TYPES.map(s => (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => update({ ...config, sessionType: s.key })}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                    config.sessionType === s.key
-                      ? 'border-[#f97316] bg-[#f97316]/10 text-white'
-                      : 'border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#3a3a3a]'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${s.color}`} />
-                  {s.label}
-                </button>
+                <option key={s.key} value={s.key}>{s.label}</option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Session name */}

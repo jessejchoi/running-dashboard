@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
 import { PLAN_SESSION_TYPES } from '@/lib/planTypes'
+import PlanSessionModal, { SessionConfig, calcDist } from '@/components/PlanSessionModal'
 
 interface Goal {
   id: string
@@ -331,8 +332,7 @@ export default function GroupPageClient({
   const [plansLoaded, setPlansLoaded] = useState(false)
   const [plansLoading, setPlansLoading] = useState(false)
   const [editingDate, setEditingDate] = useState<string | null>(null)
-  const [planForm, setPlanForm] = useState({ sessionType: 'easy', description: '', targetDist: '' })
-  const [planSaving, setPlanSaving] = useState(false)
+  const [modalConfig, setModalConfig] = useState<SessionConfig | null>(null)
 
   // Challenges
   const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges)
@@ -363,47 +363,41 @@ export default function GroupPageClient({
   }
 
   function openPlanEdit(date: string) {
-    const existing = plans.find(p => p.athlete_id === myAthleteId && p.plan_date === date)
-    setPlanForm({
-      sessionType: existing?.session_type ?? 'easy',
-      description: existing?.description ?? '',
-      targetDist: existing?.target_distance_meters
-        ? (unit === 'miles' ? metersToMiles(existing.target_distance_meters).toFixed(1) : (existing.target_distance_meters / 1000).toFixed(1))
-        : '',
-    })
+    let config: SessionConfig | null = null
+    try {
+      const s = localStorage.getItem(`plan_v2_${date}`)
+      if (s) config = JSON.parse(s)
+    } catch {}
+    setModalConfig(config)
     setEditingDate(date)
   }
 
-  async function savePlan() {
-    if (!editingDate) return
-    setPlanSaving(true)
-    const target_distance_meters = planForm.targetDist
-      ? (unit === 'miles' ? parseFloat(planForm.targetDist) * 1609.344 : parseFloat(planForm.targetDist) * 1000)
-      : null
-    const res = await fetch('/api/plans', {
+  function handlePlanSave(date: string, config: SessionConfig) {
+    try { localStorage.setItem(`plan_v2_${date}`, JSON.stringify(config)) } catch {}
+    const totalMeters = calcDist(config, unit)
+    fetch('/api/plans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        plan_date: editingDate,
-        session_type: planForm.sessionType,
-        description: planForm.description.trim() || null,
-        target_distance_meters: isNaN(target_distance_meters as number) ? null : target_distance_meters,
+        plan_date: date,
+        session_type: config.sessionType || 'easy',
+        description: config.name || null,
+        target_distance_meters: totalMeters > 0 ? totalMeters : null,
       }),
+    }).then(r => { if (!r.ok) r.json().then(d => console.error('[group plan sync]', d)) })
+      .catch(e => console.error('[group plan sync]', e))
+    setPlans(prev => {
+      const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date))
+      return [...filtered, { id: 'local', athlete_id: myAthleteId, plan_date: date, session_type: config.sessionType || 'easy', description: config.name || null, target_distance_meters: totalMeters > 0 ? totalMeters : null }]
+        .sort((a, b) => a.plan_date.localeCompare(b.plan_date))
     })
-    const data = await res.json()
-    if (res.ok) {
-      setPlans(prev => {
-        const filtered = prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === editingDate))
-        return [...filtered, data].sort((a, b) => a.plan_date.localeCompare(b.plan_date))
-      })
-    }
-    setPlanSaving(false)
-    setEditingDate(null)
   }
 
-  async function deletePlan(date: string) {
-    const res = await fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
-    if (res.ok) setPlans(prev => prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date)))
+  function handlePlanDelete(date: string) {
+    try { localStorage.removeItem(`plan_v2_${date}`) } catch {}
+    fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
+      .catch(e => console.error('[group plan delete]', e))
+    setPlans(prev => prev.filter(p => !(p.athlete_id === myAthleteId && p.plan_date === date)))
     setEditingDate(null)
   }
 
@@ -1311,89 +1305,13 @@ export default function GroupPageClient({
       )}
       {/* ── Plan edit modal ────────────────────────────────────────────────── */}
       {editingDate && (
-        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-sm p-6 z-[9999]">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="font-display font-bold text-base">
-                {format(new Date(editingDate + 'T00:00:00'), 'EEE, MMM d')}
-              </h2>
-              <button onClick={() => setEditingDate(null)} className="text-[#6b7280] hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#6b7280] mb-2">Session type</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {PLAN_SESSION_TYPES.map(s => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => setPlanForm(f => ({ ...f, sessionType: s.key }))}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                        planForm.sessionType === s.key
-                          ? 'border-[#f97316] bg-[#f97316]/10 text-white'
-                          : 'border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#3a3a3a]'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${s.color}`} />
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {planForm.sessionType !== 'rest' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-[#6b7280] mb-1.5">
-                      Target distance ({unit === 'miles' ? 'miles' : 'km'})
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={planForm.targetDist}
-                      onChange={e => setPlanForm(f => ({ ...f, targetDist: e.target.value }))}
-                      placeholder="e.g. 10"
-                      className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Notes</label>
-                    <input
-                      type="text"
-                      value={planForm.description}
-                      onChange={e => setPlanForm(f => ({ ...f, description: e.target.value }))}
-                      placeholder="e.g. 6×4min at 5K pace"
-                      className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="flex gap-2 pt-1">
-                {plans.some(p => p.athlete_id === myAthleteId && p.plan_date === editingDate) && (
-                  <button
-                    onClick={() => deletePlan(editingDate)}
-                    className="px-3 py-2.5 text-xs font-bold border border-[#2a2a2a] hover:border-red-500/50 text-[#6b7280] hover:text-red-400 rounded-lg transition-colors"
-                  >
-                    Remove
-                  </button>
-                )}
-                <button
-                  onClick={savePlan}
-                  disabled={planSaving}
-                  className="flex-1 py-2.5 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-50 text-black font-bold text-sm rounded-lg transition-colors"
-                >
-                  {planSaving ? 'Saving…' : 'Save'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PlanSessionModal
+          displayDate={format(new Date(editingDate + 'T00:00:00'), 'EEE, MMM d')}
+          initialConfig={modalConfig}
+          onClose={() => setEditingDate(null)}
+          onSave={(config) => handlePlanSave(editingDate, config)}
+          onDelete={() => handlePlanDelete(editingDate)}
+        />
       )}
     </main>
   )

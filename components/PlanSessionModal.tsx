@@ -75,7 +75,9 @@ function SessionTypeDropdown({ value, onChange }: { value: string; onChange: (v:
   function updatePos() {
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 4, left: r.left, width: r.width })
+      const dropH = 320
+      const top = window.innerHeight - r.bottom < dropH ? r.top - dropH - 4 : r.bottom + 4
+      setPos({ top, left: r.left, width: r.width })
     }
   }
 

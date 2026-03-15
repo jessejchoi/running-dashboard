@@ -195,7 +195,7 @@ export default function PlanPage() {
                             {config ? (
                               <button
                                 onClick={() => !past && setModalDate(dateStr)}
-                                className="w-full min-h-[56px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all bg-[#1a1a1a] text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110"
+                                className="w-full max-w-[160px] min-h-[56px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all bg-[#1a1a1a] text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110"
                               >
                                 <div className="font-medium truncate">{config.name || <span className="text-[#6b7280] italic">Untitled</span>}</div>
                                 {summary && (
@@ -216,16 +216,16 @@ export default function PlanPage() {
                                 <span>Rest</span>
                               </button>
                             ) : (
-                              <div className="w-full min-h-[56px] rounded-lg border border-dashed border-[#2a2a2a] flex flex-col items-center justify-center gap-0.5 hover:border-[#f97316]/20 transition-colors">
+                              <div className="w-full min-h-[56px] rounded-lg border border-dashed border-[#3a3a3a] flex flex-col items-center justify-center gap-0.5 hover:border-[#f97316]/30 transition-colors">
                                 <button
                                   onClick={() => !past && setModalDate(dateStr)}
-                                  className="flex items-center gap-1 text-[10px] text-[#4b5563] hover:text-[#f97316] transition-colors px-2 py-0.5 rounded"
+                                  className="flex items-center gap-1 text-[10px] text-[#6b7280] hover:text-[#f97316] transition-colors px-2 py-0.5 rounded"
                                 >
                                   <Plus size={10} /> Run
                                 </button>
                                 <button
                                   onClick={() => !past && setRest(dateStr)}
-                                  className="text-[9px] text-[#3a3a3a] hover:text-[#6b7280] transition-colors px-2 py-0.5 rounded"
+                                  className="text-[9px] text-[#4b5563] hover:text-[#6b7280] transition-colors px-2 py-0.5 rounded"
                                 >
                                   Rest
                                 </button>

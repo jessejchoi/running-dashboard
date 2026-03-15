@@ -63,7 +63,7 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId, unit 
           <span className="hidden sm:inline">Group Activities This Week</span>
         </h2>
         <Link
-          href={`/group/${groupId}/runs`}
+          href={`/group/${groupId}`}
           className="text-xs text-[#f97316] hover:underline whitespace-nowrap shrink-0 ml-2"
           prefetch
         >

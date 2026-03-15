@@ -1,11 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon } from 'lucide-react'
+import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon, Bot } from 'lucide-react'
 import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
 import { PLAN_SESSION_TYPES } from '@/lib/planTypes'
 import PlanSessionModal, { SessionConfig, calcDist } from '@/components/PlanSessionModal'
+import GroupCoachTab from '@/components/GroupCoachTab'
 
 interface Goal {
   id: string
@@ -316,7 +317,7 @@ export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId,
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans' | 'coach'>('dashboard')
 
   // Leaderboard
   const [leaderRange, setLeaderRange] = useState<LeaderRange>('week')
@@ -615,6 +616,7 @@ export default function GroupPageClient({
           { key: 'feed',      label: 'Runs',      icon: Activity },
           { key: 'goals',     label: 'Goals',     icon: Target },
           { key: 'plans',     label: 'Plans',     icon: CalendarDays },
+          { key: 'coach',     label: 'Coach',     icon: Bot },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -1313,6 +1315,11 @@ export default function GroupPageClient({
         )
       })()}
 
+
+      {/* ── Coach tab ──────────────────────────────────────────────────────── */}
+      {tab === 'coach' && (
+        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} />
+      )}
 
       {/* ── Create challenge modal ─────────────────────────────────────────── */}
       {showCreate && (

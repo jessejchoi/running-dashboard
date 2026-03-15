@@ -93,7 +93,8 @@ ${JSON.stringify(ctx, null, 2)}`
       messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    const raw = message.content[0].type === 'text' ? message.content[0].text : ''
+    const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
     const briefing: BriefingContent = JSON.parse(text)
 
     // Upsert into cache
@@ -118,7 +119,8 @@ ${JSON.stringify(ctx, null, 2)}`
       generated_at: row?.generated_at ?? new Date().toISOString(),
     })
   } catch (err) {
-    console.error('[coach/briefing]', err)
-    return NextResponse.json({ error: 'Coach is taking a rest day.' }, { status: 503 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[coach/briefing]', msg)
+    return NextResponse.json({ error: 'Coach is taking a rest day.', detail: msg }, { status: 503 })
   }
 }

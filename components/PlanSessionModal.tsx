@@ -35,10 +35,14 @@ export type Block = ContinuousBlock | IntervalBlock
 export interface SessionConfig {
   name: string
   sessionType: string
+  warmupMode: 'distance' | 'time'
   warmupMin: number
+  warmupM: number
   warmupPace: string
   blocks: Block[]
+  cooldownMode: 'distance' | 'time'
   cooldownMin: number
+  cooldownM: number
   cooldownPace: string
 }
 
@@ -59,7 +63,7 @@ function newInterval(): IntervalBlock {
   return { id: Math.random().toString(36).slice(2), kind: 'interval', reps: 0, mode: 'distance', distanceM: 0, durationMin: 0, targetPace: '', recoveryMode: 'time', recoveryM: 0, recoveryMin: 0, recoveryPace: '' }
 }
 export function defaultConfig(): SessionConfig {
-  return { name: '', sessionType: 'easy', warmupMin: 0, warmupPace: '', blocks: [], cooldownMin: 0, cooldownPace: '' }
+  return { name: '', sessionType: 'easy', warmupMode: 'time', warmupMin: 0, warmupM: 0, warmupPace: '', blocks: [], cooldownMode: 'time', cooldownMin: 0, cooldownM: 0, cooldownPace: '' }
 }
 
 function SessionTypeDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -147,10 +151,20 @@ function formatSessionTime(secs: number): string {
 export function calcDist(config: SessionConfig, unit: DistanceUnit = 'km'): number {
   const metersPerUnit = unit === 'miles' ? 1609.344 : 1000
   let d = 0
-  const wuSec = paceToSec(config.warmupPace)
-  if (wuSec > 0) d += (config.warmupMin * 60 / wuSec) * metersPerUnit
-  const cdSec = paceToSec(config.cooldownPace)
-  if (cdSec > 0) d += (config.cooldownMin * 60 / cdSec) * metersPerUnit
+  const warmupMode = config.warmupMode ?? 'time'
+  if (warmupMode === 'distance') {
+    d += config.warmupM ?? 0
+  } else {
+    const wuSec = paceToSec(config.warmupPace)
+    if (wuSec > 0) d += (config.warmupMin * 60 / wuSec) * metersPerUnit
+  }
+  const cooldownMode = config.cooldownMode ?? 'time'
+  if (cooldownMode === 'distance') {
+    d += config.cooldownM ?? 0
+  } else {
+    const cdSec = paceToSec(config.cooldownPace)
+    if (cdSec > 0) d += (config.cooldownMin * 60 / cdSec) * metersPerUnit
+  }
   for (const b of config.blocks) {
     if (b.kind === 'continuous') {
       const sec = paceToSec(b.targetPace)
@@ -170,8 +184,20 @@ export function calcDist(config: SessionConfig, unit: DistanceUnit = 'km'): numb
 export function calcDuration(config: SessionConfig, unit: DistanceUnit = 'km'): number {
   const metersPerUnit = unit === 'miles' ? 1609.344 : 1000
   let secs = 0
-  secs += config.warmupMin * 60
-  secs += config.cooldownMin * 60
+  const warmupMode = config.warmupMode ?? 'time'
+  if (warmupMode === 'distance') {
+    const wuPaceSec = paceToSec(config.warmupPace)
+    if (wuPaceSec > 0) secs += ((config.warmupM ?? 0) / metersPerUnit) * wuPaceSec
+  } else {
+    secs += config.warmupMin * 60
+  }
+  const cooldownMode = config.cooldownMode ?? 'time'
+  if (cooldownMode === 'distance') {
+    const cdPaceSec = paceToSec(config.cooldownPace)
+    if (cdPaceSec > 0) secs += ((config.cooldownM ?? 0) / metersPerUnit) * cdPaceSec
+  } else {
+    secs += config.cooldownMin * 60
+  }
   for (const b of config.blocks) {
     if (b.kind === 'continuous') {
       if (b.mode === 'time') {
@@ -203,7 +229,13 @@ export function calcDuration(config: SessionConfig, unit: DistanceUnit = 'km'): 
 export function summarizeParts(config: SessionConfig, unit: DistanceUnit = 'km'): SummaryPart[] {
   const parts: SummaryPart[] = []
   const unitLabel = distanceUnitLabel(unit)
-  if (config.warmupMin > 0) parts.push({ text: `${config.warmupMin}min WU`, color: 'text-[#facc15]' })
+  const warmupMode = config.warmupMode ?? 'time'
+  if (warmupMode === 'distance' ? (config.warmupM ?? 0) > 0 : config.warmupMin > 0) {
+    const wuLabel = warmupMode === 'distance'
+      ? (unit === 'miles' ? `${metersToMiles(config.warmupM ?? 0).toFixed(2)}${unitLabel}` : `${((config.warmupM ?? 0) / 1000).toFixed(2)}${unitLabel}`)
+      : `${config.warmupMin}min`
+    parts.push({ text: `${wuLabel} WU`, color: 'text-[#facc15]' })
+  }
   for (const b of config.blocks) {
     if (b.kind === 'interval') {
       const effort = b.mode === 'distance' ? `${b.distanceM}m` : `${b.durationMin}min`
@@ -221,7 +253,13 @@ export function summarizeParts(config: SessionConfig, unit: DistanceUnit = 'km')
       parts.push({ text: `${effort}${b.label ? ` ${b.label}` : ''}${paceStr}`, color: 'text-[#f97316]' })
     }
   }
-  if (config.cooldownMin > 0) parts.push({ text: `${config.cooldownMin}min CD`, color: 'text-[#a78bfa]' })
+  const cooldownMode = config.cooldownMode ?? 'time'
+  if (cooldownMode === 'distance' ? (config.cooldownM ?? 0) > 0 : config.cooldownMin > 0) {
+    const cdLabel = cooldownMode === 'distance'
+      ? (unit === 'miles' ? `${metersToMiles(config.cooldownM ?? 0).toFixed(2)}${unitLabel}` : `${((config.cooldownM ?? 0) / 1000).toFixed(2)}${unitLabel}`)
+      : `${config.cooldownMin}min`
+    parts.push({ text: `${cdLabel} CD`, color: 'text-[#a78bfa]' })
+  }
   return parts
 }
 
@@ -232,9 +270,47 @@ export function summarizeSession(config: SessionConfig, unit: DistanceUnit = 'km
 function Inp({ value, onChange, className = '', type = 'text', placeholder = '' }: {
   value: string | number; onChange: (v: string) => void; className?: string; type?: string; placeholder?: string
 }) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (type === 'number') {
+      // Strip non-numeric chars (allow decimal point)
+      const raw = e.target.value.replace(/[^0-9.]/g, '')
+      onChange(raw)
+    } else {
+      onChange(e.target.value)
+    }
+  }
   return (
-    <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-      className={`bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#f97316] transition-colors ${className}`} />
+    <input
+      type={type === 'number' ? 'text' : type}
+      inputMode={type === 'number' ? 'decimal' : undefined}
+      value={value}
+      onChange={handleChange}
+      placeholder={placeholder}
+      className={`bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#f97316] transition-colors ${className}`}
+    />
+  )
+}
+
+function PaceInp({ value, onChange, className = '' }: {
+  value: string; onChange: (v: string) => void; className?: string
+}) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 4)
+    if (digits.length <= 2) {
+      onChange(digits)
+    } else {
+      onChange(digits.slice(0, 2) + ':' + digits.slice(2))
+    }
+  }
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={value}
+      onChange={handleChange}
+      placeholder="mm:ss"
+      className={`bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#f97316] transition-colors ${className}`}
+    />
   )
 }
 
@@ -311,20 +387,40 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
     : `${(totalMeters / 1000).toFixed(2)} ${unitLabel}`
   const isExisting = initialConfig !== null
 
-  function warmupDistPreview() {
-    const sec = paceToSec(config.warmupPace)
-    if (sec <= 0 || config.warmupMin <= 0) return null
+  function warmupPreview() {
+    const paceSec = paceToSec(config.warmupPace)
     const metersPerUnit = unit === 'miles' ? 1609.344 : 1000
-    const dist = (config.warmupMin * 60 / sec) * metersPerUnit
-    return unit === 'miles' ? `${metersToMiles(dist).toFixed(2)} ${unitLabel}` : `${(dist / 1000).toFixed(2)} ${unitLabel}`
+    const warmupMode = config.warmupMode ?? 'time'
+    if (warmupMode === 'distance') {
+      const m = config.warmupM ?? 0
+      if (m <= 0 || paceSec <= 0) return null
+      const durSecs = (m / metersPerUnit) * paceSec
+      const durMin = Math.floor(durSecs / 60)
+      const durSec = Math.round(durSecs % 60)
+      return `≈ ${durMin}:${String(durSec).padStart(2, '0')} min`
+    } else {
+      if (paceSec <= 0 || config.warmupMin <= 0) return null
+      const dist = (config.warmupMin * 60 / paceSec) * metersPerUnit
+      return unit === 'miles' ? `≈ ${metersToMiles(dist).toFixed(2)} ${unitLabel}` : `≈ ${(dist / 1000).toFixed(2)} ${unitLabel}`
+    }
   }
 
-  function cooldownDistPreview() {
-    const sec = paceToSec(config.cooldownPace)
-    if (sec <= 0 || config.cooldownMin <= 0) return null
+  function cooldownPreview() {
+    const paceSec = paceToSec(config.cooldownPace)
     const metersPerUnit = unit === 'miles' ? 1609.344 : 1000
-    const dist = (config.cooldownMin * 60 / sec) * metersPerUnit
-    return unit === 'miles' ? `${metersToMiles(dist).toFixed(2)} ${unitLabel}` : `${(dist / 1000).toFixed(2)} ${unitLabel}`
+    const cooldownMode = config.cooldownMode ?? 'time'
+    if (cooldownMode === 'distance') {
+      const m = config.cooldownM ?? 0
+      if (m <= 0 || paceSec <= 0) return null
+      const durSecs = (m / metersPerUnit) * paceSec
+      const durMin = Math.floor(durSecs / 60)
+      const durSec = Math.round(durSecs % 60)
+      return `≈ ${durMin}:${String(durSec).padStart(2, '0')} min`
+    } else {
+      if (paceSec <= 0 || config.cooldownMin <= 0) return null
+      const dist = (config.cooldownMin * 60 / paceSec) * metersPerUnit
+      return unit === 'miles' ? `≈ ${metersToMiles(dist).toFixed(2)} ${unitLabel}` : `≈ ${(dist / 1000).toFixed(2)} ${unitLabel}`
+    }
   }
 
   function contBlockPreview(b: ContinuousBlock) {
@@ -416,12 +512,19 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           <div className="space-y-2">
             <SectionLabel color="text-[#facc15]">Warmup</SectionLabel>
             <div className="flex items-center gap-2 flex-wrap">
-              <Inp value={config.warmupMin || ''} onChange={v => update({ ...config, warmupMin: parseFloat(v) || 0 })} className="w-14" type="number" />
-              <span className="text-[#6b7280] text-xs">min</span>
-              <Inp value={config.warmupPace} onChange={v => update({ ...config, warmupPace: v })} className="w-16" placeholder="mm:ss" />
+              <div className="flex gap-1">
+                <Tog active={(config.warmupMode ?? 'time') === 'time'} onClick={() => update({ ...config, warmupMode: 'time' })}>Time</Tog>
+                <Tog active={(config.warmupMode ?? 'time') === 'distance'} onClick={() => update({ ...config, warmupMode: 'distance' })}>Distance</Tog>
+              </div>
+              {(config.warmupMode ?? 'time') === 'time' ? (
+                <><Inp value={config.warmupMin || ''} onChange={v => update({ ...config, warmupMin: Math.max(0, parseFloat(v) || 0) })} className="w-14" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+              ) : (
+                <><Inp value={config.warmupM || ''} onChange={v => update({ ...config, warmupM: Math.max(0, parseInt(v) || 0) })} className="w-20" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+              )}
+              <PaceInp value={config.warmupPace} onChange={v => update({ ...config, warmupPace: v })} className="w-16" />
               <span className="text-[#6b7280] text-xs">{paceLabel}</span>
-              {warmupDistPreview() && (
-                <span className="text-[#4b5563] text-xs font-mono">≈ {warmupDistPreview()}</span>
+              {warmupPreview() && (
+                <span className="text-[#4b5563] text-xs font-mono">{warmupPreview()}</span>
               )}
             </div>
           </div>
@@ -467,11 +570,11 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                         <Tog active={b.mode === 'distance'} onClick={() => updateBlock(b.id, { mode: 'distance' })}>Distance</Tog>
                       </div>
                       {b.mode === 'time' ? (
-                        <><Inp value={b.durationMin || ''} onChange={v => updateBlock(b.id, { durationMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+                        <><Inp value={b.durationMin || ''} onChange={v => updateBlock(b.id, { durationMin: Math.max(0, parseFloat(v) || 0) })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
                       ) : (
-                        <><Inp value={b.distanceM || ''} onChange={v => updateBlock(b.id, { distanceM: parseInt(v) || 0 })} className="w-20" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+                        <><Inp value={b.distanceM || ''} onChange={v => updateBlock(b.id, { distanceM: Math.max(0, parseInt(v) || 0) })} className="w-20" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
                       )}
-                      <Inp value={b.targetPace} onChange={v => updateBlock(b.id, { targetPace: v })} className="w-16" placeholder="mm:ss" />
+                      <PaceInp value={b.targetPace} onChange={v => updateBlock(b.id, { targetPace: v })} className="w-16" />
                       <span className="text-[#6b7280] text-xs">{paceLabel}</span>
                     </div>
                     {contBlockPreview(b) && (
@@ -482,7 +585,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="flex items-center gap-1.5">
-                        <Inp value={b.reps || ''} onChange={v => updateBlock(b.id, { reps: parseInt(v) || 0 })} className="w-12" type="number" />
+                        <Inp value={b.reps || ''} onChange={v => updateBlock(b.id, { reps: Math.max(0, parseInt(v) || 0) })} className="w-12" type="number" />
                         <span className="text-[#6b7280] text-xs">×</span>
                       </div>
                       <div className="flex gap-1">
@@ -490,10 +593,10 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                         <Tog active={b.mode === 'time'} onClick={() => updateBlock(b.id, { mode: 'time' })}>Time</Tog>
                       </div>
                       {b.mode === 'distance'
-                        ? <><Inp value={b.distanceM || ''} onChange={v => updateBlock(b.id, { distanceM: parseInt(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
-                        : <><Inp value={b.durationMin || ''} onChange={v => updateBlock(b.id, { durationMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+                        ? <><Inp value={b.distanceM || ''} onChange={v => updateBlock(b.id, { distanceM: Math.max(0, parseInt(v) || 0) })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+                        : <><Inp value={b.durationMin || ''} onChange={v => updateBlock(b.id, { durationMin: Math.max(0, parseFloat(v) || 0) })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
                       }
-                      <Inp value={b.targetPace} onChange={v => updateBlock(b.id, { targetPace: v })} className="w-16" placeholder="mm:ss" />
+                      <PaceInp value={b.targetPace} onChange={v => updateBlock(b.id, { targetPace: v })} className="w-16" />
                       <span className="text-[#6b7280] text-xs">{paceLabel}</span>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap border-t border-[#222] pt-2">
@@ -503,10 +606,10 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                         <Tog active={b.recoveryMode === 'distance'} onClick={() => updateBlock(b.id, { recoveryMode: 'distance' })}>Dist</Tog>
                       </div>
                       {b.recoveryMode === 'distance'
-                        ? <><Inp value={b.recoveryM || ''} onChange={v => updateBlock(b.id, { recoveryM: parseInt(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
-                        : <><Inp value={b.recoveryMin || ''} onChange={v => updateBlock(b.id, { recoveryMin: parseFloat(v) || 0 })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+                        ? <><Inp value={b.recoveryM || ''} onChange={v => updateBlock(b.id, { recoveryM: Math.max(0, parseInt(v) || 0) })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+                        : <><Inp value={b.recoveryMin || ''} onChange={v => updateBlock(b.id, { recoveryMin: Math.max(0, parseFloat(v) || 0) })} className="w-16" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
                       }
-                      <Inp value={b.recoveryPace} onChange={v => updateBlock(b.id, { recoveryPace: v })} className="w-16" placeholder="mm:ss" />
+                      <PaceInp value={b.recoveryPace} onChange={v => updateBlock(b.id, { recoveryPace: v })} className="w-16" />
                       <span className="text-[#6b7280] text-xs">{paceLabel}</span>
                     </div>
                     <div className="text-[10px] text-[#4b5563] font-mono">
@@ -522,12 +625,19 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           <div className="space-y-2">
             <SectionLabel color="text-[#a78bfa]">Cooldown</SectionLabel>
             <div className="flex items-center gap-2 flex-wrap">
-              <Inp value={config.cooldownMin || ''} onChange={v => update({ ...config, cooldownMin: parseFloat(v) || 0 })} className="w-14" type="number" />
-              <span className="text-[#6b7280] text-xs">min</span>
-              <Inp value={config.cooldownPace} onChange={v => update({ ...config, cooldownPace: v })} className="w-16" placeholder="mm:ss" />
+              <div className="flex gap-1">
+                <Tog active={(config.cooldownMode ?? 'time') === 'time'} onClick={() => update({ ...config, cooldownMode: 'time' })}>Time</Tog>
+                <Tog active={(config.cooldownMode ?? 'time') === 'distance'} onClick={() => update({ ...config, cooldownMode: 'distance' })}>Distance</Tog>
+              </div>
+              {(config.cooldownMode ?? 'time') === 'time' ? (
+                <><Inp value={config.cooldownMin || ''} onChange={v => update({ ...config, cooldownMin: Math.max(0, parseFloat(v) || 0) })} className="w-14" type="number" /><span className="text-[#6b7280] text-xs">min</span></>
+              ) : (
+                <><Inp value={config.cooldownM || ''} onChange={v => update({ ...config, cooldownM: Math.max(0, parseInt(v) || 0) })} className="w-20" type="number" /><span className="text-[#6b7280] text-xs">m</span></>
+              )}
+              <PaceInp value={config.cooldownPace} onChange={v => update({ ...config, cooldownPace: v })} className="w-16" />
               <span className="text-[#6b7280] text-xs">{paceLabel}</span>
-              {cooldownDistPreview() && (
-                <span className="text-[#4b5563] text-xs font-mono">≈ {cooldownDistPreview()}</span>
+              {cooldownPreview() && (
+                <span className="text-[#4b5563] text-xs font-mono">{cooldownPreview()}</span>
               )}
             </div>
           </div>

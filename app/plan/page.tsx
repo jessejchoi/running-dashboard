@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Nav from '@/components/Nav'
 import PlanSessionModal, { SessionConfig, calcDist, calcDuration, summarizeParts, summarizeSession, SummaryPart, defaultConfig } from '@/components/PlanSessionModal'
+import { PLAN_SESSION_TYPES } from '@/lib/planTypes'
 import { Plus, Moon } from 'lucide-react'
 import { useUnit } from '@/lib/unit-context'
 import { distanceUnitLabel, metersToMiles } from '@/lib/utils'
@@ -245,6 +246,7 @@ export default function PlanPage() {
                         const past = isPast(d)
                         const cellDist = config ? (unit === 'miles' ? metersToMiles(calcDist(config, unit)).toFixed(2) : (calcDist(config, unit) / 1000).toFixed(1)) : null
                         const cellTime = config ? formatSessionTime(calcDuration(config, unit)) : null
+                        const sessionMeta = config ? PLAN_SESSION_TYPES.find(s => s.key === config.sessionType) : null
                         return (
                           <td key={dateStr} className={`pb-4 px-1 align-top ${past ? 'opacity-40 cursor-default pointer-events-none' : ''}`}>
                             {config ? (
@@ -253,6 +255,12 @@ export default function PlanPage() {
                                 className="w-full max-w-[160px] min-h-[56px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all bg-[#1a1a1a] text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110"
                               >
                                 <div className="font-medium">{config.name || <span className="text-[#6b7280] italic">Untitled</span>}</div>
+                                {sessionMeta && (
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
+                                    <span className="text-[#9ca3af] text-[10px]">{sessionMeta.label}</span>
+                                  </div>
+                                )}
                                 {summary && (
                                   <div className="text-[#6b7280] mt-0.5 text-[10px] leading-relaxed">{summary}</div>
                                 )}
@@ -340,6 +348,7 @@ export default function PlanPage() {
                     const parts: SummaryPart[] = config ? summarizeParts(config, unit) : []
                     const distVal = config ? (unit === 'miles' ? metersToMiles(calcDist(config, unit)).toFixed(2) : (calcDist(config, unit) / 1000).toFixed(1)) : null
                     const timeVal = config ? formatSessionTime(calcDuration(config, unit)) : null
+                    const sessionMeta = config ? PLAN_SESSION_TYPES.find(s => s.key === config.sessionType) : null
 
                     const dateCol = (
                       <div className="w-14 shrink-0 pt-0.5">
@@ -358,6 +367,12 @@ export default function PlanPage() {
                           {dateCol}
                           <div className="w-28 shrink-0 pt-0.5">
                             <div className="text-sm font-medium text-white leading-snug">{config.name || <span className="text-[#6b7280] italic text-xs">Untitled</span>}</div>
+                            {sessionMeta && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sessionMeta.color}`} />
+                                <span className="text-[#9ca3af] text-xs">{sessionMeta.label}</span>
+                              </div>
+                            )}
                             {distVal && distVal !== '0.0' && distVal !== '0.00' && (
                               <div className="text-xs text-[#f97316]/70 font-mono mt-0.5">{distVal} {unitLabel}</div>
                             )}

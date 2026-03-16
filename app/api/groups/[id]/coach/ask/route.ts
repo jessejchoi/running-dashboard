@@ -52,26 +52,15 @@ ${JSON.stringify(ctx, null, 2)}
 
 ${myName} asks: ${question}`
 
-    const stream = await anthropic.messages.stream({
+    const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
 
-    return new Response(
-      new ReadableStream({
-        async start(controller) {
-          for await (const chunk of stream) {
-            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-              controller.enqueue(new TextEncoder().encode(chunk.delta.text))
-            }
-          }
-          controller.close()
-        },
-      }),
-      { headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
-    )
+    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   } catch (err) {
     console.error('[coach/ask]', err)
     return NextResponse.json({ error: 'Coach is taking a rest day.' }, { status: 503 })

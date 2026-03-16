@@ -62,7 +62,8 @@ ${myName} asks: ${question}`
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     return new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   } catch (err) {
-    console.error('[coach/ask]', err)
-    return NextResponse.json({ error: 'Coach is taking a rest day.' }, { status: 503 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[coach/ask]', msg)
+    return NextResponse.json({ error: 'Coach is taking a rest day.', detail: msg }, { status: 503 })
   }
 }

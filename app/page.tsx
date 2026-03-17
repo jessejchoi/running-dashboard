@@ -64,6 +64,7 @@ async function getData(athleteId: number) {
       easyRuns ?? [],
       raceRuns,
       maxHr ?? 195,
+      activities ?? [],
     )
   } catch (err) {
     console.error('analyzeAllAndCombine failed:', err)

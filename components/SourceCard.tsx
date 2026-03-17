@@ -1,6 +1,6 @@
 'use client'
-import { formatTime } from '@/lib/analysis'
-import type { EstimateSource } from '@/lib/analysis'
+import { formatTime, getSourceWeight } from '@/lib/analysis'
+import type { EstimateSource, DistanceKey } from '@/lib/analysis'
 
 interface Contributor {
   source: EstimateSource
@@ -15,6 +15,7 @@ interface Contributor {
 interface Props {
   source: EstimateSource
   contributors: Contributor[]
+  distanceKey: DistanceKey
 }
 
 const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon: string }> = {
@@ -25,7 +26,7 @@ const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon
   race_result: { label: 'Race Results', color: '#f472b6', icon: '🏆' },
 }
 
-export default function SourceCard({ source, contributors }: Props) {
+export default function SourceCard({ source, contributors, distanceKey }: Props) {
   const config = SOURCE_CONFIG[source]
   if (!contributors.length) return null
 
@@ -37,8 +38,9 @@ export default function SourceCard({ source, contributors }: Props) {
     : contributors[0].estimatedSecs
 
   const sorted = [...contributors].sort((a, b) => b.date.localeCompare(a.date))
-  const latest = sorted[0]
-  const oldest = sorted[sorted.length - 1]
+
+  const fixedWeight = getSourceWeight(distanceKey, source)
+  const weightPct = Math.round(fixedWeight * 100)
 
   return (
     <div className="card fade-up" style={{ borderLeft: `3px solid ${config.color}` }}>
@@ -52,8 +54,8 @@ export default function SourceCard({ source, contributors }: Props) {
         </div>
         <div className="text-right">
           <div className="stat-num text-lg font-bold text-white">{formatTime(avgSecs)}</div>
-          <div className="text-[#4b5563] text-[10px]">
-            weight: {(contributors.reduce((s, c) => s + getWeight(c), 0) / contributors.length).toFixed(2)}
+          <div className="text-[10px]" style={{ color: config.color }}>
+            {weightPct}% weight
           </div>
         </div>
       </div>

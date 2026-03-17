@@ -42,11 +42,12 @@ export default async function AnalysisPage() {
     targetSecsMap[g.distance_key] = g.target_secs
   }
 
-  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }] = await Promise.all([
+  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: allActivities }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'threshold').order('start_date', { ascending: false }),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'long').order('start_date', { ascending: false }).limit(15),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
+    supabaseAdmin.from('activities').select('start_date, run_type').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false }).limit(200),
   ])
 
   // Race query is separate — is_race column may not exist before migration_008
@@ -65,6 +66,7 @@ export default async function AnalysisPage() {
       easyRuns ?? [],
       raceRuns,
       maxHr ?? 195,
+      allActivities ?? [],
     )
   } catch (err) {
     console.error('analyzeAllAndCombine failed:', err)

@@ -57,6 +57,7 @@ export interface RaceEstimate {
   date: string
   activityId: number
   method: string              // human-readable derivation note
+  projected?: boolean         // true = Riegel projection from a different-distance race
 }
 
 export interface ActivityAnalysis {
@@ -1043,23 +1044,25 @@ export function detectAndAnalyzeRace(activity: {
       date,
       activityId: activity.id,
       method: `Race result: ${activity.name}`,
+      projected: false,
     },
   ]
 
   // Project to other distances via Riegel with log-distance decay
   for (const std of STANDARD_DISTANCES) {
     if (std.key === matched.key) continue
-    const projected = riegelProject(raceTimeSecs, matched.km, std.km)
+    const projectedSecs = riegelProject(raceTimeSecs, matched.km, std.km)
     const distRatio = Math.abs(Math.log(std.km / matched.km))
     const confidence = 0.80 * Math.max(0.3, 1 - distRatio * 0.3)
     raceEstimates.push({
       distanceKey: std.key,
-      estimatedSecs: projected,
+      estimatedSecs: projectedSecs,
       confidence,
       source: 'race_result',
       date,
       activityId: activity.id,
       method: `Riegel from ${matched.key} race result`,
+      projected: true,
     })
   }
 
@@ -1140,67 +1143,204 @@ export function easyRunTrendEstimate(
 
 // ─── Signal combiner ─────────────────────────────────────────────────────────
 
+/** Fixed training source weights per distance */
+const TRAINING_WEIGHTS: Record<DistanceKey, Record<EstimateSource, number>> = {
+  '5k':  { interval: 0.60, threshold: 0.30, easy_trend: 0.00, long_run: 0.05, race_result: 0.05 },
+  '10k': { interval: 0.30, threshold: 0.45, easy_trend: 0.10, long_run: 0.05, race_result: 0.10 },
+  'hm':  { interval: 0.10, threshold: 0.35, easy_trend: 0.20, long_run: 0.25, race_result: 0.10 },
+  'fm':  { interval: 0.05, threshold: 0.25, easy_trend: 0.30, long_run: 0.30, race_result: 0.10 },
+}
+
+/** Get the fixed weight for a source at a distance (exported for SourceCard display) */
+export function getSourceWeight(distanceKey: DistanceKey, source: EstimateSource): number {
+  return TRAINING_WEIGHTS[distanceKey][source]
+}
+
+/**
+ * Per-source aggregation: drop slowest + recency weighting.
+ * - Interval/Threshold: last 5, drop 1 slowest, recency weights 4-3-2-1
+ * - Easy trend: last 10, drop 4 slowest, recency weights 6-5-4-3-2-1
+ * - Long run / Race: simple recency-weighted average (no dropping)
+ */
+function aggregateSource(
+  items: RaceEstimate[],
+  source: EstimateSource
+): number | null {
+  if (items.length === 0) return null
+
+  // Sort by date descending (most recent first)
+  const sorted = [...items].sort((a, b) => b.date.localeCompare(a.date))
+
+  if (source === 'interval' || source === 'threshold') {
+    const recent = sorted.slice(0, 5)
+    if (recent.length <= 1) {
+      // Only 1 data point — just return it
+      return recent[0].estimatedSecs
+    }
+    // Drop the slowest (highest estimatedSecs)
+    const slowestIdx = recent.reduce((maxI, item, i) =>
+      item.estimatedSecs > recent[maxI].estimatedSecs ? i : maxI, 0)
+    const kept = recent.filter((_, i) => i !== slowestIdx)
+    // Recency weights: most recent = N, next = N-1, ...
+    const n = kept.length
+    let totalW = 0, totalS = 0
+    kept.forEach((item, i) => {
+      const w = n - i // most recent gets highest weight
+      totalW += w
+      totalS += item.estimatedSecs * w
+    })
+    return totalS / totalW
+  }
+
+  if (source === 'easy_trend') {
+    const recent = sorted.slice(0, 10)
+    if (recent.length <= 4) {
+      // Too few to drop any — simple recency-weighted average
+      let totalW = 0, totalS = 0
+      recent.forEach((item, i) => {
+        const w = recent.length - i
+        totalW += w
+        totalS += item.estimatedSecs * w
+      })
+      return totalS / totalW
+    }
+    // Drop the 4 slowest
+    const withIdx = recent.map((item, origIdx) => ({ item, origIdx }))
+    withIdx.sort((a, b) => b.item.estimatedSecs - a.item.estimatedSecs)
+    const dropIndices = new Set(withIdx.slice(0, 4).map(w => w.origIdx))
+    const kept = recent.filter((_, i) => !dropIndices.has(i))
+    // Recency weights
+    const n = kept.length
+    let totalW = 0, totalS = 0
+    kept.forEach((item, i) => {
+      const w = n - i
+      totalW += w
+      totalS += item.estimatedSecs * w
+    })
+    return totalS / totalW
+  }
+
+  // long_run and race_result: simple recency-weighted average
+  let totalW = 0, totalS = 0
+  sorted.forEach((item, i) => {
+    const w = sorted.length - i
+    totalW += w
+    totalS += item.estimatedSecs * w
+  })
+  return totalS / totalW
+}
+
 export function combineEstimates(
   allEstimates: RaceEstimate[],
-  distanceKey: DistanceKey
+  distanceKey: DistanceKey,
+  runsSinceRace: number = Infinity
 ): CombinedEstimate | null {
   const matching = allEstimates.filter(e => e.distanceKey === distanceKey)
   if (matching.length === 0) return null
 
+  // Group by source
+  const bySource: Partial<Record<EstimateSource, RaceEstimate[]>> = {}
+  // For race_result, separate direct vs projected
+  const directRaceEstimates: RaceEstimate[] = []
+  const projectedRaceEstimates: RaceEstimate[] = []
+
+  for (const e of matching) {
+    if (e.source === 'race_result') {
+      if (e.projected) {
+        projectedRaceEstimates.push(e)
+      } else {
+        directRaceEstimates.push(e)
+      }
+    }
+    if (!bySource[e.source]) bySource[e.source] = []
+    bySource[e.source]!.push(e)
+  }
+
+  // Step 1: Per-source aggregation with drop-slowest + recency
+  // For race_result source, we aggregate projected estimates only (direct race handled via override)
+  const sourceAggs: Partial<Record<EstimateSource, number>> = {}
+  const allSources: EstimateSource[] = ['interval', 'threshold', 'easy_trend', 'long_run']
+
+  for (const src of allSources) {
+    const items = bySource[src]
+    if (!items || items.length === 0) continue
+    const agg = aggregateSource(items, src)
+    if (agg !== null) sourceAggs[src] = agg
+  }
+
+  // For race_result in training weights: use projected race estimates only
+  if (projectedRaceEstimates.length > 0) {
+    const agg = aggregateSource(projectedRaceEstimates, 'race_result')
+    if (agg !== null) sourceAggs['race_result'] = agg
+  }
+
+  // Step 2: Cross-source blending with fixed weights
+  const trainingWeights = TRAINING_WEIGHTS[distanceKey]
+  const availableSources = (Object.keys(sourceAggs) as EstimateSource[])
+
+  if (availableSources.length === 0 && directRaceEstimates.length === 0) return null
+
+  // Calculate training estimate (from non-race sources + projected race)
+  let trainingEstimate: number | null = null
+  if (availableSources.length > 0) {
+    // Redistribute weights of missing sources proportionally
+    const totalAvailableWeight = availableSources.reduce((s, src) => s + trainingWeights[src], 0)
+    if (totalAvailableWeight > 0) {
+      let weightedSum = 0
+      for (const src of availableSources) {
+        const normalizedWeight = trainingWeights[src] / totalAvailableWeight
+        weightedSum += sourceAggs[src]! * normalizedWeight
+      }
+      trainingEstimate = weightedSum
+    }
+  }
+
+  // Step 3: Race result override (direct race for this exact distance)
+  let bestEstimateSecs: number
+  const hasDirectRace = directRaceEstimates.length > 0
+
+  if (hasDirectRace && trainingEstimate !== null) {
+    // Most recent direct race
+    const sortedRaces = [...directRaceEstimates].sort((a, b) => b.date.localeCompare(a.date))
+    const directRaceSecs = sortedRaces[0].estimatedSecs
+
+    // raceWeight = max(0.10, 1.0 - runsSinceRace × 0.9 / 100)
+    const raceWeight = Math.max(0.10, 1.0 - runsSinceRace * 0.9 / 100)
+    bestEstimateSecs = directRaceSecs * raceWeight + trainingEstimate * (1 - raceWeight)
+  } else if (hasDirectRace) {
+    bestEstimateSecs = directRaceEstimates.sort((a, b) => b.date.localeCompare(a.date))[0].estimatedSecs
+  } else {
+    bestEstimateSecs = trainingEstimate!
+  }
+
+  // Confidence: best source confidence + diversity bonus (kept from before)
+  const bestConfidence = Math.max(...matching.map(e => e.confidence))
+  const sourceCount = availableSources.length + (hasDirectRace ? 1 : 0)
+  const diversityBonus = Math.min(0.15, (sourceCount - 1) * 0.05)
+  const confidence = Math.min(1, bestConfidence + diversityBonus)
+
+  // Build contributors list with recency weights for display
   const now = Date.now()
   const HALF_LIFE_DAYS = 42
-
-  // Apply recency weighting to each data point
-  const weighted = matching.map(e => {
-    const ageDays = (now - new Date(e.date).getTime()) / 86400000
-    const recencyWeight = Math.exp(-ageDays * Math.LN2 / HALF_LIFE_DAYS)
-    return {
-      ...e,
-      weight: e.confidence * recencyWeight,
-    }
-  })
-
-  // Step 1: Aggregate per source type (so source with more data points doesn't dominate)
-  const bySource: Record<string, typeof weighted> = {}
-  for (const w of weighted) {
-    if (!bySource[w.source]) bySource[w.source] = []
-    bySource[w.source].push(w)
-  }
-
-  const sourceEstimates: { source: string; secs: number; weight: number }[] = []
-  for (const [source, items] of Object.entries(bySource)) {
-    const srcTotalWeight = items.reduce((s, w) => s + w.weight, 0)
-    if (srcTotalWeight === 0) continue
-    const srcSecs = items.reduce((s, w) => s + w.estimatedSecs * w.weight, 0) / srcTotalWeight
-    // Source-level weight = best individual weight from this source
-    const srcWeight = Math.max(...items.map(w => w.weight))
-    sourceEstimates.push({ source, secs: srcSecs, weight: srcWeight })
-  }
-
-  if (sourceEstimates.length === 0) return null
-
-  // Step 2: Combine across sources — each source gets one vote
-  const totalSourceWeight = sourceEstimates.reduce((s, se) => s + se.weight, 0)
-  const bestEstimateSecs = sourceEstimates.reduce((s, se) => s + se.secs * se.weight, 0) / totalSourceWeight
-
-  // Confidence: best source weight + diversity bonus
-  const bestWeight = Math.max(...sourceEstimates.map(se => se.weight))
-  const diversityBonus = Math.min(0.15, (sourceEstimates.length - 1) * 0.05)
-  const confidence = Math.min(1, bestWeight + diversityBonus)
+  const contributors = matching
+    .map(e => {
+      const ageDays = (now - new Date(e.date).getTime()) / 86400000
+      const recencyWeight = Math.exp(-ageDays * Math.LN2 / HALF_LIFE_DAYS)
+      return {
+        source: e.source,
+        estimatedSecs: e.estimatedSecs,
+        weight: parseFloat((e.confidence * recencyWeight).toFixed(3)),
+        date: e.date,
+        activityId: e.activityId,
+        method: e.method,
+      }
+    })
+    .sort((a, b) => b.weight - a.weight)
 
   return {
     bestEstimateSecs,
     confidence,
-    contributors: weighted
-      .sort((a, b) => b.weight - a.weight)
-      .map(w => ({
-        source: w.source,
-        estimatedSecs: w.estimatedSecs,
-        weight: parseFloat(w.weight.toFixed(3)),
-        date: w.date,
-        activityId: w.activityId,
-        method: w.method,
-      })),
+    contributors,
   }
 }
 
@@ -1213,7 +1353,8 @@ export function analyzeAllAndCombine(
   longRunActivities: any[],
   easyActivities: any[],
   raceActivities: any[],
-  maxHr: number = DEFAULT_MAX_HR
+  maxHr: number = DEFAULT_MAX_HR,
+  allActivities: { start_date: string; run_type?: string }[] = []
 ): {
   intervalEstimates: FiveKEstimate[]
   thresholdEstimates: FiveKEstimate[]
@@ -1254,12 +1395,26 @@ export function analyzeAllAndCombine(
     ...easyTrendEstimates,
   ]
 
+  // Count runs since most recent race per distance
+  const runsSinceRace: Record<DistanceKey, number> = { '5k': Infinity, '10k': Infinity, 'hm': Infinity, 'fm': Infinity }
+  for (const ra of raceAnalyses) {
+    const dk = ra.matchedDistanceKey
+    const raceDate = ra.date
+    const count = allActivities.filter(a =>
+      a.run_type && a.start_date.split('T')[0] > raceDate
+    ).length
+    // Use the smallest count (most recent race)
+    if (count < runsSinceRace[dk]) {
+      runsSinceRace[dk] = count
+    }
+  }
+
   // Combine per distance
   const combined: Record<DistanceKey, CombinedEstimate | null> = {
-    '5k': combineEstimates(allRaceEstimates, '5k'),
-    '10k': combineEstimates(allRaceEstimates, '10k'),
-    'hm': combineEstimates(allRaceEstimates, 'hm'),
-    'fm': combineEstimates(allRaceEstimates, 'fm'),
+    '5k': combineEstimates(allRaceEstimates, '5k', runsSinceRace['5k']),
+    '10k': combineEstimates(allRaceEstimates, '10k', runsSinceRace['10k']),
+    'hm': combineEstimates(allRaceEstimates, 'hm', runsSinceRace['hm']),
+    'fm': combineEstimates(allRaceEstimates, 'fm', runsSinceRace['fm']),
   }
 
   return {

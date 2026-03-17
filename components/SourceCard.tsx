@@ -5,7 +5,8 @@ import type { EstimateSource } from '@/lib/analysis'
 interface Contributor {
   source: EstimateSource
   estimatedSecs: number
-  weight: number
+  weight?: number
+  confidence?: number
   date: string
   activityId: number
   method: string
@@ -29,9 +30,10 @@ export default function SourceCard({ source, contributors }: Props) {
   if (!contributors.length) return null
 
   // Weighted average estimate from this source
-  const totalWeight = contributors.reduce((s, c) => s + c.weight, 0)
+  const getWeight = (c: Contributor) => c.weight ?? c.confidence ?? 1
+  const totalWeight = contributors.reduce((s, c) => s + getWeight(c), 0)
   const avgSecs = totalWeight > 0
-    ? contributors.reduce((s, c) => s + c.estimatedSecs * c.weight, 0) / totalWeight
+    ? contributors.reduce((s, c) => s + c.estimatedSecs * getWeight(c), 0) / totalWeight
     : contributors[0].estimatedSecs
 
   const sorted = [...contributors].sort((a, b) => b.date.localeCompare(a.date))
@@ -51,7 +53,7 @@ export default function SourceCard({ source, contributors }: Props) {
         <div className="text-right">
           <div className="stat-num text-lg font-bold text-white">{formatTime(avgSecs)}</div>
           <div className="text-[#4b5563] text-[10px]">
-            weight: {(contributors.reduce((s, c) => s + c.weight, 0) / contributors.length).toFixed(2)}
+            weight: {(contributors.reduce((s, c) => s + getWeight(c), 0) / contributors.length).toFixed(2)}
           </div>
         </div>
       </div>
@@ -65,7 +67,7 @@ export default function SourceCard({ source, contributors }: Props) {
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-2">
               <span className="font-mono font-bold text-white">{formatTime(c.estimatedSecs)}</span>
-              <span className="font-mono text-[#4b5563] text-[10px]">w={c.weight.toFixed(2)}</span>
+              <span className="font-mono text-[#4b5563] text-[10px]">w={getWeight(c).toFixed(2)}</span>
             </div>
           </div>
         ))}

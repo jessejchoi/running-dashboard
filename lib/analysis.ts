@@ -919,15 +919,16 @@ export function analyzeLongRun(activity: {
   const hmRaceHR = maxHr * 0.87
   const fmRaceHR = maxHr * 0.82
 
-  // Linear HR→pace projection: ~2.5 sec/km per %HRmax.
-  // At low intensity each bpm is worth more pace than near race HR,
-  // so linear is slightly conservative — which is appropriate given
-  // the uncertainty of projecting across large HR gaps.
+  // HR→pace projection: ~2.5 sec/km per %HRmax with mild amplification.
+  // At low intensity each bpm is worth more pace, so larger HR gaps
+  // get a slightly bigger per-bpm adjustment (~5% at 10bpm, ~15% at 30bpm).
   const hmHRDiff = (hmRaceHR - window.avgHR) / maxHr * 100
   const fmHRDiff = (fmRaceHR - window.avgHR) / maxHr * 100
+  const hmHRGapBpmRaw = Math.abs(hmRaceHR - window.avgHR)
+  const fmHRGapBpmRaw = Math.abs(fmRaceHR - window.avgHR)
 
-  const hmPace = window.avgPace - hmHRDiff * 2.5
-  const fmPace = window.avgPace - fmHRDiff * 2.5
+  const hmPace = window.avgPace - hmHRDiff * 2.5 * (1 + 0.005 * hmHRGapBpmRaw)
+  const fmPace = window.avgPace - fmHRDiff * 2.5 * (1 + 0.005 * fmHRGapBpmRaw)
 
   // HR gap factor: larger gaps = less reliable projection = lower confidence
   const hmHRGapBpm = Math.abs(hmRaceHR - window.avgHR)
@@ -1149,9 +1150,11 @@ export function easyRunTrendEstimate(
     const raceHR = raceHRs[dk]
     const hrGap = raceHR - REF_HR
 
-    // Linear projection: at low intensity each bpm has MORE pace impact,
-    // so linear extrapolation from easy HR to race HR is conservative (if anything).
-    const racePace = avgNormalizedPace + avgSlope * hrGap
+    // Mild amplification: at low intensity each bpm is worth more pace,
+    // so larger HR gaps get a slightly bigger per-bpm adjustment.
+    // ~5% boost at 10bpm gap, ~15% at 30bpm, ~20% at 40bpm.
+    const ampFactor = 1 + 0.005 * hrGap
+    const racePace = avgNormalizedPace + avgSlope * hrGap * ampFactor
     if (racePace < 150 || racePace > 450) continue
 
     // HR gap confidence penalty: larger extrapolation = less reliable

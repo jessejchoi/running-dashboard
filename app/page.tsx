@@ -257,123 +257,140 @@ export default async function DashboardPage() {
   return (
     <>
       <Nav />
-      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-16">
-        <div className="flex items-center justify-between mb-4 fade-up">
-          <div>
-            <h1 className="font-display font-extrabold text-4xl">
-              Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]} 👋
-            </h1>
-            <p className="text-[#6b7280] text-sm mt-1">
-              {format(new Date(), 'EEEE, MMMM d')} · {activities.length} runs tracked
-            </p>
-          </div>
+      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24">
+
+        {/* Page header */}
+        <div className="mb-6 fade-up">
+          <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>
+            {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]}
+          </h1>
+          <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+            {format(new Date(), 'EEE, MMM d')} · {activities.length} runs tracked
+          </p>
         </div>
 
-        {/* Top stats */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">My Stats</h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {[
-            { label: 'This week', value: formatDistanceShort(weekDist, unit).split(' ')[0], unit: unitLabel },
-            { label: 'Week runs', value: `${weekActivities.length}`, unit: 'runs' },
-            { label: 'Week time', value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
-            { label: 'This year', value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel },
-          ].map((s, i) => (
-            <div key={i} className="card fade-up" style={{ animationDelay: `${i * 60}ms`, padding: '0.75rem 1rem' }}>
-              <div className="text-[#6b7280] text-xs mb-1">{s.label}</div>
-              <div className="stat-num text-2xl font-bold text-white leading-none">
-                {s.value}
-                {s.unit && <span className="text-sm text-[#6b7280] ml-1">{s.unit}</span>}
-              </div>
+        {/* ── Bento Row 1: Weekly chart + mini stats ── */}
+        <div className="grid grid-cols-12 gap-3 mb-3">
+
+          {/* Weekly Mileage — hero chart card */}
+          <div className="col-span-12 md:col-span-7 card glow-orange fade-up" style={{ padding: '1.25rem' }}>
+            <div className="flex items-start justify-between mb-1">
+              <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Weekly Distance</p>
             </div>
-          ))}
-        </div>
-
-        {/* Charts row */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <div className="card fade-up" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '300px' }}>
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3" style={{ flexShrink: 0 }}>
-              Weekly Mileage
-            </h2>
-            <div style={{ flex: 1, minHeight: 0 }}>
+            <div className="stat-num font-bold leading-none text-white mb-4" style={{ fontSize: 'clamp(32px, 5vw, 44px)' }}>
+              {formatDistanceShort(weekDist, unit).split(' ')[0]}
+              <span className="font-normal ml-1.5" style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>{unitLabel}</span>
+            </div>
+            <div style={{ height: 160 }}>
               <WeeklyMileageChart activities={activities} />
             </div>
           </div>
-          {trainingLoad.length > 0 && (
-            <div className="card fade-up" style={{ padding: '1rem', height: '300px', display: 'flex', flexDirection: 'column' }}>
-              <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-3" style={{ flexShrink: 0 }}>
-                Training Load
-              </h2>
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <TrainingLoadChart data={trainingLoad} days={90} />
+
+          {/* Mini stats — 2×2 */}
+          <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
+            {[
+              { label: 'Week runs',  value: `${weekActivities.length}`, unit: 'runs' },
+              { label: 'Week time',  value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
+              { label: 'This year',  value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel },
+              { label: 'Activities', value: `${activities.length}`, unit: 'total' },
+            ].map((s, i) => (
+              <div key={i} className="card fade-up" style={{ animationDelay: `${60 + i * 50}ms`, padding: '0.875rem 1rem' }}>
+                <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
+                <div className="stat-num text-2xl font-bold leading-none text-white">
+                  {s.value}
+                  {s.unit && <span className="font-normal ml-1" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.unit}</span>}
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
-        {/* Group Stats */}
+        {/* ── Bento Row 2: Training Load + Race Estimates ── */}
+        {(trainingLoad.length > 0 || Object.values(estimates).some(v => v != null)) && (
+          <div className="grid grid-cols-12 gap-3 mb-6">
+
+            {trainingLoad.length > 0 && (
+              <div className="col-span-12 md:col-span-5 card fade-up" style={{ padding: '1.25rem' }}>
+                <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Training Load</p>
+                <div style={{ height: 160 }}>
+                  <TrainingLoadChart data={trainingLoad} days={90} />
+                </div>
+              </div>
+            )}
+
+            {Object.values(estimates).some(v => v != null) && (
+              <div className={`col-span-12 card fade-up${trainingLoad.length > 0 ? ' md:col-span-7' : ''}`} style={{ padding: '1.25rem' }}>
+                <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Race Estimates</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {([
+                    { key: '5k',  label: '5K' },
+                    { key: '10k', label: '10K' },
+                    { key: 'hm',  label: 'Half' },
+                    { key: 'fm',  label: 'Full' },
+                  ] as const).map(({ key, label }) => (
+                    <div key={key} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.875rem' }}>
+                      <p className="font-mono text-xs uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                      <p className="stat-num text-xl font-bold leading-none" style={{ color: estimates[key] ? '#f0f0f0' : 'var(--text-muted)' }}>
+                        {estimates[key] ? formatDuration(estimates[key]!) : '—'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Group Stats ── */}
         {allGroupsData.length > 0 ? (
           allGroupsData.map((groupData: any) => (
-            <div key={groupData.group.id}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">{groupData.group.name} Group Stats</h2>
-              </div>
-              <div className="mb-8">
-                <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">RDCoach</p>
+            <div key={groupData.group.id} className="mb-6">
+              <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
+                {groupData.group.name}
+              </p>
+              <div className="mb-3">
                 <GroupCoachTab groupId={groupData.group.id} myRole={groupData.myRole} members={groupData.members} />
               </div>
-              <div className="grid md:grid-cols-2 gap-4 mb-8">
-                <GroupLeaderboard
-                  members={groupData.members}
-                  groupId={groupData.group.id}
-                  groupName={groupData.group.name}
-                  unit={unit}
-                />
-                <GroupFeed
-                  runs={groupData.feedRuns}
-                  memberMap={groupData.memberMap}
-                  myAthleteId={Number(athleteId)}
-                  groupId={groupData.group.id}
-                  unit={unit}
-                />
+              <div className="grid md:grid-cols-2 gap-3 mb-3">
+                <GroupLeaderboard members={groupData.members} groupId={groupData.group.id} groupName={groupData.group.name} unit={unit} />
+                <GroupFeed runs={groupData.feedRuns} memberMap={groupData.memberMap} myAthleteId={Number(athleteId)} groupId={groupData.group.id} unit={unit} />
               </div>
               {groupData.memberGoals.length > 0 && (
-                <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">{groupData.group.name} Race Goals</h2>
-                  </div>
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
+                    {groupData.group.name} Race Goals
+                  </p>
                   <GroupGoalsSection memberGoals={groupData.memberGoals} />
                 </div>
               )}
             </div>
           ))
         ) : (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Group Stats</h2>
+          <div className="card fade-up mb-6 flex flex-col items-center justify-center text-center gap-4" style={{ paddingTop: 40, paddingBottom: 40 }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'var(--accent-muted)' }}>
+              <span className="text-2xl">🏃</span>
             </div>
-            <div className="card fade-up mb-8 flex flex-col items-center justify-center text-center gap-4" style={{ paddingTop: 40, paddingBottom: 40 }}>
-              <div className="w-12 h-12 rounded-full bg-[#f97316]/10 flex items-center justify-center">
-                <span className="text-2xl">🏃</span>
-              </div>
-              <div>
-                <p className="font-bold text-white mb-1">You&apos;re not in a group yet</p>
-                <p className="text-[#6b7280] text-sm max-w-xs">Create a group and invite your training partners to run together.</p>
-              </div>
-              <Link href="/groups" className="flex items-center gap-2 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm" prefetch>
-                Create a group
-              </Link>
+            <div>
+              <p className="font-bold text-white mb-1">You&apos;re not in a group yet</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Create a group and invite your training partners to run together.</p>
             </div>
-          </>
+            <Link
+              href="/groups"
+              className="flex items-center gap-2 text-white font-bold px-5 py-2.5 rounded-lg transition-colors text-sm"
+              style={{ background: 'var(--orange)' }}
+              prefetch
+            >
+              Create a group
+            </Link>
+          </div>
         )}
 
-        {/* My Race Goals */}
+        {/* ── My Race Goals ── */}
         <div className="mb-8">
           {!hasMaxHr && Object.values(estimates).some(v => v != null) && (
-            <div className="flex items-center gap-2 bg-[#1a1a0a] border border-[#f97316]/30 rounded-xl px-4 py-3 mb-4 text-sm">
-              <span className="text-[#f97316] shrink-0">⚠</span>
-              <span className="text-[#9ca3af]">Race projections use a default max HR of 195 bpm — open <span className="text-white font-medium">Settings</span> (gear icon) to add your actual max HR for more accurate estimates.</span>
+            <div className="flex items-center gap-2 rounded-lg px-4 py-3 mb-4 text-sm" style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.20)' }}>
+              <span style={{ color: 'var(--orange)', flexShrink: 0 }}>⚠</span>
+              <span style={{ color: 'var(--text-2)' }}>Race projections use a default max HR of 195 bpm — open <span className="text-white font-medium">Settings</span> (gear icon) to add your actual max HR for more accurate estimates.</span>
             </div>
           )}
           <GoalsSection
@@ -386,7 +403,6 @@ export default async function DashboardPage() {
             unit={unit}
           />
         </div>
-
 
       </main>
     </>

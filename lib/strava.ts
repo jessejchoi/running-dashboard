@@ -118,7 +118,7 @@ export function categorizeRun(activity: {
   const maxSplitPace = maxSplitSpeed > 0 ? 1000 / maxSplitSpeed : 999
 
   if (paceCV > 0.12 || (maxSplitPace < 230 && distanceKm < 18)) return 'interval'
-  if (distanceKm >= 15) return 'long'
+  if (distanceKm >= 12) return 'long'
   if (avgPaceSeconds < 290 && avgPaceSeconds > 230 && paceCV < 0.08) return 'threshold'
   if (avgPaceSeconds > 380 || (hr > 0 && hr < 135)) return 'recovery'
   return 'easy'

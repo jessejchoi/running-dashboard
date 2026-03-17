@@ -1279,7 +1279,8 @@ function aggregateSource(
 export function combineEstimates(
   allEstimates: RaceEstimate[],
   distanceKey: DistanceKey,
-  runsSinceRace: number = Infinity
+  runsSinceRace: number = Infinity,
+  longestRecentRunKm: number = 0
 ): CombinedEstimate | null {
   const matching = allEstimates.filter(e => e.distanceKey === distanceKey)
   if (matching.length === 0) return null
@@ -1359,6 +1360,21 @@ export function combineEstimates(
     bestEstimateSecs = trainingEstimate!
   }
 
+  // Endurance readiness penalty for HM/FM: if the runner's longest recent
+  // run is short relative to the target distance, add a modest time penalty.
+  // No penalty once longest run reaches a threshold (~85% of race distance).
+  if (distanceKey === 'hm' || distanceKey === 'fm') {
+    // HM: no penalty at 18km+, up to 3% at 0km
+    // FM: no penalty at 35km+, up to 5% at 0km
+    const thresholdKm = distanceKey === 'hm' ? 18 : 35
+    const maxPenaltyPct = distanceKey === 'hm' ? 0.03 : 0.05
+    if (longestRecentRunKm < thresholdKm) {
+      const ratio = Math.min(1, longestRecentRunKm / thresholdKm)
+      const penaltyPct = maxPenaltyPct * (1 - ratio)
+      bestEstimateSecs = bestEstimateSecs * (1 + penaltyPct)
+    }
+  }
+
   // Confidence based on source count × data depth
   // High requires 3+ sources with good data; medium requires 2+ sources
   const dataPoints = matching.length
@@ -1406,7 +1422,7 @@ export function analyzeAllAndCombine(
   easyActivities: any[],
   raceActivities: any[],
   maxHr: number = DEFAULT_MAX_HR,
-  allActivities: { start_date: string; run_type?: string }[] = []
+  allActivities: { start_date: string; run_type?: string; distance?: number }[] = []
 ): {
   intervalEstimates: FiveKEstimate[]
   thresholdEstimates: FiveKEstimate[]
@@ -1461,12 +1477,20 @@ export function analyzeAllAndCombine(
     }
   }
 
+  // Longest run in last 3 months for endurance readiness penalty
+  const threeMonthsAgo = new Date()
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+  const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0]
+  const longestRecentRunKm = allActivities
+    .filter(a => a.distance && a.start_date.split('T')[0] >= threeMonthsAgoStr)
+    .reduce((max, a) => Math.max(max, (a.distance ?? 0) / 1000), 0)
+
   // Combine per distance
   const combined: Record<DistanceKey, CombinedEstimate | null> = {
-    '5k': combineEstimates(allRaceEstimates, '5k', runsSinceRace['5k']),
-    '10k': combineEstimates(allRaceEstimates, '10k', runsSinceRace['10k']),
-    'hm': combineEstimates(allRaceEstimates, 'hm', runsSinceRace['hm']),
-    'fm': combineEstimates(allRaceEstimates, 'fm', runsSinceRace['fm']),
+    '5k': combineEstimates(allRaceEstimates, '5k', runsSinceRace['5k'], longestRecentRunKm),
+    '10k': combineEstimates(allRaceEstimates, '10k', runsSinceRace['10k'], longestRecentRunKm),
+    'hm': combineEstimates(allRaceEstimates, 'hm', runsSinceRace['hm'], longestRecentRunKm),
+    'fm': combineEstimates(allRaceEstimates, 'fm', runsSinceRace['fm'], longestRecentRunKm),
   }
 
   return {

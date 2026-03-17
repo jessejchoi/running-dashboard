@@ -1150,7 +1150,7 @@ export function combineEstimates(
   const now = Date.now()
   const HALF_LIFE_DAYS = 42
 
-  // Apply recency weighting
+  // Apply recency weighting to each data point
   const weighted = matching.map(e => {
     const ageDays = (now - new Date(e.date).getTime()) / 86400000
     const recencyWeight = Math.exp(-ageDays * Math.LN2 / HALF_LIFE_DAYS)
@@ -1160,15 +1160,32 @@ export function combineEstimates(
     }
   })
 
-  const totalWeight = weighted.reduce((s, w) => s + w.weight, 0)
-  if (totalWeight === 0) return null
+  // Step 1: Aggregate per source type (so source with more data points doesn't dominate)
+  const bySource: Record<string, typeof weighted> = {}
+  for (const w of weighted) {
+    if (!bySource[w.source]) bySource[w.source] = []
+    bySource[w.source].push(w)
+  }
 
-  const bestEstimateSecs = weighted.reduce((s, w) => s + w.estimatedSecs * w.weight, 0) / totalWeight
+  const sourceEstimates: { source: string; secs: number; weight: number }[] = []
+  for (const [source, items] of Object.entries(bySource)) {
+    const srcTotalWeight = items.reduce((s, w) => s + w.weight, 0)
+    if (srcTotalWeight === 0) continue
+    const srcSecs = items.reduce((s, w) => s + w.estimatedSecs * w.weight, 0) / srcTotalWeight
+    // Source-level weight = best individual weight from this source
+    const srcWeight = Math.max(...items.map(w => w.weight))
+    sourceEstimates.push({ source, secs: srcSecs, weight: srcWeight })
+  }
 
-  // Confidence: best individual weight + diversity bonus
-  const bestWeight = Math.max(...weighted.map(w => w.weight))
-  const sourceTypes = new Set(weighted.map(w => w.source))
-  const diversityBonus = Math.min(0.15, (sourceTypes.size - 1) * 0.05)
+  if (sourceEstimates.length === 0) return null
+
+  // Step 2: Combine across sources — each source gets one vote
+  const totalSourceWeight = sourceEstimates.reduce((s, se) => s + se.weight, 0)
+  const bestEstimateSecs = sourceEstimates.reduce((s, se) => s + se.secs * se.weight, 0) / totalSourceWeight
+
+  // Confidence: best source weight + diversity bonus
+  const bestWeight = Math.max(...sourceEstimates.map(se => se.weight))
+  const diversityBonus = Math.min(0.15, (sourceEstimates.length - 1) * 0.05)
   const confidence = Math.min(1, bestWeight + diversityBonus)
 
   return {

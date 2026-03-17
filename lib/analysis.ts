@@ -885,7 +885,6 @@ export function analyzeLongRun(activity: {
   splits?: any[]
 }, maxHr: number = DEFAULT_MAX_HR): LongRunAnalysis | null {
   const distKm = activity.distance / 1000
-  if (distKm < 12) return null
   if (!activity.average_heartrate) return null
 
   const window = extractSteadyWindow(activity)

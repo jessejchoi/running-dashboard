@@ -16,6 +16,8 @@ interface Props {
   source: EstimateSource
   contributors: Contributor[]
   distanceKey: DistanceKey
+  /** The combiner's aggregated estimate for this source (after drop-slowest + recency) */
+  sourceAverage?: number
 }
 
 const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon: string }> = {
@@ -26,16 +28,12 @@ const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon
   race_result: { label: 'Race Results', color: '#f472b6', icon: '🏆' },
 }
 
-export default function SourceCard({ source, contributors, distanceKey }: Props) {
+export default function SourceCard({ source, contributors, distanceKey, sourceAverage }: Props) {
   const config = SOURCE_CONFIG[source]
   if (!contributors.length) return null
 
-  // Weighted average estimate from this source
-  const getWeight = (c: Contributor) => c.weight ?? c.confidence ?? 1
-  const totalWeight = contributors.reduce((s, c) => s + getWeight(c), 0)
-  const avgSecs = totalWeight > 0
-    ? contributors.reduce((s, c) => s + c.estimatedSecs * getWeight(c), 0) / totalWeight
-    : contributors[0].estimatedSecs
+  // Use the combiner's aggregated estimate if available, otherwise fall back to simple average
+  const avgSecs = sourceAverage ?? contributors[0].estimatedSecs
 
   const sorted = [...contributors].sort((a, b) => b.date.localeCompare(a.date))
 
@@ -69,7 +67,6 @@ export default function SourceCard({ source, contributors, distanceKey }: Props)
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-2">
               <span className="font-mono font-bold text-white">{formatTime(c.estimatedSecs)}</span>
-              <span className="font-mono text-[#4b5563] text-[10px]">w={getWeight(c).toFixed(2)}</span>
             </div>
           </div>
         ))}

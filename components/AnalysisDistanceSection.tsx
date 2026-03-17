@@ -61,7 +61,7 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap }: Pro
             <div className="grid gap-4 md:grid-cols-2">
               {SOURCE_ORDER.map(source => {
                 if (!bySource[source]) return null
-                return <SourceCard key={source} source={source} contributors={bySource[source]} distanceKey={active} />
+                return <SourceCard key={source} source={source} contributors={bySource[source]} distanceKey={active} sourceAverage={c?.sourceAverages?.[source]} />
               })}
             </div>
           </div>

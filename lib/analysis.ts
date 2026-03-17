@@ -94,6 +94,8 @@ export interface ActivityAnalysis {
 export interface CombinedEstimate {
   bestEstimateSecs: number
   confidence: number
+  /** Per-source aggregated estimate (after drop-slowest + recency weighting) */
+  sourceAverages: Partial<Record<EstimateSource, number>>
   contributors: {
     source: EstimateSource
     estimatedSecs: number
@@ -1340,6 +1342,7 @@ export function combineEstimates(
   return {
     bestEstimateSecs,
     confidence,
+    sourceAverages: sourceAggs,
     contributors,
   }
 }

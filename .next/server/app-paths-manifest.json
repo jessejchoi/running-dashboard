@@ -1,10 +1,3 @@
 {
-  "/goals/page": "app/goals/page.js",
-  "/analysis/5k/page": "app/analysis/5k/page.js",
-  "/page": "app/page.js",
-  "/runs/[id]/page": "app/runs/[id]/page.js",
-  "/api/toggle-analysis/route": "app/api/toggle-analysis/route.js",
-  "/plan/page": "app/plan/page.js",
-  "/runs/page": "app/runs/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js"
+  "/analysis/page": "app/analysis/page.js"
 }

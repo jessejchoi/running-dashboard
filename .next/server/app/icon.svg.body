@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Background with subtle rounded corners -->
+  <rect width="180" height="180" rx="38" fill="#0a0a0a"/>
+
+  <!-- Subtle inner border for depth -->
+  <rect x="1" y="1" width="178" height="178" rx="37" fill="none" stroke="#1f1f1f" stroke-width="1.5"/>
+
+  <!-- R in orange - Syne-style: bold, geometric -->
+  <text
+    x="22"
+    y="138"
+    font-family="Arial Black, Impact, sans-serif"
+    font-size="122"
+    font-weight="900"
+    fill="#f97316"
+    letter-spacing="-6"
+  >R</text>
+
+  <!-- D in muted gray - slightly offset for layered look -->
+  <text
+    x="78"
+    y="138"
+    font-family="Arial Black, Impact, sans-serif"
+    font-size="122"
+    font-weight="900"
+    fill="#374151"
+    letter-spacing="-6"
+  >D</text>
+</svg>

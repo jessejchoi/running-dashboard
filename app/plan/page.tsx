@@ -252,9 +252,9 @@ export default function PlanPage() {
       <Nav />
       <main className="standalone-main max-w-6xl mx-auto px-4 pt-8 sm:pt-20 pb-16">
         <div className="mb-8 fade-up">
-          <h1 className="font-display font-extrabold text-4xl mb-1">Training Plan</h1>
+          <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Training Plan</h1>
           {monday && lastDay && (
-            <p className="text-[#6b7280] text-sm">{shortDate(monday)} – {shortDate(lastDay)}</p>
+            <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{shortDate(monday)} – {shortDate(lastDay)}</p>
           )}
         </div>
 
@@ -262,7 +262,7 @@ export default function PlanPage() {
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="text-[#6b7280] text-xs uppercase tracking-wider">
+              <tr className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 <th className="text-left py-3 px-3 w-36"></th>
                 {DAY_ABBR.map(d => (
                   <th key={d} className="text-center py-3 px-2 font-medium">{d}</th>
@@ -276,9 +276,9 @@ export default function PlanPage() {
                 const timeSecs = weekTime(week.dates)
                 return (
                   <>
-                    <tr key={`dates-${week.weekNum}`} className="border-t border-[#1c1c1c]">
+                    <tr key={`dates-${week.weekNum}`} className="border-t border-[var(--surface-2)]">
                       <td className="py-2 px-3">
-                        <div className="bg-[#f97316] text-white text-xs font-bold text-center rounded px-2 py-1 whitespace-nowrap">
+                        <div className="text-white font-mono text-[10px] font-bold uppercase tracking-wider text-center rounded px-2 py-1 whitespace-nowrap" style={{ background: 'var(--orange)' }}>
                           {shortDate(week.dates[0])} – {shortDate(week.dates[6])}
                         </div>
                       </td>
@@ -337,7 +337,7 @@ export default function PlanPage() {
                                       <button
                                         key={idx}
                                         onClick={() => !past && openModal(dateStr, idx)}
-                                        className="w-full min-h-[48px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all bg-[#1a1a1a] text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110"
+                                        className="w-full min-h-[48px] rounded-lg px-2 py-2 text-left text-xs leading-tight transition-all text-white hover:ring-1 hover:ring-[#f97316]/50 hover:brightness-110" style={{ background: 'var(--surface-2)' }}
                                       >
                                         <div className="font-medium">{config.name || <span className="text-[#6b7280] italic">Untitled</span>}</div>
                                         {sessionMeta && (
@@ -479,7 +479,7 @@ export default function PlanPage() {
                             <button
                               key={idx}
                               onClick={() => !past && openModal(dateStr, idx)}
-                              className="w-full flex items-start gap-3 rounded-xl px-4 py-3 text-left transition-all bg-[#141414] hover:brightness-110"
+                              className="w-full flex items-start gap-3 rounded-xl px-4 py-3 text-left transition-all hover:brightness-110" style={{ background: 'var(--surface)' }}
                             >
                               {idx === 0 ? dateCol : <div className="w-14 shrink-0" />}
                               <div className="w-28 shrink-0 pt-0.5">

@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/analysis/5k/page": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/analysis/5k/page.js"
+      "static/chunks/app/page.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -11,30 +11,20 @@
       "static/css/css-app_globals_css-node_modules_next_font_google_target_css-node_modules_next_font_google_ta-a7ec92.css",
       "static/chunks/app/layout.js"
     ],
-    "/runs/page": [
+    "/loading": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/runs/page.js"
+      "static/chunks/app/loading.js"
     ],
-    "/goals/page": [
+    "/analysis/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/goals/page.js"
+      "static/chunks/app/analysis/page.js"
     ],
-    "/page": [
+    "/analysis/loading": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
-    ],
-    "/runs/[id]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/runs/[id]/page.js"
-    ],
-    "/plan/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/plan/page.js"
+      "static/chunks/app/analysis/loading.js"
     ]
   }
 }

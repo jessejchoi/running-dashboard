@@ -47,7 +47,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
     <>
       <Nav />
       <main className="max-w-4xl mx-auto px-6 pt-14 sm:pt-24 pb-16">
-        <Link href="/runs" className="flex items-center gap-2 text-[#6b7280] hover:text-white text-sm mb-6 transition-colors">
+        <Link href="/runs" className="flex items-center gap-2 text-sm mb-6 transition-colors" style={{ color: 'var(--text-muted)' }}>
           <ArrowLeft size={14} /> All runs
         </Link>
 
@@ -55,9 +55,9 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         <div className="mb-8 fade-up">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="font-display font-extrabold text-4xl mb-2">{run.name}</h1>
-              <p className="text-[#6b7280] text-sm">
-                {format(toJakartaDate(run.start_date), 'EEEE, MMMM d yyyy · h:mm a')}
+              <h1 className="font-display font-extrabold uppercase leading-none mb-2" style={{ fontSize: 'clamp(22px, 5vw, 40px)', letterSpacing: '-0.02em' }}>{run.name}</h1>
+              <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy · h:mm a')}
               </p>
             </div>
             <div className="relative z-[100]">
@@ -66,8 +66,8 @@ export default async function RunDetailPage({ params }: { params: { id: string }
           </div>
         </div>
 
-        {/* Key stats — 4 cards, no HR (moved to chart) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 fade-up">
+        {/* Key stats — 4 cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 fade-up">
           {[
             { label: 'Distance',  value: formatDistance(run.distance, unit).split(' ')[0], unit: unit === 'miles' ? 'mi' : 'km' },
             { label: 'Avg Pace',  value: speedToPace(run.average_speed, unit), unit: paceUnitLabel(unit) },
@@ -75,26 +75,26 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             { label: 'Elevation', value: run.total_elevation_gain ? `↑${Math.round(run.total_elevation_gain)}` : '—', unit: 'm' },
           ].map((s, i) => (
             <div key={i} className="card">
-              <div className="text-[#6b7280] text-xs mb-2">{s.label}</div>
-              <div className="stat-num text-2xl font-bold text-[#f97316]">
+              <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
+              <div className="stat-num text-2xl font-bold" style={{ color: 'var(--orange)' }}>
                 {s.value}
-                {s.unit && <span className="text-sm text-[#6b7280] ml-1">{s.unit}</span>}
+                {s.unit && <span className="text-sm ml-1" style={{ color: 'var(--text-muted)' }}>{s.unit}</span>}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Secondary stats — cadence + suffer only */}
+        {/* Secondary stats */}
         <div className="grid grid-cols-2 gap-3 mb-8 fade-up">
           {[
             { label: 'Cadence',      value: run.average_cadence ? `${Math.round(run.average_cadence * 2)}` : '—', unit: 'spm' },
             { label: 'Suffer Score', value: run.suffer_score ?? '—', unit: '' },
           ].map((s, i) => (
             <div key={i} className="card">
-              <div className="text-[#6b7280] text-xs mb-2">{s.label}</div>
+              <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
               <div className="stat-num text-2xl font-bold text-white">
                 {s.value}
-                {s.unit && <span className="text-sm text-[#6b7280] ml-1">{s.unit}</span>}
+                {s.unit && <span className="text-sm ml-1" style={{ color: 'var(--text-muted)' }}>{s.unit}</span>}
               </div>
             </div>
           ))}
@@ -103,9 +103,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         {/* HR Chart */}
         {run.average_heartrate && (
           <div className="card mb-6 fade-up">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
-              Heart Rate
-            </h2>
+            <p className="font-mono text-[10px] uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Heart Rate</p>
             <div className="pb-4">
             <HRChart
               streams={streams}
@@ -120,9 +118,9 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         {/* Splits */}
         {splits.length > 0 && (
           <div className="card mb-6 fade-up">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
+            <p className="font-mono text-[10px] uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
               {unit === 'miles' ? 'Mile Splits' : 'Km Splits'}
-            </h2>
+            </p>
             <div className="pb-4">
             <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" runType={run.run_type} unit={unit} />
             </div>
@@ -132,9 +130,9 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         {/* Laps */}
         {laps.length > 0 && (
           <div className="card mb-6 fade-up">
-            <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">
+            <p className="font-mono text-[10px] uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
               Laps ({laps.length})
-            </h2>
+            </p>
             <div className="pb-4">
             <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" runType={run.run_type} kmSplitCount={rawSplits.length} unit={unit} />
             </div>
@@ -142,7 +140,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         )}
 
         {!run.detail_synced && (
-          <div className="card text-center text-[#6b7280] text-sm fade-up">
+          <div className="card text-center text-sm fade-up" style={{ color: 'var(--text-muted)' }}>
             Lap data not yet synced. Use "Sync Strava" to fetch lap data.
           </div>
         )}

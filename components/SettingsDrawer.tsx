@@ -101,15 +101,16 @@ export default function SettingsDrawer({ open, onClose }: Props) {
 
       {/* Drawer */}
       <div
-        className="fixed top-0 right-0 h-full z-[9999] w-full max-w-sm bg-[#111] border-l border-[#2a2a2a] flex flex-col transition-transform duration-300 ease-in-out"
-        style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}
+        className="fixed top-0 right-0 h-full z-[9999] w-full max-w-sm flex flex-col transition-transform duration-300 ease-in-out"
+        style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)', transform: open ? 'translateX(0)' : 'translateX(100%)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a] shrink-0">
-          <h2 className="font-display font-bold text-base tracking-tight">Settings</h2>
+        <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h2 className="font-display font-bold text-base uppercase tracking-tight">Settings</h2>
           <button
             onClick={onClose}
-            className="p-1.5 text-[#6b7280] hover:text-white transition-colors rounded-lg hover:bg-[#1c1c1c]"
+            className="p-1.5 transition-colors rounded-md"
+            style={{ color: 'var(--text-muted)' }}
           >
             <X size={16} />
           </button>
@@ -124,22 +125,22 @@ export default function SettingsDrawer({ open, onClose }: Props) {
               {/* ── Profile ───────────────────────────────────────── */}
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[#6b7280] text-xs font-bold uppercase tracking-widest">Profile</h3>
+                  <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Profile</h3>
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-[#9ca3af] mb-1.5">Display Name</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--text-2)' }}>Display Name</label>
                     <input
                       type="text"
                       value={profile.display_name ?? ''}
                       onChange={e => set('display_name', e.target.value)}
                       placeholder="Your name"
-                      className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4b5563] outline-none transition-colors"
+                      className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none transition-colors" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }} onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')} onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-[#9ca3af] mb-1.5">Age</label>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-2)' }}>Age</label>
                       <input
                         type="number"
                         value={profile.age ?? ''}
@@ -147,15 +148,15 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                         placeholder="—"
                         min={1}
                         max={120}
-                        className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4b5563] outline-none transition-colors"
+                        className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none transition-colors" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }} onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')} onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-[#9ca3af] mb-1.5">Gender</label>
+                      <label className="block text-xs mb-1.5" style={{ color: 'var(--text-2)' }}>Gender</label>
                       <select
                         value={profile.gender ?? ''}
                         onChange={e => set('gender', e.target.value || null)}
-                        className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm text-white outline-none transition-colors"
+                        className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none transition-colors" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }} onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')} onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                       >
                         <option value="">—</option>
                         <option value="M">Male</option>
@@ -169,10 +170,10 @@ export default function SettingsDrawer({ open, onClose }: Props) {
 
               {/* ── Training ──────────────────────────────────────── */}
               <section>
-                <h3 className="text-[#6b7280] text-xs font-bold uppercase tracking-widest mb-3">Training</h3>
+                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Training</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-[#9ca3af] mb-1.5">
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--text-2)' }}>
                       Weight ({profile.unit === 'miles' ? 'lbs' : 'kg'})
                     </label>
                     <input
@@ -193,11 +194,11 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                       min={20}
                       max={700}
                       step={profile.unit === 'miles' ? 0.1 : 0.1}
-                      className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4b5563] outline-none transition-colors"
+                      className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none transition-colors" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }} onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')} onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-[#9ca3af] mb-1.5">Max HR</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--text-2)' }}>Max HR</label>
                     <input
                       type="number"
                       value={profile.max_hr ?? ''}
@@ -205,7 +206,7 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                       placeholder="—"
                       min={100}
                       max={220}
-                      className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4b5563] outline-none transition-colors"
+                      className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none transition-colors" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }} onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')} onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
                     />
                   </div>
                 </div>
@@ -213,20 +214,21 @@ export default function SettingsDrawer({ open, onClose }: Props) {
 
               {/* ── Preferences ───────────────────────────────────── */}
               <section>
-                <h3 className="text-[#6b7280] text-xs font-bold uppercase tracking-widest mb-3">Preferences</h3>
+                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Preferences</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-[#9ca3af] mb-1.5">Distance Unit</label>
+                    <label className="block text-xs mb-1.5" style={{ color: 'var(--text-2)' }}>Distance Unit</label>
                     <div className="flex gap-2">
                       {(['km', 'miles'] as DistanceUnit[]).map(u => (
                         <button
                           key={u}
                           onClick={() => set('unit', u)}
-                          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors border ${
+                          className="flex-1 py-2 rounded-md text-sm font-bold transition-colors"
+                          style={
                             profile.unit === u || (!profile.unit && u === 'km')
-                              ? 'bg-[#f97316] border-[#f97316] text-white'
-                              : 'bg-[#0f0f0f] border-[#2a2a2a] text-[#6b7280] hover:border-[#3a3a3a] hover:text-white'
-                          }`}
+                              ? { background: 'var(--orange)', border: '1px solid var(--orange)', color: '#fff' }
+                              : { background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-muted)' }
+                          }
                         >
                           {u === 'km' ? 'km' : 'miles'}
                         </button>
@@ -241,11 +243,12 @@ export default function SettingsDrawer({ open, onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-[#2a2a2a] shrink-0">
+        <div className="px-5 py-4 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
           <button
             onClick={handleSave}
             disabled={saving || loading}
-            className="w-full flex items-center justify-center gap-2 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-2 disabled:opacity-50 text-white font-bold py-2.5 rounded-lg transition-colors text-sm"
+            style={{ background: 'var(--orange)' }}
           >
             <Save size={14} />
             {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Settings'}

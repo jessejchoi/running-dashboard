@@ -40,14 +40,14 @@ export default async function GoalsPage() {
       <Nav />
       <main className="max-w-5xl mx-auto px-6 pt-24 pb-16">
         <div className="mb-8 fade-up">
-          <h1 className="font-display font-extrabold text-4xl mb-1">Race Goals</h1>
-          <p className="text-[#6b7280] text-sm">
-            Tracking your path to three target races in 2026
+          <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Race Goals</h1>
+          <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+            2026 season · 3 target races
           </p>
         </div>
 
         {/* Training context */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           {[
             { label: 'Avg weekly km', value: avgWeeklyKm.toFixed(1), unit: 'km' },
             { label: 'Total runs', value: String(runs.length), unit: '' },
@@ -55,10 +55,10 @@ export default async function GoalsPage() {
             { label: 'Weeks to HM', value: String(Math.max(0, differenceInWeeks(RACE_GOALS[2].raceDate, new Date()))), unit: 'wks' },
           ].map((s, i) => (
             <div key={i} className="card fade-up" style={{ animationDelay: `${i * 60}ms` }}>
-              <div className="text-[#6b7280] text-xs mb-2">{s.label}</div>
+              <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
               <div className="stat-num text-2xl font-bold">
                 {s.value}
-                {s.unit && <span className="text-sm text-[#6b7280] ml-1">{s.unit}</span>}
+                {s.unit && <span className="text-sm ml-1" style={{ color: 'var(--text-muted)' }}>{s.unit}</span>}
               </div>
             </div>
           ))}
@@ -73,24 +73,24 @@ export default async function GoalsPage() {
 
         {/* Training tips section */}
         <div className="card mt-8 fade-up">
-          <h2 className="font-display font-bold text-base mb-4">Training Notes</h2>
+          <p className="font-mono text-[10px] uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Training Notes</p>
           <div className="grid md:grid-cols-3 gap-4 text-sm">
-            <div className="border-l-2 border-[#f97316] pl-3">
-              <div className="font-semibold mb-1 text-[#f97316]">5K — Mid April</div>
-              <p className="text-[#9ca3af]">
+            <div className="pl-3" style={{ borderLeft: '2px solid var(--orange)' }}>
+              <div className="font-semibold mb-1" style={{ color: 'var(--orange)' }}>5K — Mid April</div>
+              <p style={{ color: 'var(--text-2)' }}>
                 Focus on interval sessions at &lt;4:20/km. Build speed endurance with 400m–800m reps.
                 Target pace: 4:30/km.
               </p>
             </div>
-            <div className="border-l-2 border-[#6b7280] pl-3">
+            <div className="pl-3" style={{ borderLeft: '2px solid var(--border-hover)' }}>
               <div className="font-semibold mb-1">10K — Mid July</div>
-              <p className="text-[#9ca3af]">
+              <p style={{ color: 'var(--text-2)' }}>
                 Threshold runs at 4:35–4:45/km. Tempo intervals 2–4km. Weekly mileage 55–65km.
               </p>
             </div>
-            <div className="border-l-2 border-[#6b7280] pl-3">
+            <div className="pl-3" style={{ borderLeft: '2px solid var(--border-hover)' }}>
               <div className="font-semibold mb-1">Half Marathon — Oct</div>
-              <p className="text-[#9ca3af]">
+              <p style={{ color: 'var(--text-2)' }}>
                 Long runs to 18–20km at 5:20–5:30/km. Weekly mileage 65–75km peak. Race pace 4:58/km.
               </p>
             </div>

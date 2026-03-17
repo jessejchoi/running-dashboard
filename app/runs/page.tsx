@@ -29,20 +29,18 @@ export default async function RunsPage() {
     <>
       <Nav />
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-16">
-        <div className="flex items-center justify-between mb-8 fade-up">
-          <div>
-            <h1 className="font-display font-extrabold text-4xl mb-1">Activity Log</h1>
-            <p className="text-[#6b7280] text-sm">{activities.length} runs</p>
-          </div>
+        <div className="mb-8 fade-up">
+          <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Activity Log</h1>
+          <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{activities.length} runs</p>
         </div>
 
         <div className="card p-0 overflow-hidden fade-up">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#2a2a2a]">
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
                   {['Date', 'Type', 'Distance', 'Avg Pace', 'Time', 'HR', 'Suffer'].map(h => (
-                    <th key={h} className="text-left px-2 sm:px-4 py-2 sm:py-3 text-[#6b7280] text-xs font-medium whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left px-2 sm:px-4 py-2 sm:py-3 font-mono text-[10px] uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -52,29 +50,29 @@ export default async function RunsPage() {
                   const isFast = paceSeconds <= 270
                   const isTreadmill = run.run_type === 'treadmill' || run.raw?.trainer === true
                   return (
-                    <tr key={run.id} className="border-b border-[#1c1c1c] hover:bg-[#151515] transition-colors">
-                      <td className={`px-2 sm:px-4 py-2 sm:py-3 text-xs font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40 text-[#6b7280]' : 'text-[#6b7280]'}`}>
-                        <Link href={`/runs/${run.id}`} className="hover:text-[#f97316] transition-colors">
+                    <tr key={run.id} className="transition-colors" style={{ borderBottom: '1px solid var(--surface-2)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')} onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 text-xs font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`} style={{ color: 'var(--text-muted)' }}>
+                        <Link href={`/runs/${run.id}`} className="transition-colors hover:text-white" style={{ color: 'inherit' }}>
                           {format(toJakartaDate(run.start_date), 'MMM d, yyyy')}
                         </Link>
-                        {isTreadmill && <span className="ml-2 text-[10px] text-zinc-500">🏃</span>}
+                        {isTreadmill && <span className="ml-2 text-[10px]" style={{ color: 'var(--text-3)' }}>🏃</span>}
                       </td>
                       <td className="px-2 sm:px-4 py-1.5 sm:py-2">
                         <RunTypeSelector activityId={run.id} current={run.run_type} />
                       </td>
-                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#f97316] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`} style={{ color: 'var(--orange)' }}>
                         {formatDistance(run.distance, unit)}
                       </td>
-                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap font-bold ${isTreadmill ? 'opacity-40 text-[#9ca3af]' : isFast ? 'text-emerald-400' : 'text-[#d1d5db]'}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap font-bold ${isTreadmill ? 'opacity-40' : ''}`} style={{ color: isFast ? 'var(--success)' : 'var(--text-2)' }}>
                         {speedToPace(run.average_speed, unit)}{paceUnitLabel(unit)}
                       </td>
-                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`} style={{ color: 'var(--text-2)' }}>
                         {formatDuration(run.moving_time)}
                       </td>
-                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`} style={{ color: 'var(--text-2)' }}>
                         {run.average_heartrate ? `${Math.round(run.average_heartrate)} bpm` : '—'}
                       </td>
-                      <td className={`px-2 sm:px-4 py-2 sm:py-3 text-[#9ca3af] whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`}>
+                      <td className={`px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`} style={{ color: 'var(--text-2)' }}>
                         {run.suffer_score ?? '—'}
                       </td>
                     </tr>
@@ -82,7 +80,7 @@ export default async function RunsPage() {
                 })}
                 {activities.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-2 sm:px-4 py-8 sm:py-12 text-center text-[#6b7280]">No runs yet.</td>
+                    <td colSpan={7} className="px-2 sm:px-4 py-8 sm:py-12 text-center" style={{ color: 'var(--text-muted)' }}>No runs yet.</td>
                   </tr>
                 )}
               </tbody>

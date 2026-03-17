@@ -148,11 +148,11 @@ function newRepCorrection(workRestRatio: number, repDurationSecs: number, repHR?
   // 20s→+5.6%, 60s→+4.8%, 120s→+3.6%, 180s→+2.4%, 300s+→0%
   const durationAdjust = 0.06 * Math.max(0, 1 - repDurationSecs / 300)
 
-  // HR adjustment: ~4-5% per 10bpm difference from race HR, clamped ±5%
+  // HR adjustment: ~2.7% per 10bpm at race intensity, clamped ±5%
   let hrAdjust = 0
   if (repHR && repHR > 100) {
     const targetHR = maxHr * RACE_5K_HR_FRACTION
-    hrAdjust = ((targetHR - repHR) / targetHR) * 0.9
+    hrAdjust = ((targetHR - repHR) / targetHR) * 0.5
     hrAdjust = Math.max(-0.05, Math.min(0.05, hrAdjust))
   }
 

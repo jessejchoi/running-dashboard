@@ -83,9 +83,8 @@ export default async function AnalysisPage() {
     result: easyRunResults.find(e => e.activityId === r.id) ?? null,
   }))
 
-  // Serialise combined + allRaceEstimates for client components
+  // Serialise combined for client components
   const combinedJson = JSON.parse(JSON.stringify(combined)) as Record<DistanceKey, CombinedEstimate | null>
-  const allEstimatesJson = JSON.parse(JSON.stringify(allRaceEstimates))
 
   // Default 5K target
   const TARGET_5K = targetSecsMap['5k'] ?? (22 * 60 + 30)
@@ -228,7 +227,6 @@ export default async function AnalysisPage() {
         {/* Distance Tabs + Combined Estimate + Source Cards */}
         <AnalysisDistanceSection
           combined={combinedJson}
-          allEstimates={allEstimatesJson}
           targetSecsMap={targetSecsMap}
         />
 

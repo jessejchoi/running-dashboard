@@ -16,22 +16,22 @@ const SOURCE_ORDER: EstimateSource[] = ['race_result', 'interval', 'threshold', 
 
 interface Props {
   combined: Record<DistanceKey, CombinedEstimate | null>
-  allEstimates: { distanceKey: DistanceKey; source: EstimateSource; estimatedSecs: number; weight: number; date: string; activityId: number; method: string }[]
   targetSecsMap: Record<string, number>
 }
 
-export default function AnalysisDistanceSection({ combined, allEstimates, targetSecsMap }: Props) {
+export default function AnalysisDistanceSection({ combined, targetSecsMap }: Props) {
   const [active, setActive] = useState<DistanceKey>('5k')
 
   const c = combined[active]
   const targetSecs = targetSecsMap[active] ?? null
 
-  // Group estimates by source for this distance
-  const distEstimates = allEstimates.filter(e => e.distanceKey === active)
-  const bySource: Record<string, typeof distEstimates> = {}
-  for (const e of distEstimates) {
-    if (!bySource[e.source]) bySource[e.source] = []
-    bySource[e.source].push(e)
+  // Group contributors by source — these already have recency-weighted weights
+  const bySource: Record<string, NonNullable<CombinedEstimate['contributors']>> = {}
+  if (c) {
+    for (const contrib of c.contributors) {
+      if (!bySource[contrib.source]) bySource[contrib.source] = []
+      bySource[contrib.source].push(contrib)
+    }
   }
 
   return (

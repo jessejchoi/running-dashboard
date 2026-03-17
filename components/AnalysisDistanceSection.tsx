@@ -47,7 +47,7 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap }: Pro
         <CombinedEstimateCard distanceKey={active} combined={c} targetSecs={targetSecs} />
 
         {sourceCount > 0 && (
-          <Link href="/analysis/sources" className="text-[#f97316] text-sm hover:underline">
+          <Link href="/analysis/sources" className="inline-flex items-center min-h-[44px] text-[#f97316] text-sm hover:underline">
             View sources →
           </Link>
         )}

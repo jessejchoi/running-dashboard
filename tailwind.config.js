@@ -25,6 +25,11 @@ module.exports = {
           800: '#9a3412',
           900: '#7c2d12',
         },
+        surface: {
+          DEFAULT: 'var(--surface)',
+          2: 'var(--surface-2)',
+          3: 'var(--surface-3)',
+        },
       },
     },
   },

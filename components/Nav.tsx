@@ -145,8 +145,10 @@ export default function Nav() {
               href={href}
               prefetch={true}
               onClick={() => handleNavClick(href)}
-              className="flex flex-col items-center gap-0.5 flex-1 transition-opacity duration-75" style={{ paddingTop: 6, paddingBottom: 2 }}
+              className="flex flex-col items-center gap-0.5 flex-1 transition-opacity duration-75"
               style={{
+                paddingTop: 6,
+                paddingBottom: 2,
                 color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
                 opacity: loading ? 0.7 : 1,
                 WebkitTapHighlightColor: 'transparent',

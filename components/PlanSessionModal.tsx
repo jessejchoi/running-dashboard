@@ -101,18 +101,21 @@ function SessionTypeDropdown({ value, onChange }: { value: string; onChange: (v:
   const dropdown = mounted && open ? createPortal(
     <div
       ref={dropRef}
-      style={{ top: pos.top, left: pos.left, width: pos.width }}
-      className="fixed z-[10000] bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1"
+      style={{ top: pos.top, left: pos.left, width: pos.width, background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+      className="fixed z-[10000] rounded-xl shadow-2xl py-1"
     >
       {PLAN_SESSION_TYPES.map(s => (
         <button
           key={s.key}
           onClick={() => { onChange(s.key); setOpen(false) }}
-          className="w-full text-left px-3 py-2 text-sm hover:bg-[#242424] flex items-center gap-2.5 transition-colors"
+          className="w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors"
+          style={{ color: value === s.key ? '#fff' : 'var(--text-2)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+          onMouseLeave={e => (e.currentTarget.style.background = '')}
         >
           <span className={`w-2 h-2 rounded-full ${s.color} shrink-0`} />
-          <span className={value === s.key ? 'text-white font-medium' : 'text-[#9ca3af]'}>{s.label}</span>
-          {value === s.key && <Check size={12} className="ml-auto text-[#f97316]" />}
+          <span className={value === s.key ? 'font-medium' : ''}>{s.label}</span>
+          {value === s.key && <Check size={12} className="ml-auto" style={{ color: 'var(--orange)' } as any} />}
         </button>
       ))}
     </div>,
@@ -124,11 +127,14 @@ function SessionTypeDropdown({ value, onChange }: { value: string; onChange: (v:
       <button
         ref={btnRef}
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] hover:border-[#3a3a3a] text-sm w-full transition-colors"
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm w-full transition-colors"
+        style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }}
+        onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-hover)')}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
       >
         {current && <span className={`w-2 h-2 rounded-full ${current.color} shrink-0`} />}
         <span className="text-white flex-1 text-left">{current?.label ?? 'Select type'}</span>
-        <ChevronDown size={14} className={`text-[#6b7280] transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: 'var(--text-muted)' }} />
       </button>
       {dropdown}
     </div>
@@ -286,7 +292,10 @@ function Inp({ value, onChange, className = '', type = 'text', placeholder = '' 
       value={value}
       onChange={handleChange}
       placeholder={placeholder}
-      className={`bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#f97316] transition-colors ${className}`}
+      className={`rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none transition-colors ${className}`}
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')}
+      onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
     />
   )
 }
@@ -310,14 +319,24 @@ function PaceInp({ value, onChange, className = '' }: {
       value={value}
       onChange={handleChange}
       placeholder="mm:ss"
-      className={`bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#f97316] transition-colors ${className}`}
+      className={`rounded-lg px-2 py-1.5 text-xs font-mono text-white focus:outline-none transition-colors ${className}`}
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')}
+      onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
     />
   )
 }
 
 function Tog({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className={`px-2 py-1 text-[10px] rounded font-medium transition-colors ${active ? 'bg-[#f97316] text-white' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'}`}>
+    <button
+      onClick={onClick}
+      className="px-2 py-1 text-[10px] rounded font-medium transition-colors"
+      style={active
+        ? { background: 'var(--orange)', color: '#fff' }
+        : { background: 'var(--surface-2)', color: 'var(--text-muted)' }
+      }
+    >
       {children}
     </button>
   )
@@ -444,13 +463,14 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
     <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center" onClick={handleClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="relative bg-[#111] border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto z-[9999] shadow-2xl"
+        className="relative rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto z-[9999] shadow-2xl"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-[#111] border-b border-[#1c1c1c] px-5 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 px-5 py-4 flex items-center justify-between z-10" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           <div>
-            <div className="text-[#6b7280] text-xs mb-0.5">{displayDate}</div>
+            <div className="text-xs mb-0.5 font-mono uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{displayDate}</div>
             <h2 className="font-display font-bold text-lg text-white leading-tight">
               {config.sessionType === 'rest'
                 ? <span className="text-[#a78bfa]">Rest Day</span>
@@ -462,27 +482,27 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             {isExisting && onDelete && !confirmDelete && !confirmClose && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="text-[#6b7280] hover:text-red-400 transition-colors p-1"
+                className="hover:text-red-400 transition-colors p-1" style={{ color: 'var(--text-muted)' }}
               >
                 <Trash2 size={16} />
               </button>
             )}
             {confirmDelete && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#6b7280]">Delete?</span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Delete?</span>
                 <button onClick={() => onDelete?.()} className="text-xs text-red-400 hover:text-red-300 font-medium">Yes</button>
-                <button onClick={() => setConfirmDelete(false)} className="text-xs text-[#6b7280] hover:text-white">No</button>
+                <button onClick={() => setConfirmDelete(false)} className="text-xs hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>No</button>
               </div>
             )}
             {confirmClose && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#6b7280]">Discard changes?</span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Discard changes?</span>
                 <button onClick={onClose} className="text-xs text-red-400 hover:text-red-300 font-medium">Yes</button>
-                <button onClick={() => setConfirmClose(false)} className="text-xs text-[#6b7280] hover:text-white">No</button>
+                <button onClick={() => setConfirmClose(false)} className="text-xs hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>No</button>
               </div>
             )}
             {!confirmDelete && !confirmClose && (
-              <button onClick={handleClose} className="text-[#6b7280] hover:text-white p-1"><X size={18} /></button>
+              <button onClick={handleClose} className="hover:text-white p-1 transition-colors" style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
             )}
           </div>
         </div>
@@ -505,7 +525,10 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
               value={config.name}
               onChange={e => update({ ...config, name: e.target.value })}
               placeholder="e.g. 6×4min Intervals, Long Run, Recovery..."
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-[#4b5563] focus:outline-none focus:border-[#f97316] transition-colors"
+              className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-[#4b5563] focus:outline-none transition-colors"
+              style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
             />
           </div>
 
@@ -555,7 +578,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                     <span className={`text-[10px] font-bold uppercase tracking-widest ${b.kind === 'continuous' ? 'text-[#f97316]' : 'text-[#dc2626]'}`}>
                       {b.kind === 'continuous' ? '⟶ Continuous' : '↺ Intervals'}
                     </span>
-                    <span className="text-[#4b5563] text-[10px]">Block {bi + 1}</span>
+                    <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>Block {bi + 1}</span>
                   </div>
                   <button onClick={() => removeBlock(b.id)} className="text-[#4b5563] hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
                 </div>
@@ -641,8 +664,8 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           </div>
 
           {/* Estimated total */}
-          <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl px-4 py-3 flex items-center justify-between">
-            <span className="text-xs text-[#6b7280]">Estimated</span>
+          <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }}>
+            <span className="text-xs font-mono uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Estimated</span>
             <div className="flex items-center gap-3">
               <span className="font-display font-bold text-[#f97316] text-2xl">{estDist}</span>
               <span className="text-[#6b7280] text-sm">·</span>
@@ -655,11 +678,14 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-[#111] border-t border-[#1c1c1c] px-5 py-3 flex items-center justify-between gap-3">
+        <div className="sticky bottom-0 px-5 py-3 flex items-center justify-between gap-3" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
           <span className="text-xs text-red-400 min-h-[1rem]">{validationError ?? ''}</span>
           <button
             onClick={handleSave}
-            className="bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors shrink-0"
+            className="text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors shrink-0"
+            style={{ background: 'var(--orange)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--orange-dim)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--orange)')}
           >
             Save
           </button>

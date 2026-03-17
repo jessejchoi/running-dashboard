@@ -63,34 +63,54 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
     }
   }
 
-  // Update defaults when distance changes
   function changeDist(k: DistanceKey) {
     setDistKey(k)
-    const d = DISTANCE_OPTIONS.find(x => x.key === k)!
     if (!existing) { setTargetStr(''); setCurrentStr('') }
   }
 
+  const inputClass = "w-full rounded-lg px-3 py-2.5 font-mono text-white text-sm outline-none transition-colors"
+  const inputStyle = { background: 'var(--surface-3)', border: '1px solid var(--border)' }
+
   return (
     <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center" onClick={onClose}>
+      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-[#111] border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md z-[9999] shadow-2xl"
-        onClick={e => e.stopPropagation()}>
 
+      {/* Modal */}
+      <div
+        className="relative rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md z-[9999] shadow-2xl"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c1c1c]">
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <h2 className="font-display font-bold text-lg">{existing ? 'Edit Goal' : 'Add Race Goal'}</h2>
-          <button onClick={onClose} className="text-[#6b7280] hover:text-white"><X size={18} /></button>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <div className="px-5 py-5 space-y-4">
 
           {/* Distance */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-2 block">Distance</label>
+            <label className="text-[10px] font-bold uppercase tracking-widest mb-2 block font-mono" style={{ color: 'var(--text-muted)' }}>Distance</label>
             <div className="grid grid-cols-4 gap-2">
               {DISTANCE_OPTIONS.map(d => (
-                <button key={d.key} onClick={() => changeDist(d.key as DistanceKey)}
-                  className={`py-2 rounded-lg text-xs font-bold transition-colors ${distKey === d.key ? 'bg-[#f97316] text-white' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'}`}>
+                <button
+                  key={d.key}
+                  onClick={() => changeDist(d.key as DistanceKey)}
+                  className="py-2 rounded-lg text-xs font-bold transition-colors"
+                  style={
+                    distKey === d.key
+                      ? { background: 'var(--orange)', color: '#fff', border: '1px solid var(--orange)' }
+                      : { background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }
+                  }
+                >
                   {d.label}
                 </button>
               ))}
@@ -99,37 +119,64 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
 
           {/* Target time */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-1.5 block">Target Time</label>
-            <input value={targetStr} onChange={e => setTargetStr(e.target.value)} placeholder={dist.placeholder}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2.5 font-mono text-white text-sm outline-none transition-colors" />
+            <label className="text-[10px] font-bold uppercase tracking-widest mb-1.5 block font-mono" style={{ color: 'var(--text-muted)' }}>Target Time</label>
+            <input
+              value={targetStr}
+              onChange={e => setTargetStr(e.target.value)}
+              placeholder={dist.placeholder}
+              className={inputClass}
+              style={inputStyle}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+            />
             {targetSecs > 0 && (
-              <p className="text-[11px] text-[#4b5563] mt-1 font-mono">{paceLabel(targetSecs, distKey)} target pace</p>
+              <p className="text-[11px] mt-1 font-mono" style={{ color: 'var(--text-3)' }}>{paceLabel(targetSecs, distKey)} target pace</p>
             )}
           </div>
 
           {/* Current estimate */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-1.5 block">
-Current Estimate <span className="text-[#4b5563] normal-case font-normal tracking-normal">— your best guess is fine</span>
+            <label className="text-[10px] font-bold uppercase tracking-widest mb-1.5 block font-mono" style={{ color: 'var(--text-muted)' }}>
+              Current Estimate <span className="normal-case font-normal tracking-normal" style={{ color: 'var(--text-3)' }}>— your best guess is fine</span>
             </label>
-            <input value={currentStr} onChange={e => setCurrentStr(e.target.value)} placeholder={dist.placeholder}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2.5 font-mono text-white text-sm outline-none transition-colors" />
+            <input
+              value={currentStr}
+              onChange={e => setCurrentStr(e.target.value)}
+              placeholder={dist.placeholder}
+              className={inputClass}
+              style={inputStyle}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+            />
             {currentSecs > 0 && (
-              <p className="text-[11px] text-[#4b5563] mt-1 font-mono">{paceLabel(currentSecs, distKey)} current pace</p>
+              <p className="text-[11px] mt-1 font-mono" style={{ color: 'var(--text-3)' }}>{paceLabel(currentSecs, distKey)} current pace</p>
             )}
           </div>
 
           {/* Race date */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-1.5 block">Race Date</label>
-            <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2.5 font-mono text-white text-sm outline-none transition-colors" />
+            <label className="text-[10px] font-bold uppercase tracking-widest mb-1.5 block font-mono" style={{ color: 'var(--text-muted)' }}>Race Date</label>
+            <input
+              type="date"
+              value={raceDate}
+              onChange={e => setRaceDate(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--orange)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+            />
           </div>
 
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-xs" style={{ color: 'var(--error)' }}>{error}</p>}
 
-          <button onClick={handleSave} disabled={saving}
-            className="w-full bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
+            style={{ background: 'var(--orange)' }}
+            onMouseEnter={e => !saving && (e.currentTarget.style.background = 'var(--orange-dim)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--orange)')}
+          >
             {saving ? 'Saving…' : existing ? 'Save Changes' : 'Add Goal'}
           </button>
         </div>

@@ -8,7 +8,7 @@ import SettingsDrawer from './SettingsDrawer'
 const navItems = [
   { href: '/',            label: 'Dashboard', icon: Activity },
   { href: '/runs',        label: 'Runs',      icon: List },
-  { href: '/analysis/5k', label: 'Analysis',  icon: BarChart2 },
+  { href: '/analysis', label: 'Analysis',  icon: BarChart2 },
   { href: '/plan',        label: 'Plan',      icon: Calendar },
   { href: '/groups',      label: 'Groups',    icon: Users },
 ]

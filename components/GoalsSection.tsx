@@ -9,10 +9,12 @@ import { type DistanceUnit } from '@/lib/utils'
 interface Props {
   initialGoals: UserGoal[]
   estimates: Record<string, number>   // distance_key → estimated finish secs from analysis
+  confidence?: Record<string, number> // distance_key → 0-1 confidence
+  sourceCounts?: Record<string, Record<string, number>> // distance_key → { source: count }
   unit?: DistanceUnit
 }
 
-export default function GoalsSection({ initialGoals, estimates, unit = 'km' }: Props) {
+export default function GoalsSection({ initialGoals, estimates, confidence, sourceCounts, unit = 'km' }: Props) {
   const [goals, setGoals]     = useState<UserGoal[]>(initialGoals)
   const [adding, setAdding]   = useState(false)
 
@@ -65,6 +67,8 @@ export default function GoalsSection({ initialGoals, estimates, unit = 'km' }: P
               key={goal.id}
               goal={goal}
               currentEstimateSecs={estimates[goal.distance_key] ?? null}
+              confidence={confidence?.[goal.distance_key]}
+              sourceCounts={sourceCounts?.[goal.distance_key]}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
               unit={unit}

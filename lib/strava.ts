@@ -190,6 +190,28 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
         ? 'treadmill'
         : autoTypes.includes(currentType) ? runType : currentType
 
+      // Race detection: Strava workout_type 1 = Race, or name pattern
+      const RACE_NAME_PATTERN = /\b(race|parkrun|marathon|5k|10k|hm|half.?marathon)\b/i
+      const isRace = detail.workout_type === 1 || RACE_NAME_PATTERN.test(detail.name ?? '')
+
+      // Match to nearest standard distance (±10% tolerance)
+      let matchedDistanceKey: string | null = null
+      if (isRace) {
+        const distKm = detail.distance / 1000
+        const standards = [
+          { key: '5k', km: 5 },
+          { key: '10k', km: 10 },
+          { key: 'hm', km: 21.097 },
+          { key: 'fm', km: 42.195 },
+        ]
+        for (const std of standards) {
+          if (Math.abs(distKm - std.km) / std.km <= 0.10) {
+            matchedDistanceKey = std.key
+            break
+          }
+        }
+      }
+
       await supabaseAdmin
         .from('activities')
         .update({
@@ -198,6 +220,8 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
           splits: detail.splits_metric ?? null,
           streams: streams ?? null,
           detail_synced: true,
+          is_race: isRace,
+          matched_distance_key: matchedDistanceKey,
         })
         .eq('id', act.id)
 

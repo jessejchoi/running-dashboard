@@ -6,9 +6,19 @@ import { formatGoalTime, paceSecs, distanceKm, type UserGoal, type DistanceKey }
 import { paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import GoalSetupModal from './GoalSetupModal'
 
+const SOURCE_LABELS: Record<string, string> = {
+  interval: 'interval',
+  threshold: 'threshold',
+  long_run: 'long run',
+  easy_trend: 'easy trend',
+  race_result: 'race',
+}
+
 interface Props {
   goal: UserGoal
   currentEstimateSecs?: number | null   // from analysis engine
+  confidence?: number                    // 0-1 confidence from combiner
+  sourceCounts?: Record<string, number>  // { source: count }
   onUpdate: (goal: UserGoal) => void
   onDelete: (id: string) => void
   unit?: DistanceUnit
@@ -20,7 +30,7 @@ function paceStr(secs: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete, unit = 'km' }: Props) {
+export default function GoalCard({ goal, currentEstimateSecs, confidence, sourceCounts, onUpdate, onDelete, unit = 'km' }: Props) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -112,7 +122,13 @@ export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete
             <div className={`stat-num text-xl font-bold ${statusColor}`}>
               {currentSecs ? formatGoalTime(currentSecs) : '--:--'}
             </div>
-            <div className="text-[#6b7280] text-xs">{currentEstimateSecs ? 'from analysis' : currentSecs ? 'your estimate' : 'no data'}</div>
+            <div className="text-[#6b7280] text-xs">
+              {currentEstimateSecs && confidence != null ? (
+                <span className={`font-mono ${confidence >= 0.7 ? 'text-emerald-400' : confidence >= 0.4 ? 'text-yellow-400' : 'text-orange-400'}`}>
+                  {confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'med' : 'low'} conf.
+                </span>
+              ) : currentEstimateSecs ? 'from analysis' : currentSecs ? 'your estimate' : 'no data'}
+            </div>
           </div>
         </div>
 
@@ -130,6 +146,16 @@ export default function GoalCard({ goal, currentEstimateSecs, onUpdate, onDelete
             <div className="flex justify-between text-[10px] text-[#3a3a3a] mt-1 font-mono">
               <span>{formatGoalTime(goal.current_secs)}</span>
               <span>{formatGoalTime(goal.target_secs)}</span>
+            </div>
+          )}
+          {sourceCounts && Object.keys(sourceCounts).length > 0 && (
+            <div className="text-[10px] text-[#4b5563] mt-2">
+              Based on {Object.entries(sourceCounts).map(([source, count], i, arr) => (
+                <span key={source}>
+                  {count} {SOURCE_LABELS[source] ?? source}{count > 1 ? 's' : ''}
+                  {i < arr.length - 1 ? ', ' : ''}
+                </span>
+              ))}
             </div>
           )}
         </div>

@@ -1,0 +1,464 @@
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { supabaseAdmin } from '@/lib/supabase'
+import Nav from '@/components/Nav'
+import FiveKTrendChart from '@/components/FiveKTrendChart'
+import AerobicEfficiencyChart from '@/components/AerobicEfficiencyChart'
+import {
+  analyzeAllAndCombine,
+  formatTime, formatPace,
+  type FiveKEstimate,
+  type EasyRunEfficiency,
+  type LongRunAnalysis,
+  type RaceResultAnalysis,
+  type CombinedEstimate,
+  type EstimateSource,
+} from '@/lib/analysis'
+import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate, paceUnitLabel, formatDistanceShort, type DistanceUnit } from '@/lib/utils'
+import { type DistanceKey, distanceLabel } from '@/lib/goals'
+import { format, subMonths } from 'date-fns'
+import Link from 'next/link'
+import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
+import CollapsibleRuns from '@/components/CollapsibleRuns'
+import DistanceTabs from '@/components/DistanceTabs'
+import CombinedEstimateCard from '@/components/CombinedEstimateCard'
+import SourceCard from '@/components/SourceCard'
+
+export const revalidate = 60
+
+const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
+
+export default async function AnalysisPage() {
+  const cookieStore = cookies()
+  const athleteId = cookieStore.get('athlete_id')?.value
+  if (!athleteId) redirect('/')
+  const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
+
+  const [{ data: goalRows }, { data: userProfile }] = await Promise.all([
+    supabaseAdmin.from('user_goals').select('distance_key, target_secs').eq('athlete_id', parseInt(athleteId)),
+    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
+  ])
+  const maxHr: number | undefined = userProfile?.max_hr ?? undefined
+  const targetSecsMap: Record<string, number> = {}
+  for (const g of goalRows ?? []) {
+    targetSecsMap[g.distance_key] = g.target_secs
+  }
+
+  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: raceRuns }] = await Promise.all([
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'threshold').order('start_date', { ascending: false }),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'long').order('start_date', { ascending: false }).limit(15),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10),
+  ])
+
+  const result = analyzeAllAndCombine(
+    intervalRuns ?? [],
+    thresholdRuns ?? [],
+    longRuns ?? [],
+    easyRuns ?? [],
+    raceRuns ?? [],
+    maxHr ?? 195,
+  )
+
+  const { intervalEstimates, thresholdEstimates, longRunAnalyses, raceAnalyses, easyRunResults, combined, allRaceEstimates } = result
+  const easyEstimates = easyRunResults.filter(r => !r.excludedReason)
+  const easyRunResultsWithRuns = (easyRuns ?? []).map((r: any) => ({
+    run: r,
+    result: easyRunResults.find(e => e.activityId === r.id) ?? null,
+  }))
+
+  // Serialise combined + allRaceEstimates for client components
+  const combinedJson = JSON.parse(JSON.stringify(combined)) as Record<DistanceKey, CombinedEstimate | null>
+  const allEstimatesJson = JSON.parse(JSON.stringify(allRaceEstimates))
+
+  // Default 5K target
+  const TARGET_5K = targetSecsMap['5k'] ?? (22 * 60 + 30)
+
+  function WorkRestStats({ est, isThreshold }: {
+    est: { totalWorkSecs: number; totalRestSecs: number; workRestRatio: number; correctionFactor: number; effortsUsed: number; isContinuous?: boolean }
+    isThreshold?: boolean
+  }) {
+    const isContinuousThreshold = isThreshold && est.isContinuous
+    return (
+      <div className="flex flex-wrap gap-3 mb-4 text-xs">
+        <div className="bg-[#111] rounded-lg px-3 py-2">
+          <div className="text-[#4b5563] mb-0.5">Work : Rest</div>
+          <div className="font-mono text-white font-bold">
+            {formatDuration(est.totalWorkSecs)} : {est.totalRestSecs > 0 ? formatDuration(est.totalRestSecs) : '—'}
+          </div>
+          <div className="text-[#4b5563] mt-0.5">
+            {est.isContinuous ? 'continuous run' : est.totalRestSecs > 0
+              ? `${formatDuration(Math.round(est.totalRestSecs / est.effortsUsed))} rest/rep`
+              : 'no rest detected'}
+          </div>
+        </div>
+        {isContinuousThreshold ? (
+          <div className="bg-[#111] rounded-lg px-3 py-2">
+            <div className="text-[#4b5563] mb-0.5">Intensity ratio</div>
+            <div className="font-mono text-blue-400 font-bold">{(est.correctionFactor * 100).toFixed(1)}%</div>
+            <div className="text-[#4b5563] mt-0.5">threshold → 5K</div>
+          </div>
+        ) : (
+          <div className="bg-[#111] rounded-lg px-3 py-2">
+            <div className="text-[#4b5563] mb-0.5">Rest correction</div>
+            <div className="font-mono text-orange-400 font-bold">+{((est.correctionFactor - 1) * 100).toFixed(1)}%</div>
+            <div className="text-[#4b5563] mt-0.5">added to estimate</div>
+          </div>
+        )}
+        <div className="bg-[#111] rounded-lg px-3 py-2">
+          <div className="text-[#4b5563] mb-0.5">Efforts</div>
+          <div className="font-mono text-white font-bold">{est.effortsUsed}</div>
+          <div className="text-[#4b5563] mt-0.5">{est.isContinuous ? 'continuous' : 'reps'}</div>
+        </div>
+      </div>
+    )
+  }
+
+  function RepTable({ efforts }: { efforts: any[] }) {
+    if (efforts.length === 0) return null
+    return (
+      <div className="bg-[#111] rounded-lg overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-[#1c1c1c]">
+              {['Lap', 'Dist', 'Pace', 'Time', 'HR', 'Est.5K'].map(h => (
+                <th key={h} className="text-left px-2 py-2 text-[#4b5563] font-medium whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {efforts.map((rep: any, i: number) => (
+              <tr key={i} className="border-b border-[#1a1a1a]">
+                <td className="px-2 py-2 text-[#6b7280] font-mono">{rep.lapIndex}</td>
+                <td className="px-2 py-2 font-mono text-white whitespace-nowrap">
+                  {rep.distanceM >= 1000 ? formatDistanceShort(rep.distanceM, unit) : `${Math.round(rep.distanceM)}m`}
+                </td>
+                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm, unit)}{paceUnitLabel(unit)}</td>
+                <td className="px-2 py-2 font-mono text-[#9ca3af] whitespace-nowrap">{formatDuration(rep.durationSecs)}</td>
+                <td className="px-2 py-2 font-mono text-[#9ca3af]">{rep.avgHR ? Math.round(rep.avgHR) : '—'}</td>
+                <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${rep.correctedSecs <= TARGET_5K ? 'text-emerald-400' : 'text-white'}`}>
+                  {formatTime(rep.correctedSecs)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="px-3 py-2 text-[10px] text-[#4b5563]">
+          Est. 5K = rep pace adjusted for rest, duration, and HR
+        </div>
+      </div>
+    )
+  }
+
+  function ContinuousRunTable({ run }: { run: any }) {
+    const laps: any[] = run.laps ?? []
+    const splits: any[] = run.splits ?? []
+    const displayLaps = laps.length > 0 ? laps : splits
+    const avgPace = run.average_speed ? 1000 / run.average_speed : 999
+    if (displayLaps.length === 0) return (
+      <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">No lap data.</div>
+    )
+    return (
+      <div className="bg-[#111] rounded-lg overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-[#1c1c1c]">
+              {[laps.length > 0 ? 'Lap' : (unit === 'miles' ? 'mi' : 'km'), 'Dist', 'Pace', 'Time', 'HR'].map(h => (
+                <th key={h} className="text-left px-3 py-2 text-[#4b5563] font-medium">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {displayLaps.map((lap: any, i: number) => {
+              if (!lap.average_speed) return null
+              const lapPace = 1000 / lap.average_speed
+              const isWarmCool = lapPace > avgPace + 20
+              return (
+                <tr key={i} className="border-b border-[#1a1a1a]">
+                  <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-[#6b7280]'}`}>{i+1}</td>
+                  <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-white'}`}>
+                    {lap.distance >= 1000 ? formatDistanceShort(lap.distance, unit) : `${Math.round(lap.distance)}m`}
+                  </td>
+                  <td className={`px-3 py-2 font-mono font-bold ${isWarmCool ? 'text-[#3a3a3a]' : 'text-white'}`}>{speedToPace(lap.average_speed, unit)}{paceUnitLabel(unit)}</td>
+                  <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-[#9ca3af]'}`}>{formatDuration(lap.moving_time)}</td>
+                  <td className={`px-3 py-2 font-mono ${isWarmCool ? 'text-[#3a3a3a]' : 'text-[#9ca3af]'}`}>{lap.average_heartrate ? `${Math.round(lap.average_heartrate)}` : '—'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <div className="px-3 py-2 text-[10px] text-[#4b5563]">Greyed laps = warmup/cooldown</div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <Nav />
+      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-16">
+        <div className="mb-8 fade-up">
+          <h1 className="font-display font-extrabold text-4xl mb-1">Race Analysis</h1>
+          <p className="text-[#6b7280] text-sm max-w-3xl">
+            Multi-distance estimates from intervals, threshold, long runs, easy trends, and race results — combined with confidence and recency weighting.
+          </p>
+          {!maxHr && (
+            <div className="flex items-center gap-2 bg-[#1a1a0a] border border-[#f97316]/30 rounded-xl px-4 py-3 mt-4 text-sm max-w-xl">
+              <span className="text-[#f97316] shrink-0">⚠</span>
+              <span className="text-[#9ca3af]">HR-based corrections use a default max HR of 195 bpm — open <span className="text-white font-medium">Settings</span> (gear icon) to add your actual max HR.</span>
+            </div>
+          )}
+        </div>
+
+        {/* Distance Tabs + Combined Estimate + Source Cards */}
+        <DistanceTabs>
+          {(activeTab: DistanceKey) => {
+            const c = combinedJson[activeTab]
+            const targetSecs = targetSecsMap[activeTab] ?? null
+
+            // Group allRaceEstimates by source for this distance
+            const distEstimates = allEstimatesJson.filter((e: any) => e.distanceKey === activeTab)
+            const bySource: Record<string, any[]> = {}
+            for (const e of distEstimates) {
+              if (!bySource[e.source]) bySource[e.source] = []
+              bySource[e.source].push(e)
+            }
+
+            return (
+              <div className="space-y-6">
+                <CombinedEstimateCard distanceKey={activeTab} combined={c} targetSecs={targetSecs} />
+
+                {/* Source breakdown cards */}
+                {Object.keys(bySource).length > 0 && (
+                  <div>
+                    <h3 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">Contributing Sources</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {(['race_result', 'interval', 'threshold', 'long_run', 'easy_trend'] as EstimateSource[]).map(source => {
+                        if (!bySource[source]) return null
+                        return (
+                          <SourceCard key={source} source={source} contributors={bySource[source]} />
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          }}
+        </DistanceTabs>
+
+        {/* Detailed session breakdowns below */}
+        <div className="mt-12">
+          <h2 className="font-display font-bold text-xl mb-6">Session Details</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* COL 1: Intervals */}
+            <div className="flex flex-col gap-4">
+              <div className="card fade-up">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Intervals</h2>
+                  <span className="text-xs text-[#4b5563]">{intervalEstimates.length} sessions</span>
+                </div>
+                <p className="text-[#4b5563] text-xs mb-5">Rep pace + rest/duration/HR correction</p>
+                <FiveKTrendChart estimates={intervalEstimates} targetSecs={TARGET_5K} color="#f97316" />
+              </div>
+              {intervalEstimates.length === 0 && (
+                <div className="card text-center py-10 text-[#6b7280] text-sm">
+                  Tag runs as &quot;Interval 5K&quot; to see estimates.
+                </div>
+              )}
+              <CollapsibleRuns count={(intervalRuns ?? []).length} color="#f97316">
+                {(intervalRuns ?? []).map((run: any) => {
+                  const estimate = intervalEstimates.find(e => e.activityId === run.id)
+                  return (
+                    <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-display font-bold text-base">{run.name}</span>
+                            <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
+                          </div>
+                          <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                        </div>
+                        {estimate ? (
+                          <div className="text-right shrink-0">
+                            <div className="stat-num text-xl font-bold text-[#f97316]">{estimate.estimatedTime}</div>
+                            <div className="text-[#6b7280] text-xs">est. 5K</div>
+                          </div>
+                        ) : <div className="text-[#4b5563] text-xs pt-1">No hard efforts detected</div>}
+                      </div>
+                      {estimate && <WorkRestStats est={estimate} />}
+                      {estimate && <RepTable efforts={estimate.allEfforts} />}
+                    </div>
+                  )
+                })}
+              </CollapsibleRuns>
+            </div>
+
+            {/* COL 2: Threshold */}
+            <div className="flex flex-col gap-4">
+              <div className="card fade-up">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Threshold</h2>
+                  <span className="text-xs text-[#4b5563]">{thresholdEstimates.length} sessions</span>
+                </div>
+                <p className="text-[#4b5563] text-xs mb-5">Daniels ratio → direct 5K/10K/HM estimates</p>
+                <FiveKTrendChart estimates={thresholdEstimates} targetSecs={TARGET_5K} color="#60a5fa" />
+              </div>
+              {thresholdEstimates.length === 0 && (
+                <div className="card text-center py-10 text-[#6b7280] text-sm">
+                  Tag runs as &quot;Threshold&quot; to see estimates.
+                </div>
+              )}
+              <CollapsibleRuns count={(thresholdRuns ?? []).length} color="#60a5fa">
+                {(thresholdRuns ?? []).map((run: any) => {
+                  const estimate = thresholdEstimates.find(e => e.activityId === run.id)
+                  return (
+                    <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-display font-bold text-base">{run.name}</span>
+                            <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
+                          </div>
+                          <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                        </div>
+                        {estimate ? (
+                          <div className="text-right shrink-0">
+                            <div className="stat-num text-xl font-bold text-blue-400">{estimate.estimatedTime}</div>
+                            <div className="text-[#6b7280] text-xs">est. 5K</div>
+                          </div>
+                        ) : <div className="text-[#4b5563] text-xs pt-1">Could not estimate</div>}
+                      </div>
+                      {estimate && <WorkRestStats est={estimate} isThreshold />}
+                      {estimate && !estimate.isContinuous && <RepTable efforts={estimate.allEfforts} />}
+                      {estimate && estimate.isContinuous && <ContinuousRunTable run={run} />}
+                    </div>
+                  )
+                })}
+              </CollapsibleRuns>
+            </div>
+
+            {/* COL 3: Aerobic Efficiency + Long Runs + Races */}
+            <div className="flex flex-col gap-4">
+              <div className="card fade-up">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Aerobic Efficiency</h2>
+                  <span className="text-xs text-[#4b5563]">{easyEstimates.length} runs</span>
+                </div>
+                <p className="text-[#4b5563] text-xs mb-5">Pace normalised to 150 bpm</p>
+                <AerobicEfficiencyChart runs={easyEstimates} />
+              </div>
+
+              {/* Long runs */}
+              {longRunAnalyses.length > 0 && (
+                <div className="card fade-up">
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Long Runs</h2>
+                    <span className="text-xs text-[#4b5563]">{longRunAnalyses.length} runs</span>
+                  </div>
+                  <p className="text-[#4b5563] text-xs mb-4">Steady pace + cardiac drift → HM/FM estimates</p>
+                  <div className="space-y-3">
+                    {longRunAnalyses.slice(0, 5).map(lr => (
+                      <div key={lr.activityId} className="bg-[#111] rounded-lg px-3 py-2 text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-white">{lr.activityName}</span>
+                          <span className="text-[#6b7280] font-mono">{lr.date}</span>
+                        </div>
+                        <div className="flex gap-4 text-[#9ca3af]">
+                          <span>{lr.distanceKm.toFixed(1)} km</span>
+                          <span>Pace: {formatPace(lr.steadyPace)}/km</span>
+                          <span>HR: {Math.round(lr.steadyHR)}</span>
+                          <span className={lr.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}>
+                            Drift: {lr.cardiacDrift.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Race results */}
+              {raceAnalyses.length > 0 && (
+                <div className="card fade-up">
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Race Results</h2>
+                    <span className="text-xs text-[#4b5563]">{raceAnalyses.length} races</span>
+                  </div>
+                  <p className="text-[#4b5563] text-xs mb-4">Gold standard — direct race performance</p>
+                  <div className="space-y-3">
+                    {raceAnalyses.map(race => (
+                      <div key={race.activityId} className="bg-[#111] rounded-lg px-3 py-2 text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-[#f472b6]">{race.activityName}</span>
+                          <span className="text-[#6b7280] font-mono">{race.date}</span>
+                        </div>
+                        <div className="flex gap-4">
+                          <span className="text-white font-bold">{distanceLabel(race.matchedDistanceKey)}</span>
+                          <span className="text-[#f472b6] font-mono font-bold">{formatTime(race.raceTimeSecs)}</span>
+                          <span className="text-emerald-400 font-mono text-[10px]">0.98 conf.</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Easy run detail */}
+              <CollapsibleRuns count={easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').length} color="#a78bfa">
+                {easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').map(({ run, result: eff }) => (
+                  <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-display font-bold text-base">{run.name}</span>
+                          <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} autoExcludedReason={eff?.excludedReason} />
+                        </div>
+                        <div className="text-[#6b7280] text-xs mt-0.5">
+                          {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
+                          {run.run_type && <span className="ml-2 text-purple-400 capitalize">{run.run_type.replace(/_/g, ' ')}</span>}
+                        </div>
+                      </div>
+                      {eff && !eff.excludedReason ? (
+                        <div className="text-right shrink-0">
+                          <div className="stat-num text-xl font-bold text-purple-400">{speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
+                          <div className="text-[#6b7280] text-xs">@ 150 bpm</div>
+                        </div>
+                      ) : null}
+                    </div>
+                    {eff && !eff.excludedReason && (
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="bg-[#111] rounded-lg px-2 py-2">
+                          <div className="text-[#4b5563] mb-0.5">Last 15 min</div>
+                          <div className="font-mono text-white font-bold">{speedToPace(1000/(eff as any).windowPace, unit)}{paceUnitLabel(unit)}</div>
+                          <div className="text-[#4b5563] mt-0.5">{Math.round((eff as any).windowHR)} bpm</div>
+                        </div>
+                        <div className="bg-[#111] rounded-lg px-2 py-2">
+                          <div className="text-[#4b5563] mb-0.5">HR adj.</div>
+                          <div className={`font-mono font-bold ${eff.avgHR > 150 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                            {eff.avgHR > 150 ? '▼' : '▲'}{Math.abs((eff.avgPaceSecPerKm - eff.normalizedPaceSec)).toFixed(1)}s
+                          </div>
+                          <div className="text-[#4b5563] mt-0.5">→ {speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
+                        </div>
+                        <div className="bg-[#111] rounded-lg px-2 py-2">
+                          <div className="text-[#4b5563] mb-0.5">Slope</div>
+                          <div className="font-mono text-purple-400 font-bold">{eff.r2 > 0 ? 'regr.' : 'fixed'}</div>
+                          <div className="text-[#4b5563] mt-0.5">{eff.r2 > 0 ? `R²=${eff.r2.toFixed(2)}` : '−2.5 s/bpm'}</div>
+                        </div>
+                      </div>
+                    )}
+                    {eff?.excludedReason && (
+                      <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">{eff.excludedReason}</div>
+                    )}
+                  </div>
+                ))}
+              </CollapsibleRuns>
+            </div>
+
+          </div>
+        </div>
+      </main>
+    </>
+  )
+}

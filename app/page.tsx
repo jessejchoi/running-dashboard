@@ -8,7 +8,7 @@ import TrainingLoadChart from '@/components/TrainingLoadChart'
 import RunTypeBadge from '@/components/RunTypeBadge'
 import { formatDuration, speedToPace, isoWeek, toJakartaDate, formatDistanceShort, distanceUnitLabel, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
-import { analyzeIntervalSession, analyzeThresholdSession } from '@/lib/analysis'
+import { analyzeAllAndCombine } from '@/lib/analysis'
 import Link from 'next/link'
 import GroupLeaderboard from '@/components/GroupLeaderboard'
 import GroupFeed from '@/components/GroupFeed'
@@ -20,16 +20,26 @@ import { type UserGoal } from '@/lib/goals'
 export const dynamic = 'force-dynamic'
 
 async function getData(athleteId: number) {
+  const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
+
   const [
     { data: activities },
-    { data: qualityRuns },
+    { data: intervalRuns },
+    { data: thresholdRuns },
+    { data: longRuns },
+    { data: easyRuns },
+    { data: raceRuns },
     { data: tokenData },
     goalsData,
     { data: membership },
     { data: userProfile },
   ] = await Promise.all([
     supabaseAdmin.from('activities').select('id,start_date,distance,moving_time,suffer_score,run_type,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(200),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['interval_5k', 'threshold']).order('start_date', { ascending: false }).limit(20),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }).limit(20),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'threshold').order('start_date', { ascending: false }).limit(20),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'long').order('start_date', { ascending: false }).limit(15),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).order('start_date', { ascending: false }).limit(30),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
     supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId),
@@ -38,17 +48,15 @@ async function getData(athleteId: number) {
 
   const maxHr = userProfile?.max_hr ?? undefined
 
-  // Compute most recent 5K estimate from interval + threshold sessions
-  const estimates = (qualityRuns ?? [])
-    .map((a: any) => a.run_type === 'interval_5k' ? analyzeIntervalSession(a, maxHr) : analyzeThresholdSession(a, maxHr))
-    .filter(Boolean)
-  const latest5KSecs = estimates.length > 0
-    ? estimates.sort((a: any, b: any) => b.date.localeCompare(a.date))[0]!.estimatedSecs
-    : null
-
-  // Riegel extrapolation for longer races: t2 = t1 × (d2/d1)^1.06
-  const riegelFrom5K = (d2km: number) =>
-    latest5KSecs ? latest5KSecs * Math.pow(d2km / 5, 1.06) : null
+  // Run all analyzers and combine estimates
+  const analysisResult = analyzeAllAndCombine(
+    intervalRuns ?? [],
+    thresholdRuns ?? [],
+    longRuns ?? [],
+    easyRuns ?? [],
+    raceRuns ?? [],
+    maxHr ?? 195,
+  )
 
   // ── Group data ────────────────────────────────────────────
   // Fetch data for all groups this athlete belongs to (up to 3)
@@ -166,18 +174,43 @@ async function getData(athleteId: number) {
     }
   })()
 
+  // Build estimates map from combined results
+  const estimates: Record<string, number | null> = {
+    '5k': analysisResult.combined['5k']?.bestEstimateSecs ?? null,
+    '10k': analysisResult.combined['10k']?.bestEstimateSecs ?? null,
+    'hm': analysisResult.combined['hm']?.bestEstimateSecs ?? null,
+    'fm': analysisResult.combined['fm']?.bestEstimateSecs ?? null,
+  }
+
+  // Confidence map for GoalCards
+  const confidence: Record<string, number> = {}
+  for (const dk of ['5k', '10k', 'hm', 'fm']) {
+    const c = analysisResult.combined[dk as '5k' | '10k' | 'hm' | 'fm']
+    if (c) confidence[dk] = c.confidence
+  }
+
+  // Source counts for tooltips
+  const sourceCounts: Record<string, Record<string, number>> = {}
+  for (const dk of ['5k', '10k', 'hm', 'fm']) {
+    const c = analysisResult.combined[dk as '5k' | '10k' | 'hm' | 'fm']
+    if (c) {
+      const counts: Record<string, number> = {}
+      for (const contrib of c.contributors) {
+        counts[contrib.source] = (counts[contrib.source] ?? 0) + 1
+      }
+      sourceCounts[dk] = counts
+    }
+  }
+
   return {
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
     displayName: userProfile?.display_name ?? null,
     hasMaxHr: !!userProfile?.max_hr,
     goals: (goalsData ?? []) as UserGoal[],
-    estimates: {
-      '5k':  latest5KSecs,
-      '10k': riegelFrom5K(10),
-      'hm':  riegelFrom5K(21.097),
-      'fm':  riegelFrom5K(42.195),
-    } as Record<string, number | null>,
+    estimates,
+    confidence,
+    sourceCounts,
     allGroupsData,
   }
 }
@@ -191,7 +224,7 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, hasMaxHr, goals, estimates, allGroupsData } = await getData(Number(athleteId))
+  const { activities, athlete, displayName, hasMaxHr, goals, estimates, confidence, sourceCounts, allGroupsData } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
@@ -330,6 +363,8 @@ export default async function DashboardPage() {
             estimates={Object.fromEntries(
               Object.entries(estimates).filter(([, v]) => v != null)
             ) as Record<string, number>}
+            confidence={confidence}
+            sourceCounts={sourceCounts}
             unit={unit}
           />
         </div>

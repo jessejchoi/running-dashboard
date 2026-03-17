@@ -5,6 +5,12 @@ import {
 } from 'recharts'
 import { format } from 'date-fns'
 import { formatTime, formatPace } from '@/lib/analysis'
+import { useAnalysisTab } from './AnalysisTabContext'
+import { distanceLabel, type DistanceKey } from '@/lib/goals'
+
+const DISTANCE_KM: Record<DistanceKey, number> = {
+  '5k': 5, '10k': 10, 'hm': 21.097, 'fm': 42.195,
+}
 
 export interface TrendPoint {
   date: string
@@ -13,26 +19,32 @@ export interface TrendPoint {
   estimatedSecs: number
   vdot: number
   effortsUsed?: number
+  raceEstimates?: { distanceKey: string; estimatedSecs: number }[]
   [key: string]: any
 }
 
 interface Props {
   estimates: TrendPoint[]
-  targetSecs: number
+  targetSecsMap: Record<string, number>
+  defaultTargetSecs: number
   color?: string
 }
 
-function buildTooltip(color: string) {
+function buildTooltip(color: string, dk: DistanceKey) {
+  const km = DISTANCE_KM[dk]
   return function CustomTooltip({ active, payload }: any) {
     if (!active || !payload?.length) return null
-    const d = payload[0]?.payload as TrendPoint
+    const d = payload[0]?.payload
     if (!d) return null
+    const secs = d.displaySecs ?? d.estimatedSecs
     return (
       <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[220px]">
         <div className="text-[#6b7280] mb-2">{format(new Date(d.date + 'T12:00:00'), 'MMM d, yyyy')}</div>
-        <div className="font-display font-bold text-lg mb-0.5" style={{ color }}>{formatTime(d.estimatedSecs)}</div>
-        <div className="font-mono mb-2 text-[#9ca3af]">{formatPace(d.estimatedSecs / 5)}/km</div>
-        <div className="text-blue-400 font-mono text-xs mb-2">VDOT {d.vdot}</div>
+        <div className="font-display font-bold text-lg mb-0.5" style={{ color }}>{formatTime(secs)}</div>
+        <div className="font-mono mb-2 text-[#9ca3af]">{formatPace(secs / km)}/km</div>
+        {dk === '5k' && d.vdot != null && !isNaN(d.vdot) && (
+          <div className="text-blue-400 font-mono text-xs mb-2">VDOT {d.vdot.toFixed(1)}</div>
+        )}
         <div className="text-[#6b7280] truncate">{d.activityName}</div>
         {d.effortsUsed && (
           <div className="text-[#4b5563] mt-1">{d.effortsUsed} effort{d.effortsUsed !== 1 ? 's' : ''} analysed</div>
@@ -42,10 +54,19 @@ function buildTooltip(color: string) {
   }
 }
 
-export default function FiveKTrendChart({ estimates, targetSecs, color = '#f97316' }: Props) {
+export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTargetSecs, color = '#f97316' }: Props) {
+  const { active } = useAnalysisTab()
+  const km = DISTANCE_KM[active]
+  const targetSecs = targetSecsMap[active] ?? defaultTargetSecs
+
+  // Map each estimate to the selected distance's time
   const data = [...estimates]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map(e => ({ ...e, label: format(new Date(e.date + 'T12:00:00'), 'MMM d') }))
+    .map(e => {
+      const raceEst = e.raceEstimates?.find(r => r.distanceKey === active)
+      const displaySecs = raceEst?.estimatedSecs ?? e.estimatedSecs
+      return { ...e, displaySecs, label: format(new Date(e.date + 'T12:00:00'), 'MMM d') }
+    })
 
   if (data.length === 0) {
     return (
@@ -55,13 +76,13 @@ export default function FiveKTrendChart({ estimates, targetSecs, color = '#f9731
     )
   }
 
-  const allSecs = data.map(d => d.estimatedSecs)
+  const allSecs = data.map(d => d.displaySecs)
   const minSecs = Math.min(...allSecs, targetSecs) - 45
   const maxSecs = Math.max(...allSecs) + 60
 
   const n = data.length
   const xs = data.map((_, i) => i)
-  const ys = data.map(d => d.estimatedSecs)
+  const ys = data.map(d => d.displaySecs)
   const sumX = xs.reduce((a, b) => a + b, 0)
   const sumY = ys.reduce((a, b) => a + b, 0)
   const sumXY = xs.reduce((s, x, i) => s + x * ys[i], 0)
@@ -77,8 +98,9 @@ export default function FiveKTrendChart({ estimates, targetSecs, color = '#f9731
 
   const improving = slope < 0
   const latest = data[data.length - 1]
-  const gapSecs = latest.estimatedSecs - targetSecs
-  const CustomTooltip = buildTooltip(color)
+  const gapSecs = latest.displaySecs - targetSecs
+  const CustomTooltip = buildTooltip(color, active)
+  const label = distanceLabel(active)
 
   return (
     <div>
@@ -92,16 +114,17 @@ export default function FiveKTrendChart({ estimates, targetSecs, color = '#f9731
         </div>
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Latest estimate</div>
-          <div className="font-mono font-bold text-white">{formatTime(latest.estimatedSecs)}</div>
-          <div className="text-[#4b5563] text-xs mt-0.5">est. 5K time</div>
+          <div className="font-mono font-bold text-white">{formatTime(latest.displaySecs)}</div>
+          <div className="text-[#4b5563] text-xs mt-0.5">est. {label} time</div>
         </div>
-        <div>
-          <div className="text-[#6b7280] text-xs mb-1">VDOT</div>
-          <div className="font-mono font-bold text-white">
-            {latest.vdot && !isNaN(latest.vdot) ? latest.vdot.toFixed(1) : '—'}
+        {active === '5k' && (
+          <div>
+            <div className="text-[#6b7280] text-xs mb-1">VDOT</div>
+            <div className="font-mono font-bold text-white">
+              {latest.vdot && !isNaN(latest.vdot) ? latest.vdot.toFixed(1) : '—'}
+            </div>
           </div>
-
-        </div>
+        )}
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Gap to goal</div>
           <div className={`font-mono font-bold ${gapSecs <= 0 ? 'text-emerald-400' : ''}`} style={gapSecs > 0 ? { color } : {}}>
@@ -116,9 +139,9 @@ export default function FiveKTrendChart({ estimates, targetSecs, color = '#f9731
         {data.length > 1 && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Total improvement</div>
-            <div className={`font-mono font-bold ${data[0].estimatedSecs > latest.estimatedSecs ? 'text-emerald-400' : 'text-red-400'}`}>
-              {data[0].estimatedSecs > latest.estimatedSecs ? '▼ ' : '▲ '}
-              {formatTime(Math.abs(data[0].estimatedSecs - latest.estimatedSecs))}
+            <div className={`font-mono font-bold ${data[0].displaySecs > latest.displaySecs ? 'text-emerald-400' : 'text-red-400'}`}>
+              {data[0].displaySecs > latest.displaySecs ? '▼ ' : '▲ '}
+              {formatTime(Math.abs(data[0].displaySecs - latest.displaySecs))}
             </div>
             <div className="text-[#4b5563] text-xs mt-0.5">over {data.length} sessions</div>
           </div>
@@ -152,7 +175,7 @@ export default function FiveKTrendChart({ estimates, targetSecs, color = '#f9731
           <Line type="monotone" dataKey="trend" stroke="#2a2a2a" strokeWidth={2} dot={false} strokeDasharray="4 3" />
           <Line
             type="monotone"
-            dataKey="estimatedSecs"
+            dataKey="displaySecs"
             stroke={color}
             strokeWidth={2.5}
             dot={{ fill: color, r: 5, strokeWidth: 2, stroke: '#0a0a0a' }}

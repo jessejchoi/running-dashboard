@@ -250,7 +250,7 @@ export default async function AnalysisPage() {
                   </div>
                   <SourceEstimateBadge combined={combinedJson} source="interval" color="#f97316" label="intervals" />
                 </div>
-                <FiveKTrendChart estimates={intervalEstimates} targetSecs={TARGET_5K} color="#f97316" />
+                <FiveKTrendChart estimates={intervalEstimates} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} color="#f97316" />
               </div>
               {intervalEstimates.length === 0 && (
                 <div className="card text-center py-10 text-[#6b7280] text-sm">
@@ -295,7 +295,7 @@ export default async function AnalysisPage() {
                   </div>
                   <SourceEstimateBadge combined={combinedJson} source="threshold" color="#60a5fa" label="threshold" />
                 </div>
-                <FiveKTrendChart estimates={thresholdEstimates} targetSecs={TARGET_5K} color="#60a5fa" />
+                <FiveKTrendChart estimates={thresholdEstimates} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} color="#60a5fa" />
               </div>
               {thresholdEstimates.length === 0 && (
                 <div className="card text-center py-10 text-[#6b7280] text-sm">

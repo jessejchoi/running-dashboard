@@ -57,6 +57,7 @@ export default function SourcesPageClient({ combined }: Props) {
             contributors={bySource[source] ?? []}
             distanceKey={active}
             sourceAverage={c?.sourceAverages?.[source]}
+            effectiveWeight={c?.effectiveWeights?.[source] ?? 0}
           />
         ))}
       </div>

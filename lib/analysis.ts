@@ -96,6 +96,8 @@ export interface CombinedEstimate {
   confidence: number
   /** Per-source aggregated estimate (after drop-slowest + recency weighting) */
   sourceAverages: Partial<Record<EstimateSource, number>>
+  /** Effective weights per source (0 for missing sources, redistributed) */
+  effectiveWeights: Record<EstimateSource, number>
   contributors: {
     source: EstimateSource
     estimatedSecs: number
@@ -883,7 +885,7 @@ export function analyzeLongRun(activity: {
   splits?: any[]
 }, maxHr: number = DEFAULT_MAX_HR): LongRunAnalysis | null {
   const distKm = activity.distance / 1000
-  if (distKm < 15) return null
+  if (distKm < 12) return null
   if (!activity.average_heartrate) return null
 
   const window = extractSteadyWindow(activity)
@@ -1147,22 +1149,67 @@ export function easyRunTrendEstimate(
 
 /** Fixed training source weights per distance */
 const TRAINING_WEIGHTS: Record<DistanceKey, Record<EstimateSource, number>> = {
-  '5k':  { interval: 0.60, threshold: 0.30, easy_trend: 0.00, long_run: 0.05, race_result: 0.05 },
-  '10k': { interval: 0.30, threshold: 0.45, easy_trend: 0.10, long_run: 0.05, race_result: 0.10 },
+  '5k':  { interval: 0.75, threshold: 0.20, easy_trend: 0.00, long_run: 0.00, race_result: 0.05 },
+  '10k': { interval: 0.40, threshold: 0.40, easy_trend: 0.05, long_run: 0.05, race_result: 0.10 },
   'hm':  { interval: 0.10, threshold: 0.35, easy_trend: 0.20, long_run: 0.25, race_result: 0.10 },
   'fm':  { interval: 0.05, threshold: 0.25, easy_trend: 0.30, long_run: 0.30, race_result: 0.10 },
 }
 
-/** Get the fixed weight for a source at a distance (exported for SourceCard display) */
+/** Get the fixed weight for a source at a distance */
 export function getSourceWeight(distanceKey: DistanceKey, source: EstimateSource): number {
   return TRAINING_WEIGHTS[distanceKey][source]
 }
 
 /**
- * Per-source aggregation: drop slowest + recency weighting.
- * - Interval/Threshold: last 5, drop 1 slowest, recency weights 4-3-2-1
- * - Easy trend: last 10, drop 4 slowest, recency weights 6-5-4-3-2-1
- * - Long run / Race: simple recency-weighted average (no dropping)
+ * Get effective weights after redistributing missing sources' weights.
+ * Sources with no data get 0; their weight is redistributed proportionally.
+ */
+export function getEffectiveWeights(
+  distanceKey: DistanceKey,
+  availableSources: EstimateSource[]
+): Record<EstimateSource, number> {
+  const base = TRAINING_WEIGHTS[distanceKey]
+  const allSources: EstimateSource[] = ['interval', 'threshold', 'easy_trend', 'long_run', 'race_result']
+  const available = new Set(availableSources)
+  const totalAvailable = allSources.filter(s => available.has(s)).reduce((sum, s) => sum + base[s], 0)
+
+  const result: Record<EstimateSource, number> = { interval: 0, threshold: 0, easy_trend: 0, long_run: 0, race_result: 0 }
+  if (totalAvailable === 0) return result
+  for (const s of allSources) {
+    result[s] = available.has(s) ? base[s] / totalAvailable : 0
+  }
+  return result
+}
+
+/**
+ * Weighted average helper.
+ * Each item gets: recencyWeight × speedBonus.
+ * - recencyWeight: most recent (index 0) = N, next = N-1, ..., last = 1
+ * - speedBonus: faster estimates (lower secs) get up to 1.5× weight.
+ *   Slowest in the set = 1.0×, fastest = 1.5×, linear interpolation.
+ */
+function recencySpeedAvg(items: RaceEstimate[]): number {
+  if (items.length === 1) return items[0].estimatedSecs
+  const n = items.length
+  const fastest = Math.min(...items.map(it => it.estimatedSecs))
+  const slowest = Math.max(...items.map(it => it.estimatedSecs))
+  const range = slowest - fastest
+  let totalW = 0, totalS = 0
+  items.forEach((item, i) => {
+    const recency = n - i // items[0] is most recent
+    const speedBonus = range > 0 ? 1 + 0.5 * (1 - (item.estimatedSecs - fastest) / range) : 1
+    const w = recency * speedBonus
+    totalW += w
+    totalS += item.estimatedSecs * w
+  })
+  return totalS / totalW
+}
+
+/**
+ * Per-source aggregation: drop slowest + recency/speed weighting.
+ * - Interval/Threshold: last 5, drop 1 slowest, weight by recency + speed
+ * - Easy trend: last 10, drop 4 slowest, weight by recency + speed
+ * - Long run / Race: simple recency + speed weighted average (no dropping)
  */
 function aggregateSource(
   items: RaceEstimate[],
@@ -1175,61 +1222,27 @@ function aggregateSource(
 
   if (source === 'interval' || source === 'threshold') {
     const recent = sorted.slice(0, 5)
-    if (recent.length <= 1) {
-      // Only 1 data point — just return it
-      return recent[0].estimatedSecs
-    }
+    if (recent.length <= 1) return recent[0].estimatedSecs
     // Drop the slowest (highest estimatedSecs)
     const slowestIdx = recent.reduce((maxI, item, i) =>
       item.estimatedSecs > recent[maxI].estimatedSecs ? i : maxI, 0)
     const kept = recent.filter((_, i) => i !== slowestIdx)
-    // Recency weights: most recent = N, next = N-1, ...
-    const n = kept.length
-    let totalW = 0, totalS = 0
-    kept.forEach((item, i) => {
-      const w = n - i // most recent gets highest weight
-      totalW += w
-      totalS += item.estimatedSecs * w
-    })
-    return totalS / totalW
+    return recencySpeedAvg(kept)
   }
 
   if (source === 'easy_trend') {
     const recent = sorted.slice(0, 10)
-    if (recent.length <= 4) {
-      // Too few to drop any — simple recency-weighted average
-      let totalW = 0, totalS = 0
-      recent.forEach((item, i) => {
-        const w = recent.length - i
-        totalW += w
-        totalS += item.estimatedSecs * w
-      })
-      return totalS / totalW
-    }
+    if (recent.length <= 4) return recencySpeedAvg(recent)
     // Drop the 4 slowest
     const withIdx = recent.map((item, origIdx) => ({ item, origIdx }))
     withIdx.sort((a, b) => b.item.estimatedSecs - a.item.estimatedSecs)
     const dropIndices = new Set(withIdx.slice(0, 4).map(w => w.origIdx))
     const kept = recent.filter((_, i) => !dropIndices.has(i))
-    // Recency weights
-    const n = kept.length
-    let totalW = 0, totalS = 0
-    kept.forEach((item, i) => {
-      const w = n - i
-      totalW += w
-      totalS += item.estimatedSecs * w
-    })
-    return totalS / totalW
+    return recencySpeedAvg(kept)
   }
 
-  // long_run and race_result: simple recency-weighted average
-  let totalW = 0, totalS = 0
-  sorted.forEach((item, i) => {
-    const w = sorted.length - i
-    totalW += w
-    totalS += item.estimatedSecs * w
-  })
-  return totalS / totalW
+  // long_run and race_result: recency + speed weighted average
+  return recencySpeedAvg(sorted)
 }
 
 export function combineEstimates(
@@ -1315,11 +1328,15 @@ export function combineEstimates(
     bestEstimateSecs = trainingEstimate!
   }
 
-  // Confidence: best source confidence + diversity bonus (kept from before)
+  // Confidence based on source count × data depth
+  // High requires 3+ sources with good data; medium requires 2+ sources
+  const dataPoints = matching.length
   const bestConfidence = Math.max(...matching.map(e => e.confidence))
   const sourceCount = availableSources.length + (hasDirectRace ? 1 : 0)
-  const diversityBonus = Math.min(0.15, (sourceCount - 1) * 0.05)
-  const confidence = Math.min(1, bestConfidence + diversityBonus)
+  // Base from best source, small bonus per additional source, bonus for data depth
+  const diversityBonus = Math.min(0.10, (sourceCount - 1) * 0.03)
+  const depthBonus = Math.min(0.10, (dataPoints - 1) * 0.01)
+  const confidence = Math.min(1, bestConfidence * 0.8 + diversityBonus + depthBonus)
 
   // Build contributors list with recency weights for display
   const now = Date.now()
@@ -1343,6 +1360,7 @@ export function combineEstimates(
     bestEstimateSecs,
     confidence,
     sourceAverages: sourceAggs,
+    effectiveWeights: getEffectiveWeights(distanceKey, availableSources),
     contributors,
   }
 }

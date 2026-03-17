@@ -47,15 +47,8 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap }: Pro
         <CombinedEstimateCard distanceKey={active} combined={c} targetSecs={targetSecs} />
 
         {sourceCount > 0 && (
-          <Link
-            href="/analysis/sources"
-            className="card flex items-center justify-between py-3 px-4 hover:bg-[#1a1a1a] transition-colors group"
-          >
-            <div className="flex items-center gap-2 text-sm text-[#6b7280]">
-              <span>View contributing sources</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#1c1c1c] text-[#6b7280]">{sourceCount} sources</span>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#4b5563] group-hover:text-white transition-colors"><path d="m9 18 6-6-6-6"/></svg>
+          <Link href="/analysis/sources" className="text-[#f97316] text-sm hover:underline">
+            View sources →
           </Link>
         )}
       </div>

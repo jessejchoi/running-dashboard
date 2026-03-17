@@ -1,5 +1,5 @@
 'use client'
-import { formatTime, getSourceWeight } from '@/lib/analysis'
+import { formatTime } from '@/lib/analysis'
 import type { EstimateSource, DistanceKey } from '@/lib/analysis'
 
 interface Contributor {
@@ -16,26 +16,37 @@ interface Props {
   source: EstimateSource
   contributors: Contributor[]
   distanceKey: DistanceKey
-  /** The combiner's aggregated estimate for this source (after drop-slowest + recency) */
   sourceAverage?: number
+  /** Effective weight (0 if missing, redistributed from combiner) */
+  effectiveWeight?: number
 }
 
 const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon: string; emptyHint: string }> = {
   interval: { label: 'Intervals', color: '#f97316', icon: '⚡', emptyHint: 'Tag interval workouts to generate estimates' },
   threshold: { label: 'Threshold', color: '#60a5fa', icon: '🔥', emptyHint: 'Tag tempo/threshold runs to generate estimates' },
-  long_run: { label: 'Long Runs', color: '#34d399', icon: '🏃', emptyHint: 'Tag long runs to generate estimates' },
+  long_run: { label: 'Long Runs', color: '#34d399', icon: '🏃', emptyHint: 'Needs 12km+ runs with heart rate data' },
   easy_trend: { label: 'Easy Trend', color: '#a78bfa', icon: '📈', emptyHint: 'Need 3+ easy runs in the last 6 weeks' },
   race_result: { label: 'Race Results', color: '#f472b6', icon: '🏆', emptyHint: 'No races detected yet' },
 }
 
-export default function SourceCard({ source, contributors, distanceKey, sourceAverage }: Props) {
+const DISTANCE_HINTS: Partial<Record<EstimateSource, Partial<Record<DistanceKey, string>>>> = {
+  long_run: {
+    '5k': 'Long runs don\u2019t directly predict 5K times',
+    '10k': 'Long runs contribute minimally to 10K estimates',
+  },
+  easy_trend: {
+    '5k': 'Easy pace doesn\u2019t directly predict 5K times',
+  },
+}
+
+export default function SourceCard({ source, contributors, distanceKey, sourceAverage, effectiveWeight }: Props) {
   const config = SOURCE_CONFIG[source]
 
-  const fixedWeight = getSourceWeight(distanceKey, source)
-  const weightPct = Math.round(fixedWeight * 100)
+  const weightPct = Math.round((effectiveWeight ?? 0) * 100)
 
   // Empty state
   if (!contributors.length) {
+    const hint = DISTANCE_HINTS[source]?.[distanceKey] ?? config.emptyHint
     return (
       <div className="card fade-up opacity-50" style={{ borderLeft: `3px solid ${config.color}40` }}>
         <div className="flex items-center justify-between">
@@ -53,14 +64,12 @@ export default function SourceCard({ source, contributors, distanceKey, sourceAv
             </div>
           </div>
         </div>
-        <p className="text-[#4b5563] text-xs mt-3">{config.emptyHint}</p>
+        <p className="text-[#4b5563] text-xs mt-3">{hint}</p>
       </div>
     )
   }
 
-  // Use the combiner's aggregated estimate if available, otherwise fall back to simple average
   const avgSecs = sourceAverage ?? contributors[0].estimatedSecs
-
   const sorted = [...contributors].sort((a, b) => b.date.localeCompare(a.date))
 
   return (

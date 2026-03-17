@@ -32,9 +32,9 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
   const paceSecPerKm = bestEstimateSecs / km
   const vdot = distanceKey === '5k' ? vdotFrom5K(bestEstimateSecs) : vdotFrom5K(bestEstimateSecs / Math.pow(km / 5, 1.06) * 1)
 
-  const confLabel = confidence >= 0.7 ? 'High' : confidence >= 0.4 ? 'Medium' : 'Low'
-  const confColor = confidence >= 0.7 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-    : confidence >= 0.4 ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'
+  const confLabel = confidence >= 0.85 ? 'High' : confidence >= 0.6 ? 'Medium' : 'Low'
+  const confColor = confidence >= 0.85 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+    : confidence >= 0.6 ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'
     : 'text-orange-400 bg-orange-400/10 border-orange-400/20'
 
   const sourceTypes = new Set(contributors.map(c => c.source))

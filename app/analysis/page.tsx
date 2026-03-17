@@ -24,6 +24,7 @@ import AnalysisDistanceSection from '@/components/AnalysisDistanceSection'
 import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
 import SourceEstimateBadge from '@/components/SourceEstimateBadge'
 import RunEstimateBadge from '@/components/RunEstimateBadge'
+import RepTableClient from '@/components/RepTableClient'
 
 export const revalidate = 60
 
@@ -134,41 +135,6 @@ export default async function AnalysisPage() {
     )
   }
 
-  function RepTable({ efforts }: { efforts: any[] }) {
-    if (efforts.length === 0) return null
-    return (
-      <div className="bg-[#111] rounded-lg overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-[#1c1c1c]">
-              {['Lap', 'Dist', 'Pace', 'Time', 'HR', 'Est.5K'].map(h => (
-                <th key={h} className="text-left px-2 py-2 text-[#4b5563] font-medium whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {efforts.map((rep: any, i: number) => (
-              <tr key={i} className="border-b border-[#1a1a1a]">
-                <td className="px-2 py-2 text-[#6b7280] font-mono">{rep.lapIndex}</td>
-                <td className="px-2 py-2 font-mono text-white whitespace-nowrap">
-                  {rep.distanceM >= 1000 ? formatDistanceShort(rep.distanceM, unit) : `${Math.round(rep.distanceM)}m`}
-                </td>
-                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm, unit)}{paceUnitLabel(unit)}</td>
-                <td className="px-2 py-2 font-mono text-[#9ca3af] whitespace-nowrap">{formatDuration(rep.durationSecs)}</td>
-                <td className="px-2 py-2 font-mono text-[#9ca3af]">{rep.avgHR ? Math.round(rep.avgHR) : '—'}</td>
-                <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${rep.correctedSecs <= TARGET_5K ? 'text-emerald-400' : 'text-white'}`}>
-                  {formatTime(rep.correctedSecs)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="px-3 py-2 text-[10px] text-[#4b5563]">
-          Est. 5K = rep pace adjusted for rest, duration, and HR
-        </div>
-      </div>
-    )
-  }
 
   function ContinuousRunTable({ run }: { run: any }) {
     const laps: any[] = run.laps ?? []
@@ -276,7 +242,7 @@ export default async function AnalysisPage() {
                         ) : <div className="text-[#4b5563] text-xs pt-1">No hard efforts detected</div>}
                       </div>
                       {estimate && <WorkRestStats est={estimate} />}
-                      {estimate && <RepTable efforts={estimate.allEfforts} />}
+                      {estimate && <RepTableClient efforts={estimate.allEfforts} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} unit={unit} />}
                     </div>
                   )
                 })}
@@ -318,7 +284,7 @@ export default async function AnalysisPage() {
                         ) : <div className="text-[#4b5563] text-xs pt-1">Could not estimate</div>}
                       </div>
                       {estimate && <WorkRestStats est={estimate} isThreshold />}
-                      {estimate && !estimate.isContinuous && <RepTable efforts={estimate.allEfforts} />}
+                      {estimate && !estimate.isContinuous && <RepTableClient efforts={estimate.allEfforts} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} unit={unit} />}
                       {estimate && estimate.isContinuous && <ContinuousRunTable run={run} />}
                     </div>
                   )

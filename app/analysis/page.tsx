@@ -242,9 +242,11 @@ export default async function AnalysisPage() {
               <div className="card fade-up">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Intervals</h2>
-                  <span className="text-xs text-[#4b5563]">{intervalEstimates.length} sessions</span>
+                  {combined['5k']?.sourceAverages?.interval && (
+                    <span className="text-xs text-[#f97316] font-mono font-bold">{formatTime(combined['5k'].sourceAverages.interval)}</span>
+                  )}
                 </div>
-                <p className="text-[#4b5563] text-xs mb-5">Rep pace + rest/duration/HR correction</p>
+                <p className="text-[#4b5563] text-xs mb-5">{intervalEstimates.length} session{intervalEstimates.length !== 1 ? 's' : ''}</p>
                 <FiveKTrendChart estimates={intervalEstimates} targetSecs={TARGET_5K} color="#f97316" />
               </div>
               {intervalEstimates.length === 0 && (
@@ -285,9 +287,11 @@ export default async function AnalysisPage() {
               <div className="card fade-up">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Threshold</h2>
-                  <span className="text-xs text-[#4b5563]">{thresholdEstimates.length} sessions</span>
+                  {combined['5k']?.sourceAverages?.threshold && (
+                    <span className="text-xs text-[#60a5fa] font-mono font-bold">{formatTime(combined['5k'].sourceAverages.threshold)}</span>
+                  )}
                 </div>
-                <p className="text-[#4b5563] text-xs mb-5">Daniels ratio → direct 5K/10K/HM estimates</p>
+                <p className="text-[#4b5563] text-xs mb-5">{thresholdEstimates.length} session{thresholdEstimates.length !== 1 ? 's' : ''}</p>
                 <FiveKTrendChart estimates={thresholdEstimates} targetSecs={TARGET_5K} color="#60a5fa" />
               </div>
               {thresholdEstimates.length === 0 && (

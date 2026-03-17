@@ -23,6 +23,7 @@ import CollapsibleRuns from '@/components/CollapsibleRuns'
 import AnalysisDistanceSection from '@/components/AnalysisDistanceSection'
 import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
 import SourceEstimateBadge from '@/components/SourceEstimateBadge'
+import RunEstimateBadge from '@/components/RunEstimateBadge'
 
 export const revalidate = 60
 
@@ -271,10 +272,7 @@ export default async function AnalysisPage() {
                           <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
                         </div>
                         {estimate ? (
-                          <div className="text-right shrink-0">
-                            <div className="stat-num text-xl font-bold text-[#f97316]">{estimate.estimatedTime}</div>
-                            <div className="text-[#6b7280] text-xs">est. 5K</div>
-                          </div>
+                          <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#f97316" />
                         ) : <div className="text-[#4b5563] text-xs pt-1">No hard efforts detected</div>}
                       </div>
                       {estimate && <WorkRestStats est={estimate} />}
@@ -316,10 +314,7 @@ export default async function AnalysisPage() {
                           <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
                         </div>
                         {estimate ? (
-                          <div className="text-right shrink-0">
-                            <div className="stat-num text-xl font-bold text-blue-400">{estimate.estimatedTime}</div>
-                            <div className="text-[#6b7280] text-xs">est. 5K</div>
-                          </div>
+                          <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#60a5fa" />
                         ) : <div className="text-[#4b5563] text-xs pt-1">Could not estimate</div>}
                       </div>
                       {estimate && <WorkRestStats est={estimate} isThreshold />}

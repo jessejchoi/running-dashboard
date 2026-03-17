@@ -64,7 +64,7 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId, unit 
         </h2>
         <Link
           href={`/group/${groupId}`}
-          className="text-xs text-[#f97316] hover:underline whitespace-nowrap shrink-0 ml-2"
+          className="flex items-center text-xs text-[#f97316] hover:underline whitespace-nowrap shrink-0 ml-2 min-h-[44px]"
           prefetch
         >
           All runs →

@@ -65,7 +65,7 @@ export default function Nav() {
                   href={href}
                   prefetch={true}
                   onClick={() => handleNavClick(href)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-150"
+                  className="flex items-center gap-2 px-4 py-3 rounded-md text-sm font-medium transition-all duration-150"
                   style={{
                     color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
                     background: active || loading ? 'var(--accent-muted)' : 'transparent',
@@ -84,7 +84,7 @@ export default function Nav() {
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="flex items-center gap-2 px-3 py-2 text-xs rounded-md transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-3 text-xs rounded-md transition-all disabled:opacity-50 min-h-[44px]"
               style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
             >
               <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
@@ -92,7 +92,7 @@ export default function Nav() {
             </button>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="p-2 rounded-md transition-all"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md transition-all"
               style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
               title="Settings"
             >
@@ -115,7 +115,7 @@ export default function Nav() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 text-xs rounded-md transition-all disabled:opacity-50 min-h-[44px]"
             style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
           >
             <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
@@ -123,7 +123,7 @@ export default function Nav() {
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="p-1.5 rounded-md transition-all"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md transition-all"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
           >
             <Settings size={14} />
@@ -156,7 +156,7 @@ export default function Nav() {
               }}
             >
               <Icon size={19} />
-              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.03em' }}>{label}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>{label}</span>
             </Link>
           )
         })}

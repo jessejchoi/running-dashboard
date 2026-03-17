@@ -48,7 +48,7 @@ export default function GroupLeaderboard({ members, groupId, groupName, unit = '
         </div>
         <Link
           href={`/group/${groupId}`}
-          className="flex items-center gap-1 text-xs text-[#f97316] hover:underline"
+          className="flex items-center gap-1 text-xs text-[#f97316] hover:underline min-h-[44px]"
           prefetch
         >
           Group <ChevronRight size={12} />

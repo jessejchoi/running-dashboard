@@ -137,16 +137,16 @@ const RACE_5K_HR_FRACTION = 0.96  // 5K is run at ~96% HRmax
  * Duration and HR carry more weight to differentiate short vs long reps
  * and high vs low effort.
  *
- * Clamped to [1.0, 1.10]
+ * Clamped to [1.0, 1.15]
  */
 function newRepCorrection(workRestRatio: number, repDurationSecs: number, repHR?: number, maxHr: number = DEFAULT_MAX_HR): number {
   // Rest adjustment: more rest = artificially faster
-  // WR=1→+3%, WR=2→+2%, WR=3→+1.5%, WR=5→+1%
-  const restAdjust = 0.06 / (1 + workRestRatio)
+  // WR=1→+5%, WR=2→+3.3%, WR=3→+2.5%, WR=5→+1.7%
+  const restAdjust = 0.10 / (1 + workRestRatio)
 
   // Duration adjustment: short reps tap anaerobic systems
-  // 20s→+5.6%, 60s→+4.8%, 120s→+3.6%, 180s→+2.4%, 300s+→0%
-  const durationAdjust = 0.06 * Math.max(0, 1 - repDurationSecs / 300)
+  // 48s(200m)→+10.4%, 96s(400m)→+8.8%, 240s(1km)→+4%, 360s+→0%
+  const durationAdjust = 0.12 * Math.max(0, 1 - repDurationSecs / 360)
 
   // HR adjustment: ~2.7% per 10bpm at race intensity, clamped ±5%
   // Positive when repHR > raceHR (unsustainable effort → add correction)
@@ -158,7 +158,7 @@ function newRepCorrection(workRestRatio: number, repDurationSecs: number, repHR?
     hrAdjust = Math.max(-0.05, Math.min(0.05, hrAdjust))
   }
 
-  return Math.max(1.0, Math.min(1.10, 1 + restAdjust + durationAdjust + hrAdjust))
+  return Math.max(1.0, Math.min(1.15, 1 + restAdjust + durationAdjust + hrAdjust))
 }
 
 // Rest-only correction for structured threshold (avoids double-dip with Daniels)

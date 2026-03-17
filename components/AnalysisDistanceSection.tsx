@@ -1,9 +1,9 @@
 'use client'
-import { useState } from 'react'
 import { type DistanceKey } from '@/lib/goals'
 import type { CombinedEstimate } from '@/lib/analysis'
 import CombinedEstimateCard from './CombinedEstimateCard'
 import Link from 'next/link'
+import { useAnalysisTab } from './AnalysisTabContext'
 
 const TABS: { key: DistanceKey; label: string }[] = [
   { key: '5k', label: '5K' },
@@ -18,7 +18,7 @@ interface Props {
 }
 
 export default function AnalysisDistanceSection({ combined, targetSecsMap }: Props) {
-  const [active, setActive] = useState<DistanceKey>('5k')
+  const { active, setActive } = useAnalysisTab()
 
   const c = combined[active]
   const targetSecs = targetSecsMap[active] ?? null

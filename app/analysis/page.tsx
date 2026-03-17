@@ -21,6 +21,8 @@ import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
 import AnalysisDistanceSection from '@/components/AnalysisDistanceSection'
+import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
+import SourceEstimateBadge from '@/components/SourceEstimateBadge'
 
 export const revalidate = 60
 
@@ -212,6 +214,7 @@ export default async function AnalysisPage() {
   return (
     <>
       <Nav />
+      <AnalysisTabProvider>
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-16">
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold text-4xl mb-1">Race Analysis</h1>
@@ -245,12 +248,7 @@ export default async function AnalysisPage() {
                     <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Intervals</h2>
                     <p className="text-[#4b5563] text-xs mt-0.5">{intervalEstimates.length} session{intervalEstimates.length !== 1 ? 's' : ''}</p>
                   </div>
-                  {combined['5k']?.sourceAverages?.interval && (
-                    <div className="text-right">
-                      <div className="stat-num text-xl font-bold text-[#f97316]">{formatTime(combined['5k'].sourceAverages.interval)}</div>
-                      <div className="text-[#4b5563] text-[10px]">est. 5K from intervals</div>
-                    </div>
-                  )}
+                  <SourceEstimateBadge combined={combinedJson} source="interval" color="#f97316" label="intervals" />
                 </div>
                 <FiveKTrendChart estimates={intervalEstimates} targetSecs={TARGET_5K} color="#f97316" />
               </div>
@@ -295,12 +293,7 @@ export default async function AnalysisPage() {
                     <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Threshold</h2>
                     <p className="text-[#4b5563] text-xs mt-0.5">{thresholdEstimates.length} session{thresholdEstimates.length !== 1 ? 's' : ''}</p>
                   </div>
-                  {combined['5k']?.sourceAverages?.threshold && (
-                    <div className="text-right">
-                      <div className="stat-num text-xl font-bold text-[#60a5fa]">{formatTime(combined['5k'].sourceAverages.threshold)}</div>
-                      <div className="text-[#4b5563] text-[10px]">est. 5K from threshold</div>
-                    </div>
-                  )}
+                  <SourceEstimateBadge combined={combinedJson} source="threshold" color="#60a5fa" label="threshold" />
                 </div>
                 <FiveKTrendChart estimates={thresholdEstimates} targetSecs={TARGET_5K} color="#60a5fa" />
               </div>
@@ -346,12 +339,7 @@ export default async function AnalysisPage() {
                     <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Aerobic Efficiency</h2>
                     <p className="text-[#4b5563] text-xs mt-0.5">{easyEstimates.length} run{easyEstimates.length !== 1 ? 's' : ''}</p>
                   </div>
-                  {combined['5k']?.sourceAverages?.easy_trend && (
-                    <div className="text-right">
-                      <div className="stat-num text-xl font-bold text-[#a78bfa]">{formatTime(combined['5k'].sourceAverages.easy_trend)}</div>
-                      <div className="text-[#4b5563] text-[10px]">est. 5K from easy trend</div>
-                    </div>
-                  )}
+                  <SourceEstimateBadge combined={combinedJson} source="easy_trend" color="#a78bfa" label="easy trend" />
                 </div>
                 <AerobicEfficiencyChart runs={easyEstimates} />
               </div>
@@ -465,6 +453,7 @@ export default async function AnalysisPage() {
           </div>
         </div>
       </main>
+      </AnalysisTabProvider>
     </>
   )
 }

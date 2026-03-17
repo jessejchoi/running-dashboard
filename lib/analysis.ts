@@ -98,6 +98,10 @@ export interface CombinedEstimate {
   sourceAverages: Partial<Record<EstimateSource, number>>
   /** Effective weights per source (0 for missing sources, redistributed) */
   effectiveWeights: Record<EstimateSource, number>
+  /** Endurance readiness penalty applied (0 = none, e.g. 0.03 = 3% added) */
+  endurancePenaltyPct?: number
+  /** Longest run in last 3 months (km) */
+  longestRecentRunKm?: number
   contributors: {
     source: EstimateSource
     estimatedSecs: number
@@ -1363,6 +1367,7 @@ export function combineEstimates(
   // Endurance readiness penalty for HM/FM: if the runner's longest recent
   // run is short relative to the target distance, add a modest time penalty.
   // No penalty once longest run reaches a threshold (~85% of race distance).
+  let endurancePenaltyPct = 0
   if (distanceKey === 'hm' || distanceKey === 'fm') {
     // HM: no penalty at 18km+, up to 3% at 0km
     // FM: no penalty at 35km+, up to 5% at 0km
@@ -1370,8 +1375,8 @@ export function combineEstimates(
     const maxPenaltyPct = distanceKey === 'hm' ? 0.03 : 0.05
     if (longestRecentRunKm < thresholdKm) {
       const ratio = Math.min(1, longestRecentRunKm / thresholdKm)
-      const penaltyPct = maxPenaltyPct * (1 - ratio)
-      bestEstimateSecs = bestEstimateSecs * (1 + penaltyPct)
+      endurancePenaltyPct = maxPenaltyPct * (1 - ratio)
+      bestEstimateSecs = bestEstimateSecs * (1 + endurancePenaltyPct)
     }
   }
 
@@ -1408,6 +1413,8 @@ export function combineEstimates(
     confidence,
     sourceAverages: sourceAggs,
     effectiveWeights: getEffectiveWeights(distanceKey, availableSources),
+    endurancePenaltyPct: endurancePenaltyPct > 0 ? endurancePenaltyPct : undefined,
+    longestRecentRunKm: longestRecentRunKm > 0 ? longestRecentRunKm : undefined,
     contributors,
   }
 }

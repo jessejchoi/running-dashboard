@@ -61,6 +61,32 @@ export default function SourcesPageClient({ combined }: Props) {
           />
         ))}
       </div>
+
+      {(active === 'hm' || active === 'fm') && c?.endurancePenaltyPct != null && c.endurancePenaltyPct > 0 && (
+        <div className="mt-6 rounded-xl border border-[#2a2a2a] bg-[#141414] p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 text-amber-500">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Endurance readiness penalty: +{(c.endurancePenaltyPct * 100).toFixed(1)}%
+              </p>
+              <p className="text-[#6b7280] text-xs mt-1">
+                Your longest run in the last 3 months is{' '}
+                <span className="text-[#9ca3af]">{c.longestRecentRunKm != null ? `${c.longestRecentRunKm.toFixed(1)} km` : 'unknown'}</span>.
+                {active === 'hm'
+                  ? ' For half marathon estimates, this penalty phases out once you\'ve run 18 km+.'
+                  : ' For marathon estimates, this penalty phases out once you\'ve run 35 km+.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

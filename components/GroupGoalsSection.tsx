@@ -109,7 +109,7 @@ function FilterDropdown({ value, onChange, options, placeholder }: DropdownProps
       <button
         ref={btnRef}
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1c1c1c] border border-[#2a2a2a] hover:border-[#3a3a3a] text-xs text-[#9ca3af] transition-all"
+        className="flex items-center gap-1.5 px-3 min-h-[44px] rounded bg-[#1c1c1c] border border-[#2a2a2a] hover:border-[#3a3a3a] text-xs text-[#9ca3af] transition-all"
       >
         <span className={selected?.value !== 'all' ? 'text-white font-medium' : ''}>
           {selected?.label ?? placeholder}
@@ -134,8 +134,8 @@ function GoalRow({ goal, unit }: { goal: MemberGoal; unit: DistanceUnit }) {
 
   const urgencyColor = isPast
     ? 'text-[#4b5563]'
-    : daysLeft <= 14 ? 'text-yellow-400'
-    : daysLeft <= 60 ? 'text-emerald-400'
+    : daysLeft <= 14 ? 'text-[var(--warning)]'
+    : daysLeft <= 60 ? 'text-[var(--success)]'
     : 'text-[#6b7280]'
 
   return (

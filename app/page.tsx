@@ -36,7 +36,7 @@ async function getData(athleteId: number) {
     supabaseAdmin.from('activities').select('id,start_date,distance,moving_time,suffer_score,run_type,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(200),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }).limit(20),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'threshold').order('start_date', { ascending: false }).limit(20),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'long').order('start_date', { ascending: false }).limit(15),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['long', 'long_easy', 'long_progressive']).order('start_date', { ascending: false }).limit(15),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).order('start_date', { ascending: false }).limit(30),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),

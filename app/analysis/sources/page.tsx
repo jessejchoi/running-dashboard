@@ -33,7 +33,7 @@ export default async function SourcesPage() {
   const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: allActivities }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'threshold').order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'long').order('start_date', { ascending: false }).limit(15),
+    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['long', 'long_easy', 'long_progressive']).order('start_date', { ascending: false }).limit(15),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
     supabaseAdmin.from('activities').select('start_date, run_type').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false }).limit(200),
   ])

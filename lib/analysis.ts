@@ -919,24 +919,21 @@ export function analyzeLongRun(activity: {
   const hmRaceHR = maxHr * 0.87
   const fmRaceHR = maxHr * 0.82
 
-  // Logarithmic HR→pace projection for large HR gaps.
-  // Linear 2.5 sec/km per %HRmax is accurate for small gaps (~5%),
-  // but overestimates improvement for large gaps (15%+) because the
-  // pace-HR relationship has diminishing returns at higher intensities.
-  //
-  // Model: paceChange = baseRate * ln(1 + hrGapPct * scale) / scale
-  // This approximates 2.5 sec/km for small gaps but flattens for large ones.
-  function logPaceAdjust(hrGapBpm: number): number {
-    const hrGapPct = hrGapBpm / maxHr * 100
-    const scale = 0.08  // Controls how quickly returns diminish
-    return 2.5 * Math.log(1 + hrGapPct * scale) / scale
-  }
+  // Linear HR→pace projection: ~2.5 sec/km per %HRmax.
+  // At low intensity each bpm is worth more pace than near race HR,
+  // so linear is slightly conservative — which is appropriate given
+  // the uncertainty of projecting across large HR gaps.
+  const hmHRDiff = (hmRaceHR - window.avgHR) / maxHr * 100
+  const fmHRDiff = (fmRaceHR - window.avgHR) / maxHr * 100
 
-  const hmHRGap = hmRaceHR - window.avgHR
-  const fmHRGap = fmRaceHR - window.avgHR
+  const hmPace = window.avgPace - hmHRDiff * 2.5
+  const fmPace = window.avgPace - fmHRDiff * 2.5
 
-  const hmPace = window.avgPace - (hmHRGap > 0 ? logPaceAdjust(hmHRGap) : hmHRGap / maxHr * 100 * 2.5)
-  const fmPace = window.avgPace - (fmHRGap > 0 ? logPaceAdjust(fmHRGap) : fmHRGap / maxHr * 100 * 2.5)
+  // HR gap factor: larger gaps = less reliable projection = lower confidence
+  const hmHRGapBpm = Math.abs(hmRaceHR - window.avgHR)
+  const fmHRGapBpm = Math.abs(fmRaceHR - window.avgHR)
+  const hmHRGapPenalty = Math.max(0.3, 1 - (hmHRGapBpm - 10) * 0.02)  // full at ≤10bpm, 0.3 at 45bpm
+  const fmHRGapPenalty = Math.max(0.3, 1 - (fmHRGapBpm - 10) * 0.02)
 
   // Distance factor: longer runs = more confidence
   const distanceFactor = Math.min(1, distKm / 25)
@@ -951,7 +948,7 @@ export function analyzeLongRun(activity: {
     raceEstimates.push({
       distanceKey: 'hm',
       estimatedSecs: hmPace * 21.097,
-      confidence: 0.65 * distanceFactor * driftFactor,
+      confidence: 0.65 * distanceFactor * driftFactor * hmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
@@ -964,7 +961,7 @@ export function analyzeLongRun(activity: {
     raceEstimates.push({
       distanceKey: 'fm',
       estimatedSecs: fmPace * 42.195,
-      confidence: 0.50 * distanceFactor * driftFactor,
+      confidence: 0.50 * distanceFactor * driftFactor * fmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
@@ -1152,27 +1149,20 @@ export function easyRunTrendEstimate(
     const raceHR = raceHRs[dk]
     const hrGap = raceHR - REF_HR
 
-    // The regression slope is measured within a narrow easy HR range (~130-160bpm).
-    // Extrapolating it linearly to race HR (170-190bpm) overshoots because the
-    // pace-HR relationship flattens at high intensity.
-    // Apply diminishing returns: full slope for first 15bpm, then halve per 15bpm beyond.
-    let effectiveAdjust: number
-    if (hrGap <= 15) {
-      effectiveAdjust = avgSlope * hrGap
-    } else {
-      // First 15bpm at full slope, remaining at dampened rate
-      const beyondThreshold = hrGap - 15
-      const dampFactor = 15 / (15 + beyondThreshold)  // 1.0 at 15bpm, 0.5 at 30bpm, 0.33 at 45bpm
-      effectiveAdjust = avgSlope * 15 + avgSlope * beyondThreshold * dampFactor
-    }
-
-    const racePace = avgNormalizedPace + effectiveAdjust
+    // Linear projection: at low intensity each bpm has MORE pace impact,
+    // so linear extrapolation from easy HR to race HR is conservative (if anything).
+    const racePace = avgNormalizedPace + avgSlope * hrGap
     if (racePace < 150 || racePace > 450) continue
+
+    // HR gap confidence penalty: larger extrapolation = less reliable
+    const hrGapPenalty = Math.max(0.3, 1 - (hrGap - 15) * 0.02)  // full at ≤15bpm, 0.3 at 50bpm
+    const baseConfidence = 0.40
+
     const km = DISTANCE_KM[dk]
     estimates.push({
       distanceKey: dk,
       estimatedSecs: racePace * km,
-      confidence: 0.40,
+      confidence: baseConfidence * hrGapPenalty,
       source: 'easy_trend',
       date: latestRun.date,
       activityId: latestRun.activityId,

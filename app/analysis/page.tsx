@@ -20,9 +20,7 @@ import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
-import DistanceTabs from '@/components/DistanceTabs'
-import CombinedEstimateCard from '@/components/CombinedEstimateCard'
-import SourceCard from '@/components/SourceCard'
+import AnalysisDistanceSection from '@/components/AnalysisDistanceSection'
 
 export const revalidate = 60
 
@@ -44,24 +42,39 @@ export default async function AnalysisPage() {
     targetSecsMap[g.distance_key] = g.target_secs
   }
 
-  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, raceResult] = await Promise.all([
+  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }] = await Promise.all([
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'interval_5k').order('start_date', { ascending: false }),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'threshold').order('start_date', { ascending: false }),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'long').order('start_date', { ascending: false }).limit(15),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
-    // is_race column may not exist yet (migration_008) — gracefully degrade
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10),
   ])
-  const raceRuns = raceResult?.data ?? []
 
-  const result = analyzeAllAndCombine(
-    intervalRuns ?? [],
-    thresholdRuns ?? [],
-    longRuns ?? [],
-    easyRuns ?? [],
-    raceRuns,
-    maxHr ?? 195,
-  )
+  // Race query is separate — is_race column may not exist before migration_008
+  let raceRuns: any[] = []
+  try {
+    const { data } = await supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10)
+    raceRuns = data ?? []
+  } catch { /* column doesn't exist yet — ignore */ }
+
+  let result: ReturnType<typeof analyzeAllAndCombine>
+  try {
+    result = analyzeAllAndCombine(
+      intervalRuns ?? [],
+      thresholdRuns ?? [],
+      longRuns ?? [],
+      easyRuns ?? [],
+      raceRuns,
+      maxHr ?? 195,
+    )
+  } catch (err) {
+    console.error('analyzeAllAndCombine failed:', err)
+    result = {
+      intervalEstimates: [], thresholdEstimates: [], longRunAnalyses: [],
+      raceAnalyses: [], easyRunResults: [], easyTrendEstimates: [],
+      allRaceEstimates: [],
+      combined: { '5k': null, '10k': null, 'hm': null, 'fm': null },
+    }
+  }
 
   const { intervalEstimates, thresholdEstimates, longRunAnalyses, raceAnalyses, easyRunResults, combined, allRaceEstimates } = result
   const easyEstimates = easyRunResults.filter(r => !r.excludedReason)
@@ -213,41 +226,11 @@ export default async function AnalysisPage() {
         </div>
 
         {/* Distance Tabs + Combined Estimate + Source Cards */}
-        <DistanceTabs>
-          {(activeTab: DistanceKey) => {
-            const c = combinedJson[activeTab]
-            const targetSecs = targetSecsMap[activeTab] ?? null
-
-            // Group allRaceEstimates by source for this distance
-            const distEstimates = allEstimatesJson.filter((e: any) => e.distanceKey === activeTab)
-            const bySource: Record<string, any[]> = {}
-            for (const e of distEstimates) {
-              if (!bySource[e.source]) bySource[e.source] = []
-              bySource[e.source].push(e)
-            }
-
-            return (
-              <div className="space-y-6">
-                <CombinedEstimateCard distanceKey={activeTab} combined={c} targetSecs={targetSecs} />
-
-                {/* Source breakdown cards */}
-                {Object.keys(bySource).length > 0 && (
-                  <div>
-                    <h3 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">Contributing Sources</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {(['race_result', 'interval', 'threshold', 'long_run', 'easy_trend'] as EstimateSource[]).map(source => {
-                        if (!bySource[source]) return null
-                        return (
-                          <SourceCard key={source} source={source} contributors={bySource[source]} />
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          }}
-        </DistanceTabs>
+        <AnalysisDistanceSection
+          combined={combinedJson}
+          allEstimates={allEstimatesJson}
+          targetSecsMap={targetSecsMap}
+        />
 
         {/* Detailed session breakdowns below */}
         <div className="mt-12">

@@ -341,11 +341,18 @@ export default async function AnalysisPage() {
             {/* COL 3: Aerobic Efficiency + Long Runs + Races */}
             <div className="flex flex-col gap-4">
               <div className="card fade-up">
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Aerobic Efficiency</h2>
-                  <span className="text-xs text-[#4b5563]">{easyEstimates.length} runs</span>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Aerobic Efficiency</h2>
+                    <p className="text-[#4b5563] text-xs mt-0.5">{easyEstimates.length} run{easyEstimates.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {combined['5k']?.sourceAverages?.easy_trend && (
+                    <div className="text-right">
+                      <div className="stat-num text-xl font-bold text-[#a78bfa]">{formatTime(combined['5k'].sourceAverages.easy_trend)}</div>
+                      <div className="text-[#4b5563] text-[10px]">est. 5K from easy trend</div>
+                    </div>
+                  )}
                 </div>
-                <p className="text-[#4b5563] text-xs mb-5">Pace normalised to 150 bpm</p>
                 <AerobicEfficiencyChart runs={easyEstimates} />
               </div>
 

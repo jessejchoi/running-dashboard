@@ -132,29 +132,35 @@ const RACE_5K_HR_FRACTION = 0.96  // 5K is run at ~96% HRmax
  * Eliminates the old 0.93 calibration hack.
  *
  * correction = 1 + restAdjust + durationAdjust + hrAdjust
- * Clamped to [1.0, 1.15]
+ *
+ * Calibrated so typical sessions (WR=2, 180s reps) get ~+3% correction,
+ * matching the effective range of the old model (correction × 0.93).
+ *
+ * Clamped to [1.0, 1.10]
  */
 function newRepCorrection(workRestRatio: number, repDurationSecs: number, repHR?: number, maxHr: number = DEFAULT_MAX_HR): number {
   // Rest adjustment: more rest = artificially faster
-  const restAdjust = 0.10 / (1 + workRestRatio)
+  // WR=1→+3%, WR=2→+2%, WR=3→+1.5%, WR=5→+1%
+  const restAdjust = 0.06 / (1 + workRestRatio)
 
   // Duration adjustment: short reps tap anaerobic systems
-  const durationAdjust = 0.06 * Math.max(0, 1 - repDurationSecs / 300)
+  // 60s→+2.4%, 120s→+1.8%, 180s→+1.2%, 300s+→0%
+  const durationAdjust = 0.03 * Math.max(0, 1 - repDurationSecs / 300)
 
-  // HR adjustment: fine-tunes for actual exertion
+  // HR adjustment: fine-tunes for actual exertion ±2% max
   let hrAdjust = 0
   if (repHR && repHR > 100) {
     const targetHR = maxHr * RACE_5K_HR_FRACTION
-    hrAdjust = ((targetHR - repHR) / targetHR) * 0.08
-    hrAdjust = Math.max(-0.04, Math.min(0.04, hrAdjust))
+    hrAdjust = ((targetHR - repHR) / targetHR) * 0.05
+    hrAdjust = Math.max(-0.02, Math.min(0.02, hrAdjust))
   }
 
-  return Math.max(1.0, Math.min(1.15, 1 + restAdjust + durationAdjust + hrAdjust))
+  return Math.max(1.0, Math.min(1.10, 1 + restAdjust + durationAdjust + hrAdjust))
 }
 
-// Keep old repCorrectionFactor for threshold structured (rest-only portion)
+// Rest-only correction for structured threshold (avoids double-dip with Daniels)
 function restOnlyCorrection(workRestRatio: number): number {
-  return 1 + 0.10 / (1 + workRestRatio)
+  return 1 + 0.04 / (1 + workRestRatio)
 }
 
 // ─── Legacy types (kept for backward compat with UI) ─────────────────────────

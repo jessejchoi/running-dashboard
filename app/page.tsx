@@ -28,7 +28,7 @@ async function getData(athleteId: number) {
     { data: thresholdRuns },
     { data: longRuns },
     { data: easyRuns },
-    { data: raceRuns },
+    raceResult,
     { data: tokenData },
     goalsData,
     { data: membership },
@@ -39,12 +39,14 @@ async function getData(athleteId: number) {
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'threshold').order('start_date', { ascending: false }).limit(20),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('run_type', 'long').order('start_date', { ascending: false }).limit(15),
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).order('start_date', { ascending: false }).limit(30),
+    // is_race column may not exist yet (migration_008) — gracefully degrade
     supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10),
     supabaseAdmin.from('strava_tokens').select('athlete_data').eq('athlete_id', athleteId).single(),
     supabaseAdmin.from('user_goals').select('*').eq('athlete_id', athleteId).order('race_date', { ascending: true }).then(r => r.data ?? []).catch(() => []),
     supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', athleteId),
     supabaseAdmin.from('user_profiles').select('display_name, primary_group_id, max_hr, group_order').eq('athlete_id', athleteId).maybeSingle(),
   ])
+  const raceRuns = raceResult?.data ?? []
 
   const maxHr = userProfile?.max_hr ?? undefined
 

@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { type DistanceKey, distanceLabel } from '@/lib/goals'
-import type { CombinedEstimate, EstimateSource } from '@/lib/analysis'
+import { type DistanceKey } from '@/lib/goals'
+import type { CombinedEstimate } from '@/lib/analysis'
 import CombinedEstimateCard from './CombinedEstimateCard'
-import SourceCard from './SourceCard'
+import Link from 'next/link'
 
 const TABS: { key: DistanceKey; label: string }[] = [
   { key: '5k', label: '5K' },
@@ -11,8 +11,6 @@ const TABS: { key: DistanceKey; label: string }[] = [
   { key: 'hm', label: 'HM' },
   { key: 'fm', label: 'FM' },
 ]
-
-const SOURCE_ORDER: EstimateSource[] = ['race_result', 'interval', 'threshold', 'long_run', 'easy_trend']
 
 interface Props {
   combined: Record<DistanceKey, CombinedEstimate | null>
@@ -25,14 +23,7 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap }: Pro
   const c = combined[active]
   const targetSecs = targetSecsMap[active] ?? null
 
-  // Group contributors by source — these already have recency-weighted weights
-  const bySource: Record<string, NonNullable<CombinedEstimate['contributors']>> = {}
-  if (c) {
-    for (const contrib of c.contributors) {
-      if (!bySource[contrib.source]) bySource[contrib.source] = []
-      bySource[contrib.source].push(contrib)
-    }
-  }
+  const sourceCount = c ? new Set(c.contributors.map(ct => ct.source)).size : 0
 
   return (
     <div>
@@ -52,19 +43,20 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap }: Pro
         ))}
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         <CombinedEstimateCard distanceKey={active} combined={c} targetSecs={targetSecs} />
 
-        {Object.keys(bySource).length > 0 && (
-          <div>
-            <h3 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest mb-4">Contributing Sources</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              {SOURCE_ORDER.map(source => {
-                if (!bySource[source]) return null
-                return <SourceCard key={source} source={source} contributors={bySource[source]} distanceKey={active} sourceAverage={c?.sourceAverages?.[source]} />
-              })}
+        {sourceCount > 0 && (
+          <Link
+            href="/analysis/sources"
+            className="card flex items-center justify-between py-3 px-4 hover:bg-[#1a1a1a] transition-colors group"
+          >
+            <div className="flex items-center gap-2 text-sm text-[#6b7280]">
+              <span>View contributing sources</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#1c1c1c] text-[#6b7280]">{sourceCount} sources</span>
             </div>
-          </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#4b5563] group-hover:text-white transition-colors"><path d="m9 18 6-6-6-6"/></svg>
+          </Link>
         )}
       </div>
     </div>

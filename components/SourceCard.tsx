@@ -20,25 +20,48 @@ interface Props {
   sourceAverage?: number
 }
 
-const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon: string }> = {
-  interval: { label: 'Intervals', color: '#f97316', icon: '⚡' },
-  threshold: { label: 'Threshold', color: '#60a5fa', icon: '🔥' },
-  long_run: { label: 'Long Runs', color: '#34d399', icon: '🏃' },
-  easy_trend: { label: 'Easy Trend', color: '#a78bfa', icon: '📈' },
-  race_result: { label: 'Race Results', color: '#f472b6', icon: '🏆' },
+const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon: string; emptyHint: string }> = {
+  interval: { label: 'Intervals', color: '#f97316', icon: '⚡', emptyHint: 'Tag interval workouts to generate estimates' },
+  threshold: { label: 'Threshold', color: '#60a5fa', icon: '🔥', emptyHint: 'Tag tempo/threshold runs to generate estimates' },
+  long_run: { label: 'Long Runs', color: '#34d399', icon: '🏃', emptyHint: 'Tag long runs to generate estimates' },
+  easy_trend: { label: 'Easy Trend', color: '#a78bfa', icon: '📈', emptyHint: 'Need 3+ easy runs in the last 6 weeks' },
+  race_result: { label: 'Race Results', color: '#f472b6', icon: '🏆', emptyHint: 'No races detected yet' },
 }
 
 export default function SourceCard({ source, contributors, distanceKey, sourceAverage }: Props) {
   const config = SOURCE_CONFIG[source]
-  if (!contributors.length) return null
+
+  const fixedWeight = getSourceWeight(distanceKey, source)
+  const weightPct = Math.round(fixedWeight * 100)
+
+  // Empty state
+  if (!contributors.length) {
+    return (
+      <div className="card fade-up opacity-50" style={{ borderLeft: `3px solid ${config.color}40` }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg opacity-40">{config.icon}</span>
+            <div>
+              <h3 className="font-display font-bold text-sm text-[#4b5563]">{config.label}</h3>
+              <p className="text-[#4b5563] text-[10px]">No data</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="stat-num text-lg font-bold text-[#333]">--:--</div>
+            <div className="text-[10px] text-[#4b5563]">
+              {weightPct}% weight
+            </div>
+          </div>
+        </div>
+        <p className="text-[#4b5563] text-xs mt-3">{config.emptyHint}</p>
+      </div>
+    )
+  }
 
   // Use the combiner's aggregated estimate if available, otherwise fall back to simple average
   const avgSecs = sourceAverage ?? contributors[0].estimatedSecs
 
   const sorted = [...contributors].sort((a, b) => b.date.localeCompare(a.date))
-
-  const fixedWeight = getSourceWeight(distanceKey, source)
-  const weightPct = Math.round(fixedWeight * 100)
 
   return (
     <div className="card fade-up" style={{ borderLeft: `3px solid ${config.color}` }}>

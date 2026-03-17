@@ -887,7 +887,19 @@ export function analyzeLongRun(activity: {
   const distKm = activity.distance / 1000
   if (!activity.average_heartrate) return null
 
-  const window = extractSteadyWindow(activity)
+  let window = extractSteadyWindow(activity)
+
+  // Fallback: if no steady window found (e.g. auto-lapped 1km splits),
+  // use the overall activity averages
+  if (!window && activity.average_heartrate && activity.average_speed) {
+    window = {
+      avgPace: 1000 / activity.average_speed,
+      avgHR: activity.average_heartrate,
+      splits: [],
+      windowSecs: activity.moving_time,
+    }
+  }
+
   if (!window || window.windowSecs < 600) return null
 
   // Measure cardiac drift from window splits

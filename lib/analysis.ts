@@ -133,8 +133,9 @@ const RACE_5K_HR_FRACTION = 0.96  // 5K is run at ~96% HRmax
  *
  * correction = 1 + restAdjust + durationAdjust + hrAdjust
  *
- * Calibrated so typical sessions (WR=2, 180s reps) get ~+3% correction,
- * matching the effective range of the old model (correction × 0.93).
+ * Calibrated so typical sessions (WR=2, 180s reps) get ~+4% correction.
+ * Duration and HR carry more weight to differentiate short vs long reps
+ * and high vs low effort.
  *
  * Clamped to [1.0, 1.10]
  */
@@ -144,15 +145,15 @@ function newRepCorrection(workRestRatio: number, repDurationSecs: number, repHR?
   const restAdjust = 0.06 / (1 + workRestRatio)
 
   // Duration adjustment: short reps tap anaerobic systems
-  // 60s→+2.4%, 120s→+1.8%, 180s→+1.2%, 300s+→0%
-  const durationAdjust = 0.03 * Math.max(0, 1 - repDurationSecs / 300)
+  // 20s→+5.6%, 60s→+4.8%, 120s→+3.6%, 180s→+2.4%, 300s+→0%
+  const durationAdjust = 0.06 * Math.max(0, 1 - repDurationSecs / 300)
 
-  // HR adjustment: fine-tunes for actual exertion ±2% max
+  // HR adjustment: fine-tunes for actual exertion ±5% max
   let hrAdjust = 0
   if (repHR && repHR > 100) {
     const targetHR = maxHr * RACE_5K_HR_FRACTION
     hrAdjust = ((targetHR - repHR) / targetHR) * 0.05
-    hrAdjust = Math.max(-0.02, Math.min(0.02, hrAdjust))
+    hrAdjust = Math.max(-0.05, Math.min(0.05, hrAdjust))
   }
 
   return Math.max(1.0, Math.min(1.10, 1 + restAdjust + durationAdjust + hrAdjust))

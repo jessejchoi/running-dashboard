@@ -918,14 +918,25 @@ export function analyzeLongRun(activity: {
   // HM race HR ≈ 87% max HR, FM race HR ≈ 82% max HR
   const hmRaceHR = maxHr * 0.87
   const fmRaceHR = maxHr * 0.82
-  const steadyHRPercent = window.avgHR / maxHr
 
-  // Pace improvement ≈ 2.5 sec/km per %HRmax gained
-  const hmHRDiff = (hmRaceHR - window.avgHR) / maxHr * 100  // % difference
-  const fmHRDiff = (fmRaceHR - window.avgHR) / maxHr * 100
+  // Logarithmic HR→pace projection for large HR gaps.
+  // Linear 2.5 sec/km per %HRmax is accurate for small gaps (~5%),
+  // but overestimates improvement for large gaps (15%+) because the
+  // pace-HR relationship has diminishing returns at higher intensities.
+  //
+  // Model: paceChange = baseRate * ln(1 + hrGapPct * scale) / scale
+  // This approximates 2.5 sec/km for small gaps but flattens for large ones.
+  function logPaceAdjust(hrGapBpm: number): number {
+    const hrGapPct = hrGapBpm / maxHr * 100
+    const scale = 0.08  // Controls how quickly returns diminish
+    return 2.5 * Math.log(1 + hrGapPct * scale) / scale
+  }
 
-  const hmPace = window.avgPace - hmHRDiff * 2.5
-  const fmPace = window.avgPace - fmHRDiff * 2.5
+  const hmHRGap = hmRaceHR - window.avgHR
+  const fmHRGap = fmRaceHR - window.avgHR
+
+  const hmPace = window.avgPace - (hmHRGap > 0 ? logPaceAdjust(hmHRGap) : hmHRGap / maxHr * 100 * 2.5)
+  const fmPace = window.avgPace - (fmHRGap > 0 ? logPaceAdjust(fmHRGap) : fmHRGap / maxHr * 100 * 2.5)
 
   // Distance factor: longer runs = more confidence
   const distanceFactor = Math.min(1, distKm / 25)
@@ -1139,7 +1150,23 @@ export function easyRunTrendEstimate(
 
   for (const dk of ['5k', '10k', 'hm', 'fm'] as DistanceKey[]) {
     const raceHR = raceHRs[dk]
-    const racePace = avgNormalizedPace + avgSlope * (raceHR - REF_HR)
+    const hrGap = raceHR - REF_HR
+
+    // The regression slope is measured within a narrow easy HR range (~130-160bpm).
+    // Extrapolating it linearly to race HR (170-190bpm) overshoots because the
+    // pace-HR relationship flattens at high intensity.
+    // Apply diminishing returns: full slope for first 15bpm, then halve per 15bpm beyond.
+    let effectiveAdjust: number
+    if (hrGap <= 15) {
+      effectiveAdjust = avgSlope * hrGap
+    } else {
+      // First 15bpm at full slope, remaining at dampened rate
+      const beyondThreshold = hrGap - 15
+      const dampFactor = 15 / (15 + beyondThreshold)  // 1.0 at 15bpm, 0.5 at 30bpm, 0.33 at 45bpm
+      effectiveAdjust = avgSlope * 15 + avgSlope * beyondThreshold * dampFactor
+    }
+
+    const racePace = avgNormalizedPace + effectiveAdjust
     if (racePace < 150 || racePace > 450) continue
     const km = DISTANCE_KM[dk]
     estimates.push({

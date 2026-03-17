@@ -67,7 +67,7 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
     : progress >= 0.5   ? 'close'
     : 'behind'
 
-  const statusColor = { goal: 'text-emerald-400', close: 'text-yellow-400', behind: 'text-orange-400', unknown: 'text-[#6b7280]' }[status]
+  const statusColor = { goal: 'text-[var(--success)]', close: 'text-[var(--warning)]', behind: 'text-[var(--accent)]', unknown: 'text-[var(--text-3)]' }[status]
   const statusLabel = { goal: 'On target! 🎯', close: 'Nearly there!', behind: 'Keep pushing!', unknown: 'No data yet' }[status]
 
   async function handleDelete() {
@@ -94,10 +94,10 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
             <span className={`text-xs font-mono font-bold px-2 py-1 rounded-md bg-[#1c1c1c] ${statusColor}`}>
               {statusLabel}
             </span>
-            <button onClick={() => setEditing(true)} className="text-[#4b5563] hover:text-white p-1 transition-colors">
+            <button onClick={() => setEditing(true)} className="text-[#4b5563] hover:text-white p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors">
               <Pencil size={13} />
             </button>
-            <button onClick={handleDelete} disabled={deleting} className="text-[#4b5563] hover:text-red-400 p-1 transition-colors">
+            <button onClick={handleDelete} disabled={deleting} className="text-[#4b5563] hover:text-red-400 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors">
               <Trash2 size={13} />
             </button>
           </div>
@@ -124,7 +124,7 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
             </div>
             <div className="text-[#6b7280] text-xs">
               {currentEstimateSecs && confidence != null ? (
-                <span className={`font-mono ${confidence >= 0.7 ? 'text-emerald-400' : confidence >= 0.4 ? 'text-yellow-400' : 'text-orange-400'}`}>
+                <span className={`font-mono ${confidence >= 0.7 ? 'text-[var(--success)]' : confidence >= 0.4 ? 'text-[var(--warning)]' : 'text-[var(--accent)]'}`}>
                   {confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'med' : 'low'} conf.
                 </span>
               ) : currentEstimateSecs ? 'from analysis' : currentSecs ? 'your estimate' : 'no data'}

@@ -14,6 +14,7 @@ import GroupLeaderboard from '@/components/GroupLeaderboard'
 import GroupFeed from '@/components/GroupFeed'
 import GroupGoalsSection from '@/components/GroupGoalsSection'
 import GroupCoachTab from '@/components/GroupCoachTab'
+import WorkoutSuggestionCard from '@/components/WorkoutSuggestionCard'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
 
@@ -402,6 +403,11 @@ export default async function DashboardPage() {
             sourceCounts={sourceCounts}
             unit={unit}
           />
+        </div>
+
+        {/* ── Today's Workout Suggestion ── */}
+        <div className="mb-6">
+          <WorkoutSuggestionCard athleteId={Number(athleteId)} />
         </div>
 
       </main>

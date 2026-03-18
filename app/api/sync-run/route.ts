@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getValidToken, fetchActivityDetail, fetchActivityStreams } from '@/lib/strava'
+import { generateCoachNote } from '@/lib/coachNote'
 
 export async function POST(req: NextRequest) {
   const cookieStore = cookies()
@@ -31,6 +32,11 @@ export async function POST(req: NextRequest) {
     })
     .eq('id', activityId)
     .eq('athlete_id', athleteId)
+
+  // Fire-and-forget coach note generation
+  generateCoachNote(parseInt(activityId), parseInt(athleteId)).catch(err =>
+    console.error('[coach-note/eager]', err instanceof Error ? err.message : String(err))
+  )
 
   return NextResponse.json({ ok: true })
 }

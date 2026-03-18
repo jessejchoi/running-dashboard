@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildCoachContext } from '@/lib/coachContext'
+import { claudeMessage } from '@/lib/claude'
 
 export interface BriefingContent {
   weekly_summary: string
@@ -56,8 +56,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const ctx = await buildCoachContext(params.id)
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
     const systemPrompt = `You are RDCoach — AI running coach for ${ctx.group.name}.
 Playful, slightly snarky, competitive, genuinely encouraging underneath.
 Use real names and real numbers. Notice effort, patterns, and who's slacking.
@@ -86,16 +84,21 @@ Rules:
 Group data:
 ${JSON.stringify(ctx, null, 2)}`
 
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+    const raw = await claudeMessage({
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const raw = message.content[0].type === 'text' ? message.content[0].text : ''
     const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    const briefing: BriefingContent = JSON.parse(text)
+    let briefing: BriefingContent
+    try {
+      briefing = JSON.parse(text)
+    } catch (parseErr) {
+      console.error('[coach/briefing/parse]', raw)
+      return NextResponse.json({ error: 'Coach returned unparseable response.' }, { status: 503 })
+    }
 
     // Upsert into cache
     await supabaseAdmin

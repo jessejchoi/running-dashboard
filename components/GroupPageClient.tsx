@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon } from 'lucide-react'
 import { format } from 'date-fns'
-import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart } from '@/lib/utils'
+import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart, computeStreak } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
 import { PLAN_SESSION_TYPES } from '@/lib/planTypes'
 import PlanSessionModal, { SessionConfig, calcDist } from '@/components/PlanSessionModal'
@@ -143,31 +143,6 @@ function getRangeStart(range: LeaderRange): Date {
   return new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
 }
 
-function computeStreak(allRuns: LeaderboardRun[], athleteId: number): number {
-  const runs = allRuns.filter(r => r.athlete_id === athleteId)
-  if (runs.length === 0) return 0
-
-  const getWS = (d: Date) => {
-    const date = new Date(d)
-    date.setHours(0, 0, 0, 0)
-    const day = date.getDay()
-    date.setDate(date.getDate() - (day === 0 ? 6 : day - 1))
-    return date.getTime()
-  }
-
-  const weeks = Array.from(new Set(runs.map(r => getWS(new Date(r.start_date))))).sort((a, b) => b - a)
-  const thisWeek = getWS(new Date())
-  const lastWeek = thisWeek - 7 * 24 * 60 * 60 * 1000
-
-  if (weeks[0] !== thisWeek && weeks[0] !== lastWeek) return 0
-
-  let streak = 1
-  for (let i = 1; i < weeks.length; i++) {
-    if (weeks[i] === weeks[i - 1] - 7 * 24 * 60 * 60 * 1000) streak++
-    else break
-  }
-  return streak
-}
 
 function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members: Member[]) {
   const cutoff = getRangeStart(range)

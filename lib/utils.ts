@@ -104,6 +104,44 @@ export function isoWeek(date: Date): string {
   return w.toISOString().split('T')[0]
 }
 
+/**
+ * Compute weekly run streak for an athlete.
+ * Uses Jakarta timezone (UTC+7) for week boundary calculation.
+ * A "week" is Mon–Sun. Streak = consecutive weeks with ≥1 run,
+ * counting back from the current or most recent week.
+ */
+export function computeStreak(
+  runs: Array<{ start_date: string; athlete_id: number }>,
+  athleteId: number
+): number {
+  const myRuns = runs.filter(r => r.athlete_id === athleteId)
+  if (!myRuns.length) return 0
+
+  // Convert to Jakarta time for week boundary detection
+  const jakartaRuns = myRuns.map(r => toJakartaDate(r.start_date))
+
+  // Get unique week-start timestamps (Monday midnight Jakarta)
+  const weekStarts = Array.from(
+    new Set(jakartaRuns.map(d => getWeekStart(d).getTime()))
+  ).sort((a, b) => b - a)
+
+  if (!weekStarts.length) return 0
+
+  // Must have run this week or last week to have an active streak
+  const nowJakarta = toJakartaDate(new Date().toISOString())
+  const thisWeek = getWeekStart(nowJakarta).getTime()
+  const lastWeek = thisWeek - 7 * 24 * 60 * 60 * 1000
+
+  if (weekStarts[0] !== thisWeek && weekStarts[0] !== lastWeek) return 0
+
+  let streak = 1
+  for (let i = 1; i < weekStarts.length; i++) {
+    if (weekStarts[i] === weekStarts[i - 1] - 7 * 24 * 60 * 60 * 1000) streak++
+    else break
+  }
+  return streak
+}
+
 // ─── Goal progress ────────────────────────────────────────────────────────────
 
 export interface RaceGoal {

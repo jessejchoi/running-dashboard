@@ -6,6 +6,7 @@ import RunTypeSelector from '@/components/RunTypeSelector'
 import SplitsChart from '@/components/SplitsChart'
 import { buildLapSegments } from '@/lib/lapUtils'
 import HRChart from '@/components/HRChart'
+import CoachNoteCard from '@/components/CoachNoteCard'
 import { speedToPace, formatDuration, toJakartaDate, formatDistance, paceUnitLabel, aggregateToMileSplits, type DistanceUnit } from '@/lib/utils'
 import { format } from 'date-fns'
 import Link from 'next/link'
@@ -144,6 +145,11 @@ export default async function RunDetailPage({ params }: { params: { id: string }
             Lap data not yet synced. Use "Sync Strava" to fetch lap data.
           </div>
         )}
+
+        {/* Coach Note */}
+        <div className="mt-6 fade-up">
+          <CoachNoteCard runId={run.id} athleteId={Number(athleteId)} />
+        </div>
       </main>
     </>
   )

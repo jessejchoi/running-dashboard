@@ -34,6 +34,7 @@ export default function SettingsDrawer({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
 
   // Load settings when drawer opens
   useEffect(() => {
@@ -210,6 +211,36 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                     />
                   </div>
                 </div>
+              </section>
+
+              {/* ── Strava ────────────────────────────────────────── */}
+              <section>
+                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Strava</h3>
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: '#fc4c02' }} />
+                    <span className="text-sm text-white truncate">{strava?.display_name ?? 'Connected'}</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setDisconnecting(true)
+                      try {
+                        await fetch('/api/auth/strava/disconnect', { method: 'POST' })
+                        window.location.href = '/api/auth/strava'
+                      } finally {
+                        setDisconnecting(false)
+                      }
+                    }}
+                    disabled={disconnecting}
+                    className="text-xs font-bold shrink-0 ml-3 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                    style={{ color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'transparent' }}
+                  >
+                    {disconnecting ? 'Reconnecting…' : 'Reconnect'}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Reconnect if activities aren't syncing. Your data is preserved.
+                </p>
               </section>
 
               {/* ── Preferences ───────────────────────────────────── */}

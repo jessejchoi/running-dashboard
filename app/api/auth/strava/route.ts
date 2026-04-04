@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function GET() {
   const clientId = process.env.STRAVA_CLIENT_ID
@@ -7,12 +8,24 @@ export async function GET() {
   const redirectUri = `${appUrl}/api/auth/strava/callback`
   const scope = 'read,activity:read_all'
 
+  // Generate a random state value for CSRF protection
+  const state = crypto.randomUUID()
+
   const stravaAuthUrl = new URL('https://www.strava.com/oauth/authorize')
   stravaAuthUrl.searchParams.set('client_id', clientId!)
   stravaAuthUrl.searchParams.set('redirect_uri', redirectUri)
   stravaAuthUrl.searchParams.set('response_type', 'code')
   stravaAuthUrl.searchParams.set('approval_prompt', 'auto')
   stravaAuthUrl.searchParams.set('scope', scope)
+  stravaAuthUrl.searchParams.set('state', state)
 
-  return NextResponse.redirect(stravaAuthUrl.toString())
+  const response = NextResponse.redirect(stravaAuthUrl.toString())
+  response.cookies.set('strava_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 600, // 10 minutes
+    path: '/',
+  })
+  return response
 }

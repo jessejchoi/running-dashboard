@@ -631,6 +631,39 @@ interface SteadyWindow {
   windowSecs: number
 }
 
+interface TimedSplit {
+  tStart: number
+  tEnd: number
+  hr: number
+  pace: number    // sec/km
+  duration: number
+}
+
+function buildTimedSplits(splits: any[]): TimedSplit[] {
+  const timed: TimedSplit[] = []
+  let cumSec = 0
+  for (const sp of splits) {
+    const dur = sp.elapsed_time ?? sp.moving_time ?? 60
+    if (sp.average_heartrate && sp.average_speed) {
+      timed.push({
+        tStart: cumSec,
+        tEnd: cumSec + dur,
+        hr: sp.average_heartrate,
+        pace: 1000 / sp.average_speed,
+        duration: dur,
+      })
+    }
+    cumSec += dur
+  }
+  return timed
+}
+
+// Weighted average helpers for TimedSplit arrays
+function wavg(splits: TimedSplit[], field: 'hr' | 'pace'): number {
+  const totalDur = splits.reduce((s, sp) => s + sp.duration, 0)
+  return totalDur > 0 ? splits.reduce((s, sp) => s + sp[field] * sp.duration, 0) / totalDur : 0
+}
+
 function extractSteadyWindow(activity: {
   laps?: any[]
   splits?: any[]
@@ -865,57 +898,54 @@ export function analyzeAllEasyRunsWithReasons(activities: any[]): EasyRunEfficie
 
 // ─── Long run analyzer ───────────────────────────────────────────────────────
 
+export type LongRunStructure = 'steady' | 'progression' | 'fast_middle'
+
+export interface FastBlock {
+  startSec: number
+  endSec: number
+  durationSecs: number
+  avgPace: number   // sec/km
+  avgHR: number
+  pctFasterThanBaseline: number
+}
+
 export interface LongRunAnalysis {
   date: string
   activityId: number
   activityName: string
   distanceKm: number
-  steadyPace: number      // sec/km from steady window
+  steadyPace: number      // sec/km from pre-fast steady window
   steadyHR: number
-  cardiacDrift: number     // % HR increase early window → late window
-  driftReliable: boolean   // false if run too short, windows too close, or pace changed
-  driftReason?: string     // explanation when not reliable
+  cardiacDrift: number     // % HR increase early window → late window (pre-fast portion only)
+  driftReliable: boolean
+  driftReason?: string
   windowSecs: number
+  runStructure: LongRunStructure
+  fastBlock?: FastBlock               // detected fast/progression block
+  fastBlockEstimates?: RaceEstimate[] // threshold-style estimates from the fast block
+  residualElevation?: number          // % HR elevation at easy pace after fast block (fast_middle only)
   raceEstimates: RaceEstimate[]
 }
 
-// Compare HR between an early steady window (~30% into run) and the last 15 min.
-// Requires ≥30 min separation between windows and ≤10% pace change to be reliable.
-function computeCardiacDrift(splits: any[], totalSecs: number): {
+// Compare HR between an early window (~30% into the supplied segment) and the
+// last 15 min. Accepts a pre-built TimedSplit array so callers can pass only
+// the steady portion of a run (stripping any fast block beforehand).
+function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   drift: number
   reliable: boolean
   reason?: string
 } {
-  const MIN_RUN_SECS = 55 * 60   // need at least ~55 min to get 30 min separation
-  const WINDOW_SECS  = 15 * 60
-  const MIN_GAP_SECS = 30 * 60
-  const PACE_TOLERANCE = 0.10    // ±10%
+  const MIN_RUN_SECS   = 55 * 60
+  const WINDOW_SECS    = 15 * 60
+  const MIN_GAP_SECS   = 30 * 60
+  const PACE_TOLERANCE = 0.10
+  const TOLERANCE      = 45
 
-  if (!splits || splits.length < 4) return { drift: 0, reliable: false, reason: 'no split data' }
-  if (totalSecs < MIN_RUN_SECS)    return { drift: 0, reliable: false, reason: 'run too short for drift (<55 min)' }
+  if (timed.length < 4)       return { drift: 0, reliable: false, reason: 'no split data' }
+  if (totalSecs < MIN_RUN_SECS) return { drift: 0, reliable: false, reason: 'segment too short for drift (<55 min)' }
 
-  // Build cumulative-time array from per-km splits
-  const timed: { tStart: number; tEnd: number; hr: number; pace: number; duration: number }[] = []
-  let cumSec = 0
-  for (const sp of splits) {
-    const dur = sp.elapsed_time ?? sp.moving_time ?? 60
-    if (sp.average_heartrate && sp.average_speed) {
-      timed.push({
-        tStart: cumSec,
-        tEnd: cumSec + dur,
-        hr: sp.average_heartrate,
-        pace: 1000 / sp.average_speed,
-        duration: dur,
-      })
-    }
-    cumSec += dur
-  }
-
-  // Early window: starts at 30% of run duration, 15 min long
   const earlyStart = totalSecs * 0.30
   const earlyEnd   = earlyStart + WINDOW_SECS
-
-  // Late window: last 15 min
   const lateStart  = totalSecs - WINDOW_SECS
   const lateEnd    = totalSecs
 
@@ -923,7 +953,6 @@ function computeCardiacDrift(splits: any[], totalSecs: number): {
     return { drift: 0, reliable: false, reason: 'windows too close (<30 min apart)' }
   }
 
-  const TOLERANCE = 45 // seconds buffer when filtering splits to a window
   const earlySplits = timed.filter(s => s.tStart >= earlyStart - TOLERANCE && s.tEnd <= earlyEnd + TOLERANCE)
   const lateSplits  = timed.filter(s => s.tStart >= lateStart  - TOLERANCE && s.tEnd <= lateEnd  + TOLERANCE)
 
@@ -931,17 +960,13 @@ function computeCardiacDrift(splits: any[], totalSecs: number): {
     return { drift: 0, reliable: false, reason: 'insufficient splits in comparison windows' }
   }
 
-  const earlyDur  = earlySplits.reduce((s, sp) => s + sp.duration, 0)
-  const lateDur   = lateSplits.reduce((s, sp) => s + sp.duration, 0)
-  const earlyHR   = earlySplits.reduce((s, sp) => s + sp.hr   * sp.duration, 0) / earlyDur
-  const lateHR    = lateSplits.reduce((s,  sp) => s + sp.hr   * sp.duration, 0) / lateDur
-  const earlyPace = earlySplits.reduce((s, sp) => s + sp.pace * sp.duration, 0) / earlyDur
-  const latePace  = lateSplits.reduce((s,  sp) => s + sp.pace * sp.duration, 0) / lateDur
+  const earlyHR   = wavg(earlySplits, 'hr')
+  const lateHR    = wavg(lateSplits,  'hr')
+  const earlyPace = wavg(earlySplits, 'pace')
+  const latePace  = wavg(lateSplits,  'pace')
 
   const drift = earlyHR > 0 ? ((lateHR - earlyHR) / earlyHR) * 100 : 0
 
-  // Pace consistency check — if the windows themselves differ >±10%, the HR
-  // shift is explained by effort change, not true cardiac drift
   const paceRatio = latePace / earlyPace
   if (paceRatio < 1 - PACE_TOLERANCE || paceRatio > 1 + PACE_TOLERANCE) {
     const pctChange = ((paceRatio - 1) * 100).toFixed(0)
@@ -952,23 +977,158 @@ function computeCardiacDrift(splits: any[], totalSecs: number): {
     }
   }
 
-  // Fast-block check — scan splits in the gap between the two windows.
-  // A hard effort there causes residual HR elevation in the late window that
-  // mimics cardiac drift (neuromuscular/cardiovascular activation).
-  // Threshold: any split >15% faster than the early baseline pace.
-  const FAST_BLOCK_THRESHOLD = 0.85 // pace ratio; smaller = faster
-  const gapSplits = timed.filter(s => s.tStart >= earlyEnd - TOLERANCE && s.tEnd <= lateStart + TOLERANCE)
-  const fastBlock = gapSplits.find(s => s.pace < earlyPace * FAST_BLOCK_THRESHOLD)
-  if (fastBlock) {
-    const pctFaster = (((earlyPace - fastBlock.pace) / earlyPace) * 100).toFixed(0)
-    return {
-      drift,
-      reliable: false,
-      reason: `fast effort in gap (${pctFaster}% faster than baseline) may have elevated late HR`,
+  return { drift, reliable: true }
+}
+
+// ─── Fast block detection ─────────────────────────────────────────────────────
+
+// Finds the most significant fast block in a run (min 8 min, >15% faster than
+// baseline). Returns the block and whether it sits at the end or in the middle.
+function detectFastBlock(
+  timed: TimedSplit[],
+  baselinePace: number,
+  totalSecs: number,
+): { block: FastBlock; position: 'end' | 'middle' } | null {
+  const FAST_THRESHOLD = 0.85  // >15% faster than baseline
+
+  // Merge consecutive fast splits into blocks
+  const blocks: { startSec: number; endSec: number; splits: TimedSplit[] }[] = []
+  let i = 0
+  while (i < timed.length) {
+    if (timed[i].pace < baselinePace * FAST_THRESHOLD) {
+      const blockSplits: TimedSplit[] = [timed[i]]
+      let j = i + 1
+      while (j < timed.length && timed[j].pace < baselinePace * FAST_THRESHOLD) {
+        blockSplits.push(timed[j])
+        j++
+      }
+      blocks.push({
+        startSec: timed[i].tStart,
+        endSec:   timed[j - 1].tEnd,
+        splits:   blockSplits,
+      })
+      i = j
+    } else {
+      i++
     }
   }
 
-  return { drift, reliable: true }
+  if (blocks.length === 0) return null
+
+  // Pick the longest block
+  const best = blocks.reduce((a, b) =>
+    (b.endSec - b.startSec) > (a.endSec - a.startSec) ? b : a
+  )
+  if (best.endSec - best.startSec < 8 * 60) return null
+
+  const avgPace = wavg(best.splits, 'pace')
+  const avgHR   = wavg(best.splits, 'hr')
+
+  const block: FastBlock = {
+    startSec: best.startSec,
+    endSec:   best.endSec,
+    durationSecs: best.endSec - best.startSec,
+    avgPace,
+    avgHR,
+    pctFasterThanBaseline: parseFloat((((baselinePace - avgPace) / baselinePace) * 100).toFixed(1)),
+  }
+
+  // 'end' if the block starts in the last 25% of the run
+  const position = best.startSec > totalSecs * 0.75 ? 'end' : 'middle'
+  return { block, position }
+}
+
+// Treat the fast block like a continuous threshold run — same Daniels ratio
+// but with a 20% confidence discount since the runner was pre-fatigued.
+function fastBlockThresholdEstimates(
+  block: FastBlock,
+  activityId: number,
+  date: string,
+  maxHr: number,
+): RaceEstimate[] {
+  if (block.durationSecs < 8 * 60) return []
+  if (block.avgPace < 180 || block.avgPace > 420) return []
+
+  const ratio    = continuousDanielsRatio(block.avgHR, maxHr)
+  const fiveKPac = block.avgPace * ratio
+  const est5K    = Math.max(840, Math.min(3000, fiveKPac * 5))
+  const DISCOUNT = 0.80
+  const label    = `Long run fast block (${(block.durationSecs / 60).toFixed(0)} min @ ${formatPace(block.avgPace)}/km)`
+
+  return [
+    {
+      distanceKey: '5k',
+      estimatedSecs: est5K,
+      confidence: THRESHOLD_CONFIDENCE['5k']  * DISCOUNT,
+      source: 'long_run',
+      date,
+      activityId,
+      method: `${label} via Daniels ${ratio.toFixed(3)}`,
+    },
+    {
+      distanceKey: '10k',
+      estimatedSecs: block.avgPace * THRESHOLD_TO_10K * 10,
+      confidence: THRESHOLD_CONFIDENCE['10k'] * DISCOUNT,
+      source: 'long_run',
+      date,
+      activityId,
+      method: `${label} → 10K via threshold ratio`,
+    },
+    {
+      distanceKey: 'hm',
+      estimatedSecs: block.avgPace * THRESHOLD_TO_HM * 21.097,
+      confidence: THRESHOLD_CONFIDENCE['hm']  * DISCOUNT,
+      source: 'long_run',
+      date,
+      activityId,
+      method: `${label} ≈ HM race pace`,
+    },
+    {
+      distanceKey: 'fm',
+      estimatedSecs: riegelProject(block.avgPace * THRESHOLD_TO_HM * 21.097, 21.097, 42.195, 1.07),
+      confidence: THRESHOLD_CONFIDENCE['fm']  * DISCOUNT,
+      source: 'long_run',
+      date,
+      activityId,
+      method: `${label} → FM via Riegel`,
+    },
+  ]
+}
+
+// Residual elevation: % HR elevation at easy pace after a fast block recovers.
+// Only meaningful for fast_middle — compares the post-recovery easy HR to the
+// pre-block easy HR at the same pace (±10%). Tracked separately, not used in
+// race time prediction.
+function computeResidualElevation(
+  timed: TimedSplit[],
+  block: FastBlock,
+  preFastAvgHR: number,
+  preFastAvgPace: number,
+  totalSecs: number,
+): number | undefined {
+  const RECOVERY_SKIP = 10 * 60  // allow 10 min for HR to settle post-block
+  const WINDOW_SECS   = 15 * 60
+  const PACE_TOLERANCE = 0.10
+  const TOLERANCE      = 45
+
+  const postStart = block.endSec + RECOVERY_SKIP
+  const postEnd   = postStart + WINDOW_SECS
+  if (postEnd > totalSecs) return undefined
+
+  const postSplits = timed.filter(
+    s => s.tStart >= postStart - TOLERANCE && s.tEnd <= postEnd + TOLERANCE
+  )
+  if (postSplits.length < 2) return undefined
+
+  const postHR   = wavg(postSplits, 'hr')
+  const postPace = wavg(postSplits, 'pace')
+
+  const paceRatio = postPace / preFastAvgPace
+  if (paceRatio < 1 - PACE_TOLERANCE || paceRatio > 1 + PACE_TOLERANCE) return undefined
+
+  return preFastAvgHR > 0
+    ? parseFloat((((postHR - preFastAvgHR) / preFastAvgHR) * 100).toFixed(1))
+    : undefined
 }
 
 export function analyzeLongRun(activity: {
@@ -982,123 +1142,196 @@ export function analyzeLongRun(activity: {
   laps?: any[]
   splits?: any[]
 }, maxHr: number = DEFAULT_MAX_HR): LongRunAnalysis | null {
-  const distKm = activity.distance / 1000
+  const distKm      = activity.distance / 1000
+  const date        = activity.start_date.split('T')[0]
+  const baselinePace = activity.average_speed ? 1000 / activity.average_speed : 999
   if (!activity.average_heartrate) return null
 
-  let window = extractSteadyWindow(activity)
+  // Build timed-split array once; used by all sub-analyses
+  const timed = buildTimedSplits(activity.splits ?? [])
 
-  // Fallback: if no steady window found (e.g. auto-lapped 1km splits),
-  // use the overall activity averages
+  // ── Detect fast block ────────────────────────────────────────────────────
+  const fastBlockResult = detectFastBlock(timed, baselinePace, activity.moving_time)
+
+  let runStructure: LongRunStructure = 'steady'
+  let fastBlock: FastBlock | undefined
+  let fastBlockEstimates: RaceEstimate[] | undefined
+  let residualElevation: number | undefined
+
+  // Splits and duration of the pre-fast steady portion
+  let preFastTimed    = timed
+  let preFastDuration = activity.moving_time
+
+  if (fastBlockResult) {
+    fastBlock      = fastBlockResult.block
+    runStructure   = fastBlockResult.position === 'end' ? 'progression' : 'fast_middle'
+
+    // Trim to pre-fast portion — reset timed origins so t=0 at run start
+    preFastTimed    = timed.filter(s => s.tEnd <= fastBlock!.startSec)
+    preFastDuration = fastBlock.startSec
+
+    fastBlockEstimates = fastBlockThresholdEstimates(fastBlock, activity.id, date, maxHr)
+
+    // Residual elevation only for fast_middle (need easy running after block)
+    if (runStructure === 'fast_middle' && preFastTimed.length >= 2) {
+      const preFastAvgHR   = wavg(preFastTimed, 'hr')
+      const preFastAvgPace = wavg(preFastTimed, 'pace')
+      residualElevation = computeResidualElevation(
+        timed, fastBlock, preFastAvgHR, preFastAvgPace, activity.moving_time
+      )
+    }
+  }
+
+  // ── Steady window from pre-fast portion ─────────────────────────────────
+  // Take the last 15 min of the pre-fast splits for the HR-projection window.
+  let window: SteadyWindow | null = null
+
+  if (preFastTimed.length >= 2 && preFastDuration >= 600) {
+    const TARGET_WINDOW = 15 * 60
+    const windowSplits: TimedSplit[] = []
+    let wSecs = 0
+    for (let i = preFastTimed.length - 1; i >= 0 && wSecs < TARGET_WINDOW; i--) {
+      windowSplits.unshift(preFastTimed[i])
+      wSecs += preFastTimed[i].duration
+    }
+    const useSplits = windowSplits.length >= 1 ? windowSplits : preFastTimed
+    const totalDur  = useSplits.reduce((s, sp) => s + sp.duration, 0)
+    if (totalDur > 0) {
+      window = {
+        avgPace: wavg(useSplits, 'pace'),
+        avgHR:   wavg(useSplits, 'hr'),
+        splits:  useSplits.map(sp => ({ paceSecPerKm: sp.pace, hr: sp.hr, duration: sp.duration })),
+        windowSecs: totalDur,
+      }
+    }
+  }
+
+  // Fallback to lap-based extraction for steady runs with no useful splits
+  if (!window && runStructure === 'steady') {
+    window = extractSteadyWindow(activity)
+  }
+
+  // Final fallback to whole-run averages
   if (!window && activity.average_heartrate && activity.average_speed) {
     window = {
-      avgPace: 1000 / activity.average_speed,
-      avgHR: activity.average_heartrate,
-      splits: [],
+      avgPace: baselinePace,
+      avgHR:   activity.average_heartrate,
+      splits:  [],
       windowSecs: activity.moving_time,
     }
   }
 
-  if (!window || window.windowSecs < 600) return null
+  // If no usable steady window but we have fast block estimates, still return
+  if (!window || window.windowSecs < 600) {
+    if (fastBlockEstimates && fastBlockEstimates.length > 0) {
+      return {
+        date,
+        activityId:   activity.id,
+        activityName: activity.name,
+        distanceKm:   parseFloat(distKm.toFixed(1)),
+        steadyPace:   parseFloat(baselinePace.toFixed(1)),
+        steadyHR:     activity.average_heartrate ?? 0,
+        cardiacDrift: 0,
+        driftReliable: false,
+        driftReason:  'no steady window — fast block only',
+        windowSecs:   0,
+        runStructure,
+        fastBlock,
+        fastBlockEstimates,
+        residualElevation,
+        raceEstimates: fastBlockEstimates,
+      }
+    }
+    return null
+  }
 
-  // Cardiac drift: compare early window (~30% into run) vs last 15 min
-  // using full-run splits, with a pace-consistency check
-  const driftResult = computeCardiacDrift(activity.splits ?? [], activity.moving_time)
+  // ── Cardiac drift on pre-fast timed splits ───────────────────────────────
+  const driftResult  = computeCardiacDrift(preFastTimed, preFastDuration)
   const cardiacDrift = driftResult.drift
 
-  const date = activity.start_date.split('T')[0]
-
-  // HM race HR ≈ 87% max HR, FM race HR ≈ 82% max HR
+  // ── Race projection from steady window ───────────────────────────────────
   const hmRaceHR = maxHr * 0.87
   const fmRaceHR = maxHr * 0.82
 
-  // HR→pace projection: ~2.5 sec/km per %HRmax with mild amplification.
-  // At low intensity each bpm is worth more pace, so larger HR gaps
-  // get a slightly bigger per-bpm adjustment (~5% at 10bpm, ~15% at 30bpm).
-  const hmHRDiff = (hmRaceHR - window.avgHR) / maxHr * 100
-  const fmHRDiff = (fmRaceHR - window.avgHR) / maxHr * 100
-  const hmHRGapBpmRaw = Math.abs(hmRaceHR - window.avgHR)
-  const fmHRGapBpmRaw = Math.abs(fmRaceHR - window.avgHR)
+  const hmHRDiff     = (hmRaceHR - window.avgHR) / maxHr * 100
+  const fmHRDiff     = (fmRaceHR - window.avgHR) / maxHr * 100
+  const hmHRGapBpm   = Math.abs(hmRaceHR - window.avgHR)
+  const fmHRGapBpm   = Math.abs(fmRaceHR - window.avgHR)
 
-  const hmPace = window.avgPace - hmHRDiff * 2.5 * (1 + 0.005 * hmHRGapBpmRaw)
-  const fmPace = window.avgPace - fmHRDiff * 2.5 * (1 + 0.005 * fmHRGapBpmRaw)
+  const hmPace = window.avgPace - hmHRDiff * 2.5 * (1 + 0.005 * hmHRGapBpm)
+  const fmPace = window.avgPace - fmHRDiff * 2.5 * (1 + 0.005 * fmHRGapBpm)
 
-  // HR gap factor: larger gaps = less reliable projection = lower confidence
-  const hmHRGapBpm = Math.abs(hmRaceHR - window.avgHR)
-  const fmHRGapBpm = Math.abs(fmRaceHR - window.avgHR)
-  const hmHRGapPenalty = Math.max(0.3, 1 - (hmHRGapBpm - 10) * 0.02)  // full at ≤10bpm, 0.3 at 45bpm
+  const hmHRGapPenalty = Math.max(0.3, 1 - (hmHRGapBpm - 10) * 0.02)
   const fmHRGapPenalty = Math.max(0.3, 1 - (fmHRGapBpm - 10) * 0.02)
 
-  // Distance factor: longer runs = more confidence
-  const distanceFactor = Math.min(1, distKm / 25)
+  // Distance factor based on pre-fast km
+  const preFastKm       = preFastTimed.reduce((s, sp) => s + sp.duration / sp.pace, 0)
+  const effectiveDistKm = preFastKm > 0 ? preFastKm : distKm
+  const distanceFactor  = Math.min(1, effectiveDistKm / 25)
 
-  // Drift factor: only penalise when drift is reliably measured and high.
-  // If unreliable (run too short, pace changed), treat as neutral — don't
-  // apply a false penalty or false bonus.
+  // Drift factor: only penalise when drift is reliably measured and high
   const driftFactor = driftResult.reliable && cardiacDrift > 3
     ? Math.max(0.5, 1 - (cardiacDrift - 3) * 0.1)
     : 1
-
-  // When drift is unreliable, apply a small confidence haircut for FM
-  // (we genuinely don't know how fatigued the run was)
   const driftUnknownPenalty = driftResult.reliable ? 1 : 0.85
 
-  const raceEstimates: RaceEstimate[] = []
+  const steadyEstimates: RaceEstimate[] = []
 
-  // HM estimate
   if (hmPace > 200 && hmPace < 500) {
-    raceEstimates.push({
+    steadyEstimates.push({
       distanceKey: 'hm',
       estimatedSecs: hmPace * 21.097,
       confidence: 0.65 * distanceFactor * driftFactor * hmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
-      method: `Long run steady pace ${formatPace(window.avgPace)}/km @ ${Math.round(window.avgHR)}bpm → HM pace via HR projection`,
+      method: `Steady pace ${formatPace(window.avgPace)}/km @ ${Math.round(window.avgHR)}bpm → HM via HR projection`,
     })
   }
 
-  // FM estimate
   if (fmPace > 200 && fmPace < 500) {
-    raceEstimates.push({
+    steadyEstimates.push({
       distanceKey: 'fm',
       estimatedSecs: fmPace * 42.195,
       confidence: 0.50 * distanceFactor * driftFactor * driftUnknownPenalty * fmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
-      method: `Long run → FM via HR projection${driftResult.reliable && cardiacDrift > 3 ? ` (drift ${cardiacDrift.toFixed(1)}% penalised)` : ''}`,
+      method: `Steady pace → FM via HR projection${driftResult.reliable && cardiacDrift > 3 ? ` (drift ${cardiacDrift.toFixed(1)}% penalised)` : ''}`,
     })
   }
 
-  // 10K reverse Riegel (low confidence)
-  if (raceEstimates.length > 0) {
-    const hmEst = raceEstimates.find(e => e.distanceKey === 'hm')
-    if (hmEst) {
-      raceEstimates.push({
-        distanceKey: '10k',
-        estimatedSecs: riegelProject(hmEst.estimatedSecs, 21.097, 10, 1.06),
-        confidence: 0.35 * distanceFactor,
-        source: 'long_run',
-        date,
-        activityId: activity.id,
-        method: 'Reverse Riegel from long run HM estimate',
-      })
-    }
+  const hmSteady = steadyEstimates.find(e => e.distanceKey === 'hm')
+  if (hmSteady) {
+    steadyEstimates.push({
+      distanceKey: '10k',
+      estimatedSecs: riegelProject(hmSteady.estimatedSecs, 21.097, 10, 1.06),
+      confidence: 0.35 * distanceFactor,
+      source: 'long_run',
+      date,
+      activityId: activity.id,
+      method: 'Reverse Riegel from steady-pace HM estimate',
+    })
   }
 
+  const raceEstimates = [...steadyEstimates, ...(fastBlockEstimates ?? [])]
   if (raceEstimates.length === 0) return null
 
   return {
     date,
-    activityId: activity.id,
+    activityId:   activity.id,
     activityName: activity.name,
-    distanceKm: parseFloat(distKm.toFixed(1)),
-    steadyPace: parseFloat(window.avgPace.toFixed(1)),
-    steadyHR: parseFloat(window.avgHR.toFixed(1)),
+    distanceKm:   parseFloat(distKm.toFixed(1)),
+    steadyPace:   parseFloat(window.avgPace.toFixed(1)),
+    steadyHR:     parseFloat(window.avgHR.toFixed(1)),
     cardiacDrift: parseFloat(cardiacDrift.toFixed(1)),
     driftReliable: driftResult.reliable,
-    driftReason: driftResult.reason,
-    windowSecs: window.windowSecs,
+    driftReason:  driftResult.reason,
+    windowSecs:   window.windowSecs,
+    runStructure,
+    fastBlock,
+    fastBlockEstimates,
+    residualElevation,
     raceEstimates,
   }
 }

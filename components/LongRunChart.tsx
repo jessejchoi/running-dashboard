@@ -10,15 +10,33 @@ import { distanceLabel, type DistanceKey } from '@/lib/goals'
 
 const COLOR = '#34d399'
 
+const STRUCTURE_LABEL: Record<string, string> = {
+  steady:      'Steady',
+  progression: 'Progression',
+  fast_middle: 'Fast block',
+}
+const STRUCTURE_COLOR: Record<string, string> = {
+  steady:      '#6b7280',
+  progression: '#f97316',
+  fast_middle: '#60a5fa',
+}
+
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const d = payload[0]?.payload as LongRunAnalysis & { label: string; trend?: number }
   if (!d) return null
+  // Prefer steady HM/FM estimates for tooltip (first ones found = steady projection)
   const hmEst = d.raceEstimates?.find(r => r.distanceKey === 'hm')
   const fmEst = d.raceEstimates?.find(r => r.distanceKey === 'fm')
+  const structColor = STRUCTURE_COLOR[d.runStructure] ?? '#6b7280'
   return (
-    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[240px]">
-      <div className="text-[#6b7280] mb-2">{format(new Date(d.date + 'T12:00:00'), 'MMM d, yyyy')}</div>
+    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[250px]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[#6b7280]">{format(new Date(d.date + 'T12:00:00'), 'MMM d, yyyy')}</span>
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: structColor, background: `${structColor}20` }}>
+          {STRUCTURE_LABEL[d.runStructure]}
+        </span>
+      </div>
       <div className="font-display font-bold text-lg mb-0.5" style={{ color: COLOR }}>
         {formatPace(d.steadyPace)}/km
       </div>
@@ -28,7 +46,17 @@ function CustomTooltip({ active, payload }: any) {
           Drift: {d.cardiacDrift.toFixed(1)}%
         </div>
       ) : (
-        <div className="mb-1 text-[#4b5563] text-xs">Drift: —  {d.driftReason && `(${d.driftReason})`}</div>
+        <div className="mb-1 text-[#4b5563] text-xs">Drift: — {d.driftReason && `(${d.driftReason})`}</div>
+      )}
+      {d.fastBlock && (
+        <div className="mt-1 mb-1 text-[#60a5fa] text-xs font-mono">
+          Fast block: {(d.fastBlock.durationSecs / 60).toFixed(0)} min @ {formatPace(d.fastBlock.avgPace)}/km
+        </div>
+      )}
+      {d.residualElevation != null && (
+        <div className={`mb-1 text-xs font-mono ${d.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
+          Residual HR: +{d.residualElevation.toFixed(1)}%
+        </div>
       )}
       {hmEst && <div className="text-[#9ca3af]">HM est. {formatTime(hmEst.estimatedSecs)}</div>}
       {fmEst && <div className="text-[#9ca3af]">FM est. {formatTime(fmEst.estimatedSecs)}</div>}
@@ -56,7 +84,6 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
   const minPace = Math.min(...allPaces) - 10
   const maxPace = Math.max(...allPaces) + 20
 
-  // Linear regression for trend line
   const n = data.length
   const xs = data.map((_, i) => i)
   const ys = data.map(d => d.steadyPace)
@@ -65,7 +92,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
   const sumXY = xs.reduce((s, x, i) => s + x * ys[i], 0)
   const sumX2 = xs.reduce((s, x) => s + x * x, 0)
   const denom = n * sumX2 - sumX * sumX
-  const trendSlope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0
+  const trendSlope     = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0
   const trendIntercept = (sumY - trendSlope * sumX) / n
 
   const trendData = data.map((d, i) => ({
@@ -74,10 +101,22 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
   }))
 
   const improving = trendSlope < 0
-  const latest = data[data.length - 1]
-  const weeklyChangeSec = trendSlope * 1.5 // ~1.5 long runs/week
+  const latest    = data[data.length - 1]
+  const weeklyChangeSec = trendSlope * 1.5
 
-  const latestEst = latest.raceEstimates?.find(r => r.distanceKey === active)
+  // Prefer the steady-portion race estimate for the summary stat
+  const latestSteadyEst = latest.raceEstimates?.find(
+    r => r.distanceKey === active && r.method?.startsWith('Steady')
+  ) ?? latest.raceEstimates?.find(r => r.distanceKey === active)
+
+  const latestFastEst = latest.fastBlockEstimates?.find(r => r.distanceKey === active)
+
+  // Custom dot renderer — colour by run structure
+  const renderDot = (props: any) => {
+    const { cx, cy, payload } = props
+    const c = STRUCTURE_COLOR[payload.runStructure] ?? COLOR
+    return <circle key={payload.activityId} cx={cx} cy={cy} r={5} fill={c} stroke="#0a0a0a" strokeWidth={2} />
+  }
 
   return (
     <div>
@@ -92,7 +131,12 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Latest pace</div>
           <div className="font-mono font-bold text-white">{formatPace(latest.steadyPace)}/km</div>
-          <div className="text-[#4b5563] text-xs mt-0.5">{latest.distanceKm.toFixed(1)} km run</div>
+          <div className="text-[#4b5563] text-xs mt-0.5">
+            {latest.distanceKm.toFixed(1)} km ·{' '}
+            <span style={{ color: STRUCTURE_COLOR[latest.runStructure] }}>
+              {STRUCTURE_LABEL[latest.runStructure]}
+            </span>
+          </div>
         </div>
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Cardiac drift</div>
@@ -110,11 +154,27 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
             </>
           )}
         </div>
-        {latestEst && (
+        {latest.residualElevation != null && (
+          <div>
+            <div className="text-[#6b7280] text-xs mb-1">Residual HR</div>
+            <div className={`font-mono font-bold ${latest.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
+              +{latest.residualElevation.toFixed(1)}%
+            </div>
+            <div className="text-[#4b5563] text-xs mt-0.5">post-effort easy HR</div>
+          </div>
+        )}
+        {latestSteadyEst && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Est. {distanceLabel(active as DistanceKey)}</div>
-            <div className="font-mono font-bold text-white">{formatTime(latestEst.estimatedSecs)}</div>
-            <div className="text-[#4b5563] text-xs mt-0.5">from latest run</div>
+            <div className="font-mono font-bold text-white">{formatTime(latestSteadyEst.estimatedSecs)}</div>
+            <div className="text-[#4b5563] text-xs mt-0.5">from steady pace</div>
+          </div>
+        )}
+        {latestFastEst && (
+          <div>
+            <div className="text-[#6b7280] text-xs mb-1">Fast block est.</div>
+            <div className="font-mono font-bold text-[#60a5fa]">{formatTime(latestFastEst.estimatedSecs)}</div>
+            <div className="text-[#4b5563] text-xs mt-0.5">{distanceLabel(active as DistanceKey)} · threshold method</div>
           </div>
         )}
         {data.length > 1 && (
@@ -152,13 +212,19 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
             dataKey="steadyPace"
             stroke={COLOR}
             strokeWidth={2.5}
-            dot={{ fill: COLOR, r: 5, strokeWidth: 2, stroke: '#0a0a0a' }}
+            dot={renderDot}
             activeDot={{ r: 7, fill: COLOR, strokeWidth: 2, stroke: '#1c1c1c' }}
           />
         </ComposedChart>
       </ResponsiveContainer>
-      <div className="text-[10px] text-[#4b5563] mt-2">
-        Pace from last steady lap · drift compares ~30% mark vs last 15 min · only shown when pace is consistent (±10%)
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 mt-2 text-[10px] text-[#4b5563]">
+        <span>Dots: <span style={{ color: STRUCTURE_COLOR.steady }}>● steady</span>{' '}
+          <span style={{ color: STRUCTURE_COLOR.progression }}>● progression</span>{' '}
+          <span style={{ color: STRUCTURE_COLOR.fast_middle }}>● fast block</span>
+        </span>
+        <span>Drift compares ~30% mark vs last 15 min of steady portion · ±10% pace tolerance</span>
       </div>
     </div>
   )

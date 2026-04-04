@@ -1,0 +1,109 @@
+// Shared types and micro-components for Group page
+
+export interface Goal {
+  id: string
+  athlete_id: number
+  distance_key: string
+  label: string
+  target_secs: number
+  current_secs: number | null
+  race_date: string
+}
+
+export interface Member {
+  athlete_id: number
+  role: string
+  joined_at: string
+  name: string
+  profile_pic: string | null
+  gender: string | null
+  goals: Goal[]
+  is_me: boolean
+}
+
+export interface Run {
+  id: number
+  athlete_id: number
+  name: string
+  start_date: string
+  distance: number
+  moving_time: number
+  average_speed: number
+  average_heartrate: number | null
+  run_type: string | null
+}
+
+export interface Group {
+  id: string
+  name: string
+  invite_code: string
+  created_by: number
+  created_at: string
+}
+
+export interface LeaderboardRun {
+  id: number
+  athlete_id: number
+  distance: number
+  start_date: string
+  average_speed?: number
+  run_type?: string | null
+}
+
+export interface Challenge {
+  id: string
+  group_id: string
+  name: string
+  description: string | null
+  target_meters: number | null
+  start_date: string
+  end_date: string
+  created_by: number
+  created_at: string
+  challenge_type: string
+  config: Record<string, unknown>
+}
+
+export interface TrainingLoad {
+  ctl: number
+  atl: number
+  tsb: number
+}
+
+export function formatTime(secs: number) {
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = Math.round(secs % 60)
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+export function Avatar({ name, pic, size = 8 }: { name: string; pic: string | null; size?: number }) {
+  if (pic) {
+    return <img src={pic} alt={name} className={`w-${size} h-${size} rounded-full object-cover`} />
+  }
+  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div className={`w-${size} h-${size} rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs`}>
+      {initials}
+    </div>
+  )
+}
+
+export function RunTypeDot({ type }: { type: string | null }) {
+  const colors: Record<string, string> = {
+    intervals: 'bg-red-500',
+    interval_5k: 'bg-red-500',
+    tempo: 'bg-rose-500',
+    threshold: 'bg-orange-500',
+    long_easy: 'bg-sky-500',
+    long_steady: 'bg-cyan-500',
+    long_progressive: 'bg-blue-500',
+    easy: 'bg-emerald-500',
+    easy_strides: 'bg-teal-500',
+    recovery: 'bg-green-400',
+  }
+  return (
+    <span className={`inline-block w-2 h-2 rounded-full ${colors[type ?? ''] ?? 'bg-zinc-500'}`} />
+  )
+}

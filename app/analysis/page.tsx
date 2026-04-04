@@ -267,47 +267,53 @@ export default async function AnalysisPage() {
                   Tag runs as &quot;Threshold&quot; or &quot;Tempo&quot; to see estimates.
                 </div>
               )}
-              <CollapsibleRuns count={(thresholdRuns ?? []).length} color="#60a5fa">
-                {(thresholdRuns ?? []).map((run: any) => {
-                  const estimate = thresholdEstimates.find(e => e.activityId === run.id && !(e as any).isLongRunFastBlock)
-                  return (
-                    <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
-                      <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-display font-bold text-base">{run.name}</span>
-                            <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
+              {(() => {
+                const fastBlockCards = thresholdEstimates.filter(e => (e as any).isLongRunFastBlock)
+                const totalCount = (thresholdRuns ?? []).length + fastBlockCards.length
+                return (
+                  <CollapsibleRuns count={totalCount} color="#60a5fa">
+                    {(thresholdRuns ?? []).map((run: any) => {
+                      const estimate = thresholdEstimates.find(e => e.activityId === run.id && !(e as any).isLongRunFastBlock)
+                      return (
+                        <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="font-display font-bold text-base">{run.name}</span>
+                                <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
+                              </div>
+                              <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                            </div>
+                            {estimate ? (
+                              <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#60a5fa" />
+                            ) : <div className="text-[#4b5563] text-xs pt-1">Could not estimate</div>}
                           </div>
-                          <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                          {estimate && <WorkRestStats est={estimate} isThreshold />}
+                          {estimate && !estimate.isContinuous && <RepTableClient efforts={estimate.allEfforts} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} unit={unit} />}
+                          {estimate && estimate.isContinuous && <ContinuousRunTable run={run} />}
                         </div>
-                        {estimate ? (
-                          <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#60a5fa" />
-                        ) : <div className="text-[#4b5563] text-xs pt-1">Could not estimate</div>}
+                      )
+                    })}
+                    {/* Fast blocks from long runs that contribute to tempo estimates */}
+                    {fastBlockCards.map(est => (
+                      <div key={`fb-${est.activityId}`} className="card fade-up">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="font-display font-bold text-base">{est.activityName.replace(' (fast block)', '')}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">fast block</span>
+                            </div>
+                            <div className="text-[#6b7280] text-xs mt-0.5">
+                              {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')} · {formatDuration(est.totalWorkSecs)} fast block
+                            </div>
+                          </div>
+                          <RunEstimateBadge raceEstimates={est.raceEstimates} fallbackSecs={est.estimatedSecs} color="#60a5fa" />
+                        </div>
                       </div>
-                      {estimate && <WorkRestStats est={estimate} isThreshold />}
-                      {estimate && !estimate.isContinuous && <RepTableClient efforts={estimate.allEfforts} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} unit={unit} />}
-                      {estimate && estimate.isContinuous && <ContinuousRunTable run={run} />}
-                    </div>
-                  )
-                })}
-              </CollapsibleRuns>
-              {/* Fast blocks from long runs that contribute to tempo estimates */}
-              {thresholdEstimates.filter(e => (e as any).isLongRunFastBlock).map(est => (
-                <div key={`fb-${est.activityId}`} className="card fade-up border-[#1a2a2a]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-display font-bold text-base">{est.activityName.replace(' (fast block)', '')}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">fast block</span>
-                      </div>
-                      <div className="text-[#6b7280] text-xs mt-0.5">
-                        {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')} · {formatDuration(est.totalWorkSecs)} fast block
-                      </div>
-                    </div>
-                    <RunEstimateBadge raceEstimates={est.raceEstimates} fallbackSecs={est.estimatedSecs} color="#60a5fa" />
-                  </div>
-                </div>
-              ))}
+                    ))}
+                  </CollapsibleRuns>
+                )
+              })()}
             </div>
 
             {/* COL 3: Aerobic Efficiency */}

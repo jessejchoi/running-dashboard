@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
@@ -76,13 +76,24 @@ function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shouto
     </div>
   )
 }
+const COACH_CHIPS = [
+  "Who's slacking?",
+  "Call out who crushed it",
+  "Roast us this week",
+  "Who's race-ready?",
+  "What should we focus on?",
+]
 
 export default function GroupCoachTab({ groupId, myRole, members }: Props) {
   const [briefing, setBriefing] = useState<BriefingContent | null>(null)
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
   const [briefingMeta, setBriefingMeta] = useState<{ cached: boolean; generated_at: string } | null>(null)
+  const [answer, setAnswer] = useState('')
+  const [answerStreaming, setAnswerStreaming] = useState(false)
+  const [activeChip, setActiveChip] = useState<string | null>(null)
   const [awards, setAwards] = useState<Award[]>([])
+  const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
     setBriefingLoading(true)
@@ -116,6 +127,33 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
     fetchBriefing()
     fetchAwards()
   }, [])
+
+  async function askCoach(chipText: string) {
+    if (answerStreaming) return
+    setActiveChip(chipText)
+    setAnswer('')
+    setAnswerStreaming(true)
+    try {
+      const res = await fetch(`/api/groups/${groupId}/coach/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: chipText }),
+      })
+      if (!res.ok || !res.body) throw new Error('failed')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        setAnswer(prev => prev + decoder.decode(value, { stream: true }))
+        answerRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }
+    } catch {
+      setAnswer('Coach is unavailable right now. Try again later.')
+    } finally {
+      setAnswerStreaming(false)
+    }
+  }
 
   if (briefingLoading) {
     return (
@@ -197,6 +235,35 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
           </div>
         </div>
       )}
+
+      {/* Ask Coach — chip buttons */}
+      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
+        <h3 className="font-display font-bold text-sm text-white mb-3">Ask Coach</h3>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {COACH_CHIPS.map(chip => (
+            <button
+              key={chip}
+              onClick={() => askCoach(chip)}
+              disabled={answerStreaming}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                activeChip === chip
+                  ? 'bg-[#f97316] border-[#f97316] text-black'
+                  : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#9ca3af] hover:text-white hover:border-[#3a3a3a]'
+              }`}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+        {(answer || answerStreaming) && (
+          <div ref={answerRef} className="text-sm text-[#d1d5db] leading-relaxed bg-[#0f0f0f] rounded-xl p-4 border border-[#2a2a2a]">
+            {answer}
+            {answerStreaming && (
+              <span className="inline-block w-2 h-3.5 bg-[#f97316] animate-pulse ml-0.5 align-middle" />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Trophy Case — past weeks */}
       {sortedWeeks.length > 0 && (

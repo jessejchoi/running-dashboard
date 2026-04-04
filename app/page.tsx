@@ -14,8 +14,6 @@ import GroupLeaderboard from '@/components/GroupLeaderboard'
 import GroupFeed from '@/components/GroupFeed'
 import GroupGoalsSection from '@/components/GroupGoalsSection'
 import GroupCoachTab from '@/components/GroupCoachTab'
-import PatternInsightCard from '@/components/PatternInsightCard'
-import GroupPeekCard from '@/components/GroupPeekCard'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
 
@@ -406,13 +404,6 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* ── Coach Cards ── */}
-        <div className="grid md:grid-cols-2 gap-3 mb-6">
-          <PatternInsightCard />
-          {allGroupsData.length > 0 && (
-            <GroupPeekCard groupId={(allGroupsData[0] as any).group.id} />
-          )}
-        </div>
 
       </main>
     </>

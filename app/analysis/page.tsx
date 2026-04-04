@@ -310,60 +310,59 @@ export default async function AnalysisPage() {
                       const est = item.est
                       const lr = longRunAnalyses.find(l => l.activityId === est.activityId)
                       const lrRun = (longRuns ?? []).find((r: any) => r.id === est.activityId)
+                      const blocks = lr?.allFastBlocks?.length ? lr.allFastBlocks : (lr?.fastBlock ? [lr.fastBlock] : [])
                       return (
-                        <div key={`fb-${est.activityId}`} className="card fade-up">
+                        <div key={`fb-${est.activityId}`} className={`card fade-up ${lrRun?.excluded_from_analysis ? 'opacity-40' : ''}`}>
                           <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
                                 <span className="font-display font-bold text-base">{est.activityName.replace(' (fast block)', '')}</span>
+                                <ToggleAnalysisButton activityId={est.activityId} excluded={!!lrRun?.excluded_from_analysis} />
                                 <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">long run fast block</span>
                               </div>
                               <div className="text-[#6b7280] text-xs mt-0.5">
-                                {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')}
-                                {lr?.fastBlock && <span> · min {Math.round(lr.fastBlock.startSec/60)}–{Math.round(lr.fastBlock.endSec/60)} · {(lr.fastBlock.durationSecs/60).toFixed(0)} min</span>}
+                                {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')} · {formatDistanceShort(lrRun?.distance ?? 0, unit)}
+                                {lr?.fatigueCredit != null && lr.fatigueCredit > 0 && (
+                                  <span className="ml-2 text-emerald-400 font-mono">+{lr.fatigueCredit.toFixed(1)}s fatigue credit</span>
+                                )}
                               </div>
                             </div>
                             <RunEstimateBadge raceEstimates={est.raceEstimates} fallbackSecs={est.estimatedSecs} color="#60a5fa" />
                           </div>
-                          {lrRun && lr?.fastBlock && (() => {
-                            const splits: any[] = lrRun.splits ?? []
-                            if (splits.length === 0) return null
-                            let cumTime = 0
-                            const timedSplits = splits.map((s: any) => {
-                              const tStart = cumTime
-                              cumTime += s.elapsed_time ?? s.moving_time ?? 0
-                              return { ...s, tStart, tEnd: cumTime }
-                            })
-                            const blockSplits = timedSplits.filter((s: any) => s.tEnd > lr.fastBlock!.startSec && s.tStart < lr.fastBlock!.endSec)
-                            if (blockSplits.length === 0) return null
-                            return (
-                              <div className="bg-[#111] rounded-lg overflow-x-auto">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="border-b border-[#1c1c1c]">
-                                      {[unit === 'miles' ? 'mi' : 'km', 'Dist', 'Pace', 'Time', 'HR'].map(h => (
-                                        <th key={h} className="text-left px-3 py-2 text-[#4b5563] font-medium">{h}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {blockSplits.map((s: any, i: number) => {
-                                      if (!s.average_speed) return null
-                                      return (
-                                        <tr key={i} className="border-b border-[#1a1a1a]">
-                                          <td className="px-3 py-2 font-mono text-[#6b7280]">{i + 1}</td>
-                                          <td className="px-3 py-2 font-mono text-white">{s.distance >= 1000 ? formatDistanceShort(s.distance, unit) : `${Math.round(s.distance)}m`}</td>
-                                          <td className="px-3 py-2 font-mono font-bold text-[#60a5fa]">{speedToPace(s.average_speed, unit)}{paceUnitLabel(unit)}</td>
-                                          <td className="px-3 py-2 font-mono text-[#9ca3af]">{formatDuration(s.moving_time)}</td>
-                                          <td className="px-3 py-2 font-mono text-[#9ca3af]">{s.average_heartrate ? Math.round(s.average_heartrate) : '—'}</td>
-                                        </tr>
-                                      )
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )
-                          })()}
+                          {blocks.length > 0 && (
+                            <div className="bg-[#111] rounded-lg overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-[#1c1c1c]">
+                                    {['Block', 'Pace', 'Duration', 'HR', 'Est HM'].map(h => (
+                                      <th key={h} className="text-left px-3 py-2 text-[#4b5563] font-medium">{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {blocks.map((block, i) => {
+                                    const isPrimary = block.startSec === lr?.fastBlock?.startSec
+                                    const hmEst = isPrimary ? lr?.fastBlockEstimates?.find(e => e.distanceKey === 'hm') : undefined
+                                    return (
+                                      <tr key={i} className="border-b border-[#1a1a1a]">
+                                        <td className="px-3 py-2 font-mono text-[#6b7280]">
+                                          min {Math.round(block.startSec/60)}–{Math.round(block.endSec/60)}
+                                          {isPrimary && blocks.length > 1 && <span className="ml-1 text-[10px] text-blue-400">★</span>}
+                                        </td>
+                                        <td className="px-3 py-2 font-mono font-bold text-[#60a5fa]">{formatPace(block.avgPace)}/km</td>
+                                        <td className="px-3 py-2 font-mono text-white">{formatDuration(block.durationSecs)}</td>
+                                        <td className="px-3 py-2 font-mono text-[#9ca3af]">{block.avgHR > 0 ? `${Math.round(block.avgHR)} bpm` : '—'}</td>
+                                        <td className="px-3 py-2 font-mono text-white">{hmEst ? formatTime(hmEst.estimatedSecs) : '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                              {lr?.fatigueCredit != null && lr.fatigueCredit > 0 && (
+                                <div className="px-3 py-2 text-[10px] text-[#4b5563]">★ = primary block used for estimates · Est HM uses +{lr.fatigueCredit.toFixed(1)}s/km fatigue credit</div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })}

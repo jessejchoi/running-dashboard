@@ -946,7 +946,9 @@ export interface LongRunAnalysis {
   lateWindow?: DriftWindow    // last 15 min window used for drift comparison
   windowSecs: number
   runStructure: LongRunStructure
-  fastBlock?: FastBlock               // detected fast/progression block
+  fastBlock?: FastBlock               // primary (longest) fast/progression block — used for estimates
+  allFastBlocks?: FastBlock[]         // all detected fast blocks (for display; primary is longest)
+  fatigueCredit?: number              // sec/km pace bonus applied to primary block estimates
   fastBlockEstimates?: RaceEstimate[] // threshold-style estimates from the fast block
   residualElevation?: number          // % HR elevation at easy pace after fast block (fast_middle only)
   raceEstimates: RaceEstimate[]
@@ -1029,80 +1031,97 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
 
 // ─── Fast block detection ─────────────────────────────────────────────────────
 
-// Finds the most significant fast block in a run. Returns the block and whether
-// it sits at the end or in the middle.
-function detectFastBlock(
+// Threshold for classifying a sustained run section as a "fast block":
+// splits must be ≥12% faster than the overall average pace.
+const LONG_RUN_FAST_THRESHOLD = 0.88
+const LONG_RUN_MIN_BLOCK_SECS = 8 * 60
+
+// Fatigue credit applied to fast block pace estimates.
+// A fast block run after 90 min represents better fitness than the same pace fresh.
+// Reference = 30 min of running before the block; ~8 s/km credit per doubling.
+const FATIGUE_REF_SECS  = 30 * 60
+const FATIGUE_CREDIT_K  = 8
+
+// Returns all fast blocks in `timed` that meet the threshold and minimum duration.
+// Sorted by start time.
+function detectAllFastBlocks(
   timed: TimedSplit[],
   baselinePace: number,
-  totalSecs: number,
-  fastThreshold = 0.85,
-  minBlockSecs = 8 * 60,
-): { block: FastBlock; position: 'end' | 'middle' } | null {
-  const FAST_THRESHOLD = fastThreshold
-
-  // Merge consecutive fast splits into blocks
-  const blocks: { startSec: number; endSec: number; splits: TimedSplit[] }[] = []
+  threshold: number,
+  minBlockSecs: number,
+): FastBlock[] {
+  const result: FastBlock[] = []
   let i = 0
   while (i < timed.length) {
-    if (timed[i].pace < baselinePace * FAST_THRESHOLD) {
+    if (timed[i].pace < baselinePace * threshold) {
       const blockSplits: TimedSplit[] = [timed[i]]
       let j = i + 1
-      while (j < timed.length && timed[j].pace < baselinePace * FAST_THRESHOLD) {
+      while (j < timed.length && timed[j].pace < baselinePace * threshold) {
         blockSplits.push(timed[j])
         j++
       }
-      blocks.push({
-        startSec: timed[i].tStart,
-        endSec:   timed[j - 1].tEnd,
-        splits:   blockSplits,
-      })
+      const startSec    = timed[i].tStart
+      const endSec      = timed[j - 1].tEnd
+      const durationSecs = endSec - startSec
+      if (durationSecs >= minBlockSecs) {
+        const avgPace = wavg(blockSplits, 'pace')
+        const avgHR   = wavg(blockSplits, 'hr')
+        result.push({
+          startSec,
+          endSec,
+          durationSecs,
+          avgPace,
+          avgHR,
+          pctFasterThanBaseline: parseFloat((((baselinePace - avgPace) / baselinePace) * 100).toFixed(1)),
+        })
+      }
       i = j
     } else {
       i++
     }
   }
+  return result
+}
 
+// Finds the primary (longest) fast block. Returns it with position metadata.
+function detectFastBlock(
+  timed: TimedSplit[],
+  baselinePace: number,
+  totalSecs: number,
+): { block: FastBlock; position: 'end' | 'middle' } | null {
+  const blocks = detectAllFastBlocks(timed, baselinePace, LONG_RUN_FAST_THRESHOLD, LONG_RUN_MIN_BLOCK_SECS)
   if (blocks.length === 0) return null
 
-  // Pick the longest block
-  const best = blocks.reduce((a, b) =>
-    (b.endSec - b.startSec) > (a.endSec - a.startSec) ? b : a
-  )
-  if (best.endSec - best.startSec < minBlockSecs) return null
-
-  const avgPace = wavg(best.splits, 'pace')
-  const avgHR   = wavg(best.splits, 'hr')
-
-  const block: FastBlock = {
-    startSec: best.startSec,
-    endSec:   best.endSec,
-    durationSecs: best.endSec - best.startSec,
-    avgPace,
-    avgHR,
-    pctFasterThanBaseline: parseFloat((((baselinePace - avgPace) / baselinePace) * 100).toFixed(1)),
-  }
-
-  // 'end' if the block starts in the last 25% of the run
+  // Primary block = longest
+  const best = blocks.reduce((a, b) => b.durationSecs > a.durationSecs ? b : a)
   const position = best.startSec > totalSecs * 0.75 ? 'end' : 'middle'
-  return { block, position }
+  return { block: best, position }
 }
 
 // Treat the fast block like a continuous threshold run — same Daniels ratio
-// but with a 20% confidence discount since the runner was pre-fatigued.
+// with a 20% confidence discount (pre-fatigued) but a fatigue credit applied
+// to pace: blocks deeper into the run represent higher fitness than the same
+// pace run fresh.
 function fastBlockThresholdEstimates(
   block: FastBlock,
   activityId: number,
   date: string,
   maxHr: number,
 ): RaceEstimate[] {
-  if (block.durationSecs < 8 * 60) return []
+  if (block.durationSecs < LONG_RUN_MIN_BLOCK_SECS) return []
   if (block.avgPace < 180 || block.avgPace > 420) return []
 
+  // Fatigue credit: blocks later in the run get a pace bonus before estimation.
+  const fatigueCredit = FATIGUE_CREDIT_K * Math.log2(
+    Math.max(block.startSec, 10 * 60) / FATIGUE_REF_SECS
+  )
+  const adjustedPace = block.avgPace - fatigueCredit
+
   const ratio    = continuousDanielsRatio(block.avgHR, maxHr)
-  const fiveKPac = block.avgPace * ratio
+  const fiveKPac = adjustedPace * ratio
   const est5K    = Math.max(840, Math.min(3000, fiveKPac * 5))
   const DISCOUNT = 0.80
-  const label    = `Long run fast block (${(block.durationSecs / 60).toFixed(0)} min @ ${formatPace(block.avgPace)}/km)`
+  const label    = `Long run fast block (${(block.durationSecs / 60).toFixed(0)} min @ ${formatPace(block.avgPace)}/km, fatigue +${fatigueCredit.toFixed(1)}s credit)`
 
   return [
     {
@@ -1116,7 +1135,7 @@ function fastBlockThresholdEstimates(
     },
     {
       distanceKey: '10k',
-      estimatedSecs: block.avgPace * THRESHOLD_TO_10K * 10,
+      estimatedSecs: adjustedPace * THRESHOLD_TO_10K * 10,
       confidence: THRESHOLD_CONFIDENCE['10k'] * DISCOUNT,
       source: 'threshold',
       date,
@@ -1125,7 +1144,7 @@ function fastBlockThresholdEstimates(
     },
     {
       distanceKey: 'hm',
-      estimatedSecs: block.avgPace * THRESHOLD_TO_HM * 21.097,
+      estimatedSecs: adjustedPace * THRESHOLD_TO_HM * 21.097,
       confidence: THRESHOLD_CONFIDENCE['hm']  * DISCOUNT,
       source: 'threshold',
       date,
@@ -1134,7 +1153,7 @@ function fastBlockThresholdEstimates(
     },
     {
       distanceKey: 'fm',
-      estimatedSecs: riegelProject(block.avgPace * THRESHOLD_TO_HM * 21.097, 21.097, 42.195, 1.07),
+      estimatedSecs: riegelProject(adjustedPace * THRESHOLD_TO_HM * 21.097, 21.097, 42.195, 1.07),
       confidence: THRESHOLD_CONFIDENCE['fm']  * DISCOUNT,
       source: 'threshold',
       date,
@@ -1202,29 +1221,14 @@ export function analyzeLongRun(activity: {
 
   // ── Detect fast block ────────────────────────────────────────────────────
   // long_easy: user has explicitly labelled this as easy — skip detection.
-  // long_progressive: user expects a faster block; detect it. If splits are
-  //   unavailable we still honour the label by defaulting runStructure.
-  // long / anything else: auto-detect.
+  // All other long run types: auto-detect using overall average pace as baseline.
+  // Threshold = 12% faster than overall avg (LONG_RUN_FAST_THRESHOLD = 0.88).
   const isExplicitlyEasy        = activity.run_type === 'long_easy'
   const isExplicitlyProgressive = activity.run_type === 'long_progressive'
 
-  // For progression runs: use the first 30% of splits as the baseline pace
-  // (captures actual easy start, not the pulled-up overall average).
-  // Threshold 0.93 = only 7% faster required (gentler progressions qualify).
-  // Min block 6 min (shorter than general 8 min to catch moderate fast finishes).
-  let detectionBaseline  = baselinePace
-  let detectionThreshold = 0.85
-  let detectionMinSecs   = 8 * 60
-  if (isExplicitlyProgressive && timed.length >= 4) {
-    const earlyCount    = Math.max(2, Math.floor(timed.length * 0.30))
-    detectionBaseline   = wavg(timed.slice(0, earlyCount), 'pace')
-    detectionThreshold  = 0.93
-    detectionMinSecs    = 6 * 60
-  }
-
   const fastBlockResult = isExplicitlyEasy
     ? null
-    : detectFastBlock(timed, detectionBaseline, activity.moving_time, detectionThreshold, detectionMinSecs)
+    : detectFastBlock(timed, baselinePace, activity.moving_time)
 
   // When the user has labelled the run as progressive but splits don't reveal
   // a fast block (e.g. no per-km HR data), fall back to 'progression' so the
@@ -1240,6 +1244,11 @@ export function analyzeLongRun(activity: {
   // moving_time would push the late window boundary past where splits exist.
   let preFastTimed    = timed
   let preFastDuration = timed.length > 0 ? timed[timed.length - 1].tEnd : activity.moving_time
+
+  // All fast blocks (for display); primary block (longest) used for estimates.
+  const allFastBlocks = isExplicitlyEasy
+    ? []
+    : detectAllFastBlocks(timed, baselinePace, LONG_RUN_FAST_THRESHOLD, LONG_RUN_MIN_BLOCK_SECS)
 
   if (fastBlockResult) {
     fastBlock      = fastBlockResult.block
@@ -1303,6 +1312,9 @@ export function analyzeLongRun(activity: {
   // If no usable steady window but we have fast block estimates, still return
   if (!window || window.windowSecs < 600) {
     if (fastBlockEstimates && fastBlockEstimates.length > 0) {
+      const fatigueCredit = fastBlock
+        ? FATIGUE_CREDIT_K * Math.log2(Math.max(fastBlock.startSec, 10 * 60) / FATIGUE_REF_SECS)
+        : undefined
       return {
         date,
         activityId:   activity.id,
@@ -1319,6 +1331,8 @@ export function analyzeLongRun(activity: {
         windowSecs:   0,
         runStructure,
         fastBlock,
+        allFastBlocks,
+        fatigueCredit,
         fastBlockEstimates,
         residualElevation,
         raceEstimates: fastBlockEstimates,
@@ -1407,6 +1421,10 @@ export function analyzeLongRun(activity: {
     : steadyEstimates
   if (raceEstimates.length === 0) return null
 
+  const fatigueCredit = fastBlock
+    ? FATIGUE_CREDIT_K * Math.log2(Math.max(fastBlock.startSec, 10 * 60) / FATIGUE_REF_SECS)
+    : undefined
+
   return {
     date,
     activityId:   activity.id,
@@ -1425,6 +1443,8 @@ export function analyzeLongRun(activity: {
     windowSecs:   window.windowSecs,
     runStructure,
     fastBlock,
+    allFastBlocks,
+    fatigueCredit,
     fastBlockEstimates,
     residualElevation,
     raceEstimates,

@@ -1031,10 +1031,9 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
 
 // ─── Fast block detection ─────────────────────────────────────────────────────
 
-// Threshold for classifying a sustained run section as a "fast block":
-// splits must be ≥12% faster than the overall average pace.
-const LONG_RUN_FAST_THRESHOLD = 0.88
 const LONG_RUN_MIN_BLOCK_SECS = 8 * 60
+// Minimum % faster than the first-30-min baseline to qualify as a fast block.
+const FAST_BLOCK_MIN_PCT_FASTER = 5
 
 // Fatigue credit applied to fast block pace estimates.
 // A fast block run after 90 min represents better fitness than the same pace fresh.
@@ -1042,60 +1041,105 @@ const LONG_RUN_MIN_BLOCK_SECS = 8 * 60
 const FATIGUE_REF_SECS  = 30 * 60
 const FATIGUE_CREDIT_K  = 8
 
-// Returns all fast blocks in `timed` that meet the threshold and minimum duration.
-// Sorted by start time.
-function detectAllFastBlocks(
-  timed: TimedSplit[],
-  baselinePace: number,
-  threshold: number,
-  minBlockSecs: number,
-): FastBlock[] {
-  const result: FastBlock[] = []
-  let i = 0
-  while (i < timed.length) {
-    if (timed[i].pace < baselinePace * threshold) {
-      const blockSplits: TimedSplit[] = [timed[i]]
-      let j = i + 1
-      while (j < timed.length && timed[j].pace < baselinePace * threshold) {
-        blockSplits.push(timed[j])
-        j++
-      }
-      const startSec    = timed[i].tStart
-      const endSec      = timed[j - 1].tEnd
-      const durationSecs = endSec - startSec
-      if (durationSecs >= minBlockSecs) {
-        const avgPace = wavg(blockSplits, 'pace')
-        const avgHR   = wavg(blockSplits, 'hr')
-        result.push({
-          startSec,
-          endSec,
-          durationSecs,
-          avgPace,
-          avgHR,
-          pctFasterThanBaseline: parseFloat((((baselinePace - avgPace) / baselinePace) * 100).toFixed(1)),
-        })
-      }
-      i = j
-    } else {
-      i++
-    }
+// Weighted average pace of the first ~30 min of timed splits (warm-up baseline).
+function getFirst30MinBaseline(timed: TimedSplit[]): number | null {
+  const TARGET_SECS = 30 * 60
+  const splits: TimedSplit[] = []
+  let cumDur = 0
+  for (const sp of timed) {
+    splits.push(sp)
+    cumDur += sp.duration
+    if (cumDur >= TARGET_SECS) break
   }
-  return result
+  if (splits.length < 2) return null
+  return wavg(splits, 'pace')
 }
 
-// Finds the primary (longest) fast block. Returns it with position metadata.
-function detectFastBlock(
+// Find the fastest user-created lap ≥5 min.
+// User-created laps are distinguished from auto km-splits by distance not near 1 km
+// (heuristic: dist > 300 m and |dist − 1000| > 200 m).
+function detectUserLapFastBlock(laps: any[]): FastBlock | null {
+  const MIN_USER_LAP_SECS = 5 * 60
+
+  // Build lap start times from cumulative elapsed time
+  let cumSec = 0
+  const lapTimings: { lap: any; startSec: number; endSec: number }[] = []
+  for (const lap of laps) {
+    const dur = lap.elapsed_time ?? lap.moving_time ?? 0
+    lapTimings.push({ lap, startSec: cumSec, endSec: cumSec + dur })
+    cumSec += dur
+  }
+
+  // Filter: user laps only, ≥5 min, have speed data
+  const userLaps = lapTimings.filter(({ lap }) => {
+    const dist = lap.distance ?? 0
+    const dur  = lap.elapsed_time ?? lap.moving_time ?? 0
+    return dist > 300 && Math.abs(dist - 1000) > 200 && dur >= MIN_USER_LAP_SECS && (lap.average_speed ?? 0) > 0
+  })
+  if (userLaps.length === 0) return null
+
+  // Pick fastest by average speed
+  const fastest = userLaps.reduce((a, b) =>
+    (b.lap.average_speed ?? 0) > (a.lap.average_speed ?? 0) ? b : a
+  )
+  const dur = fastest.lap.elapsed_time ?? fastest.lap.moving_time ?? 0
+
+  return {
+    startSec:             fastest.startSec,
+    endSec:               fastest.endSec,
+    durationSecs:         dur,
+    avgPace:              parseFloat((1000 / fastest.lap.average_speed).toFixed(1)),
+    avgHR:                parseFloat((fastest.lap.average_heartrate ?? 0).toFixed(1)),
+    pctFasterThanBaseline: 0, // filled in by caller after baseline is known
+  }
+}
+
+// Find the fastest contiguous window of ≥minBlockSecs in `timed`.
+// Tries all possible start positions and extends until minBlockSecs is met —
+// picks the (start, end) pair that yields the lowest weighted average pace.
+// Returns null if no window is meaningfully faster than baselinePace.
+function detectFastestWindowBlock(
   timed: TimedSplit[],
   baselinePace: number,
-  totalSecs: number,
-): { block: FastBlock; position: 'end' | 'middle' } | null {
-  const blocks = detectAllFastBlocks(timed, baselinePace, LONG_RUN_FAST_THRESHOLD, LONG_RUN_MIN_BLOCK_SECS)
-  if (blocks.length === 0) return null
+  minBlockSecs: number,
+  minPctFaster: number,
+): FastBlock | null {
+  if (timed.length < 2) return null
 
-  // Primary block = longest
-  const best = blocks.reduce((a, b) => b.durationSecs > a.durationSecs ? b : a)
-  const position = best.startSec > totalSecs * 0.75 ? 'end' : 'middle'
-  return { block: best, position }
+  let bestPace = Infinity
+  let bestBlock: FastBlock | null = null
+
+  for (let i = 0; i < timed.length; i++) {
+    let cumDur     = 0
+    let sumPaceDur = 0
+    let sumHRDur   = 0
+
+    for (let j = i; j < timed.length; j++) {
+      const sp = timed[j]
+      cumDur     += sp.duration
+      sumPaceDur += sp.pace * sp.duration
+      sumHRDur   += sp.hr   * sp.duration
+
+      if (cumDur >= minBlockSecs) {
+        const avgPace = sumPaceDur / cumDur
+        if (avgPace < bestPace) {
+          bestPace = avgPace
+          const pctFaster = (baselinePace - avgPace) / baselinePace * 100
+          bestBlock = {
+            startSec:             timed[i].tStart,
+            endSec:               timed[j].tEnd,
+            durationSecs:         timed[j].tEnd - timed[i].tStart,
+            avgPace:              parseFloat(avgPace.toFixed(1)),
+            avgHR:                parseFloat((sumHRDur / cumDur).toFixed(1)),
+            pctFasterThanBaseline: parseFloat(pctFaster.toFixed(1)),
+          }
+        }
+      }
+    }
+  }
+
+  if (!bestBlock || bestBlock.pctFasterThanBaseline < minPctFaster) return null
+  return bestBlock
 }
 
 // Treat the fast block like a continuous threshold run — same Daniels ratio
@@ -1220,23 +1264,15 @@ export function analyzeLongRun(activity: {
   const timed = buildTimedSplits(activity.splits ?? [])
 
   // ── Detect fast block ────────────────────────────────────────────────────
-  // long_easy: user has explicitly labelled this as easy — skip detection.
-  // All other long run types: auto-detect using overall average pace as baseline.
-  // Threshold = 12% faster than overall avg (LONG_RUN_FAST_THRESHOLD = 0.88).
-  const isExplicitlyEasy        = activity.run_type === 'long_easy'
-  const isExplicitlyProgressive = activity.run_type === 'long_progressive'
+  // Only look for fast blocks in "Long Run with Speed" (long_progressive).
+  // long_easy runs are explicitly steady — never detect a fast block there.
+  const isProgressive = activity.run_type === 'long_progressive'
 
-  const fastBlockResult = isExplicitlyEasy
-    ? null
-    : detectFastBlock(timed, baselinePace, activity.moving_time)
-
-  // When the user has labelled the run as progressive but splits don't reveal
-  // a fast block (e.g. no per-km HR data), fall back to 'progression' so the
-  // label is at least surfaced correctly in the UI.
-  let runStructure: LongRunStructure = isExplicitlyProgressive ? 'progression' : 'steady'
+  let runStructure: LongRunStructure = isProgressive ? 'progression' : 'steady'
   let fastBlock: FastBlock | undefined
   let fastBlockEstimates: RaceEstimate[] | undefined
   let residualElevation: number | undefined
+  const allFastBlocks: FastBlock[] = []
 
   // Splits and duration of the pre-fast steady portion.
   // Use the last split's tEnd rather than activity.moving_time — splits use
@@ -1245,28 +1281,44 @@ export function analyzeLongRun(activity: {
   let preFastTimed    = timed
   let preFastDuration = timed.length > 0 ? timed[timed.length - 1].tEnd : activity.moving_time
 
-  // All fast blocks (for display); primary block (longest) used for estimates.
-  const allFastBlocks = isExplicitlyEasy
-    ? []
-    : detectAllFastBlocks(timed, baselinePace, LONG_RUN_FAST_THRESHOLD, LONG_RUN_MIN_BLOCK_SECS)
+  if (isProgressive) {
+    // Baseline = average pace of first ~30 min (warm-up phase), fallback to overall avg.
+    const blockBaseline = getFirst30MinBaseline(timed) ?? baselinePace
 
-  if (fastBlockResult) {
-    fastBlock      = fastBlockResult.block
-    runStructure   = fastBlockResult.position === 'end' ? 'progression' : 'fast_middle'
-
-    // Trim to pre-fast portion — reset timed origins so t=0 at run start
-    preFastTimed    = timed.filter(s => s.tEnd <= fastBlock!.startSec)
-    preFastDuration = fastBlock.startSec
-
-    fastBlockEstimates = fastBlockThresholdEstimates(fastBlock, activity.id, date, maxHr)
-
-    // Residual elevation only for fast_middle (need easy running after block)
-    if (runStructure === 'fast_middle' && preFastTimed.length >= 2) {
-      const preFastAvgHR   = wavg(preFastTimed, 'hr')
-      const preFastAvgPace = wavg(preFastTimed, 'pace')
-      residualElevation = computeResidualElevation(
-        timed, fastBlock, preFastAvgHR, preFastAvgPace, activity.moving_time
+    // Priority 1: user-created laps (non-km splits — runner manually pressed lap button).
+    const userLapBlock = detectUserLapFastBlock(activity.laps ?? [])
+    if (userLapBlock) {
+      userLapBlock.pctFasterThanBaseline = parseFloat(
+        ((blockBaseline - userLapBlock.avgPace) / blockBaseline * 100).toFixed(1)
       )
+      fastBlock = userLapBlock
+    }
+
+    // Priority 2: fastest continuous window over km splits.
+    if (!fastBlock) {
+      fastBlock = detectFastestWindowBlock(
+        timed, blockBaseline, LONG_RUN_MIN_BLOCK_SECS, FAST_BLOCK_MIN_PCT_FASTER
+      ) ?? undefined
+    }
+
+    if (fastBlock) {
+      allFastBlocks.push(fastBlock)
+      runStructure = fastBlock.startSec > preFastDuration * 0.75 ? 'progression' : 'fast_middle'
+
+      // Trim to pre-fast portion for drift / steady window analysis
+      preFastTimed    = timed.filter(s => s.tEnd <= fastBlock!.startSec)
+      preFastDuration = fastBlock.startSec
+
+      fastBlockEstimates = fastBlockThresholdEstimates(fastBlock, activity.id, date, maxHr)
+
+      // Residual elevation only for fast_middle (need easy running after block)
+      if (runStructure === 'fast_middle' && preFastTimed.length >= 2) {
+        const preFastAvgHR   = wavg(preFastTimed, 'hr')
+        const preFastAvgPace = wavg(preFastTimed, 'pace')
+        residualElevation = computeResidualElevation(
+          timed, fastBlock, preFastAvgHR, preFastAvgPace, activity.moving_time
+        )
+      }
     }
   }
 

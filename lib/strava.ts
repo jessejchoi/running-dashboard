@@ -120,9 +120,8 @@ export function categorizeRun(activity: {
 
   // Long runs (≥12 km): classify by pace/HR profile
   if (distanceKm >= 12) {
-    if (paceCV > 0.07) return 'long_progressive'                          // variable pace = building run
-    if (avgPaceSeconds > 360 || (hr > 0 && hr < 140)) return 'long_easy' // easy long effort
-    return 'long_steady'                                                   // moderate sustained long
+    if (paceCV > 0.06) return 'long_progressive'                          // meaningful pace build = progressive
+    return 'long_easy'                                                     // steady/easy long effort
   }
 
   // Hard sustained efforts (shorter runs)

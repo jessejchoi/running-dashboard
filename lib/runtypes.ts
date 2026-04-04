@@ -11,9 +11,8 @@ export const RUN_TYPES = {
   easy_strides:       { label: 'Easy + Strides',      color: 'text-teal-300',    bg: 'bg-teal-300/15',    group: 'Easy' },
   tempo:              { label: 'Tempo',               color: 'text-rose-400',    bg: 'bg-rose-400/15',    group: 'Hard' },
   threshold:          { label: 'Threshold',           color: 'text-orange-400',  bg: 'bg-orange-400/15',  group: 'Hard' },
-  long_easy:          { label: 'Long — Easy',         color: 'text-sky-400',     bg: 'bg-sky-400/15',     group: 'Long' },
-  long_steady:        { label: 'Long — Steady',       color: 'text-cyan-400',    bg: 'bg-cyan-400/15',    group: 'Long' },
-  long_progressive:   { label: 'Long — Progressive',  color: 'text-blue-400',    bg: 'bg-blue-400/15',    group: 'Long' },
+  long_easy:          { label: 'Long Run — Easy',      color: 'text-sky-400',     bg: 'bg-sky-400/15',     group: 'Long' },
+  long_progressive:   { label: 'Long Run with Speed',  color: 'text-blue-400',    bg: 'bg-blue-400/15',    group: 'Long' },
   intervals:          { label: 'Intervals',           color: 'text-red-400',     bg: 'bg-red-400/15',     group: 'Interval' },
   treadmill:          { label: 'Treadmill',           color: 'text-zinc-400',    bg: 'bg-zinc-400/15',    group: 'Other' },
 } as const

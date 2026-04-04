@@ -301,7 +301,7 @@ export default async function AnalysisPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="font-display font-bold text-base">{est.activityName.replace(' (fast block)', '')}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">fast block</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">long run fast block</span>
                             </div>
                             <div className="text-[#6b7280] text-xs mt-0.5">
                               {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')} · {formatDuration(est.totalWorkSecs)} fast block

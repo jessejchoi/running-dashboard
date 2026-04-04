@@ -13,7 +13,7 @@ const COLOR = '#34d399'
 const STRUCTURE_LABEL: Record<string, string> = {
   steady:      'Steady',
   progression: 'Progression',
-  fast_middle: 'Fast block',
+  fast_middle: 'Long run fast block',
 }
 const STRUCTURE_COLOR: Record<string, string> = {
   steady:      '#6b7280',
@@ -168,7 +168,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Est. {distanceLabel(active as DistanceKey)}</div>
             <div className="font-mono font-bold text-[#60a5fa]">{formatTime(latestFastEst.estimatedSecs)}</div>
-            <div className="text-[#4b5563] text-xs mt-0.5">from fast block</div>
+            <div className="text-[#4b5563] text-xs mt-0.5">from long run fast block</div>
           </div>
         ) : latestSteadyEst ? (
           <div>
@@ -222,7 +222,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
       <div className="flex flex-wrap gap-4 mt-2 text-[10px] text-[#4b5563]">
         <span>Dots: <span style={{ color: STRUCTURE_COLOR.steady }}>● steady</span>{' '}
           <span style={{ color: STRUCTURE_COLOR.progression }}>● progression</span>{' '}
-          <span style={{ color: STRUCTURE_COLOR.fast_middle }}>● fast block</span>
+          <span style={{ color: STRUCTURE_COLOR.fast_middle }}>● long run fast block</span>
         </span>
         <span>Drift compares ~30% mark vs last 15 min of steady portion · ±10% pace tolerance</span>
       </div>

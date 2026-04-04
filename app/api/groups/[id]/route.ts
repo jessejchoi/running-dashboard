@@ -69,6 +69,36 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   })
 }
 
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const athleteId = cookies().get('athlete_id')?.value
+  if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const { data: membership } = await supabaseAdmin
+    .from('group_members')
+    .select('role')
+    .eq('group_id', params.id)
+    .eq('athlete_id', parseInt(athleteId))
+    .maybeSingle()
+
+  if (membership?.role !== 'admin') {
+    return NextResponse.json({ error: 'Only admins can update the group' }, { status: 403 })
+  }
+
+  const body = await req.json()
+  const name = body.name?.trim()
+  if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+
+  const { data, error } = await supabaseAdmin
+    .from('groups')
+    .update({ name })
+    .eq('id', params.id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const athleteId = cookies().get('athlete_id')?.value
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

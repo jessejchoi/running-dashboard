@@ -16,7 +16,20 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   if (!membership) return NextResponse.json({ error: 'Not a member of this group' }, { status: 404 })
   if (membership.role === 'admin') {
-    return NextResponse.json({ error: 'Admins cannot leave — delete the group instead' }, { status: 400 })
+    // Allow leaving only if there is at least one other admin
+    const { data: otherAdmins } = await supabaseAdmin
+      .from('group_members')
+      .select('athlete_id')
+      .eq('group_id', params.id)
+      .eq('role', 'admin')
+      .neq('athlete_id', parseInt(athleteId))
+
+    if (!otherAdmins || otherAdmins.length === 0) {
+      return NextResponse.json(
+        { error: 'You are the only admin. Promote another member to admin before leaving, or delete the group.' },
+        { status: 400 }
+      )
+    }
   }
 
   const { error } = await supabaseAdmin

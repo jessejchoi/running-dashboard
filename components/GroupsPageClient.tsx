@@ -280,13 +280,32 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
               </a>
 
               {/* Leave / Delete */}
-              <button
-                onClick={() => { setActionError(''); setConfirm({ group: g, type: g.my_role === 'admin' ? 'delete' : 'leave' }) }}
-                className={`shrink-0 p-2 rounded-lg transition-colors ${g.my_role === 'admin' ? 'text-red-500/60 hover:text-red-500 hover:bg-red-500/10' : 'text-[#4b5563] hover:text-[#6b7280] hover:bg-[#1a1a1a]'}`}
-                title={g.my_role === 'admin' ? 'Delete group' : 'Leave group'}
-              >
-                {g.my_role === 'admin' ? <Trash2 size={15} /> : <LogOut size={15} />}
-              </button>
+              {g.my_role === 'admin' ? (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => { setActionError(''); setConfirm({ group: g, type: 'leave' }) }}
+                    className="p-2 rounded-lg transition-colors text-[#4b5563] hover:text-[#6b7280] hover:bg-[#1a1a1a]"
+                    title="Leave group"
+                  >
+                    <LogOut size={15} />
+                  </button>
+                  <button
+                    onClick={() => { setActionError(''); setConfirm({ group: g, type: 'delete' }) }}
+                    className="p-2 rounded-lg transition-colors text-red-500/60 hover:text-red-500 hover:bg-red-500/10"
+                    title="Delete group"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setActionError(''); setConfirm({ group: g, type: 'leave' }) }}
+                  className="shrink-0 p-2 rounded-lg transition-colors text-[#4b5563] hover:text-[#6b7280] hover:bg-[#1a1a1a]"
+                  title="Leave group"
+                >
+                  <LogOut size={15} />
+                </button>
+              )}
             </div>
           ))}
         </div>

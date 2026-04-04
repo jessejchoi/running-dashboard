@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon } from 'lucide-react'
+import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon, Shield, ShieldOff, UserMinus } from 'lucide-react'
 import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart, computeStreak } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
@@ -327,13 +327,53 @@ export default function GroupPageClient({
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
 
+  // Group name rename
+  const [groupName, setGroupName] = useState(group.name)
+  const [renamingGroup, setRenamingGroup] = useState(false)
+  const [renameValue, setRenameValue] = useState(group.name)
+  const [renameLoading, setRenameLoading] = useState(false)
+
+  // Members (mutable for kick/promote)
+  const [localMembers, setLocalMembers] = useState(members)
+
   const { unit } = useUnit()
-  const memberMap = Object.fromEntries(members.map(m => [m.athlete_id, m]))
+  const memberMap = Object.fromEntries(localMembers.map(m => [m.athlete_id, m]))
 
   function copyInvite() {
     navigator.clipboard.writeText(inviteUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function saveGroupName() {
+    const trimmed = renameValue.trim()
+    if (!trimmed || trimmed === groupName) { setRenamingGroup(false); return }
+    setRenameLoading(true)
+    const res = await fetch(`/api/groups/${group.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed }),
+    })
+    setRenameLoading(false)
+    if (res.ok) {
+      setGroupName(trimmed)
+      setRenamingGroup(false)
+    }
+  }
+
+  async function kickMember(athleteId: number) {
+    if (!confirm('Remove this member from the group?')) return
+    const res = await fetch(`/api/groups/${group.id}/members?athleteId=${athleteId}`, { method: 'DELETE' })
+    if (res.ok) setLocalMembers(prev => prev.filter(m => m.athlete_id !== athleteId))
+  }
+
+  async function updateMemberRole(athleteId: number, role: 'admin' | 'member') {
+    const res = await fetch(`/api/groups/${group.id}/members`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ athlete_id: athleteId, role }),
+    })
+    if (res.ok) setLocalMembers(prev => prev.map(m => m.athlete_id === athleteId ? { ...m, role } : m))
   }
 
   async function loadPlans() {
@@ -556,9 +596,42 @@ export default function GroupPageClient({
       {/* Header */}
       <div className="flex items-start justify-between mb-6 fade-up">
         <div>
-          <h1 className="font-display font-extrabold text-4xl">{group.name}</h1>
+          {renamingGroup ? (
+            <div className="flex items-center gap-2">
+              <input
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveGroupName(); if (e.key === 'Escape') setRenamingGroup(false) }}
+                autoFocus
+                className="font-display font-extrabold text-4xl bg-transparent border-b-2 border-[#f97316] outline-none text-white w-full"
+              />
+              <button
+                onClick={saveGroupName}
+                disabled={renameLoading}
+                className="text-xs font-bold text-[#f97316] hover:text-[#ea580c] disabled:opacity-50 shrink-0"
+              >
+                {renameLoading ? '…' : 'Save'}
+              </button>
+              <button onClick={() => setRenamingGroup(false)} className="text-[#4b5563] hover:text-white shrink-0">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="font-display font-extrabold text-4xl">{groupName}</h1>
+              {myRole === 'admin' && (
+                <button
+                  onClick={() => { setRenameValue(groupName); setRenamingGroup(true) }}
+                  className="text-[#4b5563] hover:text-white mt-1"
+                  title="Rename group"
+                >
+                  <Pencil size={15} />
+                </button>
+              )}
+            </div>
+          )}
           <p className="text-[#6b7280] text-sm mt-1">
-            {members.length} member{members.length !== 1 ? 's' : ''} · Created {format(new Date(group.created_at), 'MMM d, yyyy')}
+            {localMembers.length} member{localMembers.length !== 1 ? 's' : ''} · Created {format(new Date(group.created_at), 'MMM d, yyyy')}
           </p>
         </div>
         <button
@@ -571,7 +644,7 @@ export default function GroupPageClient({
       </div>
 
       {/* Invite banner */}
-      {members.length < 2 && (
+      {localMembers.length < 2 && (
         <div className="card border-dashed border-[#2a2a2a] mb-6 fade-up">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-full bg-[#f97316]/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -618,7 +691,7 @@ export default function GroupPageClient({
       {tab === 'dashboard' && (() => {
         const label = distanceUnitLabel(unit)
         const toDisplay = (m: number) => unit === 'miles' ? metersToMiles(m) : m / 1000
-        const board = computeLeaderboard(leaderboardRuns, leaderRange, members)
+        const board = computeLeaderboard(leaderboardRuns, leaderRange, localMembers)
         const maxDist = Math.max(...board.map(e => e.distance), 1)
         const ranges: { key: LeaderRange; label: string }[] = [
           { key: 'week',  label: 'This Week' },
@@ -674,7 +747,7 @@ export default function GroupPageClient({
 
               {/* ── group_distance ── */}
               {cType === 'group_distance' && (() => {
-                const { totalMeters, byMember } = computeChallengeProgress(leaderboardRuns, c, members)
+                const { totalMeters, byMember } = computeChallengeProgress(leaderboardRuns, c, localMembers)
                 const pct = Math.min(100, (totalMeters / (c.target_meters ?? 1)) * 100)
                 return (
                   <>
@@ -728,7 +801,7 @@ export default function GroupPageClient({
               {/* ── weekly_quota ── */}
               {cType === 'weekly_quota' && (() => {
                 const weeklyMeters = (c.config.weekly_meters as number) ?? 0
-                const { weeks, byMember } = computeWeeklyQuota(leaderboardRuns, c, members)
+                const { weeks, byMember } = computeWeeklyQuota(leaderboardRuns, c, localMembers)
                 const now = new Date()
                 return (
                   <>
@@ -781,7 +854,7 @@ export default function GroupPageClient({
 
               {/* ── fastest_effort ── */}
               {cType === 'fastest_effort' && (() => {
-                const { byMember } = computeFastestEffort(leaderboardRuns, c, members)
+                const { byMember } = computeFastestEffort(leaderboardRuns, c, localMembers)
                 const runTypeLabel = RUN_TYPE_LABELS[c.config.run_type as string] ?? (c.config.run_type as string)
                 const hasAny = byMember.some(m => m.bestSpeed !== null)
                 return (
@@ -832,7 +905,7 @@ export default function GroupPageClient({
             {/* RDCoach section */}
             <div>
               <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">RDCoach</p>
-              <GroupCoachTab groupId={group.id} myRole={myRole} members={members} />
+              <GroupCoachTab groupId={group.id} myRole={myRole} members={localMembers} />
             </div>
 
             {/* Leaderboard section */}
@@ -953,7 +1026,7 @@ export default function GroupPageClient({
             <div>
               <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">Training Load</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                {members.map(m => {
+                {localMembers.map(m => {
                   const load = memberTrainingLoads[m.athlete_id] ?? { ctl: 0, atl: 0, tsb: 0 }
                   const tsbColor = load.tsb > 5 ? 'text-emerald-400' : load.tsb >= -10 ? 'text-yellow-400' : 'text-red-400'
                   const formLabel = load.tsb > 5 ? 'Fresh' : load.tsb >= -10 ? 'Tired' : 'Very Tired'
@@ -997,7 +1070,7 @@ export default function GroupPageClient({
             <div>
               <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">Members</p>
               <div className="space-y-2">
-                {members.map(m => (
+                {localMembers.map(m => (
                   <div key={m.athlete_id} className="card">
                     <div className="flex items-center gap-3">
                       <Avatar name={m.name} pic={m.profile_pic} size={9} />
@@ -1013,6 +1086,34 @@ export default function GroupPageClient({
                           {m.goals.length > 0 && ` · ${m.goals.length} goal${m.goals.length !== 1 ? 's' : ''}`}
                         </p>
                       </div>
+                      {myRole === 'admin' && !m.is_me && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {m.role === 'admin' ? (
+                            <button
+                              onClick={() => updateMemberRole(m.athlete_id, 'member')}
+                              className="p-1.5 rounded-lg text-yellow-400/60 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
+                              title="Remove admin"
+                            >
+                              <ShieldOff size={14} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => updateMemberRole(m.athlete_id, 'admin')}
+                              className="p-1.5 rounded-lg text-[#4b5563] hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
+                              title="Make admin"
+                            >
+                              <Shield size={14} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => kickMember(m.athlete_id)}
+                            className="p-1.5 rounded-lg text-[#4b5563] hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            title="Remove from group"
+                          >
+                            <UserMinus size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1039,7 +1140,7 @@ export default function GroupPageClient({
                 >
                   All
                 </button>
-                {members.map(m => (
+                {localMembers.map(m => (
                   <button
                     key={m.athlete_id}
                     onClick={() => setFeedMember(feedMember === m.athlete_id ? 'all' : m.athlete_id)}
@@ -1138,7 +1239,7 @@ export default function GroupPageClient({
       {/* ── Goals tab ─────────────────────────────────────────────────────── */}
       {tab === 'goals' && (
         <div className="space-y-6 fade-up">
-          {members.map(m => (
+          {localMembers.map(m => (
             <div key={m.athlete_id}>
               <div className="flex items-center gap-2 mb-3">
                 <Avatar name={m.name} pic={m.profile_pic} size={6} />
@@ -1206,7 +1307,7 @@ export default function GroupPageClient({
         })
 
         // Me first
-        const sortedMembers = [...members].sort((a, b) => {
+        const sortedMembers = [...localMembers].sort((a, b) => {
           if (a.athlete_id === myAthleteId) return -1
           if (b.athlete_id === myAthleteId) return 1
           return 0

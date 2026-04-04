@@ -940,15 +940,31 @@ function computeCardiacDrift(splits: any[], totalSecs: number): {
 
   const drift = earlyHR > 0 ? ((lateHR - earlyHR) / earlyHR) * 100 : 0
 
-  // Pace consistency check — if pace changed more than ±10%, the HR shift
-  // is explained by effort change, not true cardiac drift
+  // Pace consistency check — if the windows themselves differ >±10%, the HR
+  // shift is explained by effort change, not true cardiac drift
   const paceRatio = latePace / earlyPace
   if (paceRatio < 1 - PACE_TOLERANCE || paceRatio > 1 + PACE_TOLERANCE) {
     const pctChange = ((paceRatio - 1) * 100).toFixed(0)
     return {
       drift,
       reliable: false,
-      reason: `pace changed ${pctChange}% — HR shift may not be true cardiac drift`,
+      reason: `pace changed ${pctChange}% between windows — HR shift may not be true drift`,
+    }
+  }
+
+  // Fast-block check — scan splits in the gap between the two windows.
+  // A hard effort there causes residual HR elevation in the late window that
+  // mimics cardiac drift (neuromuscular/cardiovascular activation).
+  // Threshold: any split >15% faster than the early baseline pace.
+  const FAST_BLOCK_THRESHOLD = 0.85 // pace ratio; smaller = faster
+  const gapSplits = timed.filter(s => s.tStart >= earlyEnd - TOLERANCE && s.tEnd <= lateStart + TOLERANCE)
+  const fastBlock = gapSplits.find(s => s.pace < earlyPace * FAST_BLOCK_THRESHOLD)
+  if (fastBlock) {
+    const pctFaster = (((earlyPace - fastBlock.pace) / earlyPace) * 100).toFixed(0)
+    return {
+      drift,
+      reliable: false,
+      reason: `fast effort in gap (${pctFaster}% faster than baseline) may have elevated late HR`,
     }
   }
 

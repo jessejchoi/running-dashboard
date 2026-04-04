@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { RefreshCw, Send } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
+import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 
 interface Member {
   athlete_id: number
@@ -10,11 +11,31 @@ interface Member {
   profile_pic: string | null
 }
 
+interface Award {
+  id: string
+  athlete_id: number
+  athlete_name: string
+  athlete_profile: string | null
+  award_key: string
+  award_label: string
+  emoji: string
+  week_start: string
+  caption: string | null
+}
+
 interface Props {
   groupId: string
   myRole: string
   members: Member[]
 }
+
+const COACH_CHIPS = [
+  "Who's slacking?",
+  "Call out who crushed it",
+  "Roast us this week",
+  "Who's race-ready?",
+  "What should we focus on?",
+]
 
 function Avatar({ name, pic }: { name: string; pic: string | null }) {
   if (pic) {
@@ -45,12 +66,13 @@ function MomentumBadge({ momentum }: { momentum: 'rising' | 'steady' | 'dipping'
 function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shoutouts'][0]; members: Member[] }) {
   const firstName = shoutout.athlete_name.split(' ')[0]
   const member = members.find(m => m.name.split(' ')[0].toLowerCase() === firstName.toLowerCase())
+  const emoji = isValidAwardKey(shoutout.award_key) ? AWARD_CATEGORIES[shoutout.award_key].emoji : '🏆'
   return (
     <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
       <div className="flex items-center gap-3 mb-2">
         <div className="relative">
           {member && <Avatar name={member.name} pic={member.profile_pic} />}
-          <span className="absolute -bottom-1 -right-1 text-base leading-none">{shoutout.award_icon}</span>
+          <span className="absolute -bottom-1 -right-1 text-base leading-none">{emoji}</span>
         </div>
         <div>
           <div className="font-bold text-sm text-white">{shoutout.athlete_name}</div>
@@ -67,9 +89,10 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
   const [briefingMeta, setBriefingMeta] = useState<{ cached: boolean; generated_at: string } | null>(null)
-  const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [answerStreaming, setAnswerStreaming] = useState(false)
+  const [activeChip, setActiveChip] = useState<string | null>(null)
+  const [awards, setAwards] = useState<Award[]>([])
   const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
@@ -89,17 +112,32 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
     }
   }
 
-  useEffect(() => { fetchBriefing() }, [])
+  async function fetchAwards() {
+    try {
+      const res = await fetch(`/api/groups/${groupId}/awards?weeks=4`)
+      if (!res.ok) return
+      const data = await res.json()
+      setAwards(data.awards ?? [])
+    } catch {
+      // silent — Trophy Case is non-critical
+    }
+  }
 
-  async function askCoach() {
-    if (!question.trim() || answerStreaming) return
+  useEffect(() => {
+    fetchBriefing()
+    fetchAwards()
+  }, [])
+
+  async function askCoach(chipText: string) {
+    if (answerStreaming) return
+    setActiveChip(chipText)
     setAnswer('')
     setAnswerStreaming(true)
     try {
       const res = await fetch(`/api/groups/${groupId}/coach/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question: chipText }),
       })
       if (!res.ok || !res.body) throw new Error('failed')
       const reader = res.body.getReader()
@@ -147,6 +185,14 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
 
   if (!briefing) return null
 
+  // Group awards by week for Trophy Case
+  const awardWeeks = awards.reduce<Record<string, Award[]>>((acc, a) => {
+    acc[a.week_start] = acc[a.week_start] ?? []
+    acc[a.week_start].push(a)
+    return acc
+  }, {})
+  const sortedWeeks = Object.keys(awardWeeks).sort((a, b) => b.localeCompare(a))
+
   return (
     <div className="space-y-4 fade-up">
 
@@ -178,7 +224,7 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
         <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>
       </div>
 
-      {/* Awards */}
+      {/* This Week's Awards */}
       {briefing.shoutouts.length > 0 && (
         <div>
           <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">This Week&rsquo;s Awards</h3>
@@ -196,26 +242,24 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
         <p className="text-sm text-[#d1d5db] leading-relaxed">{briefing.coach_tip}</p>
       </div>
 
-      {/* Ask Coach */}
+      {/* Ask Coach — chip buttons */}
       <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
         <h3 className="font-display font-bold text-sm text-white mb-3">Ask Coach</h3>
-        <div className="flex gap-2 mb-3">
-          <input
-            type="text"
-            value={question}
-            onChange={e => setQuestion(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') askCoach() }}
-            placeholder="e.g. What pace should I target for my long run?"
-            maxLength={500}
-            className="flex-1 bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none placeholder:text-[#4b5563]"
-          />
-          <button
-            onClick={askCoach}
-            disabled={!question.trim() || answerStreaming}
-            className="px-3 py-2 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-40 text-black rounded-lg transition-colors"
-          >
-            <Send size={14} />
-          </button>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {COACH_CHIPS.map(chip => (
+            <button
+              key={chip}
+              onClick={() => askCoach(chip)}
+              disabled={answerStreaming}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                activeChip === chip
+                  ? 'bg-[#f97316] border-[#f97316] text-black'
+                  : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#9ca3af] hover:text-white hover:border-[#3a3a3a]'
+              }`}
+            >
+              {chip}
+            </button>
+          ))}
         </div>
         {(answer || answerStreaming) && (
           <div ref={answerRef} className="text-sm text-[#d1d5db] leading-relaxed bg-[#0f0f0f] rounded-xl p-4 border border-[#2a2a2a]">
@@ -226,6 +270,42 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
           </div>
         )}
       </div>
+
+      {/* Trophy Case — past weeks */}
+      {sortedWeeks.length > 0 && (
+        <div>
+          <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">Trophy Case</h3>
+          <div className="space-y-4">
+            {sortedWeeks.map(week => (
+              <div key={week}>
+                <p className="text-[10px] font-mono text-[#4b5563] mb-2">
+                  Week of {new Date(week + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {awardWeeks[week].map(a => (
+                    <div key={a.id} className="flex items-center gap-3 bg-[#0f0f0f] border border-[#1c1c1c] rounded-xl px-3 py-2.5">
+                      <div className="relative shrink-0">
+                        {a.athlete_profile ? (
+                          <img src={a.athlete_profile} alt={a.athlete_name} className="w-7 h-7 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-[10px]">
+                            {a.athlete_name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="absolute -bottom-0.5 -right-1 text-sm leading-none">{a.emoji}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">{a.athlete_name.split(' ')[0]}</div>
+                        <div className="text-[10px] text-[#6b7280] truncate">{a.award_label}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
     </div>
   )

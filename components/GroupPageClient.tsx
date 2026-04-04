@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Copy, Check, Users, Target, Activity, Trash2, BarChart2, Flame, Trophy, Plus, X, CalendarDays, Pencil, Moon, Shield, ShieldOff, UserMinus } from 'lucide-react'
 import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart, computeStreak } from '@/lib/utils'
@@ -88,6 +88,7 @@ interface Props {
   inviteUrl: string
   myAthleteId: number
   memberTrainingLoads: Record<number, TrainingLoad>
+  allGroups: { id: string; name: string }[]
 }
 
 function formatTime(secs: number) {
@@ -296,7 +297,7 @@ interface UserPlan {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function GroupPageClient({
-  group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, memberTrainingLoads,
+  group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, memberTrainingLoads, allGroups,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
@@ -326,6 +327,23 @@ export default function GroupPageClient({
   const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'interval_5k' })
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
+
+  // Remember last visited group
+  useEffect(() => {
+    document.cookie = `last_group_id=${group.id}; path=/; max-age=31536000; SameSite=Lax`
+  }, [group.id])
+
+  // Group switcher
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const switcherRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!switcherOpen) return
+    function handleClick(e: MouseEvent) {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) setSwitcherOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [switcherOpen])
 
   // Group name rename
   const [groupName, setGroupName] = useState(group.name)
@@ -634,13 +652,44 @@ export default function GroupPageClient({
             {localMembers.length} member{localMembers.length !== 1 ? 's' : ''} · Created {format(new Date(group.created_at), 'MMM d, yyyy')}
           </p>
         </div>
-        <button
-          onClick={copyInvite}
-          className="flex items-center gap-2 px-3 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#f97316] text-[#6b7280] hover:text-[#f97316] rounded-lg transition-colors"
-        >
-          {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-          {copied ? 'Copied!' : 'Invite link'}
-        </button>
+        <div className="flex items-center gap-2">
+          {allGroups.length > 1 && (
+            <div className="relative" ref={switcherRef}>
+              <button
+                onClick={() => setSwitcherOpen(o => !o)}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#3a3a3a] text-[#6b7280] hover:text-white rounded-lg transition-colors"
+              >
+                <Users size={12} />
+                Switch
+              </button>
+              {switcherOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-48 bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl z-50 py-1 overflow-hidden">
+                  {allGroups.map(g => (
+                    <a
+                      key={g.id}
+                      href={`/group/${g.id}`}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors no-underline ${
+                        g.id === group.id
+                          ? 'text-[#f97316] bg-[#f97316]/10'
+                          : 'text-[#9ca3af] hover:text-white hover:bg-[#1c1c1c]'
+                      }`}
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${g.id === group.id ? 'bg-[#f97316]' : 'bg-[#3a3a3a]'}`} />
+                      <span className="truncate">{g.name}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <button
+            onClick={copyInvite}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#f97316] text-[#6b7280] hover:text-[#f97316] rounded-lg transition-colors"
+          >
+            {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+            {copied ? 'Copied!' : 'Invite link'}
+          </button>
+        </div>
       </div>
 
       {/* Invite banner */}

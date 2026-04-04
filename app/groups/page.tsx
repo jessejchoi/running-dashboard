@@ -17,43 +17,19 @@ export default async function GroupsPage() {
   ])
 
   const groupIds = (memberships ?? []).map(m => m.group_id)
-  const groupOrder: string[] = userProfile?.group_order ?? []
 
-  let groups: any[] = []
+  // If user is in any groups, redirect to the last visited (or first)
   if (groupIds.length > 0) {
-    const { data } = await supabaseAdmin
-      .from('groups')
-      .select('*')
-      .in('id', groupIds)
-      .order('created_at', { ascending: true })
-    groups = data ?? []
-
-    // Fetch member counts
-    const { data: allMembers } = await supabaseAdmin
-      .from('group_members')
-      .select('group_id, athlete_id')
-      .in('group_id', groupIds)
-
-    for (const g of groups) {
-      g.member_count = (allMembers ?? []).filter(m => m.group_id === g.id).length
-      g.my_role = memberships?.find(m => m.group_id === g.id)?.role ?? 'member'
-    }
-
-    // Apply saved order: groups in groupOrder come first (in that order), rest appended
-    groups.sort((a, b) => {
-      const ai = groupOrder.indexOf(a.id)
-      const bi = groupOrder.indexOf(b.id)
-      if (ai === -1 && bi === -1) return 0
-      if (ai === -1) return 1
-      if (bi === -1) return -1
-      return ai - bi
-    })
+    const lastGroupId = cookies().get('last_group_id')?.value
+    const targetId = groupIds.includes(lastGroupId ?? '') ? lastGroupId! : groupIds[0]
+    redirect(`/group/${targetId}`)
   }
 
+  // No groups — show empty state + create flow
   return (
     <div className="min-h-screen">
       <Nav />
-      <GroupsPageClient initialGroups={groups} />
+      <GroupsPageClient initialGroups={[]} />
     </div>
   )
 }

@@ -48,6 +48,18 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
 
   if (!group) redirect('/')
 
+  // Fetch all groups this athlete belongs to (for group switcher)
+  const { data: allMemberships } = await supabaseAdmin
+    .from('group_members')
+    .select('group_id')
+    .eq('athlete_id', parseInt(athleteId))
+
+  const allGroupIds = (allMemberships ?? []).map(m => m.group_id)
+  const { data: allGroupsRaw } = allGroupIds.length > 0
+    ? await supabaseAdmin.from('groups').select('id, name').in('id', allGroupIds)
+    : { data: [] }
+  const allGroups = (allGroupsRaw ?? []).map(g => ({ id: g.id as string, name: g.name as string }))
+
   // Fetch members
   const { data: members } = await supabaseAdmin
     .from('group_members')
@@ -138,6 +150,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         inviteUrl={inviteUrl}
         myAthleteId={parseInt(athleteId)}
         memberTrainingLoads={memberTrainingLoads}
+        allGroups={allGroups}
       />
     </div>
   )

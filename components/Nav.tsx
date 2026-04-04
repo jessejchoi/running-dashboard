@@ -57,7 +57,7 @@ export default function Nav() {
           </span>
           <div className="flex items-center gap-1">
             {navItems.map(({ href, label, icon: Icon }) => {
-              const active = path === href || (href !== '/' && path.startsWith(href))
+              const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
               const loading = pendingHref === href && isPending
               return (
                 <Link
@@ -137,7 +137,7 @@ export default function Nav() {
       {/* ── Mobile bottom tab bar ─────────────────────────────── */}
       <div className="mobile-nav sm:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-1" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active = path === href || (href !== '/' && path.startsWith(href))
+          const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
           const loading = pendingHref === href && isPending
           return (
             <Link

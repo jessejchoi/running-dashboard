@@ -12,7 +12,7 @@ interface Props {
 
 const SOURCE_LABELS: Record<string, string> = {
   interval: 'Intervals',
-  threshold: 'Threshold',
+  threshold: 'Tempo',
   long_run: 'Long runs',
   easy_trend: 'Easy trend',
   race_result: 'Races',

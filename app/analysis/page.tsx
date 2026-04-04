@@ -118,7 +118,7 @@ export default async function AnalysisPage() {
           <div className="bg-[#111] rounded-lg px-3 py-2">
             <div className="text-[#4b5563] mb-0.5">Intensity ratio</div>
             <div className="font-mono text-blue-400 font-bold">{(est.correctionFactor * 100).toFixed(1)}%</div>
-            <div className="text-[#4b5563] mt-0.5">threshold → 5K</div>
+            <div className="text-[#4b5563] mt-0.5">tempo → 5K</div>
           </div>
         ) : (
           <div className="bg-[#111] rounded-lg px-3 py-2">
@@ -187,7 +187,7 @@ export default async function AnalysisPage() {
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold text-4xl mb-1">Race Analysis</h1>
           <p className="text-[#6b7280] text-sm max-w-3xl">
-            Multi-distance estimates from intervals, threshold, long runs, easy trends, and race results — combined with confidence and recency weighting.
+            Multi-distance estimates from intervals, tempo, long runs, easy trends, and race results — combined with confidence and recency weighting.
           </p>
           {!maxHr && (
             <div className="flex items-center gap-2 bg-[#1a1a0a] border border-[#f97316]/30 rounded-xl px-4 py-3 mt-4 text-sm max-w-xl">
@@ -250,21 +250,21 @@ export default async function AnalysisPage() {
               </CollapsibleRuns>
             </div>
 
-            {/* COL 2: Threshold */}
+            {/* COL 2: Tempo */}
             <div className="flex flex-col gap-4">
               <div className="card fade-up">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Threshold</h2>
+                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Tempo</h2>
                     <p className="text-[#4b5563] text-xs mt-0.5">{thresholdEstimates.length} session{thresholdEstimates.length !== 1 ? 's' : ''}</p>
                   </div>
-                  <SourceEstimateBadge combined={combinedJson} source="threshold" color="#60a5fa" label="threshold" />
+                  <SourceEstimateBadge combined={combinedJson} source="threshold" color="#60a5fa" label="tempo" />
                 </div>
                 <FiveKTrendChart estimates={thresholdEstimates} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} color="#60a5fa" />
               </div>
               {thresholdEstimates.length === 0 && (
                 <div className="card text-center py-10 text-[#6b7280] text-sm">
-                  Tag runs as &quot;Threshold&quot; to see estimates.
+                  Tag runs as &quot;Threshold&quot; or &quot;Tempo&quot; to see estimates.
                 </div>
               )}
               <CollapsibleRuns count={(thresholdRuns ?? []).length} color="#60a5fa">
@@ -291,7 +291,7 @@ export default async function AnalysisPage() {
                   )
                 })}
               </CollapsibleRuns>
-              {/* Fast blocks from long runs that contribute to threshold estimates */}
+              {/* Fast blocks from long runs that contribute to tempo estimates */}
               {thresholdEstimates.filter(e => (e as any).isLongRunFastBlock).map(est => (
                 <div key={`fb-${est.activityId}`} className="card fade-up border-[#1a2a2a]">
                   <div className="flex items-start justify-between gap-4">

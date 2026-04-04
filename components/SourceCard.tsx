@@ -23,7 +23,7 @@ interface Props {
 
 const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon: string; emptyHint: string }> = {
   interval: { label: 'Intervals', color: '#f97316', icon: '⚡', emptyHint: 'Tag interval workouts to generate estimates' },
-  threshold: { label: 'Threshold', color: '#60a5fa', icon: '🔥', emptyHint: 'Tag tempo/threshold runs to generate estimates' },
+  threshold: { label: 'Tempo', color: '#60a5fa', icon: '🔥', emptyHint: 'Tag tempo runs to generate estimates' },
   long_run: { label: 'Long Runs', color: '#34d399', icon: '🏃', emptyHint: 'Needs 12km+ runs with heart rate data' },
   easy_trend: { label: 'Easy Trend', color: '#a78bfa', icon: '📈', emptyHint: 'Need 3+ easy runs in the last 6 weeks' },
   race_result: { label: 'Race Results', color: '#f472b6', icon: '🏆', emptyHint: 'No races detected yet' },

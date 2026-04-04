@@ -276,7 +276,7 @@ function computeFastestEffort(
 
 const RUN_TYPE_LABELS: Record<string, string> = {
   interval_5k: 'Interval (5K)',
-  threshold: 'Threshold',
+  threshold: 'Tempo',
   long_easy: 'Long Easy',
   easy: 'Easy',
   easy_strides: 'Easy + Strides',

@@ -1141,6 +1141,7 @@ export function analyzeLongRun(activity: {
   average_heartrate?: number
   laps?: any[]
   splits?: any[]
+  run_type?: string
 }, maxHr: number = DEFAULT_MAX_HR): LongRunAnalysis | null {
   const distKm      = activity.distance / 1000
   const date        = activity.start_date.split('T')[0]
@@ -1151,9 +1152,21 @@ export function analyzeLongRun(activity: {
   const timed = buildTimedSplits(activity.splits ?? [])
 
   // ── Detect fast block ────────────────────────────────────────────────────
-  const fastBlockResult = detectFastBlock(timed, baselinePace, activity.moving_time)
+  // long_easy: user has explicitly labelled this as easy — skip detection.
+  // long_progressive: user expects a faster block; detect it. If splits are
+  //   unavailable we still honour the label by defaulting runStructure.
+  // long / anything else: auto-detect.
+  const isExplicitlyEasy        = activity.run_type === 'long_easy'
+  const isExplicitlyProgressive = activity.run_type === 'long_progressive'
 
-  let runStructure: LongRunStructure = 'steady'
+  const fastBlockResult = isExplicitlyEasy
+    ? null
+    : detectFastBlock(timed, baselinePace, activity.moving_time)
+
+  // When the user has labelled the run as progressive but splits don't reveal
+  // a fast block (e.g. no per-km HR data), fall back to 'progression' so the
+  // label is at least surfaced correctly in the UI.
+  let runStructure: LongRunStructure = isExplicitlyProgressive ? 'progression' : 'steady'
   let fastBlock: FastBlock | undefined
   let fastBlockEstimates: RaceEstimate[] | undefined
   let residualElevation: number | undefined

@@ -293,7 +293,7 @@ export default async function DashboardPage() {
               { label: 'Week runs',  value: `${weekActivities.length}`, unit: 'runs' },
               { label: 'Week time',  value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
               { label: 'This year',  value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel },
-              { label: 'Activities', value: `${activities.length}`, unit: 'total' },
+              { label: 'Activities', value: `${activities.filter((a: any) => new Date(a.start_date) >= yearStart).length}`, unit: 'this yr' },
             ].map((s, i) => (
               <div key={i} className="card fade-up" style={{ animationDelay: `${60 + i * 50}ms`, padding: '0.875rem 1rem' }}>
                 <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
@@ -346,9 +346,9 @@ export default async function DashboardPage() {
         {allGroupsData.length > 0 ? (
           allGroupsData.map((groupData: any) => (
             <div key={groupData.group.id} className="mb-6">
-              <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
+              <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-3">
                 {groupData.group.name}
-              </p>
+              </h2>
               <div className="mb-3">
                 <GroupCoachTab groupId={groupData.group.id} myRole={groupData.myRole} members={groupData.members} />
               </div>
@@ -358,9 +358,9 @@ export default async function DashboardPage() {
               </div>
               {groupData.memberGoals.length > 0 && (
                 <div>
-                  <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
+                  <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-3">
                     {groupData.group.name} Race Goals
-                  </p>
+                  </h2>
                   <GroupGoalsSection memberGoals={groupData.memberGoals} />
                 </div>
               )}

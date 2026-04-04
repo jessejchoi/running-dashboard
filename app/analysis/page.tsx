@@ -369,11 +369,14 @@ export default async function AnalysisPage() {
               </div>
               <CollapsibleRuns count={(longRuns ?? []).length} color="#34d399">
                 {(longRuns ?? []).map((run: any) => {
-                  const analysis = longRunAnalyses.find(a => a.activityId === run.id)
-                  const structureColor = analysis?.runStructure === 'progression' ? 'text-orange-400' : analysis?.runStructure === 'fast_middle' ? 'text-blue-400' : 'text-[#6b7280]'
-                  const structureLabel = analysis?.runStructure === 'progression' ? 'Progression' : analysis?.runStructure === 'fast_middle' ? 'Fast block' : 'Steady'
+                  const a = longRunAnalyses.find(lr => lr.activityId === run.id)
+                  const structureColor = a?.runStructure === 'progression' ? 'text-orange-400' : a?.runStructure === 'fast_middle' ? 'text-blue-400' : 'text-[#6b7280]'
+                  const structureLabel = a?.runStructure === 'progression' ? 'Progression' : a?.runStructure === 'fast_middle' ? 'Fast block' : 'Steady'
+                  const overallRunPace = run.average_speed ? 1000 / run.average_speed : null
+                  const hmEst = a?.raceEstimates.find(e => e.distanceKey === 'hm')
                   return (
                     <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                      {/* Header */}
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
@@ -382,62 +385,99 @@ export default async function AnalysisPage() {
                           </div>
                           <div className="text-[#6b7280] text-xs mt-0.5">
                             {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
-                            {analysis && <span className={`ml-2 capitalize ${structureColor}`}>{structureLabel}</span>}
+                            {a && <span className={`ml-2 ${structureColor}`}>{structureLabel}</span>}
                           </div>
                         </div>
-                        {analysis && (
+                        {hmEst && (
                           <div className="text-right shrink-0">
-                            <div className="stat-num text-xl font-bold text-emerald-400">{formatPace(analysis.steadyPace)}/km</div>
-                            <div className="text-[#6b7280] text-xs">@ {Math.round(analysis.steadyHR)} bpm</div>
+                            <div className="stat-num text-xl font-bold text-emerald-400">{formatTime(hmEst.estimatedSecs)}</div>
+                            <div className="text-[#6b7280] text-xs">est. HM</div>
                           </div>
                         )}
                       </div>
-                      {analysis && (
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div className="bg-[#111] rounded-lg px-2 py-2">
-                            <div className="text-[#4b5563] mb-0.5">Drift</div>
-                            {analysis.driftReliable ? (
-                              <>
-                                <div className={`font-mono font-bold ${analysis.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>{analysis.cardiacDrift.toFixed(1)}%</div>
-                                <div className="text-[#4b5563] mt-0.5">{analysis.cardiacDrift > 3 ? 'high' : 'low'}</div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="font-mono font-bold text-[#4b5563]">—</div>
-                                <div className="text-[#4b5563] mt-0.5 leading-tight">{analysis.driftReason ?? 'unreliable'}</div>
-                              </>
-                            )}
-                          </div>
-                          {analysis.fastBlock ? (
-                            <div className="bg-[#111] rounded-lg px-2 py-2">
-                              <div className="text-[#4b5563] mb-0.5">Fast block</div>
-                              <div className="font-mono font-bold text-blue-400">{formatPace(analysis.fastBlock.avgPace)}/km</div>
-                              <div className="text-[#4b5563] mt-0.5">{(analysis.fastBlock.durationSecs / 60).toFixed(0)} min</div>
+
+                      {a ? (
+                        <div className="space-y-2 text-xs">
+                          {/* Row 1: overall run reference */}
+                          <div className="flex gap-2">
+                            <div className="bg-[#111] rounded-lg px-3 py-2 flex-1">
+                              <div className="text-[#4b5563] mb-0.5">Overall avg</div>
+                              <div className="font-mono font-bold text-white">
+                                {overallRunPace ? `${formatPace(overallRunPace)}/km` : '—'}
+                              </div>
+                              <div className="text-[#4b5563] mt-0.5">@ {run.average_heartrate ? Math.round(run.average_heartrate) : '—'} bpm</div>
                             </div>
-                          ) : (
-                            <div className="bg-[#111] rounded-lg px-2 py-2">
-                              <div className="text-[#4b5563] mb-0.5">Distance</div>
-                              <div className="font-mono font-bold text-white">{analysis.distanceKm.toFixed(1)} km</div>
-                              <div className="text-[#4b5563] mt-0.5">total</div>
+                            {/* Drift result */}
+                            <div className="bg-[#111] rounded-lg px-3 py-2 flex-1">
+                              <div className="text-[#4b5563] mb-0.5">Cardiac drift</div>
+                              {a.driftReliable ? (
+                                <>
+                                  <div className={`font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>{a.cardiacDrift.toFixed(1)}%</div>
+                                  <div className="text-[#4b5563] mt-0.5">{a.cardiacDrift > 3 ? 'elevated' : 'low'}</div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="font-mono font-bold text-[#4b5563]">—</div>
+                                  <div className="text-[#4b5563] mt-0.5 leading-tight">{a.driftReason ?? 'unreliable'}</div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Row 2: drift comparison windows */}
+                          {(a.earlyWindow || a.lateWindow) && (
+                            <div className="flex gap-2">
+                              {a.earlyWindow && (
+                                <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                  <div className="text-[#4b5563] mb-0.5">
+                                    Early window · min {Math.round(a.earlyWindow.startSec/60)}–{Math.round(a.earlyWindow.endSec/60)}
+                                  </div>
+                                  <div className="font-mono font-bold text-white">{formatPace(a.earlyWindow.avgPace)}/km</div>
+                                  <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.earlyWindow.avgHR)} bpm</div>
+                                </div>
+                              )}
+                              {a.lateWindow && (
+                                <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                  <div className="text-[#4b5563] mb-0.5">
+                                    Late window · min {Math.round(a.lateWindow.startSec/60)}–{Math.round(a.lateWindow.endSec/60)}
+                                  </div>
+                                  <div className="font-mono font-bold text-white">{formatPace(a.lateWindow.avgPace)}/km</div>
+                                  <div className={`mt-0.5 font-mono ${a.driftReliable && a.cardiacDrift > 3 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
+                                    @ {Math.round(a.lateWindow.avgHR)} bpm
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
-                          <div className="bg-[#111] rounded-lg px-2 py-2">
-                            <div className="text-[#4b5563] mb-0.5">{analysis.residualElevation != null ? 'Residual HR' : 'HM est.'}</div>
-                            {analysis.residualElevation != null ? (
-                              <>
-                                <div className={`font-mono font-bold ${analysis.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>+{analysis.residualElevation.toFixed(1)}%</div>
-                                <div className="text-[#4b5563] mt-0.5">post-effort</div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="font-mono font-bold text-white">{analysis.raceEstimates.find(e => e.distanceKey === 'hm') ? formatTime(analysis.raceEstimates.find(e => e.distanceKey === 'hm')!.estimatedSecs) : '—'}</div>
-                                <div className="text-[#4b5563] mt-0.5">half marathon</div>
-                              </>
-                            )}
-                          </div>
+
+                          {/* Row 3: fast block (if any) */}
+                          {a.fastBlock && (
+                            <div className="bg-[#0f0f0f] border border-blue-400/20 rounded-lg px-3 py-2">
+                              <div className="text-[#4b5563] mb-1">
+                                Fast block · min {Math.round(a.fastBlock.startSec/60)}–{Math.round(a.fastBlock.endSec/60)} · {(a.fastBlock.durationSecs/60).toFixed(0)} min · {a.fastBlock.pctFasterThanBaseline.toFixed(0)}% faster than baseline
+                              </div>
+                              <div className="flex gap-4">
+                                <span className="font-mono font-bold text-blue-400">{formatPace(a.fastBlock.avgPace)}/km</span>
+                                <span className="text-[#9ca3af]">@ {Math.round(a.fastBlock.avgHR)} bpm</span>
+                                {a.fastBlockEstimates?.find(e => e.distanceKey === 'hm') && (
+                                  <span className="text-blue-400 font-mono">HM est. {formatTime(a.fastBlockEstimates.find(e => e.distanceKey === 'hm')!.estimatedSecs)}</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Row 4: residual elevation (fast_middle only) */}
+                          {a.residualElevation != null && (
+                            <div className="bg-[#111] rounded-lg px-3 py-2">
+                              <div className="text-[#4b5563] mb-0.5">Post-effort residual HR elevation</div>
+                              <div className={`font-mono font-bold ${a.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                                +{a.residualElevation.toFixed(1)}%
+                              </div>
+                              <div className="text-[#4b5563] mt-0.5">HR at easy pace after block recovery vs before</div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {!analysis && (
+                      ) : (
                         <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">Could not analyse — missing HR or split data</div>
                       )}
                     </div>

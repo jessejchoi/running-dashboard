@@ -909,16 +909,27 @@ export interface FastBlock {
   pctFasterThanBaseline: number
 }
 
+export interface DriftWindow {
+  avgPace: number   // sec/km
+  avgHR: number
+  startSec: number
+  endSec: number
+}
+
 export interface LongRunAnalysis {
   date: string
   activityId: number
   activityName: string
   distanceKm: number
-  steadyPace: number      // sec/km from pre-fast steady window
+  overallPace: number     // sec/km — full run average (for reference)
+  overallHR: number       // full run average HR (for reference)
+  steadyPace: number      // sec/km from pre-fast steady window (last 15 min)
   steadyHR: number
   cardiacDrift: number     // % HR increase early window → late window (pre-fast portion only)
   driftReliable: boolean
   driftReason?: string
+  earlyWindow?: DriftWindow   // ~30% mark window used for drift comparison
+  lateWindow?: DriftWindow    // last 15 min window used for drift comparison
   windowSecs: number
   runStructure: LongRunStructure
   fastBlock?: FastBlock               // detected fast/progression block
@@ -934,6 +945,8 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   drift: number
   reliable: boolean
   reason?: string
+  earlyWindow?: DriftWindow
+  lateWindow?: DriftWindow
 } {
   const MIN_RUN_SECS   = 55 * 60
   const WINDOW_SECS    = 15 * 60
@@ -941,7 +954,7 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const PACE_TOLERANCE = 0.10
   const TOLERANCE      = 45
 
-  if (timed.length < 4)       return { drift: 0, reliable: false, reason: 'no split data' }
+  if (timed.length < 4)         return { drift: 0, reliable: false, reason: 'no split data' }
   if (totalSecs < MIN_RUN_SECS) return { drift: 0, reliable: false, reason: 'segment too short for drift (<55 min)' }
 
   const earlyStart = totalSecs * 0.30
@@ -965,19 +978,28 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const earlyPace = wavg(earlySplits, 'pace')
   const latePace  = wavg(lateSplits,  'pace')
 
+  const earlyWindowData: DriftWindow = {
+    avgPace: earlyPace, avgHR: earlyHR,
+    startSec: earlySplits[0].tStart, endSec: earlySplits[earlySplits.length - 1].tEnd,
+  }
+  const lateWindowData: DriftWindow = {
+    avgPace: latePace, avgHR: lateHR,
+    startSec: lateSplits[0].tStart, endSec: lateSplits[lateSplits.length - 1].tEnd,
+  }
+
   const drift = earlyHR > 0 ? ((lateHR - earlyHR) / earlyHR) * 100 : 0
 
   const paceRatio = latePace / earlyPace
   if (paceRatio < 1 - PACE_TOLERANCE || paceRatio > 1 + PACE_TOLERANCE) {
     const pctChange = ((paceRatio - 1) * 100).toFixed(0)
     return {
-      drift,
-      reliable: false,
+      drift, reliable: false,
       reason: `pace changed ${pctChange}% between windows — HR shift may not be true drift`,
+      earlyWindow: earlyWindowData, lateWindow: lateWindowData,
     }
   }
 
-  return { drift, reliable: true }
+  return { drift, reliable: true, earlyWindow: earlyWindowData, lateWindow: lateWindowData }
 }
 
 // ─── Fast block detection ─────────────────────────────────────────────────────
@@ -1242,6 +1264,8 @@ export function analyzeLongRun(activity: {
         activityId:   activity.id,
         activityName: activity.name,
         distanceKm:   parseFloat(distKm.toFixed(1)),
+        overallPace:  parseFloat(baselinePace.toFixed(1)),
+        overallHR:    activity.average_heartrate ?? 0,
         steadyPace:   parseFloat(baselinePace.toFixed(1)),
         steadyHR:     activity.average_heartrate ?? 0,
         cardiacDrift: 0,
@@ -1261,6 +1285,8 @@ export function analyzeLongRun(activity: {
   // ── Cardiac drift on pre-fast timed splits ───────────────────────────────
   const driftResult  = computeCardiacDrift(preFastTimed, preFastDuration)
   const cardiacDrift = driftResult.drift
+  const overallPace  = baselinePace
+  const overallHR    = activity.average_heartrate ?? 0
 
   // ── Race projection from steady window ───────────────────────────────────
   const hmRaceHR = maxHr * 0.87
@@ -1335,11 +1361,15 @@ export function analyzeLongRun(activity: {
     activityId:   activity.id,
     activityName: activity.name,
     distanceKm:   parseFloat(distKm.toFixed(1)),
+    overallPace:  parseFloat(overallPace.toFixed(1)),
+    overallHR:    parseFloat(overallHR.toFixed(1)),
     steadyPace:   parseFloat(window.avgPace.toFixed(1)),
     steadyHR:     parseFloat(window.avgHR.toFixed(1)),
     cardiacDrift: parseFloat(cardiacDrift.toFixed(1)),
     driftReliable: driftResult.reliable,
     driftReason:  driftResult.reason,
+    earlyWindow:  driftResult.earlyWindow,
+    lateWindow:   driftResult.lateWindow,
     windowSecs:   window.windowSecs,
     runStructure,
     fastBlock,

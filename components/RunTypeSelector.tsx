@@ -128,7 +128,7 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
             {currentConfig ? (
               <>
                 {currentConfig.label}
-                {!manual && <span className="opacity-50 font-normal normal-case tracking-normal ml-1">· auto</span>}
+                {!manual && <span className="opacity-50 font-normal normal-case tracking-normal ml-1">· auto-detect</span>}
               </>
             ) : 'Set type'}
             <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />

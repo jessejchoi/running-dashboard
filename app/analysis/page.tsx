@@ -6,7 +6,7 @@ import FiveKTrendChart from '@/components/FiveKTrendChart'
 import AerobicEfficiencyChart from '@/components/AerobicEfficiencyChart'
 import {
   analyzeAllAndCombine,
-  formatTime, formatPace,
+  formatTime,
   type FiveKEstimate,
   type EasyRunEfficiency,
   type LongRunAnalysis,
@@ -20,6 +20,7 @@ import { format, subMonths } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
+import LongRunChart from '@/components/LongRunChart'
 import AnalysisDistanceSection from '@/components/AnalysisDistanceSection'
 import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
 import SourceEstimateBadge from '@/components/SourceEstimateBadge'
@@ -306,33 +307,16 @@ export default async function AnalysisPage() {
               </div>
 
               {/* Long runs */}
-              {longRunAnalyses.length > 0 && (
-                <div className="card fade-up">
-                  <div className="flex items-center justify-between mb-1">
+              <div className="card fade-up">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
                     <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Long Runs</h2>
-                    <span className="text-xs text-[#4b5563]">{longRunAnalyses.length} runs</span>
+                    <p className="text-[#4b5563] text-xs mt-0.5">{longRunAnalyses.length} run{longRunAnalyses.length !== 1 ? 's' : ''}</p>
                   </div>
-                  <p className="text-[#4b5563] text-xs mb-4">Steady pace + cardiac drift → HM/FM estimates</p>
-                  <div className="space-y-3">
-                    {longRunAnalyses.slice(0, 5).map(lr => (
-                      <div key={lr.activityId} className="bg-[#111] rounded-lg px-3 py-2 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-white">{lr.activityName}</span>
-                          <span className="text-[#6b7280] font-mono">{lr.date}</span>
-                        </div>
-                        <div className="flex gap-4 text-[#9ca3af]">
-                          <span>{lr.distanceKm.toFixed(1)} km</span>
-                          <span>Pace: {formatPace(lr.steadyPace)}/km</span>
-                          <span>HR: {Math.round(lr.steadyHR)}</span>
-                          <span className={lr.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}>
-                            Drift: {lr.cardiacDrift.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <SourceEstimateBadge combined={combinedJson} source="long_run" color="#34d399" label="long runs" />
                 </div>
-              )}
+                <LongRunChart runs={longRunAnalyses} />
+              </div>
 
               {/* Race results */}
               {raceAnalyses.length > 0 && (

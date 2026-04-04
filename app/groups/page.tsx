@@ -10,18 +10,18 @@ export default async function GroupsPage() {
   const athleteId = cookies().get('athlete_id')?.value
   if (!athleteId) redirect('/')
 
-  // Fetch groups this athlete belongs to
+  // Fetch groups this athlete belongs to + their primary group preference
   const [{ data: memberships }, { data: userProfile }] = await Promise.all([
     supabaseAdmin.from('group_members').select('group_id, role').eq('athlete_id', parseInt(athleteId)),
-    supabaseAdmin.from('user_profiles').select('group_order').eq('athlete_id', parseInt(athleteId)).maybeSingle(),
+    supabaseAdmin.from('user_profiles').select('primary_group_id').eq('athlete_id', parseInt(athleteId)).maybeSingle(),
   ])
 
   const groupIds = (memberships ?? []).map(m => m.group_id)
 
-  // If user is in any groups, redirect to the last visited (or first)
+  // If user is in any groups, redirect to their primary group (or first group)
   if (groupIds.length > 0) {
-    const lastGroupId = cookies().get('last_group_id')?.value
-    const targetId = groupIds.includes(lastGroupId ?? '') ? lastGroupId! : groupIds[0]
+    const primaryGroupId = userProfile?.primary_group_id
+    const targetId = groupIds.includes(primaryGroupId ?? '') ? primaryGroupId! : groupIds[0]
     redirect(`/group/${targetId}`)
   }
 

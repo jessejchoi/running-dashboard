@@ -328,9 +328,9 @@ export default function GroupPageClient({
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
 
-  // Remember last visited group
+  // Save selected group as primary in DB
   useEffect(() => {
-    document.cookie = `last_group_id=${group.id}; path=/; max-age=31536000; SameSite=Lax`
+    fetch(`/api/groups/${group.id}/select`, { method: 'POST' })
   }, [group.id])
 
   // Group switcher

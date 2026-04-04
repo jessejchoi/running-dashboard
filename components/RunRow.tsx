@@ -28,7 +28,7 @@ export default function RunRow({ run, unit }: Props) {
         {isTreadmill && <span className="ml-2 text-[10px]" style={{ color: 'var(--text-3)' }}>🏃</span>}
       </td>
       <td className="px-2 sm:px-4 py-1.5 sm:py-2">
-        <RunTypeSelector activityId={run.id} current={run.run_type} />
+        <RunTypeSelector activityId={run.id} current={run.run_type} isManual={run.run_type_manual ?? false} />
       </td>
       <td className={`px-2 sm:px-4 py-2 sm:py-3 font-mono whitespace-nowrap ${isTreadmill ? 'opacity-40' : ''}`} style={{ color: 'var(--orange)' }}>
         {formatDistance(run.distance, unit)}

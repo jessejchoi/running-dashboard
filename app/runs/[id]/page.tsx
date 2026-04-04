@@ -62,7 +62,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
               </p>
             </div>
             <div className="relative z-[100]">
-              <RunTypeSelector activityId={run.id} current={run.run_type} />
+              <RunTypeSelector activityId={run.id} current={run.run_type} isManual={run.run_type_manual ?? false} />
             </div>
           </div>
         </div>

@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest) {
 
   const { error } = await supabaseAdmin
     .from('activities')
-    .update({ run_type: runType ?? null })
+    .update({ run_type: runType ?? null, run_type_manual: runType != null })
     .eq('id', activityId)
     .eq('athlete_id', athleteId)
 

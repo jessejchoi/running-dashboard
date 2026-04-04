@@ -113,9 +113,13 @@ function Avatar({ name, pic, size = 8 }: { name: string; pic: string | null; siz
 
 function RunTypeDot({ type }: { type: string | null }) {
   const colors: Record<string, string> = {
+    intervals: 'bg-red-500',
     interval_5k: 'bg-red-500',
+    tempo: 'bg-rose-500',
     threshold: 'bg-orange-500',
     long_easy: 'bg-sky-500',
+    long_steady: 'bg-cyan-500',
+    long_progressive: 'bg-blue-500',
     easy: 'bg-emerald-500',
     easy_strides: 'bg-teal-500',
     recovery: 'bg-green-400',
@@ -275,9 +279,12 @@ function computeFastestEffort(
 }
 
 const RUN_TYPE_LABELS: Record<string, string> = {
-  interval_5k: 'Interval (5K)',
-  threshold: 'Tempo',
-  long_easy: 'Long Easy',
+  intervals: 'Intervals',
+  tempo: 'Tempo',
+  threshold: 'Threshold',
+  long_easy: 'Long — Easy',
+  long_steady: 'Long — Steady',
+  long_progressive: 'Long — Progressive',
   easy: 'Easy',
   easy_strides: 'Easy + Strides',
   recovery: 'Recovery',
@@ -324,7 +331,7 @@ export default function GroupPageClient({
   const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges)
   const [showCreate, setShowCreate] = useState(false)
   const [challengeType, setChallengeType] = useState<'group_distance' | 'weekly_quota' | 'fastest_effort'>('group_distance')
-  const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'interval_5k' })
+  const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
 
@@ -590,7 +597,7 @@ export default function GroupPageClient({
     if (!res.ok) { setFormError(data.error ?? 'Failed to create challenge.'); return }
     setChallenges(prev => [data, ...prev])
     setShowCreate(false)
-    setForm({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'interval_5k' })
+    setForm({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
     setChallengeType('group_distance')
   }
 

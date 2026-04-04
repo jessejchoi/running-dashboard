@@ -7,12 +7,14 @@ import { ChevronDown, Check } from 'lucide-react'
 interface Props {
   activityId: number
   current?: string | null
+  isManual?: boolean
   onUpdate?: (newType: RunType | null) => void
 }
 
-export default function RunTypeSelector({ activityId, current, onUpdate }: Props) {
+export default function RunTypeSelector({ activityId, current, isManual, onUpdate }: Props) {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string | null>(current ?? null)
+  const [manual, setManual] = useState<boolean>(isManual ?? false)
   const [saving, setSaving] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
   const [mounted, setMounted] = useState(false)
@@ -69,7 +71,7 @@ export default function RunTypeSelector({ activityId, current, onUpdate }: Props
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activityId, runType: type }),
     })
-    if (res.ok) { setSelected(type); onUpdate?.(type) }
+    if (res.ok) { setSelected(type); setManual(type != null); onUpdate?.(type) }
     setSaving(false)
   }
 
@@ -122,7 +124,15 @@ export default function RunTypeSelector({ activityId, current, onUpdate }: Props
         } ${saving ? 'opacity-50' : ''}`}
       >
         {saving ? <span className="animate-pulse">Saving…</span> : (
-          <>{currentConfig ? currentConfig.label : 'Set type'}<ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} /></>
+          <>
+            {currentConfig ? (
+              <>
+                {currentConfig.label}
+                {!manual && <span className="opacity-50 font-normal normal-case tracking-normal ml-1">· auto</span>}
+              </>
+            ) : 'Set type'}
+            <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+          </>
         )}
       </button>
       {dropdown}

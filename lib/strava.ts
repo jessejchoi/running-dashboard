@@ -83,8 +83,6 @@ export async function fetchAthlete(token: string) {
 
 // ─── Run categorization ───────────────────────────────────────────────────────
 
-export type RunType = 'interval' | 'threshold' | 'long' | 'long_easy' | 'easy' | 'recovery'
-
 export function categorizeRun(activity: {
   distance: number
   average_speed: number
@@ -92,7 +90,7 @@ export function categorizeRun(activity: {
   suffer_score?: number
   splits?: any[]
   laps?: any[]
-}): RunType {
+}): string {
   const distanceKm = activity.distance / 1000
   const avgPaceSeconds = activity.average_speed ? 1000 / activity.average_speed : 999
   const hr = activity.average_heartrate ?? 0
@@ -117,9 +115,21 @@ export function categorizeRun(activity: {
     : activity.average_speed
   const maxSplitPace = maxSplitSpeed > 0 ? 1000 / maxSplitSpeed : 999
 
-  if (paceCV > 0.12 || (maxSplitPace < 230 && distanceKm < 18)) return 'interval'
-  if (distanceKm >= 12) return 'long_easy'
+  // Intervals: high pace variability OR very fast individual split
+  if (paceCV > 0.12 || (maxSplitPace < 230 && distanceKm < 18)) return 'intervals'
+
+  // Long runs (≥12 km): classify by pace/HR profile
+  if (distanceKm >= 12) {
+    if (paceCV > 0.07) return 'long_progressive'                          // variable pace = building run
+    if (avgPaceSeconds > 360 || (hr > 0 && hr < 140)) return 'long_easy' // easy long effort
+    return 'long_steady'                                                   // moderate sustained long
+  }
+
+  // Hard sustained efforts (shorter runs)
   if (avgPaceSeconds < 290 && avgPaceSeconds > 230 && paceCV < 0.08) return 'threshold'
+  if (avgPaceSeconds < 340 && avgPaceSeconds > 270 && paceCV < 0.08) return 'tempo'
+
+  // Easy/recovery
   if (avgPaceSeconds > 380 || (hr > 0 && hr < 135)) return 'recovery'
   return 'easy'
 }
@@ -186,6 +196,7 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
       const currentType = existing?.run_type
       // Only auto-set run_type if not yet manually tagged (null or auto-default)
       const autoTypes = [null, undefined, 'unknown', 'easy', 'recovery']
+      const isAutoAssigning = isTreadmill || autoTypes.includes(currentType)
       const newRunType = isTreadmill
         ? 'treadmill'
         : autoTypes.includes(currentType) ? runType : currentType
@@ -217,6 +228,7 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
         .update({
           laps,
           run_type: newRunType,
+          ...(isAutoAssigning ? { run_type_manual: false } : {}),
           splits: detail.splits_metric ?? null,
           streams: streams ?? null,
           detail_synced: true,

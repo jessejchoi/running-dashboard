@@ -32,12 +32,16 @@ interface Props {
 }
 
 const RUN_TYPE_COLORS: Record<string, string> = {
-  interval_5k: '#ef4444',
-  threshold:   '#f97316',
-  long_easy:   '#38bdf8',
-  easy:        '#34d399',
+  intervals:    '#ef4444',
+  interval_5k:  '#ef4444',
+  tempo:        '#fb7185',
+  threshold:    '#f97316',
+  long_easy:    '#38bdf8',
+  long_steady:  '#22d3ee',
+  long_progressive: '#60a5fa',
+  easy:         '#34d399',
   easy_strides: '#2dd4bf',
-  recovery:    '#86efac',
+  recovery:     '#86efac',
 }
 
 function Avatar({ name, pic }: { name: string; pic: string | null }) {

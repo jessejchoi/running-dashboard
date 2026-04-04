@@ -20,7 +20,6 @@ import { format, subMonths, parseISO } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
-import LongRunChart from '@/components/LongRunChart'
 import AnalysisDistanceSection from '@/components/AnalysisDistanceSection'
 import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
 import SourceEstimateBadge from '@/components/SourceEstimateBadge'
@@ -84,7 +83,10 @@ export default async function AnalysisPage() {
   }
 
   const { intervalEstimates, thresholdEstimates, longRunAnalyses, raceAnalyses, easyRunResults, longRunEfficiencyPoints, combined, allRaceEstimates } = result
-  const easyEstimates = easyRunResults.filter(r => !r.excludedReason && !(r as any).runKind)
+  // Unified aerobic dataset: easy runs + long run steady portions (same chart, same series)
+  const easyOnly = easyRunResults.filter(r => !r.excludedReason && !(r as any).runKind)
+  const allAerobicEstimates = [...easyOnly, ...(longRunEfficiencyPoints ?? [])]
+    .sort((a, b) => a.date.localeCompare(b.date))
   const easyRunResultsWithRuns = (easyRuns ?? []).map((r: any) => ({
     run: r,
     result: easyRunResults.find(e => e.activityId === r.id) ?? null,
@@ -206,7 +208,7 @@ export default async function AnalysisPage() {
         {/* Detailed session breakdowns below */}
         <div className="mt-12">
           <h2 className="font-display font-bold text-xl mb-6">Session Details</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
             {/* COL 1: Intervals */}
             <div className="flex flex-col gap-4">
@@ -269,48 +271,102 @@ export default async function AnalysisPage() {
               )}
               {(() => {
                 const fastBlockCards = thresholdEstimates.filter(e => (e as any).isLongRunFastBlock)
-                const totalCount = (thresholdRuns ?? []).length + fastBlockCards.length
+                // Merge regular threshold runs and fast block cards, sort chronologically DESC
+                type TempoItem =
+                  | { kind: 'run'; run: any; date: string }
+                  | { kind: 'fb';  est: FiveKEstimate; date: string }
+                const items: TempoItem[] = [
+                  ...(thresholdRuns ?? []).map((run: any) => ({ kind: 'run' as const, run, date: run.start_date as string })),
+                  ...fastBlockCards.map(est => ({ kind: 'fb' as const, est, date: est.date + 'T12:00:00' })),
+                ].sort((a, b) => b.date.localeCompare(a.date))
+
                 return (
-                  <CollapsibleRuns count={totalCount} color="#60a5fa">
-                    {(thresholdRuns ?? []).map((run: any) => {
-                      const estimate = thresholdEstimates.find(e => e.activityId === run.id && !(e as any).isLongRunFastBlock)
+                  <CollapsibleRuns count={items.length} color="#60a5fa">
+                    {items.map(item => {
+                      if (item.kind === 'run') {
+                        const run = item.run
+                        const estimate = thresholdEstimates.find(e => e.activityId === run.id && !(e as any).isLongRunFastBlock)
+                        return (
+                          <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="font-display font-bold text-base">{run.name}</span>
+                                  <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
+                                </div>
+                                <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                              </div>
+                              {estimate ? (
+                                <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#60a5fa" />
+                              ) : <div className="text-[#4b5563] text-xs pt-1">Could not estimate</div>}
+                            </div>
+                            {estimate && <WorkRestStats est={estimate} isThreshold />}
+                            {estimate && !estimate.isContinuous && <RepTableClient efforts={estimate.allEfforts} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} unit={unit} />}
+                            {estimate && estimate.isContinuous && <ContinuousRunTable run={run} />}
+                          </div>
+                        )
+                      }
+                      // Fast block from long run
+                      const est = item.est
+                      const lr = longRunAnalyses.find(l => l.activityId === est.activityId)
+                      const lrRun = (longRuns ?? []).find((r: any) => r.id === est.activityId)
                       return (
-                        <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
-                          <div className="flex items-start justify-between gap-4 mb-4">
+                        <div key={`fb-${est.activityId}`} className="card fade-up">
+                          <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
-                                <span className="font-display font-bold text-base">{run.name}</span>
-                                <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
+                                <span className="font-display font-bold text-base">{est.activityName.replace(' (fast block)', '')}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">long run fast block</span>
                               </div>
-                              <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                              <div className="text-[#6b7280] text-xs mt-0.5">
+                                {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')}
+                                {lr?.fastBlock && <span> · min {Math.round(lr.fastBlock.startSec/60)}–{Math.round(lr.fastBlock.endSec/60)} · {(lr.fastBlock.durationSecs/60).toFixed(0)} min</span>}
+                              </div>
                             </div>
-                            {estimate ? (
-                              <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#60a5fa" />
-                            ) : <div className="text-[#4b5563] text-xs pt-1">Could not estimate</div>}
+                            <RunEstimateBadge raceEstimates={est.raceEstimates} fallbackSecs={est.estimatedSecs} color="#60a5fa" />
                           </div>
-                          {estimate && <WorkRestStats est={estimate} isThreshold />}
-                          {estimate && !estimate.isContinuous && <RepTableClient efforts={estimate.allEfforts} targetSecsMap={targetSecsMap} defaultTargetSecs={TARGET_5K} unit={unit} />}
-                          {estimate && estimate.isContinuous && <ContinuousRunTable run={run} />}
+                          {lrRun && lr?.fastBlock && (() => {
+                            const splits: any[] = lrRun.splits ?? []
+                            if (splits.length === 0) return null
+                            let cumTime = 0
+                            const timedSplits = splits.map((s: any) => {
+                              const tStart = cumTime
+                              cumTime += s.elapsed_time ?? s.moving_time ?? 0
+                              return { ...s, tStart, tEnd: cumTime }
+                            })
+                            const blockSplits = timedSplits.filter((s: any) => s.tEnd > lr.fastBlock!.startSec && s.tStart < lr.fastBlock!.endSec)
+                            if (blockSplits.length === 0) return null
+                            return (
+                              <div className="bg-[#111] rounded-lg overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b border-[#1c1c1c]">
+                                      {[unit === 'miles' ? 'mi' : 'km', 'Dist', 'Pace', 'Time', 'HR'].map(h => (
+                                        <th key={h} className="text-left px-3 py-2 text-[#4b5563] font-medium">{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {blockSplits.map((s: any, i: number) => {
+                                      if (!s.average_speed) return null
+                                      return (
+                                        <tr key={i} className="border-b border-[#1a1a1a]">
+                                          <td className="px-3 py-2 font-mono text-[#6b7280]">{i + 1}</td>
+                                          <td className="px-3 py-2 font-mono text-white">{s.distance >= 1000 ? formatDistanceShort(s.distance, unit) : `${Math.round(s.distance)}m`}</td>
+                                          <td className="px-3 py-2 font-mono font-bold text-[#60a5fa]">{speedToPace(s.average_speed, unit)}{paceUnitLabel(unit)}</td>
+                                          <td className="px-3 py-2 font-mono text-[#9ca3af]">{formatDuration(s.moving_time)}</td>
+                                          <td className="px-3 py-2 font-mono text-[#9ca3af]">{s.average_heartrate ? Math.round(s.average_heartrate) : '—'}</td>
+                                        </tr>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )
+                          })()}
                         </div>
                       )
                     })}
-                    {/* Fast blocks from long runs that contribute to tempo estimates */}
-                    {fastBlockCards.map(est => (
-                      <div key={`fb-${est.activityId}`} className="card fade-up">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="font-display font-bold text-base">{est.activityName.replace(' (fast block)', '')}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">long run fast block</span>
-                            </div>
-                            <div className="text-[#6b7280] text-xs mt-0.5">
-                              {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')} · {formatDuration(est.totalWorkSecs)} fast block
-                            </div>
-                          </div>
-                          <RunEstimateBadge raceEstimates={est.raceEstimates} fallbackSecs={est.estimatedSecs} color="#60a5fa" />
-                        </div>
-                      </div>
-                    ))}
                   </CollapsibleRuns>
                 )
               })()}
@@ -322,231 +378,198 @@ export default async function AnalysisPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Aerobic Efficiency</h2>
-                    <p className="text-[#4b5563] text-xs mt-0.5">{easyEstimates.length} run{easyEstimates.length !== 1 ? 's' : ''}</p>
+                    <p className="text-[#4b5563] text-xs mt-0.5">{allAerobicEstimates.length} run{allAerobicEstimates.length !== 1 ? 's' : ''}</p>
                   </div>
                   <SourceEstimateBadge combined={combinedJson} source="easy_trend" color="#a78bfa" label="easy trend" />
                 </div>
-                <AerobicEfficiencyChart runs={easyEstimates} longRunPoints={longRunEfficiencyPoints} />
+                <AerobicEfficiencyChart runs={allAerobicEstimates} />
               </div>
-              <CollapsibleRuns count={easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').length} color="#a78bfa">
-                {easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').map(({ run, result: eff }) => (
-                  <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="font-display font-bold text-base">{run.name}</span>
-                          <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} autoExcludedReason={eff?.excludedReason} />
-                        </div>
-                        <div className="text-[#6b7280] text-xs mt-0.5">
-                          {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
-                          {run.run_type && <span className="ml-2 text-purple-400 capitalize">{run.run_type.replace(/_/g, ' ')}</span>}
-                        </div>
-                      </div>
-                      {eff && !eff.excludedReason ? (
-                        <div className="text-right shrink-0">
-                          <div className="stat-num text-xl font-bold text-purple-400">{speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
-                          <div className="text-[#6b7280] text-xs">@ 150 bpm</div>
-                        </div>
-                      ) : null}
-                    </div>
-                    {eff && !eff.excludedReason && (
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="bg-[#111] rounded-lg px-2 py-2">
-                          <div className="text-[#4b5563] mb-0.5">Last 15 min</div>
-                          <div className="font-mono text-white font-bold">{speedToPace(1000/(eff as any).windowPace, unit)}{paceUnitLabel(unit)}</div>
-                          <div className="text-[#4b5563] mt-0.5">{Math.round((eff as any).windowHR)} bpm</div>
-                        </div>
-                        <div className="bg-[#111] rounded-lg px-2 py-2">
-                          <div className="text-[#4b5563] mb-0.5">HR adj.</div>
-                          <div className={`font-mono font-bold ${eff.avgHR > 150 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                            {eff.avgHR > 150 ? '▼' : '▲'}{Math.abs((eff.avgPaceSecPerKm - eff.normalizedPaceSec)).toFixed(1)}s
-                          </div>
-                          <div className="text-[#4b5563] mt-0.5">→ {speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
-                        </div>
-                        <div className="bg-[#111] rounded-lg px-2 py-2">
-                          <div className="text-[#4b5563] mb-0.5">Slope</div>
-                          <div className="font-mono text-purple-400 font-bold">{eff.r2 > 0 ? 'regr.' : 'fixed'}</div>
-                          <div className="text-[#4b5563] mt-0.5">{eff.r2 > 0 ? `R²=${eff.r2.toFixed(2)}` : '−2.5 s/bpm'}</div>
-                        </div>
-                      </div>
-                    )}
-                    {eff?.excludedReason && (
-                      <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">{eff.excludedReason}</div>
-                    )}
-                  </div>
-                ))}
-              </CollapsibleRuns>
-            </div>
-
-            {/* COL 4: Endurance + Race Results */}
-            <div className="flex flex-col gap-4">
-              <div className="card fade-up">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Endurance</h2>
-                    <p className="text-[#4b5563] text-xs mt-0.5">{longRunAnalyses.length} run{longRunAnalyses.length !== 1 ? 's' : ''}</p>
-                  </div>
-                  <SourceEstimateBadge combined={combinedJson} source="long_run" color="#34d399" label="long runs" />
-                </div>
-                <LongRunChart runs={longRunAnalyses} />
-              </div>
-              <CollapsibleRuns count={(longRuns ?? []).length} color="#34d399">
-                {(longRuns ?? []).map((run: any) => {
-                  const a = longRunAnalyses.find(lr => lr.activityId === run.id)
-                  const structureColor = a?.runStructure === 'progression' ? 'text-orange-400' : a?.runStructure === 'fast_middle' ? 'text-blue-400' : 'text-[#6b7280]'
-                  const structureLabel = a?.runStructure === 'progression' ? 'Progression' : a?.runStructure === 'fast_middle' ? 'Fast block' : 'Steady'
-                  const overallRunPace = run.average_speed ? 1000 / run.average_speed : null
-                  const hmEst = a?.raceEstimates.find(e => e.distanceKey === 'hm')
-                  return (
-                    <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-display font-bold text-base">{run.name}</span>
-                            <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
-                          </div>
-                          <div className="text-[#6b7280] text-xs mt-0.5">
-                            {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
-                            {a && <span className={`ml-2 ${structureColor}`}>{structureLabel}</span>}
-                          </div>
-                        </div>
-                        {hmEst && (
-                          <div className="text-right shrink-0">
-                            <div className="stat-num text-xl font-bold text-emerald-400">{formatTime(hmEst.estimatedSecs)}</div>
-                            <div className="text-[#6b7280] text-xs">est. HM</div>
-                          </div>
-                        )}
-                      </div>
-
-                      {a ? (
-                        <div className="space-y-2 text-xs">
-                          {/* Row 1: overall run reference */}
-                          <div className="flex gap-2">
-                            <div className="bg-[#111] rounded-lg px-3 py-2 flex-1">
-                              <div className="text-[#4b5563] mb-0.5">Overall avg</div>
-                              <div className="font-mono font-bold text-white">
-                                {overallRunPace ? `${formatPace(overallRunPace)}/km` : '—'}
+              {(() => {
+                // Long run IDs that feed the aerobic chart
+                const longRunIds = new Set((longRunEfficiencyPoints ?? []).map(p => p.activityId))
+                const longRunsForAerobic = (longRuns ?? []).filter((r: any) => longRunIds.has(r.id))
+                const easyCards = easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data')
+                const totalAerobicCount = easyCards.length + longRunsForAerobic.length
+                return (
+                  <CollapsibleRuns count={totalAerobicCount} color="#a78bfa">
+                    {/* Easy run cards */}
+                    {easyCards.map(({ run, result: eff }) => {
+                      const durationMins = run.moving_time / 60
+                      const durationCredit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
+                      return (
+                        <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="font-display font-bold text-base">{run.name}</span>
+                                <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} autoExcludedReason={eff?.excludedReason} />
                               </div>
-                              <div className="text-[#4b5563] mt-0.5">@ {run.average_heartrate ? Math.round(run.average_heartrate) : '—'} bpm</div>
+                              <div className="text-[#6b7280] text-xs mt-0.5">
+                                {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
+                                {run.run_type && <span className="ml-2 text-purple-400 capitalize">{run.run_type.replace(/_/g, ' ')}</span>}
+                              </div>
                             </div>
-                            {/* Drift result */}
-                            <div className="bg-[#111] rounded-lg px-3 py-2 flex-1">
-                              <div className="text-[#4b5563] mb-0.5">Cardiac drift</div>
-                              {a.driftReliable ? (
-                                <>
-                                  <div className={`font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>{a.cardiacDrift.toFixed(1)}%</div>
-                                  <div className="text-[#4b5563] mt-0.5">{a.driftPaceAdjusted ? 'pace-adj.' : (a.cardiacDrift > 3 ? 'elevated' : 'low')}</div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="font-mono font-bold text-[#4b5563]">—</div>
-                                  <div className="text-[#4b5563] mt-0.5 leading-tight">{a.driftReason ?? 'unreliable'}</div>
-                                </>
-                              )}
-                            </div>
+                            {eff && !eff.excludedReason ? (
+                              <div className="text-right shrink-0">
+                                <div className="stat-num text-xl font-bold text-purple-400">{speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
+                                <div className="text-[#6b7280] text-xs">@ 150 bpm</div>
+                              </div>
+                            ) : null}
                           </div>
-
-                          {/* Row 2: drift comparison windows */}
-                          {(a.earlyWindow || a.lateWindow) && (
-                            <div className="flex gap-2">
-                              {a.earlyWindow && (
-                                <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
-                                  <div className="text-[#4b5563] mb-0.5">
-                                    Early · min {Math.round(a.earlyWindow.startSec/60)}–{Math.round(a.earlyWindow.endSec/60)}
-                                  </div>
-                                  <div className="font-mono font-bold text-white">{formatPace(a.earlyWindow.avgPace)}/km</div>
-                                  <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.earlyWindow.avgHR)} bpm</div>
+                          {eff && !eff.excludedReason && (
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div className="bg-[#111] rounded-lg px-2 py-2">
+                                <div className="text-[#4b5563] mb-0.5">Last 15 min</div>
+                                <div className="font-mono text-white font-bold">{speedToPace(1000/(eff as any).windowPace, unit)}{paceUnitLabel(unit)}</div>
+                                <div className="text-[#4b5563] mt-0.5">{Math.round((eff as any).windowHR)} bpm</div>
+                              </div>
+                              <div className="bg-[#111] rounded-lg px-2 py-2">
+                                <div className="text-[#4b5563] mb-0.5">HR adj.</div>
+                                <div className={`font-mono font-bold ${eff.avgHR > 150 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                  {eff.avgHR > 150 ? '▼' : '▲'}{Math.abs((eff.avgPaceSecPerKm - eff.normalizedPaceSec)).toFixed(1)}s
                                 </div>
-                              )}
-                              {a.lateWindow && (
-                                <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
-                                  <div className="text-[#4b5563] mb-0.5">
-                                    Late · min {Math.round(a.lateWindow.startSec/60)}–{Math.round(a.lateWindow.endSec/60)}
-                                    {a.driftPaceAdjusted && <span className="ml-1 text-yellow-500">adj.</span>}
-                                  </div>
-                                  <div className="font-mono font-bold text-white">{formatPace(a.lateWindow.avgPace)}/km</div>
-                                  {a.lateWindow.adjustedHR != null ? (
-                                    <div className="mt-0.5">
-                                      <span className="text-[#4b5563]">{Math.round(a.lateWindow.avgHR)} bpm actual</span>
-                                      <span className={`ml-1 font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
-                                        → {Math.round(a.lateWindow.adjustedHR)} adj.
-                                      </span>
-                                    </div>
+                                <div className="text-[#4b5563] mt-0.5">→ {speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
+                              </div>
+                              <div className="bg-[#111] rounded-lg px-2 py-2">
+                                <div className="text-[#4b5563] mb-0.5">Duration credit</div>
+                                <div className={`font-mono font-bold ${durationCredit >= 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                  {durationCredit >= 0 ? '+' : ''}{durationCredit.toFixed(1)}s
+                                </div>
+                                <div className="text-[#4b5563] mt-0.5">{Math.round(durationMins)} min run</div>
+                              </div>
+                            </div>
+                          )}
+                          {eff?.excludedReason && (
+                            <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">{eff.excludedReason}</div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {/* Long run cards with drift analysis */}
+                    {longRunsForAerobic.map((run: any) => {
+                      const a = longRunAnalyses.find(lr => lr.activityId === run.id)
+                      const effPoint = (longRunEfficiencyPoints ?? []).find(p => p.activityId === run.id)
+                      const overallRunPace = run.average_speed ? 1000 / run.average_speed : null
+                      const durationMins = effPoint ? (effPoint as any).steadyDurationSecs / 60 : run.moving_time / 60
+                      const durationCredit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
+                      return (
+                        <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="font-display font-bold text-base">{run.name}</span>
+                                <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
+                              </div>
+                              <div className="text-[#6b7280] text-xs mt-0.5">
+                                {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
+                                {a && <span className="ml-2 text-emerald-400 capitalize">{a.runStructure === 'fast_middle' ? 'fast block' : a.runStructure}</span>}
+                              </div>
+                            </div>
+                            {effPoint && (
+                              <div className="text-right shrink-0">
+                                <div className="stat-num text-xl font-bold text-purple-400">{speedToPace(1000/effPoint.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
+                                <div className="text-[#6b7280] text-xs">steady @ 150 bpm</div>
+                              </div>
+                            )}
+                          </div>
+                          {a && (
+                            <div className="space-y-2 text-xs">
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="bg-[#111] rounded-lg px-2 py-2">
+                                  <div className="text-[#4b5563] mb-0.5">Steady pace</div>
+                                  <div className="font-mono font-bold text-white">{formatPace(a.steadyPace)}/km</div>
+                                  <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.steadyHR)} bpm</div>
+                                </div>
+                                <div className="bg-[#111] rounded-lg px-2 py-2">
+                                  <div className="text-[#4b5563] mb-0.5">Cardiac drift</div>
+                                  {a.driftReliable ? (
+                                    <>
+                                      <div className={`font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>{a.cardiacDrift.toFixed(1)}%</div>
+                                      <div className="text-[#4b5563] mt-0.5">{a.cardiacDrift > 3 ? 'elevated' : 'low'}</div>
+                                    </>
                                   ) : (
-                                    <div className={`mt-0.5 font-mono ${a.driftReliable && a.cardiacDrift > 3 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
-                                      @ {Math.round(a.lateWindow.avgHR)} bpm
+                                    <>
+                                      <div className="font-mono font-bold text-[#4b5563]">—</div>
+                                      <div className="text-[#4b5563] mt-0.5 leading-tight">{a.driftReason ?? 'unreliable'}</div>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="bg-[#111] rounded-lg px-2 py-2">
+                                  <div className="text-[#4b5563] mb-0.5">Duration credit</div>
+                                  <div className={`font-mono font-bold ${durationCredit >= 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                    {durationCredit >= 0 ? '+' : ''}{durationCredit.toFixed(1)}s
+                                  </div>
+                                  <div className="text-[#4b5563] mt-0.5">{Math.round(durationMins)} min steady</div>
+                                </div>
+                              </div>
+                              {(a.earlyWindow || a.lateWindow) && (
+                                <div className="flex gap-2">
+                                  {a.earlyWindow && (
+                                    <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                      <div className="text-[#4b5563] mb-0.5">Early · min {Math.round(a.earlyWindow.startSec/60)}–{Math.round(a.earlyWindow.endSec/60)}</div>
+                                      <div className="font-mono font-bold text-white">{formatPace(a.earlyWindow.avgPace)}/km</div>
+                                      <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.earlyWindow.avgHR)} bpm</div>
+                                    </div>
+                                  )}
+                                  {a.lateWindow && (
+                                    <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                      <div className="text-[#4b5563] mb-0.5">
+                                        Late · min {Math.round(a.lateWindow.startSec/60)}–{Math.round(a.lateWindow.endSec/60)}
+                                        {a.driftPaceAdjusted && <span className="ml-1 text-yellow-500">adj.</span>}
+                                      </div>
+                                      <div className="font-mono font-bold text-white">{formatPace(a.lateWindow.avgPace)}/km</div>
+                                      {a.lateWindow.adjustedHR != null ? (
+                                        <div className="mt-0.5">
+                                          <span className="text-[#4b5563]">{Math.round(a.lateWindow.avgHR)} bpm</span>
+                                          <span className={`ml-1 font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>→ {Math.round(a.lateWindow.adjustedHR)} adj.</span>
+                                        </div>
+                                      ) : (
+                                        <div className={`mt-0.5 font-mono ${a.driftReliable && a.cardiacDrift > 3 ? 'text-orange-400' : 'text-[#4b5563]'}`}>@ {Math.round(a.lateWindow.avgHR)} bpm</div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
                               )}
                             </div>
                           )}
-
-                          {/* Row 3: fast block (if any) */}
-                          {a.fastBlock && (
-                            <div className="bg-[#0f0f0f] border border-blue-400/20 rounded-lg px-3 py-2">
-                              <div className="text-[#4b5563] mb-1">
-                                Fast block · min {Math.round(a.fastBlock.startSec/60)}–{Math.round(a.fastBlock.endSec/60)} · {(a.fastBlock.durationSecs/60).toFixed(0)} min · {a.fastBlock.pctFasterThanBaseline.toFixed(0)}% faster than baseline
-                              </div>
-                              <div className="flex gap-4">
-                                <span className="font-mono font-bold text-blue-400">{formatPace(a.fastBlock.avgPace)}/km</span>
-                                <span className="text-[#9ca3af]">@ {Math.round(a.fastBlock.avgHR)} bpm</span>
-                                {a.fastBlockEstimates?.find(e => e.distanceKey === 'hm') && (
-                                  <span className="text-blue-400 font-mono">HM est. {formatTime(a.fastBlockEstimates.find(e => e.distanceKey === 'hm')!.estimatedSecs)}</span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Row 4: residual elevation (fast_middle only) */}
-                          {a.residualElevation != null && (
-                            <div className="bg-[#111] rounded-lg px-3 py-2">
-                              <div className="text-[#4b5563] mb-0.5">Post-effort residual HR elevation</div>
-                              <div className={`font-mono font-bold ${a.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
-                                +{a.residualElevation.toFixed(1)}%
-                              </div>
-                              <div className="text-[#4b5563] mt-0.5">HR at easy pace after block recovery vs before</div>
-                            </div>
-                          )}
                         </div>
-                      ) : (
-                        <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">Could not analyse — missing HR or split data</div>
-                      )}
-                    </div>
-                  )
-                })}
-              </CollapsibleRuns>
-
-              {/* Race results */}
-              {raceAnalyses.length > 0 && (
-                <div className="card fade-up">
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Race Results</h2>
-                    <span className="text-xs text-[#4b5563]">{raceAnalyses.length} races</span>
-                  </div>
-                  <p className="text-[#4b5563] text-xs mb-4">Gold standard — direct race performance</p>
-                  <div className="space-y-3">
-                    {raceAnalyses.map(race => (
-                      <div key={race.activityId} className="bg-[#111] rounded-lg px-3 py-2 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-[#f472b6]">{race.activityName}</span>
-                          <span className="text-[#6b7280] font-mono">{race.date}</span>
-                        </div>
-                        <div className="flex gap-4">
-                          <span className="text-white font-bold">{distanceLabel(race.matchedDistanceKey)}</span>
-                          <span className="text-[#f472b6] font-mono font-bold">{formatTime(race.raceTimeSecs)}</span>
-                          <span className="text-emerald-400 font-mono text-[10px]">0.98 conf.</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      )
+                    })}
+                  </CollapsibleRuns>
+                )
+              })()}
             </div>
 
           </div>
         </div>
+
+        {/* Race Results — below the grid */}
+        {raceAnalyses.length > 0 && (
+          <div className="mt-6 max-w-sm">
+            <div className="card fade-up">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Race Results</h2>
+                <span className="text-xs text-[#4b5563]">{raceAnalyses.length} races</span>
+              </div>
+              <p className="text-[#4b5563] text-xs mb-4">Gold standard — direct race performance</p>
+              <div className="space-y-3">
+                {raceAnalyses.map(race => (
+                  <div key={race.activityId} className="bg-[#111] rounded-lg px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-[#f472b6]">{race.activityName}</span>
+                      <span className="text-[#6b7280] font-mono">{race.date}</span>
+                    </div>
+                    <div className="flex gap-4">
+                      <span className="text-white font-bold">{distanceLabel(race.matchedDistanceKey)}</span>
+                      <span className="text-[#f472b6] font-mono font-bold">{formatTime(race.raceTimeSecs)}</span>
+                      <span className="text-emerald-400 font-mono text-[10px]">0.98 conf.</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
       </AnalysisTabProvider>
     </>

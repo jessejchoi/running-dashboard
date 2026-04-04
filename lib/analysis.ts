@@ -1029,13 +1029,14 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
 
 // ─── Fast block detection ─────────────────────────────────────────────────────
 
-// Finds the most significant fast block in a run (min 8 min, >15% faster than
-// baseline). Returns the block and whether it sits at the end or in the middle.
+// Finds the most significant fast block in a run. Returns the block and whether
+// it sits at the end or in the middle.
 function detectFastBlock(
   timed: TimedSplit[],
   baselinePace: number,
   totalSecs: number,
   fastThreshold = 0.85,
+  minBlockSecs = 8 * 60,
 ): { block: FastBlock; position: 'end' | 'middle' } | null {
   const FAST_THRESHOLD = fastThreshold
 
@@ -1067,7 +1068,7 @@ function detectFastBlock(
   const best = blocks.reduce((a, b) =>
     (b.endSec - b.startSec) > (a.endSec - a.startSec) ? b : a
   )
-  if (best.endSec - best.startSec < 8 * 60) return null
+  if (best.endSec - best.startSec < minBlockSecs) return null
 
   const avgPace = wavg(best.splits, 'pace')
   const avgHR   = wavg(best.splits, 'hr')
@@ -1208,19 +1209,22 @@ export function analyzeLongRun(activity: {
   const isExplicitlyProgressive = activity.run_type === 'long_progressive'
 
   // For progression runs: use the first 30% of splits as the baseline pace
-  // (captures actual easy start, not the pulled-up overall average) and lower
-  // the threshold to 0.90 (10% faster = meaningful for a gradual build).
+  // (captures actual easy start, not the pulled-up overall average).
+  // Threshold 0.93 = only 7% faster required (gentler progressions qualify).
+  // Min block 6 min (shorter than general 8 min to catch moderate fast finishes).
   let detectionBaseline  = baselinePace
   let detectionThreshold = 0.85
+  let detectionMinSecs   = 8 * 60
   if (isExplicitlyProgressive && timed.length >= 4) {
     const earlyCount    = Math.max(2, Math.floor(timed.length * 0.30))
     detectionBaseline   = wavg(timed.slice(0, earlyCount), 'pace')
-    detectionThreshold  = 0.90
+    detectionThreshold  = 0.93
+    detectionMinSecs    = 6 * 60
   }
 
   const fastBlockResult = isExplicitlyEasy
     ? null
-    : detectFastBlock(timed, detectionBaseline, activity.moving_time, detectionThreshold)
+    : detectFastBlock(timed, detectionBaseline, activity.moving_time, detectionThreshold, detectionMinSecs)
 
   // When the user has labelled the run as progressive but splits don't reveal
   // a fast block (e.g. no per-km HR data), fall back to 'progression' so the

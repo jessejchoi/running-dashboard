@@ -953,8 +953,7 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
 } {
   const MIN_RUN_SECS    = 55 * 60
   const WINDOW_SECS     = 15 * 60
-  const MIN_GAP_SECS    = 30 * 60
-  const TOLERANCE       = 45
+  const MIN_GAP_SECS    = 20 * 60   // 20 min is enough separation to measure drift
   // sec/km per bpm — same slope used in HR projection elsewhere in this file
   const HR_PACE_SLOPE   = 2.5
 
@@ -967,11 +966,14 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const lateEnd    = totalSecs
 
   if (lateStart - earlyEnd < MIN_GAP_SECS) {
-    return { drift: 0, reliable: false, paceAdjusted: false, reason: 'windows too close (<30 min apart)' }
+    return { drift: 0, reliable: false, paceAdjusted: false, reason: 'windows too close (<20 min apart)' }
   }
 
-  const earlySplits = timed.filter(s => s.tStart >= earlyStart - TOLERANCE && s.tEnd <= earlyEnd + TOLERANCE)
-  const lateSplits  = timed.filter(s => s.tStart >= lateStart  - TOLERANCE && s.tEnd <= lateEnd  + TOLERANCE)
+  // Overlap-based filter: include any split that intersects the window, not just
+  // splits fully contained within it. Per-km splits can be 5-8 min wide, so a
+  // "fully contained" filter often lets only 1 split through per window.
+  const earlySplits = timed.filter(s => s.tStart < earlyEnd && s.tEnd > earlyStart)
+  const lateSplits  = timed.filter(s => s.tStart < lateEnd   && s.tEnd > lateStart)
 
   if (earlySplits.length < 2 || lateSplits.length < 2) {
     return { drift: 0, reliable: false, paceAdjusted: false, reason: 'insufficient splits in comparison windows' }

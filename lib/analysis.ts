@@ -1022,8 +1022,9 @@ function detectFastBlock(
   timed: TimedSplit[],
   baselinePace: number,
   totalSecs: number,
+  fastThreshold = 0.85,
 ): { block: FastBlock; position: 'end' | 'middle' } | null {
-  const FAST_THRESHOLD = 0.85  // >15% faster than baseline
+  const FAST_THRESHOLD = fastThreshold
 
   // Merge consecutive fast splits into blocks
   const blocks: { startSec: number; endSec: number; splits: TimedSplit[] }[] = []
@@ -1193,9 +1194,20 @@ export function analyzeLongRun(activity: {
   const isExplicitlyEasy        = activity.run_type === 'long_easy'
   const isExplicitlyProgressive = activity.run_type === 'long_progressive'
 
+  // For progression runs: use the first 30% of splits as the baseline pace
+  // (captures actual easy start, not the pulled-up overall average) and lower
+  // the threshold to 0.90 (10% faster = meaningful for a gradual build).
+  let detectionBaseline  = baselinePace
+  let detectionThreshold = 0.85
+  if (isExplicitlyProgressive && timed.length >= 4) {
+    const earlyCount    = Math.max(2, Math.floor(timed.length * 0.30))
+    detectionBaseline   = wavg(timed.slice(0, earlyCount), 'pace')
+    detectionThreshold  = 0.90
+  }
+
   const fastBlockResult = isExplicitlyEasy
     ? null
-    : detectFastBlock(timed, baselinePace, activity.moving_time)
+    : detectFastBlock(timed, detectionBaseline, activity.moving_time, detectionThreshold)
 
   // When the user has labelled the run as progressive but splits don't reveal
   // a fast block (e.g. no per-km HR data), fall back to 'progression' so the

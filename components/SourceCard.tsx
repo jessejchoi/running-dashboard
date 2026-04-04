@@ -91,17 +91,28 @@ export default function SourceCard({ source, contributors, distanceKey, sourceAv
       </div>
 
       <div className="space-y-1.5">
-        {sorted.slice(0, 5).map((c, i) => (
-          <div key={`${c.activityId}-${i}`} className="flex items-center justify-between text-xs bg-[#111] rounded-lg px-3 py-2">
-            <div className="flex-1 min-w-0">
-              <span className="text-[#6b7280] font-mono">{c.date}</span>
-              <span className="text-[#4b5563] ml-2 truncate">{c.method}</span>
+        {sorted.slice(0, 5).map((c, i) => {
+          // Extract drift note from method string if present
+          const driftMatch = c.method.match(/\((?:rep drift|excess drift|avg excess drift)\s*([+-]?\d+\.?\d*)%/)
+          const driftExcess = driftMatch ? parseFloat(driftMatch[1]) : null
+          const methodBase = driftMatch ? c.method.slice(0, c.method.lastIndexOf(' (')).trimEnd() : c.method
+          return (
+            <div key={`${c.activityId}-${i}`} className="flex items-center justify-between text-xs bg-[#111] rounded-lg px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <span className="text-[#6b7280] font-mono">{c.date}</span>
+                <span className="text-[#4b5563] ml-2 truncate">{methodBase}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-2">
+                {driftExcess != null && (
+                  <span className={`text-[10px] font-mono font-bold ${driftExcess > 1 ? 'text-orange-400' : driftExcess < -0.5 ? 'text-emerald-400' : 'text-[#4b5563]'}`}>
+                    drift {driftExcess > 0 ? '+' : ''}{driftExcess.toFixed(1)}%
+                  </span>
+                )}
+                <span className="font-mono font-bold text-white">{formatTime(c.estimatedSecs)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0 ml-2">
-              <span className="font-mono font-bold text-white">{formatTime(c.estimatedSecs)}</span>
-            </div>
-          </div>
-        ))}
+          )
+        })}
         {sorted.length > 5 && (
           <div className="text-[#4b5563] text-[10px] px-3">
             +{sorted.length - 5} more

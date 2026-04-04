@@ -196,6 +196,15 @@ export interface RecoveryLap {
   paceSecPerKm: number
 }
 
+export interface RepDriftResult {
+  drift: number          // raw pace-adjusted HR drift % (first rep → last rep)
+  excessDrift: number    // drift minus expectedCardiacDrift(sessionDurationSecs/60)
+  reliable: boolean      // false if <3 reps with HR data
+  firstRepHR: number
+  lastRepHR: number
+  paceAdjusted: boolean
+}
+
 export interface FiveKEstimate {
   date: string
   activityId: number
@@ -215,6 +224,7 @@ export interface FiveKEstimate {
   continuousDistM?: number
   continuousDurSecs?: number
   avgPaceSecPerKm?: number
+  repDrift?: RepDriftResult    // rep-to-rep HR drift (structured sessions only)
   // New: multi-distance estimates attached
   raceEstimates?: RaceEstimate[]
 }
@@ -293,6 +303,44 @@ function processLaps(
   return { repEfforts, recoveryLaps }
 }
 
+/**
+ * Computes rep-to-rep HR drift across a structured session.
+ * Compares first vs last rep (or first/last third for sessions with ≥6 reps).
+ * Pace-adjusts using the same 2.5 sec/km-per-bpm slope used elsewhere.
+ * Requires ≥3 reps with HR data to return reliable=true.
+ */
+function computeRepDrift(reps: RepEffort[], sessionDurationSecs: number): RepDriftResult {
+  const repsWithHR = reps.filter(r => r.avgHR && r.avgHR > 100)
+  if (repsWithHR.length < 3) {
+    return { drift: 0, excessDrift: 0, reliable: false, firstRepHR: 0, lastRepHR: 0, paceAdjusted: false }
+  }
+
+  const n      = repsWithHR.length
+  const nGroup = n >= 6 ? Math.floor(n / 3) : 1
+  const first  = repsWithHR.slice(0, nGroup)
+  const last   = repsWithHR.slice(-nGroup)
+
+  const avg = (arr: RepEffort[], fn: (r: RepEffort) => number) =>
+    arr.reduce((s, r) => s + fn(r), 0) / arr.length
+
+  const firstHR   = avg(first, r => r.avgHR!)
+  const lastHR    = avg(last,  r => r.avgHR!)
+  const firstPace = avg(first, r => r.paceSecPerKm)
+  const lastPace  = avg(last,  r => r.paceSecPerKm)
+
+  // Pace-adjust: if last reps were paced differently, normalize HR back to first-rep pace
+  const paceDiff     = lastPace - firstPace          // positive = slowed down
+  const paceAdjusted = Math.abs(paceDiff) > firstPace * 0.04
+  const adjLastHR    = lastHR + paceDiff / 2.5
+  const effectiveHR  = paceAdjusted ? adjLastHR : lastHR
+
+  const drift       = firstHR > 0 ? ((effectiveHR - firstHR) / firstHR) * 100 : 0
+  const expected    = expectedCardiacDrift(sessionDurationSecs / 60)
+  const excessDrift = drift - expected
+
+  return { drift, excessDrift, reliable: true, firstRepHR: firstHR, lastRepHR: lastHR, paceAdjusted }
+}
+
 // ─── Threshold ratios ────────────────────────────────────────────────────────
 
 const DANIELS_CONTINUOUS = 0.907  // continuous threshold → 5K pace ratio
@@ -350,11 +398,19 @@ function buildEstimate(
   const avgCorrection = repEfforts.reduce((s, e) => s + e.correctionFactor, 0) / repEfforts.length
   const date = activity.start_date.split('T')[0]
 
+  // Rep-to-rep drift (applies penalty to HM/FM estimates)
+  const repDrift = computeRepDrift(repEfforts, totalWorkSecs + totalRestSecs)
+
   // Build multi-distance estimates from this 5K estimate
   const raceEstimates: RaceEstimate[] = []
   for (const dk of ['5k', '10k', 'hm', 'fm'] as DistanceKey[]) {
     const targetKm = DISTANCE_KM[dk]
-    const projectedSecs = dk === '5k' ? estimatedSecs : riegelProject(estimatedSecs, 5, targetKm)
+    const baseSecs = dk === '5k' ? estimatedSecs : riegelProject(estimatedSecs, 5, targetKm)
+    const driftMult = repDrift.reliable ? driftPenaltyMultiplier(repDrift.excessDrift, dk) : 1
+    const projectedSecs = baseSecs * driftMult
+    const driftNote = repDrift.reliable && driftMult > 1
+      ? ` (rep drift +${repDrift.excessDrift.toFixed(1)}% excess)`
+      : ''
     raceEstimates.push({
       distanceKey: dk,
       estimatedSecs: projectedSecs,
@@ -362,7 +418,7 @@ function buildEstimate(
       source: 'interval',
       date,
       activityId: activity.id,
-      method: dk === '5k' ? 'Rep pace + rest/duration/HR correction' : `Riegel from 5K interval estimate`,
+      method: dk === '5k' ? 'Rep pace + rest/duration/HR correction' : `Riegel from 5K interval estimate${driftNote}`,
     })
   }
 
@@ -381,6 +437,7 @@ function buildEstimate(
     effortsUsed: repEfforts.length,
     allEfforts: repEfforts,
     recoveryLaps,
+    repDrift: repDrift.reliable ? repDrift : undefined,
     raceEstimates,
   }
 }
@@ -423,7 +480,16 @@ function buildThresholdEstimate(
   const avgCorrection = repEfforts.reduce((s, e) => s + e.correctionFactor, 0) / repEfforts.length
   const date = activity.start_date.split('T')[0]
 
+  // Rep-to-rep drift (applies penalty to HM/FM estimates)
+  const repDrift = computeRepDrift(repEfforts, totalWorkSecs + totalRestSecs)
+  const hmDriftMult = repDrift.reliable ? driftPenaltyMultiplier(repDrift.excessDrift, 'hm') : 1
+  const fmDriftMult = repDrift.reliable ? driftPenaltyMultiplier(repDrift.excessDrift, 'fm') : 1
+  const driftNote = repDrift.reliable && repDrift.excessDrift > 0
+    ? ` (rep drift +${repDrift.excessDrift.toFixed(1)}% excess)`
+    : ''
+
   // Direct estimates for longer distances from threshold pace
+  const hmSecs = rawThresholdPace * THRESHOLD_TO_HM * 21.097
   const raceEstimates: RaceEstimate[] = [
     {
       distanceKey: '5k',
@@ -445,21 +511,21 @@ function buildThresholdEstimate(
     },
     {
       distanceKey: 'hm',
-      estimatedSecs: rawThresholdPace * THRESHOLD_TO_HM * 21.097,
+      estimatedSecs: hmSecs * hmDriftMult,
       confidence: THRESHOLD_CONFIDENCE['hm'],
       source: 'threshold',
       date,
       activityId: activity.id,
-      method: 'Threshold ≈ HM race pace (Daniels)',
+      method: `Threshold ≈ HM race pace (Daniels)${driftNote}`,
     },
     {
       distanceKey: 'fm',
-      estimatedSecs: riegelProject(rawThresholdPace * THRESHOLD_TO_HM * 21.097, 21.097, 42.195, 1.07),
+      estimatedSecs: riegelProject(hmSecs, 21.097, 42.195, 1.07) * fmDriftMult,
       confidence: THRESHOLD_CONFIDENCE['fm'],
       source: 'threshold',
       date,
       activityId: activity.id,
-      method: 'Riegel from HM threshold estimate',
+      method: `Riegel from HM threshold estimate${driftNote}`,
     },
   ]
 
@@ -478,6 +544,7 @@ function buildThresholdEstimate(
     effortsUsed: repEfforts.length,
     allEfforts: repEfforts,
     recoveryLaps,
+    repDrift: repDrift.reliable ? repDrift : undefined,
     raceEstimates,
   }
 }
@@ -756,6 +823,39 @@ const AEROBIC_SLOPE = -2.5  // sec/km per bpm — updated from -3.0 (closer to l
 const ENDURANCE_REF_MINS = 45
 const ENDURANCE_DURATION_K = 5
 
+// ── Drift model constants ─────────────────────────────────────────────────────
+// Expected drift = BASE × ln(durationMins / REF_MINS).
+// At REF_MINS=15: 0%. 30 min: 1.7%, 45 min: 2.75%, 60 min: 3.5%, 90 min: 4.5%
+const DRIFT_EXPECTED_BASE     = 2.5
+const DRIFT_EXPECTED_REF_MINS = 15
+// Penalty scale by race distance: excess drift % → race time penalty %
+const DRIFT_RACE_SCALE: Record<DistanceKey, number> = {
+  '5k':  0.0,   // ~20 min race — drift irrelevant
+  '10k': 0.3,   // ~40-60 min race — small
+  'hm':  0.7,   // ~90-150 min race — meaningful
+  'fm':  1.0,   // 3-5 hr race — critical
+}
+const DRIFT_PENALTY_SCALE   = 1.0   // % race time per % excess drift (at RACE_SCALE=1.0)
+const DRIFT_PENALTY_MAX_PCT = 8     // cap at 8%
+
+/** Expected % cardiac drift for a run of given duration (physiological log model). */
+function expectedCardiacDrift(durationMins: number): number {
+  return DRIFT_EXPECTED_BASE *
+    Math.log(Math.max(durationMins, DRIFT_EXPECTED_REF_MINS) / DRIFT_EXPECTED_REF_MINS)
+}
+
+/**
+ * Returns a pace-time multiplier (≥1.0) from excess drift, scaled by race distance.
+ * Apply by multiplying into estimatedSecs.
+ * Examples at 3% excess drift: 5K→×1.000, 10K→×1.009, HM→×1.021, FM→×1.030
+ */
+function driftPenaltyMultiplier(excessDrift: number, distanceKey: DistanceKey): number {
+  const scale = DRIFT_RACE_SCALE[distanceKey]
+  const penaltyPct = Math.min(DRIFT_PENALTY_MAX_PCT,
+    Math.max(0, excessDrift) * scale * DRIFT_PENALTY_SCALE)
+  return 1 + penaltyPct / 100
+}
+
 function durationEfficiencyCredit(durationMins: number): number {
   return ENDURANCE_DURATION_K * Math.log2(Math.max(durationMins, 5) / ENDURANCE_REF_MINS)
 }
@@ -773,6 +873,12 @@ export interface EasyRunEfficiency {
   r2: number
   splitsUsed: number
   splits: { km: number; paceSecPerKm: number; hr: number }[]
+  // Cardiac drift fields (populated when run ≥25 min with HR split data)
+  driftRawPct?: number
+  driftExcessPct?: number
+  driftReliable?: boolean
+  driftEarlyWindow?: DriftWindow
+  driftLateWindow?: DriftWindow
 }
 
 export function analyzeEasyRun(activity: {
@@ -881,6 +987,14 @@ export function analyzeEasyRun(activity: {
   // Use moving_time as a proxy for when the steady window occurred (window is near end of run).
   const normalizedPaceSec = normalizedPaceRaw - durationEfficiencyCredit(activity.moving_time / 60)
 
+  // Cardiac drift on the full-run km splits (wider temporal spread than steady window)
+  const easyTimed = buildTimedSplits(activity.splits ?? [])
+  const easyDrift = computeCardiacDrift(easyTimed, activity.moving_time, {
+    minDurationSecs: 25 * 60,
+    windowSecs:      10 * 60,
+    minGapSecs:      12 * 60,
+  })
+
   return {
     date: new Date(new Date(activity.start_date).getTime() + 7*60*60*1000).toISOString().split('T')[0],
     activityId: activity.id,
@@ -897,6 +1011,11 @@ export function analyzeEasyRun(activity: {
     r2: parseFloat(r2.toFixed(3)),
     splitsUsed: validSplits.length,
     splits: validSplits,
+    driftRawPct:       easyDrift.reliable ? parseFloat(easyDrift.drift.toFixed(1)) : undefined,
+    driftExcessPct:    easyDrift.reliable ? parseFloat(easyDrift.excessDrift.toFixed(1)) : undefined,
+    driftReliable:     easyDrift.reliable,
+    driftEarlyWindow:  easyDrift.earlyWindow,
+    driftLateWindow:   easyDrift.lateWindow,
   } as any
 }
 
@@ -939,6 +1058,7 @@ export interface LongRunAnalysis {
   steadyPace: number      // sec/km from pre-fast steady window (last 15 min)
   steadyHR: number
   cardiacDrift: number       // % HR increase early window → late window (pre-fast portion only)
+  driftExcess: number        // cardiacDrift minus duration-expected baseline
   driftReliable: boolean
   driftPaceAdjusted: boolean // true when drift was normalised for a pace change between windows
   driftReason?: string
@@ -956,24 +1076,35 @@ export interface LongRunAnalysis {
 }
 
 // Compare HR between an early window (~30% into the supplied segment) and the
-// last 15 min. Accepts a pre-built TimedSplit array so callers can pass only
+// last N min. Accepts a pre-built TimedSplit array so callers can pass only
 // the steady portion of a run (stripping any fast block beforehand).
-function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
+// opts allows shorter windows for tempo/easy runs (defaults preserve original long-run behaviour).
+function computeCardiacDrift(
+  timed: TimedSplit[],
+  totalSecs: number,
+  opts?: { minDurationSecs?: number; windowSecs?: number; minGapSecs?: number }
+): {
   drift: number
+  excessDrift: number      // drift minus expectedCardiacDrift(totalSecs/60)
   reliable: boolean
   paceAdjusted: boolean
   reason?: string
   earlyWindow?: DriftWindow
   lateWindow?: DriftWindow
 } {
-  const MIN_RUN_SECS    = 55 * 60
-  const WINDOW_SECS     = 15 * 60
-  const MIN_GAP_SECS    = 20 * 60   // 20 min is enough separation to measure drift
+  const MIN_RUN_SECS    = opts?.minDurationSecs ?? 55 * 60
+  const WINDOW_SECS     = opts?.windowSecs      ?? 15 * 60
+  const MIN_GAP_SECS    = opts?.minGapSecs       ?? 20 * 60
   // sec/km per bpm — same slope used in HR projection elsewhere in this file
   const HR_PACE_SLOPE   = 2.5
 
-  if (timed.length < 4)         return { drift: 0, reliable: false, paceAdjusted: false, reason: 'no split data' }
-  if (totalSecs < MIN_RUN_SECS) return { drift: 0, reliable: false, paceAdjusted: false, reason: 'segment too short for drift (<55 min)' }
+  const noData = (reason: string) => ({
+    drift: 0, excessDrift: -expectedCardiacDrift(totalSecs / 60),
+    reliable: false, paceAdjusted: false, reason,
+  })
+
+  if (timed.length < 4)         return noData('no split data')
+  if (totalSecs < MIN_RUN_SECS) return noData(`segment too short for drift (<${Math.round(MIN_RUN_SECS/60)} min)`)
 
   const earlyStart = totalSecs * 0.30
   const earlyEnd   = earlyStart + WINDOW_SECS
@@ -981,7 +1112,7 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const lateEnd    = totalSecs
 
   if (lateStart - earlyEnd < MIN_GAP_SECS) {
-    return { drift: 0, reliable: false, paceAdjusted: false, reason: 'windows too close (<20 min apart)' }
+    return noData(`windows too close (<${Math.round(MIN_GAP_SECS/60)} min apart)`)
   }
 
   // Overlap-based filter: include any split that intersects the window, not just
@@ -991,7 +1122,7 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const lateSplits  = timed.filter(s => s.tStart < lateEnd   && s.tEnd > lateStart)
 
   if (earlySplits.length < 2 || lateSplits.length < 2) {
-    return { drift: 0, reliable: false, paceAdjusted: false, reason: 'insufficient splits in comparison windows' }
+    return noData('insufficient splits in comparison windows')
   }
 
   const earlyHR   = wavg(earlySplits, 'hr')
@@ -1011,6 +1142,7 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const effectiveLateHR  = paceAdjusted ? adjustedLateHR : lateHR
 
   const drift = earlyHR > 0 ? ((effectiveLateHR - earlyHR) / earlyHR) * 100 : 0
+  const excessDrift = drift - expectedCardiacDrift(totalSecs / 60)
 
   const earlyWindowData: DriftWindow = {
     avgPace: earlyPace, avgHR: earlyHR,
@@ -1026,7 +1158,7 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
     ? `pace-adjusted (${paceDiff > 0 ? '+' : ''}${paceDiff.toFixed(0)}s/km → late HR adj. ${adjustedLateHR > lateHR ? '+' : ''}${(adjustedLateHR - lateHR).toFixed(0)} bpm)`
     : undefined
 
-  return { drift, reliable: true, paceAdjusted, reason, earlyWindow: earlyWindowData, lateWindow: lateWindowData }
+  return { drift, excessDrift, reliable: true, paceAdjusted, reason, earlyWindow: earlyWindowData, lateWindow: lateWindowData }
 }
 
 // ─── Fast block detection ─────────────────────────────────────────────────────
@@ -1379,6 +1511,7 @@ export function analyzeLongRun(activity: {
         steadyPace:   parseFloat(baselinePace.toFixed(1)),
         steadyHR:     activity.average_heartrate ?? 0,
         cardiacDrift: 0,
+        driftExcess:  0,
         driftReliable: false,
         driftPaceAdjusted: false,
         driftReason:  'no steady window — fast block only',
@@ -1422,35 +1555,41 @@ export function analyzeLongRun(activity: {
   const effectiveDistKm = preFastKm > 0 ? preFastKm : distKm
   const distanceFactor  = Math.min(1, effectiveDistKm / 25)
 
-  // Drift factor: only penalise when drift is reliably measured and high
-  const driftFactor = driftResult.reliable && cardiacDrift > 3
-    ? Math.max(0.5, 1 - (cardiacDrift - 3) * 0.1)
+  // Drift penalty: use excess drift (above duration-expected baseline) via unified model
+  const hmDriftMult = driftResult.reliable
+    ? driftPenaltyMultiplier(driftResult.excessDrift, 'hm')
+    : 1 / 0.85   // preserve original driftUnknownPenalty conservatism on confidence
+  const fmDriftMult = driftResult.reliable
+    ? driftPenaltyMultiplier(driftResult.excessDrift, 'fm')
     : 1
   const driftUnknownPenalty = driftResult.reliable ? 1 : 0.85
+  const driftNote = driftResult.reliable && driftResult.excessDrift > 0
+    ? ` (excess drift +${driftResult.excessDrift.toFixed(1)}%)`
+    : ''
 
   const steadyEstimates: RaceEstimate[] = []
 
   if (hmPace > 200 && hmPace < 500) {
     steadyEstimates.push({
       distanceKey: 'hm',
-      estimatedSecs: hmPace * 21.097,
-      confidence: 0.65 * distanceFactor * driftFactor * hmHRGapPenalty,
+      estimatedSecs: hmPace * 21.097 * hmDriftMult,
+      confidence: 0.65 * distanceFactor * (1 / hmDriftMult) * hmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
-      method: `Steady pace ${formatPace(window.avgPace)}/km @ ${Math.round(window.avgHR)}bpm → HM via HR projection`,
+      method: `Steady pace ${formatPace(window.avgPace)}/km @ ${Math.round(window.avgHR)}bpm → HM via HR projection${driftNote}`,
     })
   }
 
   if (fmPace > 200 && fmPace < 500) {
     steadyEstimates.push({
       distanceKey: 'fm',
-      estimatedSecs: fmPace * 42.195,
-      confidence: 0.50 * distanceFactor * driftFactor * driftUnknownPenalty * fmHRGapPenalty,
+      estimatedSecs: fmPace * 42.195 * fmDriftMult,
+      confidence: 0.50 * distanceFactor * (1 / fmDriftMult) * driftUnknownPenalty * fmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
-      method: `Steady pace → FM via HR projection${driftResult.reliable && cardiacDrift > 3 ? ` (drift ${cardiacDrift.toFixed(1)}% penalised)` : ''}`,
+      method: `Steady pace → FM via HR projection${driftNote}`,
     })
   }
 
@@ -1489,6 +1628,7 @@ export function analyzeLongRun(activity: {
     steadyPace:   parseFloat(window.avgPace.toFixed(1)),
     steadyHR:     parseFloat(window.avgHR.toFixed(1)),
     cardiacDrift: parseFloat(cardiacDrift.toFixed(1)),
+    driftExcess:  parseFloat(driftResult.excessDrift.toFixed(1)),
     driftReliable: driftResult.reliable,
     driftPaceAdjusted: driftResult.paceAdjusted,
     driftReason:  driftResult.reason,
@@ -1639,6 +1779,21 @@ export function easyRunTrendEstimate(
   const avgNormalizedPace = weightedSum / totalWeight
   const avgSlope = weightedSlopeSum / totalWeight
 
+  // Recency-weighted average excess drift across recent runs with reliable drift data
+  const driftRuns = recent.filter(r => r.driftReliable && r.driftExcessPct != null)
+  let avgExcessDrift = 0
+  if (driftRuns.length >= 2) {
+    let driftWeightSum = 0
+    let driftWeightedVal = 0
+    for (const r of driftRuns) {
+      const ageDays = (now - new Date(r.date).getTime()) / 86400000
+      const w = Math.exp(-ageDays * Math.LN2 / 21)
+      driftWeightedVal += r.driftExcessPct! * w
+      driftWeightSum   += w
+    }
+    avgExcessDrift = driftWeightSum > 0 ? driftWeightedVal / driftWeightSum : 0
+  }
+
   // Project from easy HR (150bpm) to race HR using average slope
   // 5K race HR ≈ 96% max, 10K ≈ 92%, HM ≈ 87%
   const raceHRs: Record<DistanceKey, number> = {
@@ -1664,17 +1819,27 @@ export function easyRunTrendEstimate(
 
     // HR gap confidence penalty: larger extrapolation = less reliable
     const hrGapPenalty = Math.max(0.3, 1 - (hrGap - 15) * 0.02)  // full at ≤15bpm, 0.3 at 50bpm
+    // Drift confidence penalty: persistent excess drift reduces reliability of HM/FM projections
+    const driftConfPenalty = driftRuns.length >= 2
+      ? Math.min(0.10, Math.max(0, avgExcessDrift) * 0.02)
+      : 0
     const baseConfidence = 0.40
+
+    // Apply drift pace penalty (heavier for longer race distances)
+    const driftMult = driftRuns.length >= 2 ? driftPenaltyMultiplier(avgExcessDrift, dk) : 1
+    const driftNote = driftRuns.length >= 2 && avgExcessDrift > 0
+      ? ` (avg excess drift +${avgExcessDrift.toFixed(1)}%)`
+      : ''
 
     const km = DISTANCE_KM[dk]
     estimates.push({
       distanceKey: dk,
-      estimatedSecs: racePace * km,
-      confidence: baseConfidence * hrGapPenalty,
+      estimatedSecs: racePace * km * driftMult,
+      confidence: (baseConfidence - driftConfPenalty) * hrGapPenalty,
       source: 'easy_trend',
       date: latestRun.date,
       activityId: latestRun.activityId,
-      method: `Easy run trend: ${formatPace(avgNormalizedPace)}/km @ 150bpm → race HR projection`,
+      method: `Easy run trend: ${formatPace(avgNormalizedPace)}/km @ 150bpm → race HR projection${driftNote}`,
     })
   }
 

@@ -751,6 +751,15 @@ function extractSteadyWindow(activity: {
 const REF_HR = 150
 const AEROBIC_SLOPE = -2.5  // sec/km per bpm — updated from -3.0 (closer to literature)
 
+// Duration efficiency credit: reward longer aerobic efforts at the same HR/pace.
+// Applied after 150bpm normalization. Reference = 45 min, ~5 sec/km per doubling.
+const ENDURANCE_REF_MINS = 45
+const ENDURANCE_DURATION_K = 5
+
+function durationEfficiencyCredit(durationMins: number): number {
+  return ENDURANCE_DURATION_K * Math.log2(Math.max(durationMins, 5) / ENDURANCE_REF_MINS)
+}
+
 export interface EasyRunEfficiency {
   date: string
   activityId: number
@@ -866,8 +875,11 @@ export function analyzeEasyRun(activity: {
     }
   }
 
-  const normalizedPaceSec = avgPace + slope * (REF_HR - avgHR)
-  if (normalizedPaceSec < 200 || normalizedPaceSec > 540) return stub('Normalised pace out of range — check HR data')
+  const normalizedPaceRaw = avgPace + slope * (REF_HR - avgHR)
+  if (normalizedPaceRaw < 200 || normalizedPaceRaw > 540) return stub('Normalised pace out of range — check HR data')
+  // Apply duration efficiency credit: longer efforts at the same HR/pace = more fit.
+  // Use moving_time as a proxy for when the steady window occurred (window is near end of run).
+  const normalizedPaceSec = normalizedPaceRaw - durationEfficiencyCredit(activity.moving_time / 60)
 
   return {
     date: new Date(new Date(activity.start_date).getTime() + 7*60*60*1000).toISOString().split('T')[0],
@@ -938,6 +950,7 @@ export interface LongRunAnalysis {
   fastBlockEstimates?: RaceEstimate[] // threshold-style estimates from the fast block
   residualElevation?: number          // % HR elevation at easy pace after fast block (fast_middle only)
   raceEstimates: RaceEstimate[]
+  steadyDurationSecs: number          // seconds from run start to end of steady portion (= fastBlock.startSec or preFastDuration)
 }
 
 // Compare HR between an early window (~30% into the supplied segment) and the
@@ -1095,7 +1108,7 @@ function fastBlockThresholdEstimates(
       distanceKey: '5k',
       estimatedSecs: est5K,
       confidence: THRESHOLD_CONFIDENCE['5k']  * DISCOUNT,
-      source: 'long_run',
+      source: 'threshold',
       date,
       activityId,
       method: `${label} via Daniels ${ratio.toFixed(3)}`,
@@ -1104,7 +1117,7 @@ function fastBlockThresholdEstimates(
       distanceKey: '10k',
       estimatedSecs: block.avgPace * THRESHOLD_TO_10K * 10,
       confidence: THRESHOLD_CONFIDENCE['10k'] * DISCOUNT,
-      source: 'long_run',
+      source: 'threshold',
       date,
       activityId,
       method: `${label} → 10K via threshold ratio`,
@@ -1113,7 +1126,7 @@ function fastBlockThresholdEstimates(
       distanceKey: 'hm',
       estimatedSecs: block.avgPace * THRESHOLD_TO_HM * 21.097,
       confidence: THRESHOLD_CONFIDENCE['hm']  * DISCOUNT,
-      source: 'long_run',
+      source: 'threshold',
       date,
       activityId,
       method: `${label} ≈ HM race pace`,
@@ -1122,7 +1135,7 @@ function fastBlockThresholdEstimates(
       distanceKey: 'fm',
       estimatedSecs: riegelProject(block.avgPace * THRESHOLD_TO_HM * 21.097, 21.097, 42.195, 1.07),
       confidence: THRESHOLD_CONFIDENCE['fm']  * DISCOUNT,
-      source: 'long_run',
+      source: 'threshold',
       date,
       activityId,
       method: `${label} → FM via Riegel`,
@@ -1305,6 +1318,7 @@ export function analyzeLongRun(activity: {
         fastBlockEstimates,
         residualElevation,
         raceEstimates: fastBlockEstimates,
+        steadyDurationSecs: preFastDuration,
       }
     }
     return null
@@ -1410,6 +1424,7 @@ export function analyzeLongRun(activity: {
     fastBlockEstimates,
     residualElevation,
     raceEstimates,
+    steadyDurationSecs: preFastDuration,
   }
 }
 
@@ -1828,6 +1843,46 @@ export function combineEstimates(
 }
 
 /**
+ * Convert the steady portion of long runs into EasyRunEfficiency-shaped objects
+ * for inclusion in the aerobic efficiency chart. Applies the same 150bpm
+ * normalization plus duration credit (using steadyDurationSecs = end of steady
+ * portion, not the total run time).
+ *
+ * Skips:
+ * - long_easy runs (already captured by analyzeEasyRun)
+ * - fast_middle runs (pre-block HR contaminated by the middle hard effort)
+ */
+export function longRunSteadyEfficiencyPoints(analyses: LongRunAnalysis[]): EasyRunEfficiency[] {
+  return analyses
+    .filter(lr => {
+      if ((lr as any).runType === 'long_easy') return false
+      if (lr.runStructure === 'fast_middle') return false
+      return lr.steadyHR > 0 && lr.steadyPace > 0
+    })
+    .map(lr => {
+      const normalizedPaceRaw = lr.steadyPace + AEROBIC_SLOPE * (REF_HR - lr.steadyHR)
+      const durationMins = lr.steadyDurationSecs / 60
+      const normalizedPaceSec = normalizedPaceRaw - durationEfficiencyCredit(durationMins)
+      return {
+        date: lr.date,
+        activityId: lr.activityId,
+        activityName: lr.activityName,
+        runType: 'long',
+        normalizedPaceSec: parseFloat(normalizedPaceSec.toFixed(1)),
+        avgHR: lr.steadyHR,
+        avgPaceSecPerKm: parseFloat(lr.steadyPace.toFixed(1)),
+        slope: AEROBIC_SLOPE,
+        r2: 0,
+        splitsUsed: 0,
+        splits: [],
+        runKind: 'long_steady',
+        steadyDurationSecs: lr.steadyDurationSecs,
+      } as any as EasyRunEfficiency
+    })
+    .filter(p => (p as any).normalizedPaceSec > 200 && (p as any).normalizedPaceSec < 600)
+}
+
+/**
  * Run all analyzers and produce combined estimates for all distances.
  */
 export function analyzeAllAndCombine(
@@ -1844,6 +1899,7 @@ export function analyzeAllAndCombine(
   longRunAnalyses: LongRunAnalysis[]
   raceAnalyses: RaceResultAnalysis[]
   easyRunResults: EasyRunEfficiency[]
+  longRunEfficiencyPoints: EasyRunEfficiency[]
   easyTrendEstimates: RaceEstimate[]
   allRaceEstimates: RaceEstimate[]
   combined: Record<DistanceKey, CombinedEstimate | null>
@@ -1852,7 +1908,7 @@ export function analyzeAllAndCombine(
   const intervalEstimates = analyzeAllIntervalSessions(
     intervalActivities.filter((a: any) => !a.excluded_from_analysis), maxHr
   )
-  const thresholdEstimates = thresholdActivities
+  const thresholdEstimatesBase = thresholdActivities
     .filter((a: any) => !a.excluded_from_analysis)
     .map(a => analyzeThresholdSession(a, maxHr))
     .filter(Boolean) as FiveKEstimate[]
@@ -1862,11 +1918,46 @@ export function analyzeAllAndCombine(
     .map(a => analyzeLongRun(a, maxHr))
     .filter(Boolean) as LongRunAnalysis[]
 
+  // Adapt fast block data from long runs into FiveKEstimate shapes for threshold chart display.
+  // Race estimates are already in allRaceEstimates (source: 'threshold') — don't double-count.
+  const fastBlockFiveKEstimates: FiveKEstimate[] = longRunAnalyses
+    .filter(lr => lr.fastBlock && lr.fastBlockEstimates && lr.fastBlockEstimates.length > 0)
+    .map(lr => {
+      const est5k = lr.fastBlockEstimates!.find(e => e.distanceKey === '5k')
+      if (!est5k) return null
+      return {
+        date: lr.date,
+        activityId: lr.activityId,
+        activityName: `${lr.activityName} (fast block)`,
+        estimatedSecs: est5k.estimatedSecs,
+        estimatedPace: formatPace(est5k.estimatedSecs / 5),
+        estimatedTime: formatTime(est5k.estimatedSecs),
+        vdot: calcVdot(est5k.estimatedSecs),
+        workRestRatio: 1,
+        correctionFactor: 0.80,
+        totalWorkSecs: lr.fastBlock!.durationSecs,
+        totalRestSecs: 0,
+        effortsUsed: 1,
+        allEfforts: [],
+        recoveryLaps: [],
+        isContinuous: true,
+        raceEstimates: lr.fastBlockEstimates ?? [],
+        isLongRunFastBlock: true,
+      } as any as FiveKEstimate
+    })
+    .filter(Boolean) as FiveKEstimate[]
+
+  const thresholdEstimates = [...thresholdEstimatesBase, ...fastBlockFiveKEstimates]
+
   const raceAnalyses = raceActivities
     .map(a => detectAndAnalyzeRace(a))
     .filter(Boolean) as RaceResultAnalysis[]
 
-  const easyRunResults = analyzeAllEasyRuns(easyActivities.filter((a: any) => !a.excluded_from_analysis))
+  // Long run steady portions contribute to aerobic efficiency trend.
+  // longRunEfficiencyPoints are separate so the chart can render them differently (hollow dots).
+  const longRunEfficiencyPoints = longRunSteadyEfficiencyPoints(longRunAnalyses)
+  const easyRunResultsBase = analyzeAllEasyRuns(easyActivities.filter((a: any) => !a.excluded_from_analysis))
+  const easyRunResults = [...easyRunResultsBase, ...longRunEfficiencyPoints]
   const easyTrendEstimates = easyRunTrendEstimate(easyRunResults, maxHr)
 
   // Collect all race estimates
@@ -1914,6 +2005,7 @@ export function analyzeAllAndCombine(
     longRunAnalyses,
     raceAnalyses,
     easyRunResults,
+    longRunEfficiencyPoints,
     easyTrendEstimates,
     allRaceEstimates,
     combined,

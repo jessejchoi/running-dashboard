@@ -16,7 +16,7 @@ import {
 } from '@/lib/analysis'
 import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate, paceUnitLabel, formatDistanceShort, type DistanceUnit } from '@/lib/utils'
 import { type DistanceKey, distanceLabel } from '@/lib/goals'
-import { format, subMonths } from 'date-fns'
+import { format, subMonths, parseISO } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
@@ -83,8 +83,8 @@ export default async function AnalysisPage() {
     }
   }
 
-  const { intervalEstimates, thresholdEstimates, longRunAnalyses, raceAnalyses, easyRunResults, combined, allRaceEstimates } = result
-  const easyEstimates = easyRunResults.filter(r => !r.excludedReason)
+  const { intervalEstimates, thresholdEstimates, longRunAnalyses, raceAnalyses, easyRunResults, longRunEfficiencyPoints, combined, allRaceEstimates } = result
+  const easyEstimates = easyRunResults.filter(r => !r.excludedReason && !(r as any).runKind)
   const easyRunResultsWithRuns = (easyRuns ?? []).map((r: any) => ({
     run: r,
     result: easyRunResults.find(e => e.activityId === r.id) ?? null,
@@ -269,7 +269,7 @@ export default async function AnalysisPage() {
               )}
               <CollapsibleRuns count={(thresholdRuns ?? []).length} color="#60a5fa">
                 {(thresholdRuns ?? []).map((run: any) => {
-                  const estimate = thresholdEstimates.find(e => e.activityId === run.id)
+                  const estimate = thresholdEstimates.find(e => e.activityId === run.id && !(e as any).isLongRunFastBlock)
                   return (
                     <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
                       <div className="flex items-start justify-between gap-4 mb-4">
@@ -291,6 +291,23 @@ export default async function AnalysisPage() {
                   )
                 })}
               </CollapsibleRuns>
+              {/* Fast blocks from long runs that contribute to threshold estimates */}
+              {thresholdEstimates.filter(e => (e as any).isLongRunFastBlock).map(est => (
+                <div key={`fb-${est.activityId}`} className="card fade-up border-[#1a2a2a]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-display font-bold text-base">{est.activityName.replace(' (fast block)', '')}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-[#34d399] bg-[#34d39920]">fast block</span>
+                      </div>
+                      <div className="text-[#6b7280] text-xs mt-0.5">
+                        {format(parseISO(est.date + 'T12:00:00'), 'EEE, MMM d yyyy')} · {formatDuration(est.totalWorkSecs)} fast block
+                      </div>
+                    </div>
+                    <RunEstimateBadge raceEstimates={est.raceEstimates} fallbackSecs={est.estimatedSecs} color="#60a5fa" />
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* COL 3: Aerobic Efficiency */}
@@ -303,7 +320,7 @@ export default async function AnalysisPage() {
                   </div>
                   <SourceEstimateBadge combined={combinedJson} source="easy_trend" color="#a78bfa" label="easy trend" />
                 </div>
-                <AerobicEfficiencyChart runs={easyEstimates} />
+                <AerobicEfficiencyChart runs={easyEstimates} longRunPoints={longRunEfficiencyPoints} />
               </div>
               <CollapsibleRuns count={easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').length} color="#a78bfa">
                 {easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data').map(({ run, result: eff }) => (
@@ -355,12 +372,12 @@ export default async function AnalysisPage() {
               </CollapsibleRuns>
             </div>
 
-            {/* COL 4: Long Runs + Race Results */}
+            {/* COL 4: Endurance + Race Results */}
             <div className="flex flex-col gap-4">
               <div className="card fade-up">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Long Runs</h2>
+                    <h2 className="font-display font-bold text-sm text-[#6b7280] uppercase tracking-widest">Endurance</h2>
                     <p className="text-[#4b5563] text-xs mt-0.5">{longRunAnalyses.length} run{longRunAnalyses.length !== 1 ? 's' : ''}</p>
                   </div>
                   <SourceEstimateBadge combined={combinedJson} source="long_run" color="#34d399" label="long runs" />

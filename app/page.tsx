@@ -349,7 +349,7 @@ export default async function DashboardPage() {
                 {groupData.group.name}
               </h2>
               <div className="mb-3">
-                <GroupCoachTab groupId={groupData.group.id} myRole={groupData.myRole} members={groupData.members} />
+                <GroupCoachTab groupId={groupData.group.id} myRole={groupData.myRole} members={groupData.members} minimal />
               </div>
               <div className="grid md:grid-cols-2 gap-3 mb-3">
                 <GroupLeaderboard members={groupData.members} groupId={groupData.group.id} groupName={groupData.group.name} unit={unit} />

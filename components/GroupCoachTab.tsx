@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { formatDistanceToNow, formatDistance } from 'date-fns'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
@@ -27,6 +27,8 @@ interface Props {
   groupId: string
   myRole: string
   members: Member[]
+  /** When true, hides Ask Coach and Trophy Case (used on the home page) */
+  minimal?: boolean
 }
 
 
@@ -77,7 +79,15 @@ function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shouto
   )
 }
 
-export default function GroupCoachTab({ groupId, myRole, members }: Props) {
+const COACH_CHIPS = [
+  "Who's slacking?",
+  "Call out who crushed it",
+  "Roast us this week",
+  "Who's race-ready?",
+  "What should we focus on?",
+]
+
+export default function GroupCoachTab({ groupId, myRole, members, minimal = false }: Props) {
   const [briefing, setBriefing] = useState<BriefingContent | null>(null)
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
@@ -87,7 +97,11 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
     rate_limited?: boolean
     next_refresh_at?: string
   } | null>(null)
+  const [answer, setAnswer] = useState('')
+  const [answerStreaming, setAnswerStreaming] = useState(false)
+  const [activeChip, setActiveChip] = useState<string | null>(null)
   const [awards, setAwards] = useState<Award[]>([])
+  const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
     setBriefingLoading(true)
@@ -112,6 +126,7 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
   }
 
   async function fetchAwards() {
+    if (minimal) return
     try {
       const res = await fetch(`/api/groups/${groupId}/awards?weeks=4`)
       if (!res.ok) return
@@ -127,6 +142,33 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
     fetchAwards()
   }, [])
 
+  async function askCoach(chipText: string) {
+    if (answerStreaming) return
+    setActiveChip(chipText)
+    setAnswer('')
+    setAnswerStreaming(true)
+    try {
+      const res = await fetch(`/api/groups/${groupId}/coach/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: chipText }),
+      })
+      if (!res.ok || !res.body) throw new Error('failed')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        setAnswer(prev => prev + decoder.decode(value, { stream: true }))
+        answerRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }
+    } catch {
+      setAnswer('Coach is unavailable right now. Try again later.')
+    } finally {
+      setAnswerStreaming(false)
+    }
+  }
+
   if (briefingLoading) {
     return (
       <div className="space-y-4 fade-up">
@@ -135,7 +177,8 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
           <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-24" />
           <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-24" />
         </div>
-        <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-20" />
+        {!minimal && <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-16" />}
+        {!minimal && <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-20" />}
       </div>
     )
   }
@@ -228,45 +271,78 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
         </div>
       )}
 
-      {/* Trophy Case — past weeks */}
-      <div>
-        <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">Trophy Case</h3>
-        {sortedWeeks.length === 0 ? (
-          <p className="text-[10px] text-[#4b5563] font-mono">
-            Awards will appear here after the next briefing refresh.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {sortedWeeks.map(week => (
-              <div key={week}>
-                <p className="text-[10px] font-mono text-[#4b5563] mb-2">
-                  Week of {new Date(week + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </p>
-                <div className="grid sm:grid-cols-2 gap-2">
-                  {awardWeeks[week].map(a => (
-                    <div key={a.id} className="flex items-center gap-3 bg-[#0f0f0f] border border-[#1c1c1c] rounded-xl px-3 py-2.5">
-                      <div className="relative shrink-0">
-                        {a.athlete_profile ? (
-                          <img src={a.athlete_profile} alt={a.athlete_name} className="w-7 h-7 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-[10px]">
-                            {a.athlete_name.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="absolute -bottom-0.5 -right-1 text-sm leading-none">{a.emoji}</span>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-white truncate">{a.athlete_name.split(' ')[0]}</div>
-                        <div className="text-[10px] text-[#6b7280] truncate">{a.award_label}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+      {/* Ask Coach — chip buttons (group page only) */}
+      {!minimal && (
+        <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
+          <h3 className="font-display font-bold text-sm text-white mb-3">Ask Coach</h3>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {COACH_CHIPS.map(chip => (
+              <button
+                key={chip}
+                onClick={() => askCoach(chip)}
+                disabled={answerStreaming}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                  activeChip === chip
+                    ? 'bg-[#f97316] border-[#f97316] text-black'
+                    : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#9ca3af] hover:text-white hover:border-[#3a3a3a]'
+                }`}
+              >
+                {chip}
+              </button>
             ))}
           </div>
-        )}
-      </div>
+          {(answer || answerStreaming) && (
+            <div ref={answerRef} className="text-sm text-[#d1d5db] leading-relaxed bg-[#0f0f0f] rounded-xl p-4 border border-[#2a2a2a]">
+              {answer}
+              {answerStreaming && (
+                <span className="inline-block w-2 h-3.5 bg-[#f97316] animate-pulse ml-0.5 align-middle" />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Trophy Case — past weeks (group page only) */}
+      {!minimal && (
+        <div>
+          <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">Trophy Case</h3>
+          {sortedWeeks.length === 0 ? (
+            <p className="text-[10px] text-[#4b5563] font-mono">
+              Awards will appear here after the next briefing refresh.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {sortedWeeks.map(week => (
+                <div key={week}>
+                  <p className="text-[10px] font-mono text-[#4b5563] mb-2">
+                    Week of {new Date(week + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {awardWeeks[week].map(a => (
+                      <div key={a.id} className="flex items-center gap-3 bg-[#0f0f0f] border border-[#1c1c1c] rounded-xl px-3 py-2.5">
+                        <div className="relative shrink-0">
+                          {a.athlete_profile ? (
+                            <img src={a.athlete_profile} alt={a.athlete_name} className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-[10px]">
+                              {a.athlete_name.slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="absolute -bottom-0.5 -right-1 text-sm leading-none">{a.emoji}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-white truncate">{a.athlete_name.split(' ')[0]}</div>
+                          <div className="text-[10px] text-[#6b7280] truncate">{a.award_label}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   )

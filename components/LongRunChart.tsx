@@ -104,12 +104,13 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
   const latest    = data[data.length - 1]
   const weeklyChangeSec = trendSlope * 1.5
 
-  // Prefer the steady-portion race estimate for the summary stat
-  const latestSteadyEst = latest.raceEstimates?.find(
-    r => r.distanceKey === active && r.method?.startsWith('Steady')
-  ) ?? latest.raceEstimates?.find(r => r.distanceKey === active)
-
   const latestFastEst = latest.fastBlockEstimates?.find(r => r.distanceKey === active)
+  // When a fast block exists, raceEstimates already equals fastBlockEstimates,
+  // so show it as the primary est. For steady runs, find the steady-method entry.
+  const latestSteadyEst = latestFastEst
+    ? null
+    : (latest.raceEstimates?.find(r => r.distanceKey === active && r.method?.startsWith('Steady'))
+       ?? latest.raceEstimates?.find(r => r.distanceKey === active))
 
   // Custom dot renderer — colour by run structure
   const renderDot = (props: any) => {
@@ -163,20 +164,19 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
             <div className="text-[#4b5563] text-xs mt-0.5">post-effort easy HR</div>
           </div>
         )}
-        {latestSteadyEst && (
+        {latestFastEst ? (
+          <div>
+            <div className="text-[#6b7280] text-xs mb-1">Est. {distanceLabel(active as DistanceKey)}</div>
+            <div className="font-mono font-bold text-[#60a5fa]">{formatTime(latestFastEst.estimatedSecs)}</div>
+            <div className="text-[#4b5563] text-xs mt-0.5">from fast block</div>
+          </div>
+        ) : latestSteadyEst ? (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Est. {distanceLabel(active as DistanceKey)}</div>
             <div className="font-mono font-bold text-white">{formatTime(latestSteadyEst.estimatedSecs)}</div>
             <div className="text-[#4b5563] text-xs mt-0.5">from steady pace</div>
           </div>
-        )}
-        {latestFastEst && (
-          <div>
-            <div className="text-[#6b7280] text-xs mb-1">Fast block est.</div>
-            <div className="font-mono font-bold text-[#60a5fa]">{formatTime(latestFastEst.estimatedSecs)}</div>
-            <div className="text-[#4b5563] text-xs mt-0.5">{distanceLabel(active as DistanceKey)} · threshold method</div>
-          </div>
-        )}
+        ) : null}
         {data.length > 1 && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Total improvement</div>

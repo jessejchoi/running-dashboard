@@ -1381,7 +1381,12 @@ export function analyzeLongRun(activity: {
     })
   }
 
-  const raceEstimates = [...steadyEstimates, ...(fastBlockEstimates ?? [])]
+  // When there's a fast block, prefer it as the primary race estimate —
+  // threshold-based Daniels method from an actual hard effort is more
+  // reliable than projecting from easy-pace HR for a mixed-effort run.
+  const raceEstimates = fastBlockEstimates && fastBlockEstimates.length > 0
+    ? fastBlockEstimates
+    : steadyEstimates
   if (raceEstimates.length === 0) return null
 
   return {

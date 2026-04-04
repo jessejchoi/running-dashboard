@@ -17,15 +17,19 @@ function CustomTooltip({ active, payload }: any) {
   const hmEst = d.raceEstimates?.find(r => r.distanceKey === 'hm')
   const fmEst = d.raceEstimates?.find(r => r.distanceKey === 'fm')
   return (
-    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[220px]">
+    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[240px]">
       <div className="text-[#6b7280] mb-2">{format(new Date(d.date + 'T12:00:00'), 'MMM d, yyyy')}</div>
       <div className="font-display font-bold text-lg mb-0.5" style={{ color: COLOR }}>
         {formatPace(d.steadyPace)}/km
       </div>
       <div className="text-[#9ca3af] mb-2">@ {Math.round(d.steadyHR)} bpm · {d.distanceKm.toFixed(1)} km</div>
-      <div className={`mb-1 font-mono text-xs ${d.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
-        Drift: {d.cardiacDrift.toFixed(1)}%
-      </div>
+      {d.driftReliable ? (
+        <div className={`mb-1 font-mono text-xs ${d.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
+          Drift: {d.cardiacDrift.toFixed(1)}%
+        </div>
+      ) : (
+        <div className="mb-1 text-[#4b5563] text-xs">Drift: —  {d.driftReason && `(${d.driftReason})`}</div>
+      )}
       {hmEst && <div className="text-[#9ca3af]">HM est. {formatTime(hmEst.estimatedSecs)}</div>}
       {fmEst && <div className="text-[#9ca3af]">FM est. {formatTime(fmEst.estimatedSecs)}</div>}
       <div className="text-[#4b5563] mt-1 truncate">{d.activityName}</div>
@@ -92,10 +96,19 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         </div>
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Cardiac drift</div>
-          <div className={`font-mono font-bold ${latest.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
-            {latest.cardiacDrift.toFixed(1)}%
-          </div>
-          <div className="text-[#4b5563] text-xs mt-0.5">{latest.cardiacDrift > 3 ? 'high' : 'low'} fatigue</div>
+          {latest.driftReliable ? (
+            <>
+              <div className={`font-mono font-bold ${latest.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                {latest.cardiacDrift.toFixed(1)}%
+              </div>
+              <div className="text-[#4b5563] text-xs mt-0.5">{latest.cardiacDrift > 3 ? 'high fatigue' : 'low fatigue'}</div>
+            </>
+          ) : (
+            <>
+              <div className="font-mono font-bold text-[#4b5563]">—</div>
+              <div className="text-[#4b5563] text-xs mt-0.5">unreliable</div>
+            </>
+          )}
         </div>
         {latestEst && (
           <div>
@@ -145,7 +158,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         </ComposedChart>
       </ResponsiveContainer>
       <div className="text-[10px] text-[#4b5563] mt-2">
-        Steady-state pace from aerobic window · lower = faster · drift &gt;3% = residual fatigue
+        Pace from last steady lap · drift compares ~30% mark vs last 15 min · only shown when pace is consistent (±10%)
       </div>
     </div>
   )

@@ -872,9 +872,87 @@ export interface LongRunAnalysis {
   distanceKm: number
   steadyPace: number      // sec/km from steady window
   steadyHR: number
-  cardiacDrift: number     // % HR increase 1st→2nd half of window
+  cardiacDrift: number     // % HR increase early window → late window
+  driftReliable: boolean   // false if run too short, windows too close, or pace changed
+  driftReason?: string     // explanation when not reliable
   windowSecs: number
   raceEstimates: RaceEstimate[]
+}
+
+// Compare HR between an early steady window (~30% into run) and the last 15 min.
+// Requires ≥30 min separation between windows and ≤10% pace change to be reliable.
+function computeCardiacDrift(splits: any[], totalSecs: number): {
+  drift: number
+  reliable: boolean
+  reason?: string
+} {
+  const MIN_RUN_SECS = 55 * 60   // need at least ~55 min to get 30 min separation
+  const WINDOW_SECS  = 15 * 60
+  const MIN_GAP_SECS = 30 * 60
+  const PACE_TOLERANCE = 0.10    // ±10%
+
+  if (!splits || splits.length < 4) return { drift: 0, reliable: false, reason: 'no split data' }
+  if (totalSecs < MIN_RUN_SECS)    return { drift: 0, reliable: false, reason: 'run too short for drift (<55 min)' }
+
+  // Build cumulative-time array from per-km splits
+  const timed: { tStart: number; tEnd: number; hr: number; pace: number; duration: number }[] = []
+  let cumSec = 0
+  for (const sp of splits) {
+    const dur = sp.elapsed_time ?? sp.moving_time ?? 60
+    if (sp.average_heartrate && sp.average_speed) {
+      timed.push({
+        tStart: cumSec,
+        tEnd: cumSec + dur,
+        hr: sp.average_heartrate,
+        pace: 1000 / sp.average_speed,
+        duration: dur,
+      })
+    }
+    cumSec += dur
+  }
+
+  // Early window: starts at 30% of run duration, 15 min long
+  const earlyStart = totalSecs * 0.30
+  const earlyEnd   = earlyStart + WINDOW_SECS
+
+  // Late window: last 15 min
+  const lateStart  = totalSecs - WINDOW_SECS
+  const lateEnd    = totalSecs
+
+  if (lateStart - earlyEnd < MIN_GAP_SECS) {
+    return { drift: 0, reliable: false, reason: 'windows too close (<30 min apart)' }
+  }
+
+  const TOLERANCE = 45 // seconds buffer when filtering splits to a window
+  const earlySplits = timed.filter(s => s.tStart >= earlyStart - TOLERANCE && s.tEnd <= earlyEnd + TOLERANCE)
+  const lateSplits  = timed.filter(s => s.tStart >= lateStart  - TOLERANCE && s.tEnd <= lateEnd  + TOLERANCE)
+
+  if (earlySplits.length < 2 || lateSplits.length < 2) {
+    return { drift: 0, reliable: false, reason: 'insufficient splits in comparison windows' }
+  }
+
+  const earlyDur  = earlySplits.reduce((s, sp) => s + sp.duration, 0)
+  const lateDur   = lateSplits.reduce((s, sp) => s + sp.duration, 0)
+  const earlyHR   = earlySplits.reduce((s, sp) => s + sp.hr   * sp.duration, 0) / earlyDur
+  const lateHR    = lateSplits.reduce((s,  sp) => s + sp.hr   * sp.duration, 0) / lateDur
+  const earlyPace = earlySplits.reduce((s, sp) => s + sp.pace * sp.duration, 0) / earlyDur
+  const latePace  = lateSplits.reduce((s,  sp) => s + sp.pace * sp.duration, 0) / lateDur
+
+  const drift = earlyHR > 0 ? ((lateHR - earlyHR) / earlyHR) * 100 : 0
+
+  // Pace consistency check — if pace changed more than ±10%, the HR shift
+  // is explained by effort change, not true cardiac drift
+  const paceRatio = latePace / earlyPace
+  if (paceRatio < 1 - PACE_TOLERANCE || paceRatio > 1 + PACE_TOLERANCE) {
+    const pctChange = ((paceRatio - 1) * 100).toFixed(0)
+    return {
+      drift,
+      reliable: false,
+      reason: `pace changed ${pctChange}% — HR shift may not be true cardiac drift`,
+    }
+  }
+
+  return { drift, reliable: true }
 }
 
 export function analyzeLongRun(activity: {
@@ -906,16 +984,10 @@ export function analyzeLongRun(activity: {
 
   if (!window || window.windowSecs < 600) return null
 
-  // Measure cardiac drift from window splits
-  let cardiacDrift = 0
-  if (window.splits.length >= 4) {
-    const half = Math.floor(window.splits.length / 2)
-    const firstHalf = window.splits.slice(0, half)
-    const secondHalf = window.splits.slice(half)
-    const firstHR = firstHalf.reduce((s, sp) => s + sp.hr * sp.duration, 0) / firstHalf.reduce((s, sp) => s + sp.duration, 0)
-    const secondHR = secondHalf.reduce((s, sp) => s + sp.hr * sp.duration, 0) / secondHalf.reduce((s, sp) => s + sp.duration, 0)
-    cardiacDrift = firstHR > 0 ? ((secondHR - firstHR) / firstHR) * 100 : 0
-  }
+  // Cardiac drift: compare early window (~30% into run) vs last 15 min
+  // using full-run splits, with a pace-consistency check
+  const driftResult = computeCardiacDrift(activity.splits ?? [], activity.moving_time)
+  const cardiacDrift = driftResult.drift
 
   const date = activity.start_date.split('T')[0]
 
@@ -943,8 +1015,16 @@ export function analyzeLongRun(activity: {
   // Distance factor: longer runs = more confidence
   const distanceFactor = Math.min(1, distKm / 25)
 
-  // Drift factor: high drift = less FM confidence
-  const driftFactor = cardiacDrift > 3 ? Math.max(0.5, 1 - (cardiacDrift - 3) * 0.1) : 1
+  // Drift factor: only penalise when drift is reliably measured and high.
+  // If unreliable (run too short, pace changed), treat as neutral — don't
+  // apply a false penalty or false bonus.
+  const driftFactor = driftResult.reliable && cardiacDrift > 3
+    ? Math.max(0.5, 1 - (cardiacDrift - 3) * 0.1)
+    : 1
+
+  // When drift is unreliable, apply a small confidence haircut for FM
+  // (we genuinely don't know how fatigued the run was)
+  const driftUnknownPenalty = driftResult.reliable ? 1 : 0.85
 
   const raceEstimates: RaceEstimate[] = []
 
@@ -966,11 +1046,11 @@ export function analyzeLongRun(activity: {
     raceEstimates.push({
       distanceKey: 'fm',
       estimatedSecs: fmPace * 42.195,
-      confidence: 0.50 * distanceFactor * driftFactor * fmHRGapPenalty,
+      confidence: 0.50 * distanceFactor * driftFactor * driftUnknownPenalty * fmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
-      method: `Long run → FM via HR projection${cardiacDrift > 3 ? ` (drift ${cardiacDrift.toFixed(1)}% penalised)` : ''}`,
+      method: `Long run → FM via HR projection${driftResult.reliable && cardiacDrift > 3 ? ` (drift ${cardiacDrift.toFixed(1)}% penalised)` : ''}`,
     })
   }
 
@@ -1000,6 +1080,8 @@ export function analyzeLongRun(activity: {
     steadyPace: parseFloat(window.avgPace.toFixed(1)),
     steadyHR: parseFloat(window.avgHR.toFixed(1)),
     cardiacDrift: parseFloat(cardiacDrift.toFixed(1)),
+    driftReliable: driftResult.reliable,
+    driftReason: driftResult.reason,
     windowSecs: window.windowSecs,
     raceEstimates,
   }

@@ -263,7 +263,7 @@ export default async function DashboardPage() {
         {/* Page header */}
         <div className="mb-6 fade-up">
           <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>
-            {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]}
+            Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]} 👋
           </h1>
           <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             {format(new Date(), 'EEE, MMM d')} · {activities.length} runs tracked

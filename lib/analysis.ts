@@ -1058,13 +1058,10 @@ function getFirst30MinBaseline(timed: TimedSplit[]): number | null {
 // Find the fastest user-created lap ≥5 min.
 // User-created laps are distinguished from auto km-splits by distance not near 1 km
 // (heuristic: dist > 300 m and |dist − 1000| > 200 m).
-// totalDistanceM is required to exclude whole-run auto-laps — a single Strava activity
-// lap covering the entire run distance would otherwise pass all other checks and be
-// returned as a "fast block" spanning the whole run.
-function detectUserLapFastBlock(laps: any[], totalDistanceM: number): FastBlock | null {
+// Requires ≥2 qualifying laps — a single qualifying lap almost always means
+// a whole-run auto-lap, not a deliberate fast-section marker.
+function detectUserLapFastBlock(laps: any[]): FastBlock | null {
   const MIN_USER_LAP_SECS = 5 * 60
-  // Hard cap: a fast block lap must cover ≤60% of total run distance and ≤8 km.
-  const maxLapDist = Math.min(8000, totalDistanceM * 0.6)
 
   // Build lap start times from cumulative elapsed time
   let cumSec = 0
@@ -1075,19 +1072,14 @@ function detectUserLapFastBlock(laps: any[], totalDistanceM: number): FastBlock 
     cumSec += dur
   }
 
-  // Filter: user laps only, ≥5 min, have speed data, not a whole-run lap
+  // Filter: user laps only, ≥5 min, have speed data
   const userLaps = lapTimings.filter(({ lap }) => {
     const dist = lap.distance ?? 0
     const dur  = lap.elapsed_time ?? lap.moving_time ?? 0
-    return (
-      dist > 300 &&
-      dist < maxLapDist &&
-      Math.abs(dist - 1000) > 200 &&
-      dur >= MIN_USER_LAP_SECS &&
-      (lap.average_speed ?? 0) > 0
-    )
+    return dist > 300 && Math.abs(dist - 1000) > 200 && dur >= MIN_USER_LAP_SECS && (lap.average_speed ?? 0) > 0
   })
-  if (userLaps.length === 0) return null
+  // Single qualifying lap = whole-run auto-lap, not a real section marker
+  if (userLaps.length < 2) return null
 
   // Pick fastest by average speed
   const fastest = userLaps.reduce((a, b) =>
@@ -1296,7 +1288,7 @@ export function analyzeLongRun(activity: {
     const blockBaseline = getFirst30MinBaseline(timed) ?? baselinePace
 
     // Priority 1: user-created laps (non-km splits — runner manually pressed lap button).
-    const userLapBlock = detectUserLapFastBlock(activity.laps ?? [], activity.distance)
+    const userLapBlock = detectUserLapFastBlock(activity.laps ?? [])
     if (userLapBlock) {
       userLapBlock.pctFasterThanBaseline = parseFloat(
         ((blockBaseline - userLapBlock.avgPace) / blockBaseline * 100).toFixed(1)

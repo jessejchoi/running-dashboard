@@ -413,7 +413,7 @@ export default async function AnalysisPage() {
                               {a.driftReliable ? (
                                 <>
                                   <div className={`font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>{a.cardiacDrift.toFixed(1)}%</div>
-                                  <div className="text-[#4b5563] mt-0.5">{a.cardiacDrift > 3 ? 'elevated' : 'low'}</div>
+                                  <div className="text-[#4b5563] mt-0.5">{a.driftPaceAdjusted ? 'pace-adj.' : (a.cardiacDrift > 3 ? 'elevated' : 'low')}</div>
                                 </>
                               ) : (
                                 <>
@@ -430,7 +430,7 @@ export default async function AnalysisPage() {
                               {a.earlyWindow && (
                                 <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
                                   <div className="text-[#4b5563] mb-0.5">
-                                    Early window · min {Math.round(a.earlyWindow.startSec/60)}–{Math.round(a.earlyWindow.endSec/60)}
+                                    Early · min {Math.round(a.earlyWindow.startSec/60)}–{Math.round(a.earlyWindow.endSec/60)}
                                   </div>
                                   <div className="font-mono font-bold text-white">{formatPace(a.earlyWindow.avgPace)}/km</div>
                                   <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.earlyWindow.avgHR)} bpm</div>
@@ -439,12 +439,22 @@ export default async function AnalysisPage() {
                               {a.lateWindow && (
                                 <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
                                   <div className="text-[#4b5563] mb-0.5">
-                                    Late window · min {Math.round(a.lateWindow.startSec/60)}–{Math.round(a.lateWindow.endSec/60)}
+                                    Late · min {Math.round(a.lateWindow.startSec/60)}–{Math.round(a.lateWindow.endSec/60)}
+                                    {a.driftPaceAdjusted && <span className="ml-1 text-yellow-500">adj.</span>}
                                   </div>
                                   <div className="font-mono font-bold text-white">{formatPace(a.lateWindow.avgPace)}/km</div>
-                                  <div className={`mt-0.5 font-mono ${a.driftReliable && a.cardiacDrift > 3 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
-                                    @ {Math.round(a.lateWindow.avgHR)} bpm
-                                  </div>
+                                  {a.lateWindow.adjustedHR != null ? (
+                                    <div className="mt-0.5">
+                                      <span className="text-[#4b5563]">{Math.round(a.lateWindow.avgHR)} bpm actual</span>
+                                      <span className={`ml-1 font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                                        → {Math.round(a.lateWindow.adjustedHR)} adj.
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className={`mt-0.5 font-mono ${a.driftReliable && a.cardiacDrift > 3 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
+                                      @ {Math.round(a.lateWindow.avgHR)} bpm
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>

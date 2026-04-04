@@ -910,8 +910,9 @@ export interface FastBlock {
 }
 
 export interface DriftWindow {
-  avgPace: number   // sec/km
+  avgPace: number     // sec/km
   avgHR: number
+  adjustedHR?: number // HR normalised to early-window pace (late window only, when pace changed)
   startSec: number
   endSec: number
 }
@@ -925,8 +926,9 @@ export interface LongRunAnalysis {
   overallHR: number       // full run average HR (for reference)
   steadyPace: number      // sec/km from pre-fast steady window (last 15 min)
   steadyHR: number
-  cardiacDrift: number     // % HR increase early window → late window (pre-fast portion only)
+  cardiacDrift: number       // % HR increase early window → late window (pre-fast portion only)
   driftReliable: boolean
+  driftPaceAdjusted: boolean // true when drift was normalised for a pace change between windows
   driftReason?: string
   earlyWindow?: DriftWindow   // ~30% mark window used for drift comparison
   lateWindow?: DriftWindow    // last 15 min window used for drift comparison
@@ -944,18 +946,20 @@ export interface LongRunAnalysis {
 function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   drift: number
   reliable: boolean
+  paceAdjusted: boolean
   reason?: string
   earlyWindow?: DriftWindow
   lateWindow?: DriftWindow
 } {
-  const MIN_RUN_SECS   = 55 * 60
-  const WINDOW_SECS    = 15 * 60
-  const MIN_GAP_SECS   = 30 * 60
-  const PACE_TOLERANCE = 0.10
-  const TOLERANCE      = 45
+  const MIN_RUN_SECS    = 55 * 60
+  const WINDOW_SECS     = 15 * 60
+  const MIN_GAP_SECS    = 30 * 60
+  const TOLERANCE       = 45
+  // sec/km per bpm — same slope used in HR projection elsewhere in this file
+  const HR_PACE_SLOPE   = 2.5
 
-  if (timed.length < 4)         return { drift: 0, reliable: false, reason: 'no split data' }
-  if (totalSecs < MIN_RUN_SECS) return { drift: 0, reliable: false, reason: 'segment too short for drift (<55 min)' }
+  if (timed.length < 4)         return { drift: 0, reliable: false, paceAdjusted: false, reason: 'no split data' }
+  if (totalSecs < MIN_RUN_SECS) return { drift: 0, reliable: false, paceAdjusted: false, reason: 'segment too short for drift (<55 min)' }
 
   const earlyStart = totalSecs * 0.30
   const earlyEnd   = earlyStart + WINDOW_SECS
@@ -963,14 +967,14 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const lateEnd    = totalSecs
 
   if (lateStart - earlyEnd < MIN_GAP_SECS) {
-    return { drift: 0, reliable: false, reason: 'windows too close (<30 min apart)' }
+    return { drift: 0, reliable: false, paceAdjusted: false, reason: 'windows too close (<30 min apart)' }
   }
 
   const earlySplits = timed.filter(s => s.tStart >= earlyStart - TOLERANCE && s.tEnd <= earlyEnd + TOLERANCE)
   const lateSplits  = timed.filter(s => s.tStart >= lateStart  - TOLERANCE && s.tEnd <= lateEnd  + TOLERANCE)
 
   if (earlySplits.length < 2 || lateSplits.length < 2) {
-    return { drift: 0, reliable: false, reason: 'insufficient splits in comparison windows' }
+    return { drift: 0, reliable: false, paceAdjusted: false, reason: 'insufficient splits in comparison windows' }
   }
 
   const earlyHR   = wavg(earlySplits, 'hr')
@@ -978,28 +982,34 @@ function computeCardiacDrift(timed: TimedSplit[], totalSecs: number): {
   const earlyPace = wavg(earlySplits, 'pace')
   const latePace  = wavg(lateSplits,  'pace')
 
+  // Pace-adjusted drift: if pace changed, the runner slowed down (or sped up)
+  // to keep HR manageable. We normalise the late HR back to what it would have
+  // been at the early pace using the empirical 2.5 sec/km-per-bpm slope:
+  //   adjustedLateHR = lateHR + (latePace - earlyPace) / HR_PACE_SLOPE
+  // e.g. pace dropped 30 sec/km → HR was "suppressed" by 12 bpm → add those
+  // back before comparing.
+  const paceDiff         = latePace - earlyPace  // positive = got slower
+  const paceAdjusted     = Math.abs(paceDiff) > earlyPace * 0.05  // adjust when >5% pace change
+  const adjustedLateHR   = lateHR + paceDiff / HR_PACE_SLOPE
+  const effectiveLateHR  = paceAdjusted ? adjustedLateHR : lateHR
+
+  const drift = earlyHR > 0 ? ((effectiveLateHR - earlyHR) / earlyHR) * 100 : 0
+
   const earlyWindowData: DriftWindow = {
     avgPace: earlyPace, avgHR: earlyHR,
     startSec: earlySplits[0].tStart, endSec: earlySplits[earlySplits.length - 1].tEnd,
   }
   const lateWindowData: DriftWindow = {
     avgPace: latePace, avgHR: lateHR,
+    adjustedHR: paceAdjusted ? parseFloat(adjustedLateHR.toFixed(1)) : undefined,
     startSec: lateSplits[0].tStart, endSec: lateSplits[lateSplits.length - 1].tEnd,
   }
 
-  const drift = earlyHR > 0 ? ((lateHR - earlyHR) / earlyHR) * 100 : 0
+  const reason = paceAdjusted
+    ? `pace-adjusted (${paceDiff > 0 ? '+' : ''}${paceDiff.toFixed(0)}s/km → late HR adj. ${adjustedLateHR > lateHR ? '+' : ''}${(adjustedLateHR - lateHR).toFixed(0)} bpm)`
+    : undefined
 
-  const paceRatio = latePace / earlyPace
-  if (paceRatio < 1 - PACE_TOLERANCE || paceRatio > 1 + PACE_TOLERANCE) {
-    const pctChange = ((paceRatio - 1) * 100).toFixed(0)
-    return {
-      drift, reliable: false,
-      reason: `pace changed ${pctChange}% between windows — HR shift may not be true drift`,
-      earlyWindow: earlyWindowData, lateWindow: lateWindowData,
-    }
-  }
-
-  return { drift, reliable: true, earlyWindow: earlyWindowData, lateWindow: lateWindowData }
+  return { drift, reliable: true, paceAdjusted, reason, earlyWindow: earlyWindowData, lateWindow: lateWindowData }
 }
 
 // ─── Fast block detection ─────────────────────────────────────────────────────
@@ -1193,9 +1203,12 @@ export function analyzeLongRun(activity: {
   let fastBlockEstimates: RaceEstimate[] | undefined
   let residualElevation: number | undefined
 
-  // Splits and duration of the pre-fast steady portion
+  // Splits and duration of the pre-fast steady portion.
+  // Use the last split's tEnd rather than activity.moving_time — splits use
+  // elapsed_time (includes pauses) while moving_time excludes them, so using
+  // moving_time would push the late window boundary past where splits exist.
   let preFastTimed    = timed
-  let preFastDuration = activity.moving_time
+  let preFastDuration = timed.length > 0 ? timed[timed.length - 1].tEnd : activity.moving_time
 
   if (fastBlockResult) {
     fastBlock      = fastBlockResult.block
@@ -1270,6 +1283,7 @@ export function analyzeLongRun(activity: {
         steadyHR:     activity.average_heartrate ?? 0,
         cardiacDrift: 0,
         driftReliable: false,
+        driftPaceAdjusted: false,
         driftReason:  'no steady window — fast block only',
         windowSecs:   0,
         runStructure,
@@ -1367,6 +1381,7 @@ export function analyzeLongRun(activity: {
     steadyHR:     parseFloat(window.avgHR.toFixed(1)),
     cardiacDrift: parseFloat(cardiacDrift.toFixed(1)),
     driftReliable: driftResult.reliable,
+    driftPaceAdjusted: driftResult.paceAdjusted,
     driftReason:  driftResult.reason,
     earlyWindow:  driftResult.earlyWindow,
     lateWindow:   driftResult.lateWindow,

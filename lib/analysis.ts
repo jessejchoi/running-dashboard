@@ -1094,10 +1094,11 @@ function detectUserLapFastBlock(laps: any[]): FastBlock | null {
   }
 }
 
-// Find the fastest contiguous window of ≥minBlockSecs in `timed`.
-// Tries all possible start positions and extends until minBlockSecs is met —
-// picks the (start, end) pair that yields the lowest weighted average pace.
-// Returns null if no window is meaningfully faster than baselinePace.
+// Find the fast block anchored at the peak (fastest) split, then expand outward
+// as long as adjacent splits stay within a pace buffer of the peak.
+// This correctly handles multiple progressions — it finds the fastest single
+// effort and the continuous window where that effort is sustained, rather than
+// averaging across two separate hard stretches.
 function detectFastestWindowBlock(
   timed: TimedSplit[],
   baselinePace: number,
@@ -1106,40 +1107,38 @@ function detectFastestWindowBlock(
 ): FastBlock | null {
   if (timed.length < 2) return null
 
-  let bestPace = Infinity
-  let bestBlock: FastBlock | null = null
-
-  for (let i = 0; i < timed.length; i++) {
-    let cumDur     = 0
-    let sumPaceDur = 0
-    let sumHRDur   = 0
-
-    for (let j = i; j < timed.length; j++) {
-      const sp = timed[j]
-      cumDur     += sp.duration
-      sumPaceDur += sp.pace * sp.duration
-      sumHRDur   += sp.hr   * sp.duration
-
-      if (cumDur >= minBlockSecs) {
-        const avgPace = sumPaceDur / cumDur
-        if (avgPace < bestPace) {
-          bestPace = avgPace
-          const pctFaster = (baselinePace - avgPace) / baselinePace * 100
-          bestBlock = {
-            startSec:             timed[i].tStart,
-            endSec:               timed[j].tEnd,
-            durationSecs:         timed[j].tEnd - timed[i].tStart,
-            avgPace:              parseFloat(avgPace.toFixed(1)),
-            avgHR:                parseFloat((sumHRDur / cumDur).toFixed(1)),
-            pctFasterThanBaseline: parseFloat(pctFaster.toFixed(1)),
-          }
-        }
-      }
-    }
+  // Step 1: find the single fastest split
+  let peakIdx = 0
+  for (let i = 1; i < timed.length; i++) {
+    if (timed[i].pace < timed[peakIdx].pace) peakIdx = i
   }
+  const peakPace = timed[peakIdx].pace
 
-  if (!bestBlock || bestBlock.pctFasterThanBaseline < minPctFaster) return null
-  return bestBlock
+  // Step 2: include any adjacent split within 8% of peak pace (or 15 s/km, whichever is larger)
+  const buffer = Math.max(peakPace * 0.08, 15)
+  const cutoff = peakPace + buffer
+
+  let start = peakIdx
+  let end   = peakIdx
+  while (start > 0 && timed[start - 1].pace <= cutoff) start--
+  while (end < timed.length - 1 && timed[end + 1].pace <= cutoff) end++
+
+  const windowSplits = timed.slice(start, end + 1)
+  const cumDur = windowSplits.reduce((s, sp) => s + sp.duration, 0)
+  if (cumDur < minBlockSecs) return null
+
+  const avgPace   = wavg(windowSplits, 'pace')
+  const pctFaster = (baselinePace - avgPace) / baselinePace * 100
+  if (pctFaster < minPctFaster) return null
+
+  return {
+    startSec:              timed[start].tStart,
+    endSec:                timed[end].tEnd,
+    durationSecs:          timed[end].tEnd - timed[start].tStart,
+    avgPace:               parseFloat(avgPace.toFixed(1)),
+    avgHR:                 parseFloat(wavg(windowSplits, 'hr').toFixed(1)),
+    pctFasterThanBaseline: parseFloat(pctFaster.toFixed(1)),
+  }
 }
 
 // Treat the fast block like a continuous threshold run — same Daniels ratio

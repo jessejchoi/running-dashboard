@@ -118,10 +118,24 @@ export function categorizeRun(activity: {
   // Intervals: high pace variability OR very fast individual split
   if (paceCV > 0.12 || (maxSplitPace < 230 && distanceKm < 18)) return 'intervals'
 
-  // Long runs (≥12 km): classify by pace/HR profile
+  // Long runs (≥12 km): detect progressive build by comparing first vs last third.
+  // paceCV alone is unreliable — warmup/cooldown inflates variability on easy runs.
   if (distanceKm >= 12) {
-    if (paceCV > 0.06) return 'long_progressive'                          // meaningful pace build = progressive
-    return 'long_easy'                                                     // steady/easy long effort
+    const third = Math.floor(splits.length / 3)
+    if (third >= 2) {
+      const toAvgPace = (arr: any[]) => {
+        const ps = arr.map((s: any) => s.moving_time && s.distance ? s.moving_time / (s.distance / 1000) : null)
+          .filter((p): p is number => p !== null && p > 0 && p < 600)
+        return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : 0
+      }
+      const firstAvg = toAvgPace(splits.slice(0, third))
+      const lastAvg  = toAvgPace(splits.slice(splits.length - third))
+      // Last third ≥7% faster than first third → meaningful progressive build
+      if (firstAvg > 0 && lastAvg > 0 && (firstAvg - lastAvg) / firstAvg > 0.07) {
+        return 'long_progressive'
+      }
+    }
+    return 'long_easy'
   }
 
   // Hard sustained efforts (shorter runs)

@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, formatDistance } from 'date-fns'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 
@@ -76,24 +76,18 @@ function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shouto
     </div>
   )
 }
-const COACH_CHIPS = [
-  "Who's slacking?",
-  "Call out who crushed it",
-  "Roast us this week",
-  "Who's race-ready?",
-  "What should we focus on?",
-]
 
 export default function GroupCoachTab({ groupId, myRole, members }: Props) {
   const [briefing, setBriefing] = useState<BriefingContent | null>(null)
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
-  const [briefingMeta, setBriefingMeta] = useState<{ cached: boolean; generated_at: string } | null>(null)
-  const [answer, setAnswer] = useState('')
-  const [answerStreaming, setAnswerStreaming] = useState(false)
-  const [activeChip, setActiveChip] = useState<string | null>(null)
+  const [briefingMeta, setBriefingMeta] = useState<{
+    cached: boolean
+    generated_at: string
+    rate_limited?: boolean
+    next_refresh_at?: string
+  } | null>(null)
   const [awards, setAwards] = useState<Award[]>([])
-  const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
     setBriefingLoading(true)
@@ -104,7 +98,12 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
       if (!res.ok) throw new Error('failed')
       const data = await res.json()
       setBriefing(data.briefing)
-      setBriefingMeta({ cached: data.cached, generated_at: data.generated_at })
+      setBriefingMeta({
+        cached: data.cached,
+        generated_at: data.generated_at,
+        rate_limited: data.rate_limited,
+        next_refresh_at: data.next_refresh_at,
+      })
     } catch {
       setBriefingError(true)
     } finally {
@@ -128,33 +127,6 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
     fetchAwards()
   }, [])
 
-  async function askCoach(chipText: string) {
-    if (answerStreaming) return
-    setActiveChip(chipText)
-    setAnswer('')
-    setAnswerStreaming(true)
-    try {
-      const res = await fetch(`/api/groups/${groupId}/coach/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: chipText }),
-      })
-      if (!res.ok || !res.body) throw new Error('failed')
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        setAnswer(prev => prev + decoder.decode(value, { stream: true }))
-        answerRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }
-    } catch {
-      setAnswer('Coach is unavailable right now. Try again later.')
-    } finally {
-      setAnswerStreaming(false)
-    }
-  }
-
   if (briefingLoading) {
     return (
       <div className="space-y-4 fade-up">
@@ -163,7 +135,6 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
           <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-24" />
           <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-24" />
         </div>
-        <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-16" />
         <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-20" />
       </div>
     )
@@ -193,6 +164,23 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
   }, {})
   const sortedWeeks = Object.keys(awardWeeks).sort((a, b) => b.localeCompare(a))
 
+  // Refresh button state
+  const canRefresh = (() => {
+    if (!briefingMeta?.generated_at) return true
+    if (briefingMeta.rate_limited && briefingMeta.next_refresh_at) return false
+    const age = Date.now() - new Date(briefingMeta.generated_at).getTime()
+    return age >= 4 * 60 * 60 * 1000
+  })()
+
+  const refreshCountdown = (() => {
+    const target = briefingMeta?.next_refresh_at
+      ?? (briefingMeta?.generated_at
+        ? new Date(new Date(briefingMeta.generated_at).getTime() + 4 * 60 * 60 * 1000).toISOString()
+        : null)
+    if (!target || canRefresh) return null
+    return formatDistance(new Date(), new Date(target), { addSuffix: false })
+  })()
+
   return (
     <div className="space-y-4 fade-up">
 
@@ -210,7 +198,7 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
                 {formatDistanceToNow(new Date(briefingMeta.generated_at), { addSuffix: true })}
               </span>
             )}
-            {myRole === 'admin' && (
+            {canRefresh ? (
               <button
                 onClick={() => fetchBriefing(true)}
                 className="text-[#6b7280] hover:text-[#f97316] transition-colors"
@@ -218,6 +206,10 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
               >
                 <RefreshCw size={13} />
               </button>
+            ) : (
+              <span className="text-[10px] text-[#4b5563]" title="Refresh available soon">
+                in {refreshCountdown}
+              </span>
             )}
           </div>
         </div>
@@ -236,39 +228,14 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
         </div>
       )}
 
-      {/* Ask Coach — chip buttons */}
-      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
-        <h3 className="font-display font-bold text-sm text-white mb-3">Ask Coach</h3>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {COACH_CHIPS.map(chip => (
-            <button
-              key={chip}
-              onClick={() => askCoach(chip)}
-              disabled={answerStreaming}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
-                activeChip === chip
-                  ? 'bg-[#f97316] border-[#f97316] text-black'
-                  : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#9ca3af] hover:text-white hover:border-[#3a3a3a]'
-              }`}
-            >
-              {chip}
-            </button>
-          ))}
-        </div>
-        {(answer || answerStreaming) && (
-          <div ref={answerRef} className="text-sm text-[#d1d5db] leading-relaxed bg-[#0f0f0f] rounded-xl p-4 border border-[#2a2a2a]">
-            {answer}
-            {answerStreaming && (
-              <span className="inline-block w-2 h-3.5 bg-[#f97316] animate-pulse ml-0.5 align-middle" />
-            )}
-          </div>
-        )}
-      </div>
-
       {/* Trophy Case — past weeks */}
-      {sortedWeeks.length > 0 && (
-        <div>
-          <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">Trophy Case</h3>
+      <div>
+        <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">Trophy Case</h3>
+        {sortedWeeks.length === 0 ? (
+          <p className="text-[10px] text-[#4b5563] font-mono">
+            Awards will appear here after the next briefing refresh.
+          </p>
+        ) : (
           <div className="space-y-4">
             {sortedWeeks.map(week => (
               <div key={week}>
@@ -298,8 +265,8 @@ export default function GroupCoachTab({ groupId, myRole, members }: Props) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
   )

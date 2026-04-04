@@ -33,19 +33,33 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   if (!membership) return NextResponse.json({ error: 'Not a member' }, { status: 403 })
 
-  const myRole = membership.role
-  const force = req.nextUrl.searchParams.get('force') === 'true' && myRole === 'admin'
+  const force = req.nextUrl.searchParams.get('force') === 'true'
+  const REFRESH_MIN_MS = 4 * 60 * 60 * 1000 // 4 hours
 
-  // Check cache
-  if (!force) {
-    const { data: cached } = await supabaseAdmin
-      .from('group_coach_briefings')
-      .select('content_json, generated_at')
-      .eq('group_id', params.id)
-      .maybeSingle()
+  // Always check cache first
+  const { data: cached } = await supabaseAdmin
+    .from('group_coach_briefings')
+    .select('content_json, generated_at')
+    .eq('group_id', params.id)
+    .maybeSingle()
 
-    if (cached) {
-      const age = Date.now() - new Date(cached.generated_at).getTime()
+  if (cached) {
+    const age = Date.now() - new Date(cached.generated_at).getTime()
+
+    if (force) {
+      // Rate-limit: anyone can force refresh, but only once per 4h per group
+      if (age < REFRESH_MIN_MS) {
+        const nextRefreshAt = new Date(new Date(cached.generated_at).getTime() + REFRESH_MIN_MS).toISOString()
+        return NextResponse.json({
+          briefing: cached.content_json as BriefingContent,
+          cached: true,
+          generated_at: cached.generated_at,
+          rate_limited: true,
+          next_refresh_at: nextRefreshAt,
+        })
+      }
+    } else {
+      // Normal load: serve cache if < 20h
       if (age < 20 * 60 * 60 * 1000) {
         return NextResponse.json({
           briefing: cached.content_json as BriefingContent,

@@ -28,6 +28,8 @@ export interface CoachContext {
   active_challenges: Array<{
     name: string
     type: string
+    start_date: string
+    end_date: string
     total_km: number
     target_km: number | null
     pct: number
@@ -143,19 +145,27 @@ export async function buildCoachContext(groupId: string): Promise<CoachContext> 
   // 6. Active challenges
   const { data: challengeRows } = await supabaseAdmin
     .from('group_challenges')
-    .select('name, challenge_type, target_meters')
+    .select('name, challenge_type, target_meters, start_date, end_date')
     .eq('group_id', groupId)
     .lte('start_date', today)
     .gte('end_date', today)
 
-  const challengeActivities = activityRows ?? []
   const active_challenges = (challengeRows ?? []).map(c => {
+    // Only count activities that fall within the challenge's own date range
+    const challengeStart = new Date(c.start_date + 'T00:00:00Z')
+    const challengeEnd = new Date(c.end_date + 'T23:59:59Z')
+    const challengeActivities = (activityRows ?? []).filter(a => {
+      const d = new Date(a.start_date)
+      return d >= challengeStart && d <= challengeEnd
+    })
     const total_km = challengeActivities.reduce((s, a) => s + (a.distance ?? 0), 0) / 1000
     const target_km = c.target_meters ? c.target_meters / 1000 : null
     const pct = target_km ? Math.min(Math.round((total_km / target_km) * 100), 100) : 0
     return {
       name: c.name,
       type: c.challenge_type,
+      start_date: c.start_date,
+      end_date: c.end_date,
       total_km: Math.round(total_km * 10) / 10,
       target_km,
       pct,

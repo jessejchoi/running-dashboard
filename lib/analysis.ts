@@ -1892,12 +1892,15 @@ export function easyRunTrendEstimate(
 
 // ─── Signal combiner ─────────────────────────────────────────────────────────
 
-/** Fixed training source weights per distance */
+/** Fixed training source weights per distance.
+ *  long_run is intentionally 0: long run steady-state signal flows through easy_trend
+ *  (via longRunSteadyEfficiencyPoints), and fast blocks flow through threshold.
+ *  Weights redistribution handles the rebalancing automatically. */
 const TRAINING_WEIGHTS: Record<DistanceKey, Record<EstimateSource, number>> = {
   '5k':  { interval: 0.75, threshold: 0.20, easy_trend: 0.00, long_run: 0.00, race_result: 0.05 },
-  '10k': { interval: 0.40, threshold: 0.40, easy_trend: 0.05, long_run: 0.05, race_result: 0.10 },
-  'hm':  { interval: 0.10, threshold: 0.35, easy_trend: 0.20, long_run: 0.25, race_result: 0.10 },
-  'fm':  { interval: 0.05, threshold: 0.25, easy_trend: 0.30, long_run: 0.30, race_result: 0.10 },
+  '10k': { interval: 0.40, threshold: 0.40, easy_trend: 0.10, long_run: 0.00, race_result: 0.10 },
+  'hm':  { interval: 0.10, threshold: 0.35, easy_trend: 0.45, long_run: 0.00, race_result: 0.10 },
+  'fm':  { interval: 0.05, threshold: 0.25, easy_trend: 0.60, long_run: 0.00, race_result: 0.10 },
 }
 
 /** Get the fixed weight for a source at a distance */
@@ -2251,11 +2254,14 @@ export function analyzeAllAndCombine(
     .filter(r => !r.excludedReason)
     .flatMap(r => easyRunToRaceEstimates(r, maxHr))
 
-  // Collect all race estimates
+  // Collect all race estimates.
+  // Long run steady estimates are intentionally excluded here: their signal flows through
+  // easy_trend (via longRunSteadyEfficiencyPoints → easyRunToRaceEstimates).
+  // Fast block estimates from long runs are source:'threshold' and already included via
+  // thresholdEstimates (fastBlockFiveKEstimates).
   const allRaceEstimates: RaceEstimate[] = [
     ...intervalEstimates.flatMap(e => e.raceEstimates ?? []),
     ...thresholdEstimates.flatMap(e => e.raceEstimates ?? []),
-    ...longRunAnalyses.flatMap(e => e.raceEstimates),
     ...raceAnalyses.flatMap(e => e.raceEstimates),
     ...easyTrendEstimates,
   ]

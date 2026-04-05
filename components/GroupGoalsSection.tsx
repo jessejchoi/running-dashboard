@@ -14,6 +14,7 @@ interface MemberGoal extends UserGoal {
 
 interface Props {
   memberGoals: MemberGoal[]
+  groupName?: string
 }
 
 function paceStr(secs: number) {
@@ -189,7 +190,7 @@ function GoalRow({ goal, unit }: { goal: MemberGoal; unit: DistanceUnit }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function GroupGoalsSection({ memberGoals }: Props) {
+export default function GroupGoalsSection({ memberGoals, groupName }: Props) {
   const { unit } = useUnit()
   const [memberFilter, setMemberFilter] = useState('all')
   const [distanceFilter, setDistanceFilter] = useState('all')
@@ -228,6 +229,11 @@ export default function GroupGoalsSection({ memberGoals }: Props) {
 
   return (
     <div className="card fade-up" style={{ paddingBottom: '1.5rem' }}>
+      {groupName && (
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">
+          {groupName} Race Goals
+        </h2>
+      )}
       {/* Header with stats + filters */}
       <div className="flex items-center justify-between mb-4">
         <div className="text-[#4b5563] text-[11px]">

@@ -356,12 +356,7 @@ export default async function DashboardPage() {
                 <GroupFeed runs={groupData.feedRuns} memberMap={groupData.memberMap} myAthleteId={Number(athleteId)} groupId={groupData.group.id} unit={unit} />
               </div>
               {groupData.memberGoals.length > 0 && (
-                <div>
-                  <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-3">
-                    {groupData.group.name} Race Goals
-                  </h2>
-                  <GroupGoalsSection memberGoals={groupData.memberGoals} />
-                </div>
+                <GroupGoalsSection memberGoals={groupData.memberGoals} groupName={groupData.group.name} />
               )}
             </div>
           ))

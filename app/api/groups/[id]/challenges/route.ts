@@ -48,7 +48,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const minStart = challenges[0].start_date
   const { data: activities } = await supabaseAdmin
     .from('activities')
-    .select('athlete_id, start_date, distance')
+    .select('athlete_id, start_date, distance, total_elevation_gain')
     .in('athlete_id', memberIds)
     .gte('start_date', minStart + 'T00:00:00Z')
     .order('start_date', { ascending: false })
@@ -58,32 +58,47 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const result = (challenges as Array<typeof challenges[0] & { created_by_coach: boolean }>).map(c => {
     const start = new Date(c.start_date + 'T00:00:00Z')
     const end = new Date(c.end_date + 'T23:59:59Z')
+    const cType = c.challenge_type ?? 'group_distance'
     const relevant = (activities ?? []).filter(a => {
       const d = new Date(a.start_date)
       return d >= start && d <= end
     })
 
-    // Per-member totals
+    const target = c.target_meters ?? 0
+
+    let totalValue = 0
     const byMember = memberIds.map(aid => {
-      const meters = relevant
-        .filter(a => a.athlete_id === aid)
-        .reduce((s, a) => s + (a.distance ?? 0), 0)
+      const memberRuns = relevant.filter(a => a.athlete_id === aid)
+      let value = 0
+      if (cType === 'elevation') {
+        value = memberRuns.reduce((s, a) => s + ((a as any).total_elevation_gain ?? 0), 0)
+      } else if (cType === 'run_count') {
+        value = memberRuns.length
+      } else {
+        value = memberRuns.reduce((s, a) => s + (a.distance ?? 0), 0)
+      }
       return {
         athlete_id: aid,
         name: tokenMap[aid]?.name ?? `Athlete ${aid}`,
         profile_pic: tokenMap[aid]?.profile_pic ?? null,
         is_me: aid === meAthleteId,
-        meters,
+        meters: value,
       }
     }).filter(m => m.meters > 0).sort((a, b) => b.meters - a.meters)
 
-    const totalMeters = relevant.reduce((s, a) => s + (a.distance ?? 0), 0)
-    const target = c.target_meters ?? 0
-    const pct = target > 0 ? Math.min(100, Math.round((totalMeters / target) * 100)) : 0
+    if (cType === 'elevation') {
+      totalValue = relevant.reduce((s, a) => s + ((a as any).total_elevation_gain ?? 0), 0)
+    } else if (cType === 'run_count') {
+      totalValue = relevant.length
+    } else {
+      totalValue = relevant.reduce((s, a) => s + (a.distance ?? 0), 0)
+    }
+
+    const pct = target > 0 ? Math.min(100, Math.round((totalValue / target) * 100)) : 0
 
     return {
       ...c,
-      total_meters: Math.round(totalMeters),
+      total_meters: Math.round(totalValue),
       pct,
       by_member: byMember,
     }

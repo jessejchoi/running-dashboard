@@ -96,7 +96,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
   const { data: leaderboardRuns } = await supabaseAdmin
     .from('activities')
-    .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type')
+    .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type, total_elevation_gain')
     .in('athlete_id', memberIds)
     .gte('start_date', sixMonthsAgo)
     .order('start_date', { ascending: false })

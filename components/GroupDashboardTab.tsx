@@ -24,6 +24,7 @@ interface Props {
 // ── Leaderboard helpers ──────────────────────────────────────────────────────
 
 type LeaderRange = 'week' | 'month' | 'ytd' | '6m'
+type ChallengeType = 'group_distance' | 'weekly_quota' | 'fastest_effort' | 'elevation' | 'run_count'
 
 function getRangeStart(range: LeaderRange): Date {
   const now = new Date()
@@ -168,6 +169,51 @@ function computeFastestEffort(
   return { byMember }
 }
 
+function computeElevationProgress(
+  leaderboardRuns: LeaderboardRun[],
+  challenge: Challenge,
+  members: Member[],
+) {
+  const start = new Date(challenge.start_date)
+  const end = new Date(challenge.end_date)
+  end.setHours(23, 59, 59, 999)
+  const relevant = leaderboardRuns.filter(r => {
+    const d = new Date(r.start_date)
+    return d >= start && d <= end
+  })
+  const totalElevation = relevant.reduce((sum, r) => sum + (r.total_elevation_gain ?? 0), 0)
+  const byMember = members.map(m => ({
+    athlete_id: m.athlete_id,
+    name: m.name,
+    profile_pic: m.profile_pic,
+    is_me: m.is_me,
+    elevation: relevant.filter(r => r.athlete_id === m.athlete_id).reduce((sum, r) => sum + (r.total_elevation_gain ?? 0), 0),
+  })).sort((a, b) => b.elevation - a.elevation)
+  return { totalElevation, byMember }
+}
+
+function computeRunCountProgress(
+  leaderboardRuns: LeaderboardRun[],
+  challenge: Challenge,
+  members: Member[],
+) {
+  const start = new Date(challenge.start_date)
+  const end = new Date(challenge.end_date)
+  end.setHours(23, 59, 59, 999)
+  const relevant = leaderboardRuns.filter(r => {
+    const d = new Date(r.start_date)
+    return d >= start && d <= end
+  })
+  const byMember = members.map(m => ({
+    athlete_id: m.athlete_id,
+    name: m.name,
+    profile_pic: m.profile_pic,
+    is_me: m.is_me,
+    count: relevant.filter(r => r.athlete_id === m.athlete_id).length,
+  })).sort((a, b) => b.count - a.count)
+  return { totalCount: relevant.length, byMember }
+}
+
 const RUN_TYPE_LABELS: Record<string, string> = {
   intervals: 'Intervals',
   tempo: 'Tempo',
@@ -194,16 +240,17 @@ export default function GroupDashboardTab({
   // Challenges
   const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges)
   const [showCreate, setShowCreate] = useState(false)
-  const [challengeType, setChallengeType] = useState<'group_distance' | 'weekly_quota' | 'fastest_effort'>('group_distance')
+  const [challengeType, setChallengeType] = useState<ChallengeType>('group_distance')
   const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null)
-  const [editType, setEditType] = useState<'group_distance' | 'weekly_quota' | 'fastest_effort'>('group_distance')
+  const [editType, setEditType] = useState<ChallengeType>('group_distance')
   const [editForm, setEditForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
   const [editError, setEditError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const board = computeLeaderboard(leaderboardRuns, leaderRange, members)
   const maxDist = Math.max(...board.map(e => e.distance), 1)
@@ -241,6 +288,14 @@ export default function GroupDashboardTab({
       if (isNaN(dist) || dist <= 0) { setFormError('Please enter a valid weekly quota.'); return }
       target_meters = unit === 'miles' ? dist * 1609.344 : dist * 1000
       config = { weekly_meters: target_meters }
+    } else if (challengeType === 'elevation') {
+      const m = parseFloat(form.targetDist)
+      if (isNaN(m) || m <= 0) { setFormError('Please enter a valid elevation target.'); return }
+      target_meters = m // stored raw in meters
+    } else if (challengeType === 'run_count') {
+      const n = parseInt(form.targetDist)
+      if (isNaN(n) || n <= 0) { setFormError('Please enter a valid run count.'); return }
+      target_meters = n // stored as count
     } else if (challengeType === 'fastest_effort') {
       config = { run_type: form.runType }
     }
@@ -275,12 +330,18 @@ export default function GroupDashboardTab({
   }
 
   function openEdit(c: Challenge) {
-    const cType = (c.challenge_type ?? 'group_distance') as 'group_distance' | 'weekly_quota' | 'fastest_effort'
+    const cType = (c.challenge_type ?? 'group_distance') as ChallengeType
     setEditType(cType)
-    const targetMeters = c.target_meters ?? (cType === 'weekly_quota' ? (c.config['weekly_meters'] as number | undefined) : undefined)
-    const targetDist = targetMeters
-      ? String(unit === 'miles' ? Math.round(metersToMiles(targetMeters) * 10) / 10 : Math.round(targetMeters / 100) / 10)
-      : ''
+    const rawTarget = c.target_meters ?? (cType === 'weekly_quota' ? (c.config['weekly_meters'] as number | undefined) : undefined)
+    let targetDist = ''
+    if (rawTarget != null) {
+      if (cType === 'group_distance' || cType === 'weekly_quota') {
+        targetDist = String(unit === 'miles' ? Math.round(metersToMiles(rawTarget) * 10) / 10 : Math.round(rawTarget / 100) / 10)
+      } else {
+        // elevation (meters) or run_count (integer) — stored raw
+        targetDist = String(Math.round(rawTarget))
+      }
+    }
     setEditForm({
       name: c.name,
       description: c.description ?? '',
@@ -311,6 +372,14 @@ export default function GroupDashboardTab({
       if (isNaN(dist) || dist <= 0) { setEditError('Please enter a valid weekly quota.'); return }
       target_meters = unit === 'miles' ? dist * 1609.344 : dist * 1000
       config = { ...config, weekly_meters: target_meters }
+    } else if (editType === 'elevation') {
+      const m = parseFloat(editForm.targetDist)
+      if (isNaN(m) || m <= 0) { setEditError('Please enter a valid elevation target.'); return }
+      target_meters = m
+    } else if (editType === 'run_count') {
+      const n = parseInt(editForm.targetDist)
+      if (isNaN(n) || n <= 0) { setEditError('Please enter a valid run count.'); return }
+      target_meters = n
     } else if (editType === 'fastest_effort') {
       config = { ...config, run_type: editForm.runType }
     }
@@ -559,6 +628,99 @@ export default function GroupDashboardTab({
             </>
           )
         })()}
+
+        {/* ── elevation ── */}
+        {cType === 'elevation' && (() => {
+          const { totalElevation, byMember } = computeElevationProgress(leaderboardRuns, c, members)
+          const target = c.target_meters ?? 0
+          const pct = target > 0 ? Math.min(100, (totalElevation / target) * 100) : 0
+          return (
+            <>
+              <div className="mb-3">
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <span className="text-xs text-[#6b7280]">
+                    {Math.round(totalElevation)}m / {Math.round(target)}m elevation
+                  </span>
+                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-emerald-400' : 'text-[#9ca3af]') : 'text-[#f97316]'}`}>
+                    {pct.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${pct}%`, background: isPast ? (pct >= 100 ? '#34d399' : '#3a3a3a') : '#f97316' }}
+                  />
+                </div>
+              </div>
+              {!isUpcoming && byMember.some(m => m.elevation > 0) && (
+                <div className="space-y-1.5">
+                  {byMember.filter(m => m.elevation > 0).map(m => {
+                    const mPct = Math.min(100, (m.elevation / target) * 100)
+                    return (
+                      <div key={m.athlete_id} className="flex items-center gap-2">
+                        <Avatar name={m.name} pic={m.profile_pic} size={5} />
+                        <span className={`text-xs w-16 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
+                          {m.is_me ? 'You' : m.name.split(' ')[0]}
+                        </span>
+                        <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${mPct}%`, background: m.is_me ? '#f97316' : '#3a3a3a' }} />
+                        </div>
+                        <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                          {Math.round(m.elevation)}m
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )
+        })()}
+
+        {/* ── run_count ── */}
+        {cType === 'run_count' && (() => {
+          const { totalCount, byMember } = computeRunCountProgress(leaderboardRuns, c, members)
+          const target = c.target_meters ?? 0
+          const pct = target > 0 ? Math.min(100, (totalCount / target) * 100) : 0
+          return (
+            <>
+              <div className="mb-3">
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <span className="text-xs text-[#6b7280]">
+                    {totalCount} / {target} runs
+                  </span>
+                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-emerald-400' : 'text-[#9ca3af]') : 'text-[#f97316]'}`}>
+                    {pct.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${pct}%`, background: isPast ? (pct >= 100 ? '#34d399' : '#3a3a3a') : '#f97316' }}
+                  />
+                </div>
+              </div>
+              {!isUpcoming && byMember.some(m => m.count > 0) && (
+                <div className="space-y-1.5">
+                  {byMember.filter(m => m.count > 0).map((m, i) => (
+                    <div key={m.athlete_id} className="flex items-center gap-2">
+                      <span className="w-5 shrink-0 text-center text-base">
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>}
+                      </span>
+                      <Avatar name={m.name} pic={m.profile_pic} size={5} />
+                      <span className={`text-xs flex-1 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
+                        {m.is_me ? 'You' : m.name.split(' ')[0]}
+                      </span>
+                      <span className={`text-xs font-mono ${m.is_me ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                        {m.count} run{m.count !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )
+        })()}
       </div>
     )
   }
@@ -694,8 +856,70 @@ export default function GroupDashboardTab({
             )}
             {past.length > 0 && (
               <div>
-                <p className="text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">Past</p>
-                <div className="space-y-3">{past.map(c => <ChallengeCard key={c.id} c={c} />)}</div>
+                <button
+                  onClick={() => setShowHistory(h => !h)}
+                  className="flex items-center gap-2 text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2 hover:text-[#6b7280] transition-colors"
+                >
+                  History ({past.length})
+                  <span className={`transition-transform ${showHistory ? 'rotate-180' : ''}`}>▾</span>
+                </button>
+                {showHistory && (
+                  <div className="card divide-y divide-[#1c1c1c]">
+                    {past.map(c => {
+                      const cType = c.challenge_type ?? 'group_distance'
+                      const { totalMeters: distMeters } = cType === 'group_distance' ? computeChallengeProgress(leaderboardRuns, c, members) : { totalMeters: 0 }
+                      const { totalElevation } = cType === 'elevation' ? computeElevationProgress(leaderboardRuns, c, members) : { totalElevation: 0 }
+                      const { totalCount } = cType === 'run_count' ? computeRunCountProgress(leaderboardRuns, c, members) : { totalCount: 0 }
+                      const target = c.target_meters ?? 0
+                      let achieved = false
+                      let resultStr = ''
+                      if (cType === 'group_distance') {
+                        achieved = target > 0 && distMeters >= target
+                        resultStr = `${toDisplay(distMeters).toFixed(1)} ${label}${target > 0 ? ` / ${toDisplay(target).toFixed(0)} ${label}` : ''}`
+                      } else if (cType === 'weekly_quota') {
+                        resultStr = 'Weekly quota'
+                        achieved = false // complex to compute for past
+                      } else if (cType === 'elevation') {
+                        achieved = target > 0 && totalElevation >= target
+                        resultStr = `${Math.round(totalElevation)}m${target > 0 ? ` / ${Math.round(target)}m` : ''}`
+                      } else if (cType === 'run_count') {
+                        achieved = target > 0 && totalCount >= target
+                        resultStr = `${totalCount}${target > 0 ? ` / ${target}` : ''} runs`
+                      } else if (cType === 'fastest_effort') {
+                        resultStr = `Fastest ${(c.config['run_type'] as string) ?? 'effort'}`
+                        achieved = false
+                      }
+                      return (
+                        <div key={c.id} className="flex items-center justify-between py-2.5 px-1 gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-sm shrink-0 ${achieved ? 'text-emerald-400' : 'text-[#4b5563]'}`}>
+                              {achieved ? '✓' : '○'}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-white truncate">{c.name}</span>
+                                {c.created_by_coach && (
+                                  <span className="text-[10px] text-[#f97316] font-bold">✦</span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-[#4b5563] font-mono">
+                                {format(new Date(c.start_date), 'MMM d')} – {format(new Date(c.end_date), 'MMM d, yyyy')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-xs font-mono ${achieved ? 'text-emerald-400' : 'text-[#6b7280]'}`}>{resultStr}</span>
+                            {myRole === 'admin' && (
+                              <button onClick={() => deleteChallenge(c.id)} className="text-[#2a2a2a] hover:text-red-400 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -816,9 +1040,11 @@ export default function GroupDashboardTab({
                 <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Type</label>
                 <div className="flex gap-2">
                   {([
-                    { key: 'group_distance', label: 'Group Distance' },
-                    { key: 'weekly_quota',   label: 'Weekly Quota' },
-                    { key: 'fastest_effort', label: 'Fastest Effort' },
+                    { key: 'group_distance', label: 'Distance' },
+                    { key: 'weekly_quota',   label: 'Weekly' },
+                    { key: 'elevation',      label: 'Elevation' },
+                    { key: 'run_count',      label: 'Run Count' },
+                    { key: 'fastest_effort', label: 'Fastest' },
                   ] as const).map(({ key, label: optLabel }) => (
                     <button
                       key={key}
@@ -857,13 +1083,13 @@ export default function GroupDashboardTab({
                 />
               </div>
 
-              {(editType === 'group_distance' || editType === 'weekly_quota') && (
+              {(editType === 'group_distance' || editType === 'weekly_quota' || editType === 'elevation' || editType === 'run_count') && (
                 <div>
                   <label className="block text-xs font-bold text-[#6b7280] mb-1.5">
-                    {editType === 'group_distance'
-                      ? `Group target (${unit === 'miles' ? 'miles' : 'km'}) *`
-                      : `Weekly quota per member (${unit === 'miles' ? 'miles' : 'km'}) *`
-                    }
+                    {editType === 'group_distance' ? `Group target (${unit === 'miles' ? 'mi' : 'km'}) *`
+                      : editType === 'weekly_quota' ? `Weekly quota per member (${unit === 'miles' ? 'mi' : 'km'}) *`
+                      : editType === 'elevation' ? 'Group elevation target (meters) *'
+                      : 'Group run count target *'}
                   </label>
                   <input
                     type="number"
@@ -944,9 +1170,11 @@ export default function GroupDashboardTab({
                 <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Type</label>
                 <div className="flex gap-2">
                   {([
-                    { key: 'group_distance', label: 'Group Distance' },
-                    { key: 'weekly_quota',   label: 'Weekly Quota' },
-                    { key: 'fastest_effort', label: 'Fastest Effort' },
+                    { key: 'group_distance', label: 'Distance' },
+                    { key: 'weekly_quota',   label: 'Weekly' },
+                    { key: 'elevation',      label: 'Elevation' },
+                    { key: 'run_count',      label: 'Run Count' },
+                    { key: 'fastest_effort', label: 'Fastest' },
                   ] as const).map(({ key, label: optLabel }) => (
                     <button
                       key={key}
@@ -990,14 +1218,14 @@ export default function GroupDashboardTab({
                 />
               </div>
 
-              {/* Distance field (group_distance + weekly_quota) */}
-              {(challengeType === 'group_distance' || challengeType === 'weekly_quota') && (
+              {/* Target field */}
+              {(challengeType === 'group_distance' || challengeType === 'weekly_quota' || challengeType === 'elevation' || challengeType === 'run_count') && (
                 <div>
                   <label className="block text-xs font-bold text-[#6b7280] mb-1.5">
-                    {challengeType === 'group_distance'
-                      ? `Group target (${unit === 'miles' ? 'miles' : 'km'}) *`
-                      : `Weekly quota per member (${unit === 'miles' ? 'miles' : 'km'}) *`
-                    }
+                    {challengeType === 'group_distance' ? `Group target (${unit === 'miles' ? 'mi' : 'km'}) *`
+                      : challengeType === 'weekly_quota' ? `Weekly quota per member (${unit === 'miles' ? 'mi' : 'km'}) *`
+                      : challengeType === 'elevation' ? 'Group elevation target (meters) *'
+                      : 'Group run count target *'}
                   </label>
                   <input
                     type="number"
@@ -1005,9 +1233,10 @@ export default function GroupDashboardTab({
                     value={form.targetDist}
                     onChange={e => setForm(f => ({ ...f, targetDist: e.target.value }))}
                     placeholder={
-                      challengeType === 'group_distance'
-                        ? (unit === 'miles' ? '150' : '200')
-                        : (unit === 'miles' ? '18' : '30')
+                      challengeType === 'group_distance' ? (unit === 'miles' ? '150' : '200')
+                        : challengeType === 'weekly_quota' ? (unit === 'miles' ? '18' : '30')
+                        : challengeType === 'elevation' ? '5000'
+                        : '50'
                     }
                     className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
                   />

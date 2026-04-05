@@ -164,6 +164,75 @@ export default function GroupChallengesCard({ groupId }: Props) {
                   </>
                 )}
 
+                {/* elevation */}
+                {cType === 'elevation' && c.target_meters && (
+                  <>
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="text-[10px] text-[#6b7280]">
+                        {Math.round(c.total_meters)}m / {Math.round(c.target_meters)}m elevation
+                      </span>
+                      <span className="text-sm font-mono font-bold text-[#f97316] shrink-0">{c.pct}%</span>
+                    </div>
+                    <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden mb-3">
+                      <div className="h-full rounded-full transition-all duration-700 bg-[#f97316]" style={{ width: `${c.pct}%` }} />
+                    </div>
+                    {!isUpcoming && c.by_member.length > 0 && (
+                      <div className="space-y-1.5">
+                        {c.by_member.map(m => {
+                          const memberPct = Math.min(100, (m.meters / c.target_meters!) * 100)
+                          return (
+                            <div key={m.athlete_id} className="flex items-center gap-2">
+                              <Avatar name={m.name} pic={m.profile_pic} />
+                              <span className={`text-xs w-14 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
+                                {m.is_me ? 'You' : m.name.split(' ')[0]}
+                              </span>
+                              <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${memberPct}%`, background: m.is_me ? '#f97316' : '#3a3a3a' }} />
+                              </div>
+                              <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                                {Math.round(m.meters)}m
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* run_count */}
+                {cType === 'run_count' && c.target_meters && (
+                  <>
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="text-[10px] text-[#6b7280]">
+                        {c.total_meters} / {Math.round(c.target_meters)} runs
+                      </span>
+                      <span className="text-sm font-mono font-bold text-[#f97316] shrink-0">{c.pct}%</span>
+                    </div>
+                    <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden mb-3">
+                      <div className="h-full rounded-full transition-all duration-700 bg-[#f97316]" style={{ width: `${c.pct}%` }} />
+                    </div>
+                    {!isUpcoming && c.by_member.length > 0 && (
+                      <div className="space-y-1.5">
+                        {c.by_member.map((m, i) => (
+                          <div key={m.athlete_id} className="flex items-center gap-2">
+                            <span className="text-base w-5 text-center shrink-0">
+                              {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-xs text-[#4b5563]">{i + 1}</span>}
+                            </span>
+                            <Avatar name={m.name} pic={m.profile_pic} />
+                            <span className={`text-xs flex-1 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
+                              {m.is_me ? 'You' : m.name.split(' ')[0]}
+                            </span>
+                            <span className={`text-xs font-mono ${m.is_me ? 'text-[#f97316]' : 'text-[#6b7280]'}`}>
+                              {m.meters} run{m.meters !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {/* weekly_quota */}
                 {cType === 'weekly_quota' && (() => {
                   const weeklyMeters = c.config['weekly_meters'] as number | undefined

@@ -48,6 +48,7 @@ export interface LeaderboardRun {
   start_date: string
   average_speed?: number
   run_type?: string | null
+  total_elevation_gain?: number
 }
 
 export interface Challenge {

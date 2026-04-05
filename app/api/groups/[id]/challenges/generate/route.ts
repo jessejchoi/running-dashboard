@@ -69,20 +69,21 @@ Return ONLY a JSON object — no markdown, no code fences:
 {
   "name": "short challenge name (≤40 chars)",
   "description": "1-2 sentence description explaining why this challenge fits the group",
-  "challenge_type": "group_distance" | "weekly_quota" | "fastest_effort",
+  "challenge_type": "group_distance" | "weekly_quota" | "fastest_effort" | "elevation" | "run_count",
   "target_meters": number or null,
   "config": {},
   "start_date": "${monthStart}",
   "end_date": "${monthEnd}"
 }
-Rules:
-- start_date MUST be "${monthStart}", end_date MUST be "${monthEnd}"
-- For group_distance: target_meters = total km for the group × 1000. Scale to group size and current volume.
-- For weekly_quota: target_meters = per-person weekly km × 1000. Set config.weekly_meters = target_meters.
-- For fastest_effort: target_meters = null. Set config.run_type to one of: intervals, threshold, tempo, long, easy.
-- Prefer group_distance for months with clear volume goals, weekly_quota to build consistency, fastest_effort to sharpen speed.
-- Do NOT duplicate recent challenges: ${JSON.stringify((existingChallenges ?? []).map(c => c.name))}.
-- Make the name fun and specific to ${monthName} (e.g. "${monthName} ${year} Mileage Blitz", "Speed Week", etc.)
+Challenge type guide:
+- group_distance: group collectively runs a total km target. target_meters = total km × 1000 (scale to group size × monthly volume).
+- weekly_quota: each member hits a per-week km target. target_meters = weekly km × 1000. Set config.weekly_meters = target_meters.
+- elevation: group collectively climbs a total elevation target in meters. target_meters = total meters of elevation (e.g. 5000 for a flat-city group, 10000+ for trail runners).
+- run_count: group logs a total number of runs. target_meters = total run count (e.g. 40 for a 4-person group aiming for ~10 runs/person).
+- fastest_effort: best pace on a specific run type. target_meters = null. Set config.run_type to one of: intervals, threshold, tempo, long, easy.
+Vary the type each month — do not always pick group_distance.
+Do NOT duplicate recent challenges: ${JSON.stringify((existingChallenges ?? []).map(c => c.name))}.
+Make the name fun and specific to ${monthName} (e.g. "${monthName} Vertical Club", "30 Runs in ${monthName}", etc.)
 `
 
   const userPrompt = `Today: ${ctx.today}

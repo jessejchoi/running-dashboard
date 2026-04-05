@@ -420,7 +420,6 @@ export default async function AnalysisPage() {
                     {/* Easy run cards */}
                     {easyCards.map(({ run, result: eff }) => {
                       const durationMins = run.moving_time / 60
-                      const durationCredit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
                       return (
                         <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
                           <div className="flex items-start justify-between gap-4 mb-3">
@@ -441,75 +440,94 @@ export default async function AnalysisPage() {
                               </div>
                             ) : null}
                           </div>
-                          {eff && !eff.excludedReason && (
-                            <div className="space-y-2 text-xs">
-                              <div className="grid grid-cols-3 gap-2">
-                                <div className="bg-[#111] rounded-lg px-2 py-2">
-                                  <div className="text-[#4b5563] mb-0.5">Last 15 min</div>
-                                  <div className="font-mono text-white font-bold">{speedToPace(1000/(eff as any).windowPace, unit)}{paceUnitLabel(unit)}</div>
-                                  <div className="text-[#4b5563] mt-0.5">{Math.round((eff as any).windowHR)} bpm</div>
-                                </div>
-                                <div className="bg-[#111] rounded-lg px-2 py-2">
-                                  <div className="text-[#4b5563] mb-0.5">HR adj.</div>
-                                  <div className={`font-mono font-bold ${eff.avgHR > 150 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                                    {eff.avgHR > 150 ? '▼' : '▲'}{Math.abs((eff.avgPaceSecPerKm - eff.normalizedPaceSec)).toFixed(1)}s
-                                  </div>
-                                  <div className="text-[#4b5563] mt-0.5">→ {speedToPace(1000/eff.normalizedPaceSec, unit)}{paceUnitLabel(unit)}</div>
-                                </div>
-                                <div className="bg-[#111] rounded-lg px-2 py-2">
-                                  <div className="text-[#4b5563] mb-0.5">Duration credit</div>
-                                  <div className={`font-mono font-bold ${durationCredit >= 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                                    {durationCredit >= 0 ? '+' : ''}{durationCredit.toFixed(1)}s
-                                  </div>
-                                  <div className="text-[#4b5563] mt-0.5">{Math.round(durationMins)} min run</div>
-                                </div>
-                              </div>
-                              {/* Cardiac drift */}
-                              {eff.driftReliable ? (
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[#4b5563]">Cardiac drift</span>
-                                    <span className={`font-mono font-bold ${(eff.driftExcessPct ?? 0) > 1 ? 'text-orange-400' : (eff.driftExcessPct ?? 0) < -0.5 ? 'text-emerald-400' : 'text-[#6b7280]'}`}>
-                                      {eff.driftRawPct?.toFixed(1)}%
-                                    </span>
-                                    <span className={`text-[10px] ${(eff.driftExcessPct ?? 0) > 1 ? 'text-orange-400' : (eff.driftExcessPct ?? 0) < -0.5 ? 'text-emerald-400' : 'text-[#4b5563]'}`}>
-                                      ({(eff.driftExcessPct ?? 0) > 0 ? '+' : ''}{eff.driftExcessPct?.toFixed(1)}% vs expected for {Math.round(durationMins)} min)
-                                    </span>
-                                  </div>
-                                  {(eff.driftEarlyWindow || eff.driftLateWindow) && (
-                                    <div className="flex gap-2">
-                                      {eff.driftEarlyWindow && (
-                                        <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
-                                          <div className="text-[#4b5563] mb-0.5">Early · min {Math.round(eff.driftEarlyWindow.startSec/60)}–{Math.round(eff.driftEarlyWindow.endSec/60)}</div>
-                                          <div className="font-mono font-bold text-white">{formatPace(eff.driftEarlyWindow.avgPace)}/km</div>
-                                          <div className="text-[#4b5563] mt-0.5">@ {Math.round(eff.driftEarlyWindow.avgHR)} bpm</div>
-                                        </div>
-                                      )}
-                                      {eff.driftLateWindow && (
-                                        <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
-                                          <div className="text-[#4b5563] mb-0.5">
-                                            Late · min {Math.round(eff.driftLateWindow.startSec/60)}–{Math.round(eff.driftLateWindow.endSec/60)}
-                                            {eff.driftLateWindow.adjustedHR != null && <span className="ml-1 text-yellow-500">adj.</span>}
-                                          </div>
-                                          <div className="font-mono font-bold text-white">{formatPace(eff.driftLateWindow.avgPace)}/km</div>
-                                          {eff.driftLateWindow.adjustedHR != null ? (
-                                            <div className="mt-0.5">
-                                              <span className="text-[#4b5563]">{Math.round(eff.driftLateWindow.avgHR)} bpm</span>
-                                              <span className={`ml-1 font-mono font-bold ${(eff.driftExcessPct ?? 0) > 1 ? 'text-orange-400' : 'text-emerald-400'}`}>→ {Math.round(eff.driftLateWindow.adjustedHR)} adj.</span>
-                                            </div>
-                                          ) : (
-                                            <div className={`mt-0.5 font-mono ${(eff.driftExcessPct ?? 0) > 1 ? 'text-orange-400' : 'text-[#4b5563]'}`}>@ {Math.round(eff.driftLateWindow.avgHR)} bpm</div>
-                                          )}
-                                        </div>
-                                      )}
+                          {eff && !eff.excludedReason && (() => {
+                            const wHR = (eff as any).windowHR ?? eff.avgHR
+                            const wPace = (eff as any).windowPace ?? eff.avgPaceSecPerKm
+                            const hrAdj = eff.slope * (150 - wHR)  // sec/km added to window pace
+                            const credit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
+                            const excess = eff.driftExcessPct ?? 0
+                            const hmPenaltyPct = Math.min(8, Math.max(0, excess) * 0.7 * 1.5)
+                            const fmPenaltyPct = Math.min(8, Math.max(0, excess) * 1.0 * 1.5)
+                            return (
+                              <div className="space-y-2 text-xs mt-1">
+                                <div className="grid grid-cols-3 gap-2">
+                                  {/* Sub-card: HR normalization */}
+                                  <div className="bg-[#111] rounded-lg px-2 py-2">
+                                    <div className="text-[#4b5563] text-[10px] uppercase tracking-wide mb-1">HR norm.</div>
+                                    <div className="font-mono text-white font-bold">{speedToPace(1000/wPace, unit)}{paceUnitLabel(unit)}</div>
+                                    <div className="text-[#4b5563] text-[10px]">{Math.round(wHR)} bpm</div>
+                                    <div className={`font-mono font-bold text-[11px] mt-1 ${hrAdj < 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                      {hrAdj > 0 ? '+' : ''}{hrAdj.toFixed(1)}s/km
                                     </div>
-                                  )}
+                                    <div className="text-[#4b5563] text-[10px]">{Math.round(wHR)} → 150 bpm</div>
+                                  </div>
+                                  {/* Sub-card: Duration credit */}
+                                  <div className="bg-[#111] rounded-lg px-2 py-2">
+                                    <div className="text-[#4b5563] text-[10px] uppercase tracking-wide mb-1">Duration</div>
+                                    <div className="font-mono text-white font-bold">{Math.round(durationMins)} min</div>
+                                    <div className="text-[#4b5563] text-[10px]">ref: 45 min</div>
+                                    <div className={`font-mono font-bold text-[11px] mt-1 ${credit >= 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                      {credit >= 0 ? '−' : '+'}{Math.abs(credit).toFixed(1)}s/km
+                                    </div>
+                                    <div className="text-[#4b5563] text-[10px]">{credit >= 0 ? 'credit' : 'penalty'}</div>
+                                  </div>
+                                  {/* Sub-card: Drift */}
+                                  <div className="bg-[#111] rounded-lg px-2 py-2">
+                                    <div className="text-[#4b5563] text-[10px] uppercase tracking-wide mb-1">Drift</div>
+                                    {eff.driftReliable ? (
+                                      <>
+                                        <div className={`font-mono font-bold ${excess > 1 ? 'text-orange-400' : excess < -0.5 ? 'text-emerald-400' : 'text-white'}`}>
+                                          {eff.driftRawPct?.toFixed(1)}%
+                                        </div>
+                                        <div className={`text-[10px] ${excess > 1 ? 'text-orange-400' : excess < -0.5 ? 'text-emerald-400' : 'text-[#4b5563]'}`}>
+                                          {excess > 0 ? '+' : ''}{excess.toFixed(1)}% excess
+                                        </div>
+                                        <div className="mt-1 space-y-0.5">
+                                          <div className={`text-[10px] font-mono ${hmPenaltyPct > 0 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
+                                            HM {hmPenaltyPct > 0 ? `+${hmPenaltyPct.toFixed(1)}%` : '—'}
+                                          </div>
+                                          <div className={`text-[10px] font-mono ${fmPenaltyPct > 0 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
+                                            FM {fmPenaltyPct > 0 ? `+${fmPenaltyPct.toFixed(1)}%` : '—'}
+                                          </div>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-[#4b5563] text-[10px] leading-relaxed">Need ≥35 min run with HR</div>
+                                    )}
+                                  </div>
                                 </div>
-                              ) : (
-                                <div className="text-[#4b5563] text-[10px]">Insufficient data for drift (run ≥25 min with HR required)</div>
-                              )}
-                            </div>
-                          )}
+                                {/* Drift window detail — only when reliable */}
+                                {eff.driftReliable && (eff.driftEarlyWindow || eff.driftLateWindow) && (
+                                  <div className="flex gap-2">
+                                    {eff.driftEarlyWindow && (
+                                      <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                        <div className="text-[#4b5563] mb-0.5">Early · min {Math.round(eff.driftEarlyWindow.startSec/60)}–{Math.round(eff.driftEarlyWindow.endSec/60)}</div>
+                                        <div className="font-mono font-bold text-white">{formatPace(eff.driftEarlyWindow.avgPace)}/km</div>
+                                        <div className="text-[#4b5563] mt-0.5">@ {Math.round(eff.driftEarlyWindow.avgHR)} bpm</div>
+                                      </div>
+                                    )}
+                                    {eff.driftLateWindow && (
+                                      <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                        <div className="text-[#4b5563] mb-0.5">
+                                          Late · min {Math.round(eff.driftLateWindow.startSec/60)}–{Math.round(eff.driftLateWindow.endSec/60)}
+                                          {eff.driftLateWindow.adjustedHR != null && <span className="ml-1 text-yellow-500">adj.</span>}
+                                        </div>
+                                        <div className="font-mono font-bold text-white">{formatPace(eff.driftLateWindow.avgPace)}/km</div>
+                                        {eff.driftLateWindow.adjustedHR != null ? (
+                                          <div className="mt-0.5">
+                                            <span className="text-[#4b5563]">{Math.round(eff.driftLateWindow.avgHR)} bpm</span>
+                                            <span className={`ml-1 font-mono font-bold ${excess > 1 ? 'text-orange-400' : 'text-emerald-400'}`}>→ {Math.round(eff.driftLateWindow.adjustedHR)} adj.</span>
+                                          </div>
+                                        ) : (
+                                          <div className={`mt-0.5 font-mono ${excess > 1 ? 'text-orange-400' : 'text-[#4b5563]'}`}>@ {Math.round(eff.driftLateWindow.avgHR)} bpm</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
                           {eff?.excludedReason && (
                             <div className="text-[#4b5563] text-xs bg-[#111] rounded-lg px-3 py-2">{eff.excludedReason}</div>
                           )}
@@ -521,8 +539,8 @@ export default async function AnalysisPage() {
                       const a = longRunAnalyses.find(lr => lr.activityId === run.id)
                       const effPoint = (longRunEfficiencyPoints ?? []).find(p => p.activityId === run.id)
                       const overallRunPace = run.average_speed ? 1000 / run.average_speed : null
-                      const durationMins = effPoint ? (effPoint as any).steadyDurationSecs / 60 : run.moving_time / 60
-                      const durationCredit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
+                      // Use total run duration (matches analysis.ts which uses total for duration credit)
+                      const durationMins = run.moving_time / 60
                       return (
                         <div key={run.id} className={`card fade-up ${run.excluded_from_analysis ? 'opacity-40' : ''}`}>
                           <div className="flex items-start justify-between gap-4 mb-3">
@@ -543,66 +561,91 @@ export default async function AnalysisPage() {
                               </div>
                             )}
                           </div>
-                          {a && (
-                            <div className="space-y-2 text-xs">
-                              <div className="grid grid-cols-3 gap-2">
-                                <div className="bg-[#111] rounded-lg px-2 py-2">
-                                  <div className="text-[#4b5563] mb-0.5">Steady pace</div>
-                                  <div className="font-mono font-bold text-white">{formatPace(a.steadyPace)}/km</div>
-                                  <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.steadyHR)} bpm</div>
-                                </div>
-                                <div className="bg-[#111] rounded-lg px-2 py-2">
-                                  <div className="text-[#4b5563] mb-0.5">Cardiac drift</div>
-                                  {a.driftReliable ? (
-                                    <>
-                                      <div className={`font-mono font-bold ${a.driftExcess > 1 ? 'text-orange-400' : a.driftExcess < -0.5 ? 'text-emerald-400' : 'text-[#6b7280]'}`}>{a.cardiacDrift.toFixed(1)}%</div>
-                                      <div className={`text-[10px] mt-0.5 ${a.driftExcess > 1 ? 'text-orange-400' : a.driftExcess < -0.5 ? 'text-emerald-400' : 'text-[#4b5563]'}`}>{a.driftExcess > 0 ? '+' : ''}{a.driftExcess.toFixed(1)}% vs expected</div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="font-mono font-bold text-[#4b5563]">—</div>
-                                      <div className="text-[#4b5563] mt-0.5 leading-tight">{a.driftReason ?? 'unreliable'}</div>
-                                    </>
-                                  )}
-                                </div>
-                                <div className="bg-[#111] rounded-lg px-2 py-2">
-                                  <div className="text-[#4b5563] mb-0.5">Duration credit</div>
-                                  <div className={`font-mono font-bold ${durationCredit >= 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                                    {durationCredit >= 0 ? '+' : ''}{durationCredit.toFixed(1)}s
+                          {a && (() => {
+                            const hrAdj = -2.5 * (150 - a.steadyHR)  // AEROBIC_SLOPE * (REF_HR - steadyHR)
+                            const credit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
+                            const excess = a.driftExcess ?? 0
+                            const hmPenaltyPct = Math.min(8, Math.max(0, excess) * 0.7 * 1.5)
+                            const fmPenaltyPct = Math.min(8, Math.max(0, excess) * 1.0 * 1.5)
+                            return (
+                              <div className="space-y-2 text-xs mt-1">
+                                <div className="grid grid-cols-3 gap-2">
+                                  {/* Sub-card: HR normalization */}
+                                  <div className="bg-[#111] rounded-lg px-2 py-2">
+                                    <div className="text-[#4b5563] text-[10px] uppercase tracking-wide mb-1">HR norm.</div>
+                                    <div className="font-mono text-white font-bold">{formatPace(a.steadyPace)}/km</div>
+                                    <div className="text-[#4b5563] text-[10px]">{Math.round(a.steadyHR)} bpm</div>
+                                    <div className={`font-mono font-bold text-[11px] mt-1 ${hrAdj < 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                      {hrAdj > 0 ? '+' : ''}{hrAdj.toFixed(1)}s/km
+                                    </div>
+                                    <div className="text-[#4b5563] text-[10px]">{Math.round(a.steadyHR)} → 150 bpm</div>
                                   </div>
-                                  <div className="text-[#4b5563] mt-0.5">{Math.round(durationMins)} min steady</div>
-                                </div>
-                              </div>
-                              {(a.earlyWindow || a.lateWindow) && (
-                                <div className="flex gap-2">
-                                  {a.earlyWindow && (
-                                    <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
-                                      <div className="text-[#4b5563] mb-0.5">Early · min {Math.round(a.earlyWindow.startSec/60)}–{Math.round(a.earlyWindow.endSec/60)}</div>
-                                      <div className="font-mono font-bold text-white">{formatPace(a.earlyWindow.avgPace)}/km</div>
-                                      <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.earlyWindow.avgHR)} bpm</div>
+                                  {/* Sub-card: Duration credit */}
+                                  <div className="bg-[#111] rounded-lg px-2 py-2">
+                                    <div className="text-[#4b5563] text-[10px] uppercase tracking-wide mb-1">Duration</div>
+                                    <div className="font-mono text-white font-bold">{Math.round(durationMins)} min</div>
+                                    <div className="text-[#4b5563] text-[10px]">ref: 45 min</div>
+                                    <div className={`font-mono font-bold text-[11px] mt-1 ${credit >= 0 ? 'text-emerald-400' : 'text-orange-400'}`}>
+                                      {credit >= 0 ? '−' : '+'}{Math.abs(credit).toFixed(1)}s/km
                                     </div>
-                                  )}
-                                  {a.lateWindow && (
-                                    <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
-                                      <div className="text-[#4b5563] mb-0.5">
-                                        Late · min {Math.round(a.lateWindow.startSec/60)}–{Math.round(a.lateWindow.endSec/60)}
-                                        {a.driftPaceAdjusted && <span className="ml-1 text-yellow-500">adj.</span>}
-                                      </div>
-                                      <div className="font-mono font-bold text-white">{formatPace(a.lateWindow.avgPace)}/km</div>
-                                      {a.lateWindow.adjustedHR != null ? (
-                                        <div className="mt-0.5">
-                                          <span className="text-[#4b5563]">{Math.round(a.lateWindow.avgHR)} bpm</span>
-                                          <span className={`ml-1 font-mono font-bold ${a.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>→ {Math.round(a.lateWindow.adjustedHR)} adj.</span>
+                                    <div className="text-[#4b5563] text-[10px]">{credit >= 0 ? 'credit' : 'penalty'}</div>
+                                  </div>
+                                  {/* Sub-card: Drift */}
+                                  <div className="bg-[#111] rounded-lg px-2 py-2">
+                                    <div className="text-[#4b5563] text-[10px] uppercase tracking-wide mb-1">Drift</div>
+                                    {a.driftReliable ? (
+                                      <>
+                                        <div className={`font-mono font-bold ${excess > 1 ? 'text-orange-400' : excess < -0.5 ? 'text-emerald-400' : 'text-white'}`}>
+                                          {a.cardiacDrift.toFixed(1)}%
                                         </div>
-                                      ) : (
-                                        <div className={`mt-0.5 font-mono ${a.driftReliable && a.cardiacDrift > 3 ? 'text-orange-400' : 'text-[#4b5563]'}`}>@ {Math.round(a.lateWindow.avgHR)} bpm</div>
-                                      )}
-                                    </div>
-                                  )}
+                                        <div className={`text-[10px] ${excess > 1 ? 'text-orange-400' : excess < -0.5 ? 'text-emerald-400' : 'text-[#4b5563]'}`}>
+                                          {excess > 0 ? '+' : ''}{excess.toFixed(1)}% excess
+                                        </div>
+                                        <div className="mt-1 space-y-0.5">
+                                          <div className={`text-[10px] font-mono ${hmPenaltyPct > 0 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
+                                            HM {hmPenaltyPct > 0 ? `+${hmPenaltyPct.toFixed(1)}%` : '—'}
+                                          </div>
+                                          <div className={`text-[10px] font-mono ${fmPenaltyPct > 0 ? 'text-orange-400' : 'text-[#4b5563]'}`}>
+                                            FM {fmPenaltyPct > 0 ? `+${fmPenaltyPct.toFixed(1)}%` : '—'}
+                                          </div>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-[#4b5563] text-[10px] leading-relaxed">{a.driftReason ?? 'unreliable'}</div>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                          )}
+                                {(a.earlyWindow || a.lateWindow) && (
+                                  <div className="flex gap-2">
+                                    {a.earlyWindow && (
+                                      <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                        <div className="text-[#4b5563] mb-0.5">Early · min {Math.round(a.earlyWindow.startSec/60)}–{Math.round(a.earlyWindow.endSec/60)}</div>
+                                        <div className="font-mono font-bold text-white">{formatPace(a.earlyWindow.avgPace)}/km</div>
+                                        <div className="text-[#4b5563] mt-0.5">@ {Math.round(a.earlyWindow.avgHR)} bpm</div>
+                                      </div>
+                                    )}
+                                    {a.lateWindow && (
+                                      <div className="bg-[#0f0f0f] border border-[#1e1e1e] rounded-lg px-3 py-2 flex-1">
+                                        <div className="text-[#4b5563] mb-0.5">
+                                          Late · min {Math.round(a.lateWindow.startSec/60)}–{Math.round(a.lateWindow.endSec/60)}
+                                          {a.driftPaceAdjusted && <span className="ml-1 text-yellow-500">adj.</span>}
+                                        </div>
+                                        <div className="font-mono font-bold text-white">{formatPace(a.lateWindow.avgPace)}/km</div>
+                                        {a.lateWindow.adjustedHR != null ? (
+                                          <div className="mt-0.5">
+                                            <span className="text-[#4b5563]">{Math.round(a.lateWindow.avgHR)} bpm</span>
+                                            <span className={`ml-1 font-mono font-bold ${excess > 1 ? 'text-orange-400' : 'text-emerald-400'}`}>→ {Math.round(a.lateWindow.adjustedHR)} adj.</span>
+                                          </div>
+                                        ) : (
+                                          <div className={`mt-0.5 font-mono ${excess > 1 ? 'text-orange-400' : 'text-[#4b5563]'}`}>@ {Math.round(a.lateWindow.avgHR)} bpm</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </div>
                       )
                     })}

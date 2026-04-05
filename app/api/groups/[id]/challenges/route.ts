@@ -2,6 +2,96 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const athleteId = cookies().get('athlete_id')?.value
+  if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const { data: membership } = await supabaseAdmin
+    .from('group_members')
+    .select('role')
+    .eq('group_id', params.id)
+    .eq('athlete_id', parseInt(athleteId))
+    .maybeSingle()
+
+  if (!membership) return NextResponse.json({ error: 'Not a member' }, { status: 403 })
+
+  const today = new Date().toISOString().split('T')[0]
+
+  // Active + upcoming challenges
+  const { data: challenges } = await supabaseAdmin
+    .from('group_challenges')
+    .select('id, name, description, challenge_type, target_meters, start_date, end_date, config')
+    .eq('group_id', params.id)
+    .gte('end_date', today)
+    .order('start_date', { ascending: true })
+
+  if (!challenges?.length) return NextResponse.json({ challenges: [] })
+
+  // Fetch member names
+  const { data: memberRows } = await supabaseAdmin
+    .from('group_members')
+    .select('athlete_id')
+    .eq('group_id', params.id)
+
+  const memberIds = (memberRows ?? []).map(m => m.athlete_id)
+
+  const { data: tokens } = await supabaseAdmin
+    .from('strava_tokens')
+    .select('athlete_id, athlete_name, athlete_profile')
+    .in('athlete_id', memberIds)
+
+  const tokenMap = Object.fromEntries(
+    (tokens ?? []).map(t => [t.athlete_id, { name: t.athlete_name, profile_pic: t.athlete_profile ?? null }])
+  )
+
+  // Fetch activities covering the span of all active challenges
+  const minStart = challenges[0].start_date
+  const { data: activities } = await supabaseAdmin
+    .from('activities')
+    .select('athlete_id, start_date, distance')
+    .in('athlete_id', memberIds)
+    .gte('start_date', minStart + 'T00:00:00Z')
+    .order('start_date', { ascending: false })
+
+  const meAthleteId = parseInt(athleteId)
+
+  const result = challenges.map(c => {
+    const start = new Date(c.start_date + 'T00:00:00Z')
+    const end = new Date(c.end_date + 'T23:59:59Z')
+    const relevant = (activities ?? []).filter(a => {
+      const d = new Date(a.start_date)
+      return d >= start && d <= end
+    })
+
+    // Per-member totals
+    const byMember = memberIds.map(aid => {
+      const meters = relevant
+        .filter(a => a.athlete_id === aid)
+        .reduce((s, a) => s + (a.distance ?? 0), 0)
+      return {
+        athlete_id: aid,
+        name: tokenMap[aid]?.name ?? `Athlete ${aid}`,
+        profile_pic: tokenMap[aid]?.profile_pic ?? null,
+        is_me: aid === meAthleteId,
+        meters,
+      }
+    }).filter(m => m.meters > 0).sort((a, b) => b.meters - a.meters)
+
+    const totalMeters = relevant.reduce((s, a) => s + (a.distance ?? 0), 0)
+    const target = c.target_meters ?? 0
+    const pct = target > 0 ? Math.min(100, Math.round((totalMeters / target) * 100)) : 0
+
+    return {
+      ...c,
+      total_meters: Math.round(totalMeters),
+      pct,
+      by_member: byMember,
+    }
+  })
+
+  return NextResponse.json({ challenges: result })
+}
+
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const athleteId = cookies().get('athlete_id')?.value
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

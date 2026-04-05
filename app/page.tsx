@@ -11,7 +11,7 @@ import { calculateTrainingLoad } from '@/lib/strava'
 import { analyzeAllAndCombine } from '@/lib/analysis'
 import Link from 'next/link'
 import GroupLeaderboard from '@/components/GroupLeaderboard'
-import GroupFeed from '@/components/GroupFeed'
+import GroupChallengesCard from '@/components/GroupChallengesCard'
 import GroupGoalsSection from '@/components/GroupGoalsSection'
 import GroupCoachTab from '@/components/GroupCoachTab'
 import { format } from 'date-fns'
@@ -353,7 +353,7 @@ export default async function DashboardPage() {
               </div>
               <div className="grid md:grid-cols-2 gap-3 mb-3">
                 <GroupLeaderboard members={groupData.members} groupId={groupData.group.id} groupName={groupData.group.name} unit={unit} />
-                <GroupFeed runs={groupData.feedRuns} memberMap={groupData.memberMap} myAthleteId={Number(athleteId)} groupId={groupData.group.id} unit={unit} />
+                <GroupChallengesCard groupId={groupData.group.id} />
               </div>
               {groupData.memberGoals.length > 0 && (
                 <GroupGoalsSection memberGoals={groupData.memberGoals} groupName={groupData.group.name} />

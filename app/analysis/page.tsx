@@ -444,7 +444,7 @@ export default async function AnalysisPage() {
                             const wHR = (eff as any).windowHR ?? eff.avgHR
                             const wPace = (eff as any).windowPace ?? eff.avgPaceSecPerKm
                             const hrAdj = eff.slope * (150 - wHR)  // sec/km added to window pace
-                            const credit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
+                            const credit = 10 * Math.log2(Math.max(durationMins, 5) / 45)
                             const excess = eff.driftExcessPct ?? 0
                             const hmPenaltyPct = Math.min(8, Math.max(0, excess) * 0.7 * 1.5)
                             const fmPenaltyPct = Math.min(8, Math.max(0, excess) * 1.0 * 1.5)
@@ -563,7 +563,7 @@ export default async function AnalysisPage() {
                           </div>
                           {a && (() => {
                             const hrAdj = -2.5 * (150 - a.steadyHR)  // AEROBIC_SLOPE * (REF_HR - steadyHR)
-                            const credit = 5 * Math.log2(Math.max(durationMins, 5) / 45)
+                            const credit = 10 * Math.log2(Math.max(durationMins, 5) / 45)
                             const excess = a.driftExcess ?? 0
                             const hmPenaltyPct = Math.min(8, Math.max(0, excess) * 0.7 * 1.5)
                             const fmPenaltyPct = Math.min(8, Math.max(0, excess) * 1.0 * 1.5)

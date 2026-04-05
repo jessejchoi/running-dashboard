@@ -821,7 +821,7 @@ const AEROBIC_SLOPE = -2.5  // sec/km per bpm — updated from -3.0 (closer to l
 // Duration efficiency credit: reward longer aerobic efforts at the same HR/pace.
 // Applied after 150bpm normalization. Reference = 45 min, ~5 sec/km per doubling.
 const ENDURANCE_REF_MINS = 45
-const ENDURANCE_DURATION_K = 5
+const ENDURANCE_DURATION_K = 10
 
 // ── Drift model constants ─────────────────────────────────────────────────────
 // Expected drift = BASE × ln(durationMins / REF_MINS).
@@ -835,7 +835,7 @@ const DRIFT_RACE_SCALE: Record<DistanceKey, number> = {
   'hm':  0.7,   // ~90-150 min race — meaningful
   'fm':  1.0,   // 3-5 hr race — critical
 }
-const DRIFT_PENALTY_SCALE   = 1.0   // % race time per % excess drift (at RACE_SCALE=1.0)
+const DRIFT_PENALTY_SCALE   = 1.5   // % race time per % excess drift (at RACE_SCALE=1.0)
 const DRIFT_PENALTY_MAX_PCT = 8     // cap at 8%
 
 /** Expected % cardiac drift for a run of given duration (physiological log model). */
@@ -987,12 +987,13 @@ export function analyzeEasyRun(activity: {
   // Use moving_time as a proxy for when the steady window occurred (window is near end of run).
   const normalizedPaceSec = normalizedPaceRaw - durationEfficiencyCredit(activity.moving_time / 60)
 
-  // Cardiac drift on the full-run km splits (wider temporal spread than steady window)
+  // Cardiac drift on the full-run km splits (wider temporal spread than steady window).
+  // Use 8-min windows + 8-min gap so runs ≥35 min can produce reliable drift.
   const easyTimed = buildTimedSplits(activity.splits ?? [])
   const easyDrift = computeCardiacDrift(easyTimed, activity.moving_time, {
-    minDurationSecs: 25 * 60,
-    windowSecs:      10 * 60,
-    minGapSecs:      12 * 60,
+    minDurationSecs: 20 * 60,
+    windowSecs:       8 * 60,
+    minGapSecs:        8 * 60,
   })
 
   return {
@@ -2151,8 +2152,9 @@ export function longRunSteadyEfficiencyPoints(analyses: LongRunAnalysis[]): Easy
     })
     .map(lr => {
       const normalizedPaceRaw = lr.steadyPace + AEROBIC_SLOPE * (REF_HR - lr.steadyHR)
-      const durationMins = lr.steadyDurationSecs / 60
-      const normalizedPaceSec = normalizedPaceRaw - durationEfficiencyCredit(durationMins)
+      // Use total run duration (not just steady portion) so long runs get full credit
+      const totalDurationMins = lr.distanceKm * lr.overallPace / 60
+      const normalizedPaceSec = normalizedPaceRaw - durationEfficiencyCredit(totalDurationMins)
       return {
         date: lr.date,
         activityId: lr.activityId,

@@ -1555,14 +1555,11 @@ export function analyzeLongRun(activity: {
   const effectiveDistKm = preFastKm > 0 ? preFastKm : distKm
   const distanceFactor  = Math.min(1, effectiveDistKm / 25)
 
-  // Drift penalty: use excess drift (above duration-expected baseline) via unified model
-  const hmDriftMult = driftResult.reliable
-    ? driftPenaltyMultiplier(driftResult.excessDrift, 'hm')
-    : 1 / 0.85   // preserve original driftUnknownPenalty conservatism on confidence
-  const fmDriftMult = driftResult.reliable
-    ? driftPenaltyMultiplier(driftResult.excessDrift, 'fm')
-    : 1
-  const driftUnknownPenalty = driftResult.reliable ? 1 : 0.85
+  // Drift penalty on estimatedSecs: only applied when drift is reliably measured.
+  // When unreliable, only confidence is penalized (via driftUnknownConfidenceMult).
+  const hmDriftMult = driftResult.reliable ? driftPenaltyMultiplier(driftResult.excessDrift, 'hm') : 1
+  const fmDriftMult = driftResult.reliable ? driftPenaltyMultiplier(driftResult.excessDrift, 'fm') : 1
+  const driftUnknownConfidenceMult = driftResult.reliable ? 1 : 0.85
   const driftNote = driftResult.reliable && driftResult.excessDrift > 0
     ? ` (excess drift +${driftResult.excessDrift.toFixed(1)}%)`
     : ''
@@ -1573,7 +1570,7 @@ export function analyzeLongRun(activity: {
     steadyEstimates.push({
       distanceKey: 'hm',
       estimatedSecs: hmPace * 21.097 * hmDriftMult,
-      confidence: 0.65 * distanceFactor * (1 / hmDriftMult) * hmHRGapPenalty,
+      confidence: 0.65 * distanceFactor * driftUnknownConfidenceMult * hmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
@@ -1585,7 +1582,7 @@ export function analyzeLongRun(activity: {
     steadyEstimates.push({
       distanceKey: 'fm',
       estimatedSecs: fmPace * 42.195 * fmDriftMult,
-      confidence: 0.50 * distanceFactor * (1 / fmDriftMult) * driftUnknownPenalty * fmHRGapPenalty,
+      confidence: 0.50 * distanceFactor * driftUnknownConfidenceMult * fmHRGapPenalty,
       source: 'long_run',
       date,
       activityId: activity.id,
@@ -1743,6 +1740,53 @@ export function detectAndAnalyzeRace(activity: {
     raceTimeSecs,
     raceEstimates,
   }
+}
+
+// ─── Per-run aerobic efficiency race estimates ────────────────────────────────
+
+/**
+ * Generate per-run race estimates from a single EasyRunEfficiency data point.
+ * Uses that run's own normalizedPaceSec and slope to project to race HRs.
+ * Applies per-run excess drift penalty (heavier for longer distances).
+ * These per-run estimates feed aggregateSource('easy_trend') directly.
+ */
+function easyRunToRaceEstimates(run: EasyRunEfficiency, maxHr: number): RaceEstimate[] {
+  if (run.excludedReason || !run.normalizedPaceSec || run.normalizedPaceSec <= 0) return []
+
+  const raceHRs: Record<DistanceKey, number> = {
+    '5k': maxHr * 0.96,
+    '10k': maxHr * 0.92,
+    'hm': maxHr * 0.87,
+    'fm': maxHr * 0.82,
+  }
+
+  const estimates: RaceEstimate[] = []
+  for (const dk of ['5k', '10k', 'hm', 'fm'] as DistanceKey[]) {
+    const raceHR   = raceHRs[dk]
+    const hrGap    = raceHR - REF_HR
+    const ampFactor = 1 + 0.005 * hrGap
+    const racePace  = run.normalizedPaceSec + run.slope * hrGap * ampFactor
+    if (racePace < 150 || racePace > 450) continue
+
+    const hrGapPenalty = Math.max(0.3, 1 - (hrGap - 15) * 0.02)
+    const driftMult    = run.driftReliable && run.driftExcessPct != null
+      ? driftPenaltyMultiplier(run.driftExcessPct, dk)
+      : 1
+    const driftNote = run.driftReliable && (run.driftExcessPct ?? 0) > 0
+      ? ` (drift +${run.driftExcessPct!.toFixed(1)}% excess)`
+      : ''
+
+    estimates.push({
+      distanceKey: dk,
+      estimatedSecs: racePace * DISTANCE_KM[dk] * driftMult,
+      confidence: 0.40 * hrGapPenalty,
+      source: 'easy_trend',
+      date: run.date,
+      activityId: run.activityId,
+      method: `${formatPace(run.normalizedPaceSec)}/km @ 150bpm → ${dk.toUpperCase()} projection${driftNote}`,
+    })
+  }
+  return estimates
 }
 
 // ─── Easy run trend estimator ────────────────────────────────────────────────
@@ -2031,14 +2075,14 @@ export function combineEstimates(
   }
 
   // Endurance readiness penalty for HM/FM: if the runner's longest recent
-  // run is short relative to the target distance, add a modest time penalty.
-  // No penalty once longest run reaches a threshold (~85% of race distance).
+  // run is short relative to the target distance, add a time penalty.
+  // No penalty once longest run reaches the threshold.
   let endurancePenaltyPct = 0
   if (distanceKey === 'hm' || distanceKey === 'fm') {
-    // HM: no penalty at 18km+, up to 3% at 0km
-    // FM: no penalty at 35km+, up to 5% at 0km
-    const thresholdKm = distanceKey === 'hm' ? 18 : 35
-    const maxPenaltyPct = distanceKey === 'hm' ? 0.03 : 0.05
+    // HM: no penalty at 25km+, up to 8% at 0km
+    // FM: no penalty at 35km+, up to 15% at 0km
+    const thresholdKm   = distanceKey === 'hm' ? 25 : 35
+    const maxPenaltyPct = distanceKey === 'hm' ? 0.08 : 0.15
     if (longestRecentRunKm < thresholdKm) {
       const ratio = Math.min(1, longestRecentRunKm / thresholdKm)
       endurancePenaltyPct = maxPenaltyPct * (1 - ratio)
@@ -2201,7 +2245,11 @@ export function analyzeAllAndCombine(
   const longRunEfficiencyPoints = longRunSteadyEfficiencyPoints(longRunAnalyses)
   const easyRunResultsBase = analyzeAllEasyRuns(easyActivities.filter((a: any) => !a.excluded_from_analysis))
   const easyRunResults = [...easyRunResultsBase, ...longRunEfficiencyPoints]
-  const easyTrendEstimates = easyRunTrendEstimate(easyRunResults, maxHr)
+  // Per-run easy estimates: each valid easy/long-steady run contributes its own
+  // race time projections. aggregateSource('easy_trend') handles weighting & drop-slowest.
+  const easyTrendEstimates = easyRunResults
+    .filter(r => !r.excludedReason)
+    .flatMap(r => easyRunToRaceEstimates(r, maxHr))
 
   // Collect all race estimates
   const allRaceEstimates: RaceEstimate[] = [

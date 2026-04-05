@@ -11,7 +11,7 @@ const TABS: { key: DistanceKey; label: string }[] = [
   { key: 'fm', label: 'FM' },
 ]
 
-const SOURCE_ORDER: EstimateSource[] = ['interval', 'threshold', 'long_run', 'easy_trend', 'race_result']
+const SOURCE_ORDER: EstimateSource[] = ['interval', 'threshold', 'easy_trend', 'race_result']
 
 interface Props {
   combined: Record<DistanceKey, CombinedEstimate | null>

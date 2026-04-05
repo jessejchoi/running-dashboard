@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   // Active + upcoming challenges
   const { data: challenges } = await supabaseAdmin
     .from('group_challenges')
-    .select('id, name, description, challenge_type, target_meters, start_date, end_date, config')
+    .select('id, name, description, challenge_type, target_meters, start_date, end_date, config, created_by_coach')
     .eq('group_id', params.id)
     .gte('end_date', today)
     .order('start_date', { ascending: true })
@@ -55,7 +55,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const meAthleteId = parseInt(athleteId)
 
-  const result = challenges.map(c => {
+  const result = (challenges as Array<typeof challenges[0] & { created_by_coach: boolean }>).map(c => {
     const start = new Date(c.start_date + 'T00:00:00Z')
     const end = new Date(c.end_date + 'T23:59:59Z')
     const relevant = (activities ?? []).filter(a => {
@@ -90,6 +90,46 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   })
 
   return NextResponse.json({ challenges: result })
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const athleteId = cookies().get('athlete_id')?.value
+  if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const { data: membership } = await supabaseAdmin
+    .from('group_members')
+    .select('role')
+    .eq('group_id', params.id)
+    .eq('athlete_id', parseInt(athleteId))
+    .maybeSingle()
+
+  if (membership?.role !== 'admin') {
+    return NextResponse.json({ error: 'Only admins can edit challenges' }, { status: 403 })
+  }
+
+  const body = await req.json()
+  const { challengeId, name, description, target_meters, start_date, end_date, challenge_type, config } = body
+  if (!challengeId) return NextResponse.json({ error: 'Missing challengeId' }, { status: 400 })
+
+  const updates: Record<string, unknown> = {}
+  if (name !== undefined) updates.name = name
+  if (description !== undefined) updates.description = description || null
+  if (target_meters !== undefined) updates.target_meters = target_meters
+  if (start_date !== undefined) updates.start_date = start_date
+  if (end_date !== undefined) updates.end_date = end_date
+  if (challenge_type !== undefined) updates.challenge_type = challenge_type
+  if (config !== undefined) updates.config = config
+
+  const { data, error } = await supabaseAdmin
+    .from('group_challenges')
+    .update(updates)
+    .eq('id', challengeId)
+    .eq('group_id', params.id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

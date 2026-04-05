@@ -198,6 +198,12 @@ export default function GroupDashboardTab({
   const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
+  const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null)
+  const [editType, setEditType] = useState<'group_distance' | 'weekly_quota' | 'fastest_effort'>('group_distance')
+  const [editForm, setEditForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   const board = computeLeaderboard(leaderboardRuns, leaderRange, members)
   const maxDist = Math.max(...board.map(e => e.distance), 1)
@@ -268,6 +274,87 @@ export default function GroupDashboardTab({
     if (res.ok) setChallenges(prev => prev.filter(c => c.id !== id))
   }
 
+  function openEdit(c: Challenge) {
+    const cType = (c.challenge_type ?? 'group_distance') as 'group_distance' | 'weekly_quota' | 'fastest_effort'
+    setEditType(cType)
+    const targetMeters = c.target_meters ?? (cType === 'weekly_quota' ? (c.config['weekly_meters'] as number | undefined) : undefined)
+    const targetDist = targetMeters
+      ? String(unit === 'miles' ? Math.round(metersToMiles(targetMeters) * 10) / 10 : Math.round(targetMeters / 100) / 10)
+      : ''
+    setEditForm({
+      name: c.name,
+      description: c.description ?? '',
+      targetDist,
+      startDate: c.start_date,
+      endDate: c.end_date,
+      runType: (c.config['run_type'] as string) ?? 'intervals',
+    })
+    setEditError('')
+    setEditingChallenge(c)
+  }
+
+  async function saveEdit() {
+    if (!editingChallenge) return
+    setEditError('')
+    if (!editForm.name.trim() || !editForm.startDate || !editForm.endDate) {
+      setEditError('Please fill in all required fields.')
+      return
+    }
+    let target_meters: number | null = null
+    let config: Record<string, unknown> = editingChallenge.config
+    if (editType === 'group_distance') {
+      const dist = parseFloat(editForm.targetDist)
+      if (isNaN(dist) || dist <= 0) { setEditError('Please enter a valid target distance.'); return }
+      target_meters = unit === 'miles' ? dist * 1609.344 : dist * 1000
+    } else if (editType === 'weekly_quota') {
+      const dist = parseFloat(editForm.targetDist)
+      if (isNaN(dist) || dist <= 0) { setEditError('Please enter a valid weekly quota.'); return }
+      target_meters = unit === 'miles' ? dist * 1609.344 : dist * 1000
+      config = { ...config, weekly_meters: target_meters }
+    } else if (editType === 'fastest_effort') {
+      config = { ...config, run_type: editForm.runType }
+    }
+    setEditSaving(true)
+    const res = await fetch(`/api/groups/${group.id}/challenges`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        challengeId: editingChallenge.id,
+        name: editForm.name,
+        description: editForm.description,
+        target_meters,
+        start_date: editForm.startDate,
+        end_date: editForm.endDate,
+        challenge_type: editType,
+        config,
+      }),
+    })
+    const data = await res.json()
+    setEditSaving(false)
+    if (!res.ok) { setEditError(data.error ?? 'Failed to save.'); return }
+    setChallenges(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c))
+    setEditingChallenge(null)
+  }
+
+  async function generateChallenge() {
+    setGenerating(true)
+    try {
+      const res = await fetch(`/api/groups/${group.id}/challenges/generate`, { method: 'POST' })
+      const data = await res.json()
+      if (data.skipped) {
+        alert('A coach challenge already exists for this month.')
+      } else if (data.challenge) {
+        setChallenges(prev => [data.challenge, ...prev])
+      } else {
+        alert(data.error ?? 'Failed to generate challenge.')
+      }
+    } catch {
+      alert('Failed to generate challenge.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   function ChallengeCard({ c }: { c: Challenge }) {
     const status = challengeStatus(c)
     const isPast = status === 'past'
@@ -280,8 +367,11 @@ export default function GroupDashboardTab({
       <div className={`card ${status === 'active' ? 'border-[#f97316]/30' : ''}`}>
         <div className="flex items-start justify-between mb-3">
           <div>
-            <div className="flex items-center gap-2 mb-0.5">
+            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
               <span className="font-bold">{c.name}</span>
+              {c.created_by_coach && (
+                <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 border border-[#f97316]/20 px-1.5 py-0.5 rounded">✦ Coach</span>
+              )}
               {status === 'active' && (
                 <span className="text-[10px] text-emerald-400 font-bold bg-emerald-400/10 px-1.5 py-0.5 rounded">Active</span>
               )}
@@ -296,12 +386,22 @@ export default function GroupDashboardTab({
             </p>
           </div>
           {myRole === 'admin' && (
-            <button
-              onClick={() => deleteChallenge(c.id)}
-              className="text-[#4b5563] hover:text-red-400 transition-colors ml-2 shrink-0"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-            </button>
+            <div className="flex items-center gap-1.5 ml-2 shrink-0">
+              <button
+                onClick={() => openEdit(c)}
+                className="text-[#4b5563] hover:text-[#f97316] transition-colors"
+                title="Edit challenge"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button
+                onClick={() => deleteChallenge(c.id)}
+                className="text-[#4b5563] hover:text-red-400 transition-colors"
+                title="Delete challenge"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </button>
+            </div>
           )}
         </div>
 
@@ -552,13 +652,25 @@ export default function GroupDashboardTab({
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest">Challenges</p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-[#f97316] hover:bg-[#ea580c] text-black rounded-lg transition-colors"
-          >
-            <Plus size={12} />
-            New
-          </button>
+          <div className="flex items-center gap-2">
+            {myRole === 'admin' && (
+              <button
+                onClick={generateChallenge}
+                disabled={generating}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#f97316] text-[#9ca3af] hover:text-[#f97316] rounded-lg transition-colors disabled:opacity-50"
+                title="Generate a coach challenge for this month"
+              >
+                ✦ {generating ? 'Generating…' : 'Coach'}
+              </button>
+            )}
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-[#f97316] hover:bg-[#ea580c] text-black rounded-lg transition-colors"
+            >
+              <Plus size={12} />
+              New
+            </button>
+          </div>
         </div>
         {challenges.length === 0 ? (
           <div className="card text-center py-8">
@@ -687,6 +799,133 @@ export default function GroupDashboardTab({
           ))}
         </div>
       </div>
+
+      {/* Edit challenge modal */}
+      {editingChallenge && (
+        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-md p-6 z-[9999]">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-display font-bold text-lg">Edit Challenge</h2>
+              <button onClick={() => setEditingChallenge(null)} className="text-[#6b7280] hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Type</label>
+                <div className="flex gap-2">
+                  {([
+                    { key: 'group_distance', label: 'Group Distance' },
+                    { key: 'weekly_quota',   label: 'Weekly Quota' },
+                    { key: 'fastest_effort', label: 'Fastest Effort' },
+                  ] as const).map(({ key, label: optLabel }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setEditType(key)}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
+                        editType === key
+                          ? 'bg-[#f97316] border-[#f97316] text-black'
+                          : 'bg-transparent border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#4b5563]'
+                      }`}
+                    >
+                      {optLabel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Name *</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Description</label>
+                <input
+                  type="text"
+                  value={editForm.description}
+                  onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Optional note for the group"
+                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                />
+              </div>
+
+              {(editType === 'group_distance' || editType === 'weekly_quota') && (
+                <div>
+                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">
+                    {editType === 'group_distance'
+                      ? `Group target (${unit === 'miles' ? 'miles' : 'km'}) *`
+                      : `Weekly quota per member (${unit === 'miles' ? 'miles' : 'km'}) *`
+                    }
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editForm.targetDist}
+                    onChange={e => setEditForm(f => ({ ...f, targetDist: e.target.value }))}
+                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+              )}
+
+              {editType === 'fastest_effort' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Run type *</label>
+                  <select
+                    value={editForm.runType}
+                    onChange={e => setEditForm(f => ({ ...f, runType: e.target.value }))}
+                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                  >
+                    {Object.entries(RUN_TYPE_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Start date *</label>
+                  <input
+                    type="date"
+                    value={editForm.startDate}
+                    onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))}
+                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">End date *</label>
+                  <input
+                    type="date"
+                    value={editForm.endDate}
+                    onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))}
+                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              {editError && (
+                <p className="text-red-400 text-xs">{editError}</p>
+              )}
+
+              <button
+                onClick={saveEdit}
+                disabled={editSaving}
+                className="w-full py-2.5 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-50 text-black font-bold text-sm rounded-lg transition-colors"
+              >
+                {editSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create challenge modal */}
       {showCreate && (

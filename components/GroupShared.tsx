@@ -62,6 +62,7 @@ export interface Challenge {
   created_at: string
   challenge_type: string
   config: Record<string, unknown>
+  created_by_coach: boolean
 }
 
 export interface TrainingLoad {

@@ -25,6 +25,7 @@ interface Challenge {
   total_meters: number
   pct: number
   by_member: MemberProgress[]
+  created_by_coach: boolean
 }
 
 interface Props {
@@ -100,8 +101,11 @@ export default function GroupChallengesCard({ groupId }: Props) {
                 {/* Challenge header */}
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                       <span className="font-bold text-sm text-white">{c.name}</span>
+                      {c.created_by_coach && (
+                        <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 border border-[#f97316]/20 px-1.5 py-0.5 rounded">✦ Coach</span>
+                      )}
                       {isUpcoming ? (
                         <span className="text-[10px] text-sky-400 font-bold bg-sky-400/10 px-1.5 py-0.5 rounded">Upcoming</span>
                       ) : (

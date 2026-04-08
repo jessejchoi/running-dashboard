@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { analyzeAllAndCombine } from '@/lib/analysis'
@@ -98,4 +98,18 @@ export async function POST() {
   written.push(`today: ${Object.entries(todayEstimates).filter(([,v])=>v!=null).map(([k,v])=>`${k}=${v}s`).join(', ')}`)
 
   return NextResponse.json({ ok: true, written })
+}
+
+export async function GET() {
+  const cookieStore = cookies()
+  const athleteId = cookieStore.get('athlete_id')?.value
+  if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const { data, error } = await supabaseAdmin
+    .from('estimate_snapshots')
+    .select('*')
+    .eq('athlete_id', Number(athleteId))
+    .order('snapshotted_at', { ascending: false })
+
+  return NextResponse.json({ rows: data ?? [], error: error?.message ?? null })
 }

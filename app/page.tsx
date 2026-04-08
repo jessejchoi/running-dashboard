@@ -9,6 +9,7 @@ import RunTypeBadge from '@/components/RunTypeBadge'
 import { formatDuration, speedToPace, isoWeek, toJakartaDate, formatDistanceShort, distanceUnitLabel, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { analyzeAllAndCombine } from '@/lib/analysis'
+import { fetchDeltas, saveSnapshot } from '@/lib/estimateSnapshots'
 import Link from 'next/link'
 import GroupLeaderboard from '@/components/GroupLeaderboard'
 import GroupChallengesCard from '@/components/GroupChallengesCard'
@@ -220,6 +221,10 @@ async function getData(athleteId: number) {
     }
   }
 
+  // Snapshot: save today's estimates (fire-and-forget) + fetch 30d delta
+  saveSnapshot(athleteId, estimates)
+  const deltas = await fetchDeltas(athleteId, estimates)
+
   return {
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
@@ -227,6 +232,7 @@ async function getData(athleteId: number) {
     hasMaxHr: !!userProfile?.max_hr,
     goals: (goalsData ?? []) as UserGoal[],
     estimates,
+    estimateDeltas: deltas,
     confidence,
     sourceCounts,
     allGroupsData,
@@ -242,7 +248,7 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, hasMaxHr, goals, estimates, confidence, sourceCounts, allGroupsData } = await getData(Number(athleteId))
+  const { activities, athlete, displayName, hasMaxHr, goals, estimates, estimateDeltas, confidence, sourceCounts, allGroupsData } = await getData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
@@ -327,14 +333,24 @@ export default async function DashboardPage() {
                     { key: '10k', label: '10K' },
                     { key: 'hm',  label: 'Half' },
                     { key: 'fm',  label: 'Full' },
-                  ] as const).map(({ key, label }) => (
-                    <div key={key} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.875rem' }}>
-                      <p className="font-mono text-xs uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-                      <p className="stat-num text-xl font-bold leading-none" style={{ color: estimates[key] ? '#f0f0f0' : 'var(--text-muted)' }}>
-                        {estimates[key] ? formatDuration(estimates[key]!) : '—'}
-                      </p>
-                    </div>
-                  ))}
+                  ] as const).map(({ key, label }) => {
+                    const delta = estimateDeltas[key]?.month ?? null
+                    const improved = delta != null && delta < 0
+                    const regressed = delta != null && delta > 0
+                    return (
+                      <div key={key} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.875rem' }}>
+                        <p className="font-mono text-xs uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                        <p className="stat-num text-xl font-bold leading-none" style={{ color: estimates[key] ? '#f0f0f0' : 'var(--text-muted)' }}>
+                          {estimates[key] ? formatDuration(estimates[key]!) : '—'}
+                        </p>
+                        {delta != null && (
+                          <p className="font-mono text-[10px] mt-1.5 leading-none" style={{ color: improved ? '#10b981' : regressed ? '#ef4444' : '#6b7280' }}>
+                            {improved ? `▼ ${formatDuration(Math.abs(delta))}` : regressed ? `▲ ${formatDuration(Math.abs(delta))}` : '—'} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>vs 1mo</span>
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

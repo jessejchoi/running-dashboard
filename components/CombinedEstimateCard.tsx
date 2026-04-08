@@ -3,11 +3,38 @@ import { formatTime } from '@/lib/analysis'
 import { vdotFrom5K } from '@/lib/utils'
 import { distanceLabel, type DistanceKey, distanceKm } from '@/lib/goals'
 import type { CombinedEstimate } from '@/lib/analysis'
+import type { EstimateDelta } from '@/lib/estimateSnapshots'
 
 interface Props {
   distanceKey: DistanceKey
   combined: CombinedEstimate | null
   targetSecs?: number | null
+  deltas?: EstimateDelta | null
+}
+
+function DeltaChip({ label, delta }: { label: string; delta: number | null }) {
+  if (delta == null) {
+    return (
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-[10px] font-mono text-[#4b5563]">{label}</span>
+        <span className="text-xs text-[#4b5563]">—</span>
+      </div>
+    )
+  }
+  // Negative delta = faster (improved), positive = slower (regressed)
+  const improved = delta < 0
+  const same = delta === 0
+  const abs = Math.abs(delta)
+  const color = same ? '#6b7280' : improved ? '#10b981' : '#ef4444'
+  const arrow = same ? '' : improved ? '▼' : '▲'
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[10px] font-mono text-[#4b5563]">{label}</span>
+      <span className="text-xs font-mono font-bold" style={{ color }}>
+        {same ? '—' : `${arrow} ${formatTime(abs)}`}
+      </span>
+    </div>
+  )
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -18,7 +45,7 @@ const SOURCE_LABELS: Record<string, string> = {
   race_result: 'Races',
 }
 
-export default function CombinedEstimateCard({ distanceKey, combined, targetSecs }: Props) {
+export default function CombinedEstimateCard({ distanceKey, combined, targetSecs, deltas }: Props) {
   if (!combined) {
     return (
       <div className="card flex items-center justify-center py-10 text-[#6b7280] text-sm">
@@ -79,6 +106,14 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Progress deltas */}
+      <div className="flex items-center gap-4 pt-3 border-t border-[#1c1c1c]">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-[#4b5563] mr-1">Progress</span>
+        <DeltaChip label="1w" delta={deltas?.week ?? null} />
+        <DeltaChip label="1m" delta={deltas?.month ?? null} />
+        <DeltaChip label="3m" delta={deltas?.quarter ?? null} />
       </div>
     </div>
   )

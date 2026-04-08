@@ -25,6 +25,7 @@ import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
 import SourceEstimateBadge from '@/components/SourceEstimateBadge'
 import RunEstimateBadge from '@/components/RunEstimateBadge'
 import RepTableClient from '@/components/RepTableClient'
+import { fetchDeltas, saveSnapshot, type AllDeltas } from '@/lib/estimateSnapshots'
 
 export const revalidate = 60
 
@@ -94,6 +95,18 @@ export default async function AnalysisPage() {
 
   // Serialise combined for client components
   const combinedJson = JSON.parse(JSON.stringify(combined)) as Record<DistanceKey, CombinedEstimate | null>
+
+  // Current estimates map (for snapshot + deltas)
+  const currentEstimates: Record<string, number | null> = {
+    '5k':  combined['5k']?.bestEstimateSecs  ?? null,
+    '10k': combined['10k']?.bestEstimateSecs ?? null,
+    'hm':  combined['hm']?.bestEstimateSecs  ?? null,
+    'fm':  combined['fm']?.bestEstimateSecs  ?? null,
+  }
+
+  // Fetch historical deltas (cheap indexed query) + save today's snapshot (non-blocking)
+  saveSnapshot(Number(athleteId), currentEstimates)
+  const allDeltas: AllDeltas = await fetchDeltas(Number(athleteId), currentEstimates)
 
   // Default 5K target
   const TARGET_5K = targetSecsMap['5k'] ?? (22 * 60 + 30)
@@ -203,6 +216,7 @@ export default async function AnalysisPage() {
         <AnalysisDistanceSection
           combined={combinedJson}
           targetSecsMap={targetSecsMap}
+          allDeltas={allDeltas}
         />
 
         {/* Detailed session breakdowns below */}

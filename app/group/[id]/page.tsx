@@ -69,11 +69,17 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
 
   const memberIds = (members ?? []).map(m => m.athlete_id)
 
-  // Fetch athlete names/pics from strava_tokens
-  const { data: tokens } = await supabaseAdmin
-    .from('strava_tokens')
-    .select('athlete_id, athlete_name, athlete_profile, athlete_gender')
-    .in('athlete_id', memberIds)
+  // Fetch athlete names/pics from strava_tokens and status tags from user_profiles
+  const [{ data: tokens }, { data: memberProfilesData }] = await Promise.all([
+    supabaseAdmin
+      .from('strava_tokens')
+      .select('athlete_id, athlete_name, athlete_profile, athlete_gender')
+      .in('athlete_id', memberIds),
+    supabaseAdmin
+      .from('user_profiles')
+      .select('athlete_id, status_tag')
+      .in('athlete_id', memberIds),
+  ])
 
   // Fetch goals for all members
   const { data: goals } = await supabaseAdmin
@@ -122,6 +128,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   // Compose member profiles
   const memberProfiles = (members ?? []).map(m => {
     const token = tokens?.find(t => t.athlete_id === m.athlete_id)
+    const profile = memberProfilesData?.find(p => p.athlete_id === m.athlete_id)
     const memberGoals = (goals ?? []).filter(g => g.athlete_id === m.athlete_id)
     return {
       athlete_id: m.athlete_id,
@@ -132,6 +139,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       gender: token?.athlete_gender ?? null,
       goals: memberGoals,
       is_me: m.athlete_id === parseInt(athleteId),
+      status_tag: profile?.status_tag ?? null,
     }
   })
 

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
-import { Avatar, RunTypeDot, type Run, type Member } from '@/components/GroupShared'
+import { Avatar, RunTypeDot, StatusTag, type Run, type Member } from '@/components/GroupShared'
 
 interface Props {
   groupId: string
@@ -109,6 +109,7 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
                     <span className="font-bold text-sm">{member?.name ?? `Athlete ${run.athlete_id}`}</span>
                     {isMe && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>}
                     {member?.gender && <span className="text-[10px] text-[#4b5563] font-mono">{member.gender === 'M' ? '♂' : '♀'}</span>}
+                    {member?.status_tag && <StatusTag tag={member.status_tag} />}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-[#6b7280] mb-2">
                     <RunTypeDot type={run.run_type} />

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useUnit } from '@/lib/unit-context'
 import type { DistanceUnit } from '@/lib/utils'
 
+const STATUS_TAGS = ['Injured', 'Taking it easy', 'Milemaxxing', 'Peak week', 'Tapering', 'Base building']
+
 interface Profile {
   display_name?: string
   age?: number | null
@@ -12,6 +14,7 @@ interface Profile {
   unit?: DistanceUnit
   weight_kg?: number | null
   max_hr?: number | null
+  status_tag?: string | null
 }
 
 interface StravaData {
@@ -211,6 +214,37 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                     />
                   </div>
                 </div>
+              </section>
+
+              {/* ── Status ───────────────────────────────────────── */}
+              <section>
+                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Status</h3>
+                <p className="text-xs mb-2.5" style={{ color: 'var(--text-muted)' }}>Visible to your group members.</p>
+                <div className="flex flex-wrap gap-2">
+                  {STATUS_TAGS.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => set('status_tag', profile.status_tag === tag ? null : tag)}
+                      className="px-2.5 py-1.5 rounded-md text-xs font-bold transition-colors"
+                      style={
+                        profile.status_tag === tag
+                          ? { background: 'var(--orange)', border: '1px solid var(--orange)', color: '#fff' }
+                          : { background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-muted)' }
+                      }
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                {profile.status_tag && (
+                  <button
+                    onClick={() => set('status_tag', null)}
+                    className="mt-2 text-xs transition-colors hover:text-white"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Clear status
+                  </button>
+                )}
               </section>
 
               {/* ── Strava ────────────────────────────────────────── */}

@@ -10,7 +10,7 @@ export async function GET() {
   const [{ data: profile }, { data: tokenRow }] = await Promise.all([
     supabaseAdmin
       .from('user_profiles')
-      .select('display_name, age, gender, unit, primary_group_id, weight_kg, max_hr')
+      .select('display_name, age, gender, unit, primary_group_id, weight_kg, max_hr, status_tag')
       .eq('athlete_id', athleteId)
       .maybeSingle(),
     supabaseAdmin
@@ -36,7 +36,7 @@ export async function PATCH(req: Request) {
   if (!athleteId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { display_name, age, gender, unit, weight_kg, max_hr } = body
+  const { display_name, age, gender, unit, weight_kg, max_hr, status_tag } = body
 
   const { data, error } = await supabaseAdmin
     .from('user_profiles')
@@ -48,6 +48,7 @@ export async function PATCH(req: Request) {
       unit: unit ?? 'km',
       weight_kg: weight_kg ? Number(weight_kg) : null,
       max_hr: max_hr ? Number(max_hr) : null,
+      status_tag: status_tag ?? null,
       updated_at: new Date().toISOString(),
     })
     .select()

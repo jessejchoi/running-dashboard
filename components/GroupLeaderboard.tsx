@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { ChevronRight, Flame } from 'lucide-react'
 import { distanceUnitLabel, metersToMiles, type DistanceUnit } from '@/lib/utils'
+import { StatusTag } from '@/components/GroupShared'
 
 interface Member {
   athlete_id: number
@@ -11,6 +12,7 @@ interface Member {
   streak: number
   lastRunDaysAgo: number | null
   is_me: boolean
+  status_tag?: string | null
 }
 
 interface Props {
@@ -81,6 +83,7 @@ export default function GroupLeaderboard({ members, groupId, groupName, unit = '
                       {m.lastRunDaysAgo}d ago
                     </span>
                   )}
+                  {m.status_tag && <StatusTag tag={m.status_tag} />}
                 </div>
                 <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${m.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
                   {toDisplayDist(m.weekKm).toFixed(1)} {label}

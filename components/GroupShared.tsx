@@ -19,6 +19,7 @@ export interface Member {
   gender: string | null
   goals: Goal[]
   is_me: boolean
+  status_tag: string | null
 }
 
 export interface Run {
@@ -89,6 +90,27 @@ export function Avatar({ name, pic, size = 8 }: { name: string; pic: string | nu
     <div className={`w-${size} h-${size} rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs`}>
       {initials}
     </div>
+  )
+}
+
+const STATUS_TAG_COLORS: Record<string, { bg: string; text: string }> = {
+  'Injured':        { bg: '#7f1d1d', text: '#fca5a5' },
+  'Taking it easy': { bg: '#1c1917', text: '#a8a29e' },
+  'Milemaxxing':    { bg: '#14532d', text: '#86efac' },
+  'Peak week':      { bg: '#7c2d12', text: '#fdba74' },
+  'Tapering':       { bg: '#1e1b4b', text: '#a5b4fc' },
+  'Base building':  { bg: '#164e63', text: '#67e8f9' },
+}
+
+export function StatusTag({ tag }: { tag: string }) {
+  const colors = STATUS_TAG_COLORS[tag] ?? { bg: '#1c1c1c', text: '#9ca3af' }
+  return (
+    <span
+      className="inline-block shrink-0 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+      style={{ background: colors.bg, color: colors.text }}
+    >
+      {tag}
+    </span>
   )
 }
 

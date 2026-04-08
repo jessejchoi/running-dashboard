@@ -125,16 +125,18 @@ async function getData(athleteId: number) {
           const memberIds = (allMembers ?? []).map((m: any) => m.athlete_id)
           const otherMemberIds = memberIds.filter((id: number) => id !== athleteId)
 
-          const [{ data: tokens }, { data: groupActivities }, { data: otherGoalsData }] = await Promise.all([
+          const [{ data: tokens }, { data: groupActivities }, { data: otherGoalsData }, { data: memberStatusData }] = await Promise.all([
             supabaseAdmin.from('strava_tokens').select('athlete_id, athlete_name, athlete_profile').in('athlete_id', memberIds),
             supabaseAdmin.from('activities').select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type').in('athlete_id', memberIds).gte('start_date', weekStartIso).order('start_date', { ascending: false }).limit(50),
             otherMemberIds.length > 0
               ? supabaseAdmin.from('user_goals').select('*').in('athlete_id', otherMemberIds)
               : Promise.resolve({ data: [] }),
+            supabaseAdmin.from('user_profiles').select('athlete_id, status_tag').in('athlete_id', memberIds),
           ])
 
           const members = memberIds.map((aid: number) => {
             const token = tokens?.find((t: any) => t.athlete_id === aid)
+            const memberProfile = memberStatusData?.find((p: any) => p.athlete_id === aid)
             const memberRuns = (groupActivities ?? []).filter((a: any) => a.athlete_id === aid)
 
             const weekKm = memberRuns.reduce((s: number, a: any) => s + a.distance / 1000, 0)
@@ -167,6 +169,7 @@ async function getData(athleteId: number) {
               streak,
               lastRunDaysAgo,
               is_me: aid === athleteId,
+              status_tag: memberProfile?.status_tag ?? null,
             }
           })
 

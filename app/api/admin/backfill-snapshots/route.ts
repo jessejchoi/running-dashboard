@@ -100,10 +100,16 @@ export async function POST() {
   return NextResponse.json({ ok: true, written })
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  // ?run=1 triggers the backfill
+  const run = new URL(request.url).searchParams.get('run')
+  if (run === '1') {
+    return POST()
+  }
 
   const { data, error } = await supabaseAdmin
     .from('estimate_snapshots')

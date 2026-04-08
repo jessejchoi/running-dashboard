@@ -15,6 +15,7 @@ import GroupLeaderboard from '@/components/GroupLeaderboard'
 import GroupChallengesCard from '@/components/GroupChallengesCard'
 import GroupGoalsSection from '@/components/GroupGoalsSection'
 import GroupCoachTab from '@/components/GroupCoachTab'
+import GroupMessageBoard from '@/components/GroupMessageBoard'
 import { format } from 'date-fns'
 import { type UserGoal } from '@/lib/goals'
 
@@ -377,6 +378,16 @@ export default async function DashboardPage() {
               {groupData.memberGoals.length > 0 && (
                 <GroupGoalsSection memberGoals={groupData.memberGoals} groupName={groupData.group.name} />
               )}
+              <GroupMessageBoard
+                groupId={groupData.group.id}
+                members={groupData.members.map((m: any) => ({
+                  athlete_id: m.athlete_id,
+                  name: m.name,
+                  profile_pic: m.profile_pic,
+                  is_me: m.is_me,
+                }))}
+                myRole={groupData.myRole}
+              />
             </div>
           ))
         ) : (

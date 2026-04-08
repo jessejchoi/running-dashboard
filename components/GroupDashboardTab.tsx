@@ -8,6 +8,7 @@ import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type 
 import GroupCoachTab from '@/components/GroupCoachTab'
 import PatternInsightCard from '@/components/PatternInsightCard'
 import GroupPeekCard from '@/components/GroupPeekCard'
+import GroupMessageBoard from '@/components/GroupMessageBoard'
 
 interface Props {
   group: Group
@@ -969,6 +970,13 @@ export default function GroupDashboardTab({
           })}
         </div>
       </div>
+
+      {/* Message board */}
+      <GroupMessageBoard
+        groupId={group.id}
+        members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
+        myRole={myRole}
+      />
 
       {/* Members section */}
       <div>

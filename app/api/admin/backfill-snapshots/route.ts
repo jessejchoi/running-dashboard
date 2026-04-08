@@ -83,10 +83,14 @@ export async function POST() {
       }))
 
     if (rows.length > 0) {
-      await supabaseAdmin
+      const { error: upsertError } = await supabaseAdmin
         .from('estimate_snapshots')
         .upsert(rows, { onConflict: 'athlete_id,distance_key,snapshotted_at' })
-      written.push(`${days}d ago (${dateStr}): ${rows.map(r => `${r.distance_key}=${r.estimated_secs}s`).join(', ')}`)
+      if (upsertError) {
+        written.push(`${days}d ago (${dateStr}): UPSERT ERROR — ${upsertError.message}`)
+      } else {
+        written.push(`${days}d ago (${dateStr}): ${rows.map(r => `${r.distance_key}=${r.estimated_secs}s`).join(', ')}`)
+      }
     } else {
       written.push(`${days}d ago (${dateStr}): no estimates`)
     }

@@ -48,7 +48,7 @@ export default function Nav() {
       {/* ── Desktop top nav ───────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 hidden sm:block" style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(16px) saturate(180%)', WebkitBackdropFilter: 'blur(16px) saturate(180%)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
-          <span className="font-display font-bold text-lg uppercase tracking-tight">
+          <span className="font-display font-bold text-xl uppercase tracking-tight">
             <span style={{ color: 'var(--orange)' }}>RUN</span>
             <span className="text-white/50">DASH</span>
           </span>
@@ -104,7 +104,7 @@ export default function Nav() {
 
       {/* ── Mobile top bar: logo + sync only ─────────────────── */}
       <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-4" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <span className="font-display font-bold text-lg uppercase tracking-tight">
+        <span className="font-display font-bold text-xl uppercase tracking-tight">
           <span style={{ color: 'var(--orange)' }}>RUN</span>
           <span className="text-white/50">DASH</span>
         </span>
@@ -112,7 +112,7 @@ export default function Nav() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-3 text-xs rounded-md transition-all disabled:opacity-50 min-h-[44px]"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
             style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
           >
             <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
@@ -120,7 +120,7 @@ export default function Nav() {
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md transition-all"
+            className="p-1.5 flex items-center justify-center rounded-md transition-all"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
           >
             <Settings size={14} />

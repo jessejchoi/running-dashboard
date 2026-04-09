@@ -34,10 +34,10 @@ export default function RecentRunsCard({ runs, unit }: Props) {
   if (runs.length === 0) return null
 
   return (
-    <section className="mb-3">
+    <section className="mt-6 mb-3">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Recent Runs</h2>
-        <Link href="/runs" className="font-mono text-xs text-[#6b7280] hover:text-orange-500 transition-colors">
+        <Link href="/runs" className="font-mono text-xs text-[#f97316] hover:text-orange-400 transition-colors">
           View all →
         </Link>
       </div>

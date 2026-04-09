@@ -140,7 +140,7 @@ export default async function DashboardRaceSection({
   return (
     <>
       {/* Goals */}
-      <div className="mb-3">
+      <div className="mt-6 mb-3">
         <GoalsSection
           initialGoals={goals}
           estimates={Object.fromEntries(Object.entries(estimates).filter(([, v]) => v != null)) as Record<string, number>}
@@ -155,7 +155,7 @@ export default async function DashboardRaceSection({
         <section className="mb-3">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Race Estimates</h2>
-            <Link href="/analysis" className="font-mono text-xs text-[#6b7280] hover:text-orange-500 transition-colors">
+            <Link href="/analysis" className="font-mono text-xs text-[#f97316] hover:text-orange-400 transition-colors">
               Full analysis →
             </Link>
           </div>

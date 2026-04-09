@@ -8,6 +8,7 @@ import { analyzeAllAndCombine } from '@/lib/analysis'
 import { saveSnapshot, fetchSnapshotsByDate, buildAllDeltas, todayDate } from '@/lib/estimateSnapshots'
 import GoalsSection from '@/components/GoalsSection'
 import { formatDuration, type DistanceUnit } from '@/lib/utils'
+import Link from 'next/link'
 import { type UserGoal } from '@/lib/goals'
 
 async function getRaceData(athleteId: number) {
@@ -138,10 +139,29 @@ export default async function DashboardRaceSection({
 
   return (
     <>
+      {/* Goals */}
+      <div className="mb-3">
+        <GoalsSection
+          initialGoals={goals}
+          estimates={Object.fromEntries(Object.entries(estimates).filter(([, v]) => v != null)) as Record<string, number>}
+          confidence={confidence}
+          sourceCounts={sourceCounts}
+          unit={unit}
+        />
+      </div>
+
       {/* Race Estimates */}
       {hasEstimates && (
         <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
-          <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Race Estimates</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Race Estimates</p>
+            <Link href="/analysis" className="font-mono text-xs transition-colors" style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--orange)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+            >
+              Full analysis →
+            </Link>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {(['5k', '10k', 'hm', 'fm'] as const).map(key => {
               const label = key === '5k' ? '5K' : key === '10k' ? '10K' : key === 'hm' ? 'Half' : 'Full'
@@ -178,17 +198,6 @@ export default async function DashboardRaceSection({
           </span>
         </div>
       )}
-
-      {/* Goals */}
-      <div className="mb-8">
-        <GoalsSection
-          initialGoals={goals}
-          estimates={Object.fromEntries(Object.entries(estimates).filter(([, v]) => v != null)) as Record<string, number>}
-          confidence={confidence}
-          sourceCounts={sourceCounts}
-          unit={unit}
-        />
-      </div>
     </>
   )
 }

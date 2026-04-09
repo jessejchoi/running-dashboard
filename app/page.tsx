@@ -6,7 +6,8 @@ import OnboardingPage from '@/components/OnboardingPage'
 import WeeklyMileageChart from '@/components/WeeklyMileageChart'
 import TrainingLoadChart from '@/components/TrainingLoadChart'
 import DashboardRaceSection from '@/components/DashboardRaceSection'
-import DashboardGroupSection from '@/components/DashboardGroupSection'
+import RecentRunsCard from '@/components/RecentRunsCard'
+import WeeklyPlanCard from '@/components/WeeklyPlanCard'
 import { formatDuration, isoWeek, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { format } from 'date-fns'
@@ -22,7 +23,7 @@ async function getFastData(athleteId: number) {
   ] = await Promise.all([
     supabaseAdmin
       .from('activities')
-      .select('id,start_date,distance,moving_time,suffer_score,run_type,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain')
+      .select('id,start_date,distance,moving_time,suffer_score,run_type,run_type_manual,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain')
       .eq('athlete_id', athleteId)
       .eq('type', 'Run')
       .order('start_date', { ascending: false })
@@ -68,18 +69,6 @@ function RaceSectionSkeleton() {
   )
 }
 
-/** Skeleton for the group section */
-function GroupSectionSkeleton() {
-  return (
-    <div className="animate-pulse mb-6">
-      <div className="h-4 w-32 bg-[#1c1c1c] rounded mb-3" />
-      <div className="grid md:grid-cols-2 gap-3">
-        <div className="h-48 bg-[#1c1c1c] rounded-xl" />
-        <div className="h-48 bg-[#1c1c1c] rounded-xl" />
-      </div>
-    </div>
-  )
-}
 
 export default async function DashboardPage() {
   const cookieStore = cookies()
@@ -162,15 +151,16 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* ── Race Estimates + Goals (deferred) ── */}
+        {/* ── This Week's Plan ── */}
+        <WeeklyPlanCard unit={unit} />
+
+        {/* ── Race Goals + Estimates (deferred) ── */}
         <Suspense fallback={<RaceSectionSkeleton />}>
           <DashboardRaceSection athleteId={Number(athleteId)} unit={unit} hasMaxHr={hasMaxHr} />
         </Suspense>
 
-        {/* ── Group Stats (deferred) ── */}
-        <Suspense fallback={<GroupSectionSkeleton />}>
-          <DashboardGroupSection athleteId={Number(athleteId)} unit={unit} />
-        </Suspense>
+        {/* ── Recent Runs ── */}
+        <RecentRunsCard runs={activities.slice(0, 5) as any} unit={unit} />
 
       </main>
     </>

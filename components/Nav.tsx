@@ -1,16 +1,13 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Activity, List, RefreshCw, BarChart2, Calendar, Users, Settings } from 'lucide-react'
+import { Activity, RefreshCw, Users, Settings } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import SettingsDrawer from './SettingsDrawer'
 
 const navItems = [
-  { href: '/',            label: 'Dashboard', icon: Activity },
-  { href: '/runs',        label: 'Runs',      icon: List },
-  { href: '/analysis', label: 'Analysis',  icon: BarChart2 },
-  { href: '/plan',        label: 'Plan',      icon: Calendar },
-  { href: '/groups',      label: 'Groups',    icon: Users },
+  { href: '/',       label: 'Dashboard', icon: Activity },
+  { href: '/groups', label: 'Group',     icon: Users },
 ]
 
 export default function Nav() {

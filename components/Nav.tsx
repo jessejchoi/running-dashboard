@@ -19,10 +19,13 @@ export default function Nav() {
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  function handleNavClick(href: string) {
+  function handleNavClick(e: React.MouseEvent, href: string) {
     if (href === path) return
+    e.preventDefault()
     setPendingHref(href)
-    startTransition(() => {})
+    startTransition(() => {
+      router.push(href)
+    })
   }
 
   async function handleSync() {
@@ -61,7 +64,7 @@ export default function Nav() {
                   key={href}
                   href={href}
                   prefetch={true}
-                  onClick={() => handleNavClick(href)}
+                  onClick={(e) => handleNavClick(e, href)}
                   className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-150"
                   style={{
                     color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
@@ -141,7 +144,7 @@ export default function Nav() {
               key={href}
               href={href}
               prefetch={true}
-              onClick={() => handleNavClick(href)}
+              onClick={(e) => handleNavClick(e, href)}
               className="flex flex-col items-center gap-0.5 flex-1 transition-opacity duration-75"
               style={{
                 paddingTop: 6,

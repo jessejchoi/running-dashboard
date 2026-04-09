@@ -40,37 +40,47 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     )
   }
 
-  const { data: group } = await supabaseAdmin
-    .from('groups')
-    .select('*')
-    .eq('id', params.id)
-    .single()
+  // Batch 1: fetch group info, all memberships, members, and challenges in parallel
+  const [
+    { data: group },
+    { data: allMemberships },
+    { data: members },
+    { data: challenges },
+  ] = await Promise.all([
+    supabaseAdmin.from('groups').select('*').eq('id', params.id).single(),
+    supabaseAdmin.from('group_members').select('group_id').eq('athlete_id', parseInt(athleteId)),
+    supabaseAdmin
+      .from('group_members')
+      .select('athlete_id, role, joined_at')
+      .eq('group_id', params.id)
+      .order('joined_at', { ascending: true }),
+    supabaseAdmin
+      .from('group_challenges')
+      .select('*')
+      .eq('group_id', params.id)
+      .order('start_date', { ascending: false }),
+  ])
 
   if (!group) redirect('/')
 
-  // Fetch all groups this athlete belongs to (for group switcher)
-  const { data: allMemberships } = await supabaseAdmin
-    .from('group_members')
-    .select('group_id')
-    .eq('athlete_id', parseInt(athleteId))
-
   const allGroupIds = (allMemberships ?? []).map(m => m.group_id)
-  const { data: allGroupsRaw } = allGroupIds.length > 0
-    ? await supabaseAdmin.from('groups').select('id, name').in('id', allGroupIds)
-    : { data: [] }
-  const allGroups = (allGroupsRaw ?? []).map(g => ({ id: g.id as string, name: g.name as string }))
-
-  // Fetch members
-  const { data: members } = await supabaseAdmin
-    .from('group_members')
-    .select('athlete_id, role, joined_at')
-    .eq('group_id', params.id)
-    .order('joined_at', { ascending: true })
-
   const memberIds = (members ?? []).map(m => m.athlete_id)
 
-  // Fetch athlete names/pics from strava_tokens and status tags from user_profiles
-  const [{ data: tokens }, { data: memberProfilesData }] = await Promise.all([
+  // Batch 2: fetch all member-dependent data and group names in parallel
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [
+    { data: allGroupsRaw },
+    { data: tokens },
+    { data: memberProfilesData },
+    { data: goals },
+    { data: recentRuns },
+    { data: leaderboardRuns },
+  ] = await Promise.all([
+    allGroupIds.length > 0
+      ? supabaseAdmin.from('groups').select('id, name').in('id', allGroupIds)
+      : Promise.resolve({ data: [] }),
     supabaseAdmin
       .from('strava_tokens')
       .select('athlete_id, athlete_name, athlete_profile, athlete_gender')
@@ -79,33 +89,27 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .from('user_profiles')
       .select('athlete_id, status_tag')
       .in('athlete_id', memberIds),
+    supabaseAdmin
+      .from('user_goals')
+      .select('athlete_id, id, distance_key, label, target_secs, current_secs, race_date')
+      .in('athlete_id', memberIds)
+      .order('race_date', { ascending: true }),
+    supabaseAdmin
+      .from('activities')
+      .select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type')
+      .in('athlete_id', memberIds)
+      .gte('start_date', thirtyDaysAgo)
+      .order('start_date', { ascending: false })
+      .limit(100),
+    supabaseAdmin
+      .from('activities')
+      .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type, total_elevation_gain')
+      .in('athlete_id', memberIds)
+      .gte('start_date', sixMonthsAgo)
+      .order('start_date', { ascending: false }),
   ])
 
-  // Fetch goals for all members
-  const { data: goals } = await supabaseAdmin
-    .from('user_goals')
-    .select('athlete_id, id, distance_key, label, target_secs, current_secs, race_date')
-    .in('athlete_id', memberIds)
-    .order('race_date', { ascending: true })
-
-  // Fetch last 30 days of activities for each member (for run feed + load more)
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const { data: recentRuns } = await supabaseAdmin
-    .from('activities')
-    .select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type')
-    .in('athlete_id', memberIds)
-    .gte('start_date', thirtyDaysAgo)
-    .order('start_date', { ascending: false })
-    .limit(100)
-
-  // Fetch last 6 months of activities for leaderboard + challenge progress + training load
-  const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
-  const { data: leaderboardRuns } = await supabaseAdmin
-    .from('activities')
-    .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type, total_elevation_gain')
-    .in('athlete_id', memberIds)
-    .gte('start_date', sixMonthsAgo)
-    .order('start_date', { ascending: false })
+  const allGroups = (allGroupsRaw ?? []).map(g => ({ id: g.id as string, name: g.name as string }))
 
   // Compute current training load (ATL/CTL/TSB) for each member
   const memberTrainingLoads: Record<number, { ctl: number; atl: number; tsb: number }> = {}
@@ -117,13 +121,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       ? { ctl: latest.ctl, atl: latest.atl, tsb: latest.tsb }
       : { ctl: 0, atl: 0, tsb: 0 }
   }
-
-  // Fetch group challenges
-  const { data: challenges } = await supabaseAdmin
-    .from('group_challenges')
-    .select('*')
-    .eq('group_id', params.id)
-    .order('start_date', { ascending: false })
 
   // Compose member profiles
   const memberProfiles = (members ?? []).map(m => {

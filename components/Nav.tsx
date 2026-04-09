@@ -144,8 +144,8 @@ export default function Nav() {
           bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
           transform: 'translateX(-50%)',
           background: 'rgba(0,0,0,0.10)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
           border: '1px solid rgba(255,255,255,0.18)',
           boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
         }}

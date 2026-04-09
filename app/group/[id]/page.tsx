@@ -5,6 +5,8 @@ import Nav from '@/components/Nav'
 import GroupPageClient from '@/components/GroupPageClient'
 import { format } from 'date-fns'
 import { calculateTrainingLoad } from '@/lib/strava'
+import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
+import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,6 +71,11 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   // Batch 2: fetch all member-dependent data and group names in parallel
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
+  const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  // Today in Jakarta time (UTC+7) for plans date range
+  const jakartaNow = new Date(Date.now() + 7 * 60 * 60 * 1000)
+  const todayStr = jakartaNow.toISOString().slice(0, 10)
+  const planEndStr = new Date(jakartaNow.getTime() + 27 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   const [
     { data: allGroupsRaw },
@@ -77,6 +84,9 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     { data: goals },
     { data: recentRuns },
     { data: leaderboardRuns },
+    { data: briefingRow },
+    { data: awardsRaw },
+    { data: plansRaw },
   ] = await Promise.all([
     allGroupIds.length > 0
       ? supabaseAdmin.from('groups').select('id, name').in('id', allGroupIds)
@@ -107,6 +117,25 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .in('athlete_id', memberIds)
       .gte('start_date', sixMonthsAgo)
       .order('start_date', { ascending: false }),
+    supabaseAdmin
+      .from('group_coach_briefings')
+      .select('content_json, generated_at')
+      .eq('group_id', params.id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('group_member_awards')
+      .select('id, athlete_id, award_key, award_label, week_start, caption')
+      .eq('group_id', params.id)
+      .gte('week_start', fourWeeksAgo)
+      .order('week_start', { ascending: false }),
+    supabaseAdmin
+      .from('user_plans')
+      .select('id, athlete_id, plan_date, session_index, session_type, description, target_distance_meters')
+      .in('athlete_id', memberIds)
+      .gte('plan_date', todayStr)
+      .lte('plan_date', planEndStr)
+      .order('plan_date', { ascending: true })
+      .order('session_index', { ascending: true }),
   ])
 
   const allGroups = (allGroupsRaw ?? []).map(g => ({ id: g.id as string, name: g.name as string }))
@@ -142,6 +171,27 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://running-dashboard-three.vercel.app'}/join/${group.invite_code}`
 
+  // Build token map for awards (reuse already-fetched tokens)
+  const tokenMap: Record<number, { name: string; profile_pic: string | null }> = Object.fromEntries(
+    (tokens ?? []).map(t => [t.athlete_id, { name: t.athlete_name, profile_pic: t.athlete_profile ?? null }])
+  )
+  const initialAwards = (awardsRaw ?? []).map(a => ({
+    id: a.id as string,
+    athlete_id: a.athlete_id as number,
+    athlete_name: tokenMap[a.athlete_id]?.name ?? `Athlete ${a.athlete_id}`,
+    athlete_profile: tokenMap[a.athlete_id]?.profile_pic ?? null,
+    award_key: a.award_key as string,
+    award_label: a.award_label as string,
+    emoji: isValidAwardKey(a.award_key as string) ? AWARD_CATEGORIES[a.award_key as string].emoji : '🏆',
+    week_start: a.week_start as string,
+    caption: (a.caption as string | null) ?? null,
+  }))
+
+  const initialBriefing = briefingRow ? (briefingRow.content_json as BriefingContent) : null
+  const initialBriefingMeta = briefingRow
+    ? { cached: true, generated_at: briefingRow.generated_at as string }
+    : null
+
   return (
     <div className="min-h-screen">
       <Nav />
@@ -156,6 +206,10 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         myAthleteId={parseInt(athleteId)}
         memberTrainingLoads={memberTrainingLoads}
         allGroups={allGroups}
+        initialBriefing={initialBriefing}
+        initialBriefingMeta={initialBriefingMeta}
+        initialAwards={initialAwards}
+        initialPlans={plansRaw ?? []}
       />
     </div>
   )

@@ -23,12 +23,22 @@ interface Award {
   caption: string | null
 }
 
+interface BriefingMeta {
+  cached: boolean
+  generated_at: string
+  rate_limited?: boolean
+  next_refresh_at?: string
+}
+
 interface Props {
   groupId: string
   myRole: string
   members: Member[]
   /** When true, hides Ask Coach and Trophy Case (used on the home page) */
   minimal?: boolean
+  initialBriefing?: BriefingContent | null
+  initialBriefingMeta?: BriefingMeta | null
+  initialAwards?: Award[]
 }
 
 
@@ -87,47 +97,18 @@ const COACH_CHIPS = [
   "What should we focus on?",
 ]
 
-const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
-
-function readCache<T>(key: string): T | null {
-  try {
-    const raw = sessionStorage.getItem(key)
-    if (!raw) return null
-    const { data, cachedAt } = JSON.parse(raw)
-    if (Date.now() - cachedAt > CACHE_TTL) return null
-    return data as T
-  } catch { return null }
-}
-
-function writeCache(key: string, data: unknown) {
-  try { sessionStorage.setItem(key, JSON.stringify({ data, cachedAt: Date.now() })) } catch {}
-}
-
-export default function GroupCoachTab({ groupId, myRole, members, minimal = false }: Props) {
-  const [briefing, setBriefing] = useState<BriefingContent | null>(null)
+export default function GroupCoachTab({ groupId, myRole, members, minimal = false, initialBriefing, initialBriefingMeta, initialAwards }: Props) {
+  const [briefing, setBriefing] = useState<BriefingContent | null>(initialBriefing ?? null)
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
-  const [briefingMeta, setBriefingMeta] = useState<{
-    cached: boolean
-    generated_at: string
-    rate_limited?: boolean
-    next_refresh_at?: string
-  } | null>(null)
+  const [briefingMeta, setBriefingMeta] = useState<BriefingMeta | null>(initialBriefingMeta ?? null)
   const [answer, setAnswer] = useState('')
   const [answerStreaming, setAnswerStreaming] = useState(false)
   const [activeChip, setActiveChip] = useState<string | null>(null)
-  const [awards, setAwards] = useState<Award[]>([])
+  const [awards, setAwards] = useState<Award[]>(initialAwards ?? [])
   const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
-    if (!force) {
-      const cached = readCache<{ briefing: BriefingContent; meta: typeof briefingMeta }>(`rdcoach_briefing_${groupId}`)
-      if (cached) {
-        setBriefing(cached.briefing)
-        setBriefingMeta(cached.meta)
-        return
-      }
-    }
     setBriefingLoading(true)
     setBriefingError(false)
     try {
@@ -135,15 +116,13 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
       const res = await fetch(url)
       if (!res.ok) throw new Error('failed')
       const data = await res.json()
-      const meta = {
+      setBriefing(data.briefing)
+      setBriefingMeta({
         cached: data.cached,
         generated_at: data.generated_at,
         rate_limited: data.rate_limited,
         next_refresh_at: data.next_refresh_at,
-      }
-      setBriefing(data.briefing)
-      setBriefingMeta(meta)
-      writeCache(`rdcoach_briefing_${groupId}`, { briefing: data.briefing, meta })
+      })
     } catch {
       setBriefingError(true)
     } finally {
@@ -153,22 +132,19 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
 
   async function fetchAwards() {
     if (minimal) return
-    const cached = readCache<Award[]>(`rdcoach_awards_${groupId}`)
-    if (cached) { setAwards(cached); return }
     try {
       const res = await fetch(`/api/groups/${groupId}/awards?weeks=4`)
       if (!res.ok) return
       const data = await res.json()
       setAwards(data.awards ?? [])
-      writeCache(`rdcoach_awards_${groupId}`, data.awards ?? [])
     } catch {
       // silent — Trophy Case is non-critical
     }
   }
 
   useEffect(() => {
-    fetchBriefing()
-    fetchAwards()
+    if (!initialBriefing) fetchBriefing()
+    if (!initialAwards?.length && !minimal) fetchAwards()
   }, [])
 
   async function askCoach(chipText: string) {

@@ -7,6 +7,26 @@ import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, formatTime } from '@/components/GroupShared'
 import GroupCoachTab from '@/components/GroupCoachTab'
 import GroupMessageBoard from '@/components/GroupMessageBoard'
+import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
+
+interface Award {
+  id: string
+  athlete_id: number
+  athlete_name: string
+  athlete_profile: string | null
+  award_key: string
+  award_label: string
+  emoji: string
+  week_start: string
+  caption: string | null
+}
+
+interface BriefingMeta {
+  cached: boolean
+  generated_at: string
+  rate_limited?: boolean
+  next_refresh_at?: string
+}
 
 interface Props {
   group: Group
@@ -18,6 +38,9 @@ interface Props {
   initialChallenges: Challenge[]
   onKickMember: (athleteId: number) => Promise<void>
   onUpdateMemberRole: (athleteId: number, role: 'admin' | 'member') => Promise<void>
+  initialBriefing?: BriefingContent | null
+  initialBriefingMeta?: BriefingMeta | null
+  initialAwards?: Award[]
 }
 
 // ── Leaderboard helpers ──────────────────────────────────────────────────────
@@ -227,7 +250,7 @@ const RUN_TYPE_LABELS: Record<string, string> = {
 
 export default function GroupDashboardTab({
   group, leaderboardRuns, members, memberTrainingLoads, myRole, myAthleteId, initialChallenges,
-  onKickMember, onUpdateMemberRole,
+  onKickMember, onUpdateMemberRole, initialBriefing, initialBriefingMeta, initialAwards,
 }: Props) {
   const { unit } = useUnit()
   const label = distanceUnitLabel(unit)
@@ -730,7 +753,7 @@ export default function GroupDashboardTab({
       {/* RDCoach section */}
       <div>
         <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">RDCoach</p>
-        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} />
+        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
       </div>
 
       {/* Leaderboard section */}

@@ -8,6 +8,7 @@ import { Avatar, formatTime, type Group, type Member, type Run, type Leaderboard
 import GroupDashboardTab from '@/components/GroupDashboardTab'
 import GroupFeedTab from '@/components/GroupFeedTab'
 import GroupPlansTab from '@/components/GroupPlansTab'
+import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 
 interface Goal {
   id: string
@@ -17,6 +18,28 @@ interface Goal {
   target_secs: number
   current_secs: number | null
   race_date: string
+}
+
+interface Award {
+  id: string
+  athlete_id: number
+  athlete_name: string
+  athlete_profile: string | null
+  award_key: string
+  award_label: string
+  emoji: string
+  week_start: string
+  caption: string | null
+}
+
+interface UserPlan {
+  id: string
+  athlete_id: number
+  plan_date: string
+  session_index: number
+  session_type: string | null
+  description: string | null
+  target_distance_meters: number | null
 }
 
 interface Props {
@@ -30,10 +53,15 @@ interface Props {
   myAthleteId: number
   memberTrainingLoads: Record<number, TrainingLoad>
   allGroups: { id: string; name: string }[]
+  initialBriefing?: BriefingContent | null
+  initialBriefingMeta?: { cached: boolean; generated_at: string } | null
+  initialAwards?: Award[]
+  initialPlans?: UserPlan[]
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, memberTrainingLoads, allGroups,
+  initialBriefing, initialBriefingMeta, initialAwards, initialPlans,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
@@ -245,6 +273,9 @@ export default function GroupPageClient({
           initialChallenges={initialChallenges}
           onKickMember={kickMember}
           onUpdateMemberRole={updateMemberRole}
+          initialBriefing={initialBriefing}
+          initialBriefingMeta={initialBriefingMeta}
+          initialAwards={initialAwards}
         />
       </div>
 
@@ -320,6 +351,7 @@ export default function GroupPageClient({
           group={group}
           members={localMembers}
           myAthleteId={myAthleteId}
+          initialPlans={initialPlans}
         />
       </div>
     </main>

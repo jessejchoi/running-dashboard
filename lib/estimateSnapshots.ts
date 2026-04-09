@@ -141,3 +141,14 @@ export async function fetchDeltas(
   const byDate = await fetchSnapshotWindow(athleteId)
   return buildAllDeltas(current, byDate)
 }
+
+/**
+ * Fetch snapshot window and return the raw byDate map.
+ * Useful when you need both a today-cache check and delta computation
+ * from a single DB query.
+ */
+export async function fetchSnapshotsByDate(
+  athleteId: number,
+): Promise<Record<string, Record<string, number>>> {
+  return fetchSnapshotWindow(athleteId)
+}

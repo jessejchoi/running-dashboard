@@ -117,7 +117,8 @@ export default function GroupPageClient({
                 onChange={e => setRenameValue(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveGroupName(); if (e.key === 'Escape') setRenamingGroup(false) }}
                 autoFocus
-                className="font-display font-extrabold text-4xl bg-transparent border-b-2 border-[#f97316] outline-none text-white w-full"
+                className="font-display font-extrabold uppercase leading-none bg-transparent border-b-2 border-[#f97316] outline-none text-white w-full"
+              style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}
               />
               <button
                 onClick={saveGroupName}
@@ -132,7 +133,7 @@ export default function GroupPageClient({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="font-display font-extrabold text-4xl">{groupName}</h1>
+              <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>{groupName}</h1>
               {myRole === 'admin' && (
                 <button
                   onClick={() => { setRenameValue(groupName); setRenamingGroup(true) }}

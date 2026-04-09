@@ -146,7 +146,7 @@ export default function Nav() {
           background: 'rgba(0,0,0,0.35)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.18)',
           boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
         }}
       >

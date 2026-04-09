@@ -77,7 +77,7 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
   return (
     <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
       <div className="flex items-center justify-between mb-4">
-        <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>This Week</p>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Training Plan This Week</h2>
         <Link
           href="/plan"
           className="font-mono text-xs transition-colors"

@@ -34,13 +34,14 @@ export default function RecentRunsCard({ runs, unit }: Props) {
   if (runs.length === 0) return null
 
   return (
-    <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
+    <section className="mb-3">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Recent Runs</h2>
         <Link href="/runs" className="font-mono text-xs text-[#6b7280] hover:text-orange-500 transition-colors">
           View all →
         </Link>
       </div>
+      <div className="card fade-up" style={{ padding: '1.25rem' }}>
 
       <div className="flex flex-col">
         {runs.map((run, i) => {
@@ -127,6 +128,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
           )
         })}
       </div>
-    </div>
+      </div>
+    </section>
   )
 }

@@ -75,19 +75,14 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
   const hasSessions = days.some(d => d.sessions.length > 0)
 
   return (
-    <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
+    <section className="mb-3">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Training Plan This Week</h2>
-        <Link
-          href="/plan"
-          className="font-mono text-xs transition-colors"
-          style={{ color: 'var(--text-muted)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--orange)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-        >
+        <Link href="/plan" className="font-mono text-xs text-[#6b7280] hover:text-orange-500 transition-colors">
           Full plan →
         </Link>
       </div>
+    <div className="card fade-up" style={{ padding: '1.25rem' }}>
 
       {!loaded ? (
         <div className="animate-pulse flex flex-col gap-2">
@@ -153,5 +148,6 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
         </div>
       )}
     </div>
+    </section>
   )
 }

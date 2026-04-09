@@ -152,13 +152,14 @@ export default async function DashboardRaceSection({
 
       {/* Race Estimates */}
       {hasEstimates && (
-        <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
-          <div className="flex items-center justify-between mb-3">
+        <section className="mb-3">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Race Estimates</h2>
             <Link href="/analysis" className="font-mono text-xs text-[#6b7280] hover:text-orange-500 transition-colors">
               Full analysis →
             </Link>
           </div>
+        <div className="card fade-up" style={{ padding: '1.25rem' }}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {(['5k', '10k', 'hm', 'fm'] as const).map(key => {
               const label = key === '5k' ? '5K' : key === '10k' ? '10K' : key === 'hm' ? 'Half' : 'Full'
@@ -182,6 +183,7 @@ export default async function DashboardRaceSection({
             })}
           </div>
         </div>
+        </section>
       )}
 
       {/* Max HR warning */}

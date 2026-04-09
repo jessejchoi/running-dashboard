@@ -35,7 +35,7 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap, allDe
           <button
             key={tab.key}
             onClick={() => setActive(tab.key)}
-            className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+            className={`px-5 py-1.5 rounded-lg text-sm font-bold transition-all ${
               active === tab.key
                 ? 'bg-[#f97316] text-white shadow-lg'
                 : 'text-[#6b7280] hover:text-white hover:bg-[#1c1c1c]'

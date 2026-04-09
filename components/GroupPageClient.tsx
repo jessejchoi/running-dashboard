@@ -234,7 +234,7 @@ export default function GroupPageClient({
       </div>
 
       {/* ── Dashboard tab ─────────────────────────────────────────────────── */}
-      {tab === 'dashboard' && (
+      <div className={tab !== 'dashboard' ? 'hidden' : ''}>
         <GroupDashboardTab
           group={group}
           leaderboardRuns={leaderboardRuns}
@@ -246,17 +246,17 @@ export default function GroupPageClient({
           onKickMember={kickMember}
           onUpdateMemberRole={updateMemberRole}
         />
-      )}
+      </div>
 
       {/* ── Feed tab ──────────────────────────────────────────────────────── */}
-      {tab === 'feed' && (
+      <div className={tab !== 'feed' ? 'hidden' : ''}>
         <GroupFeedTab
           groupId={group.id}
           recentRuns={recentRuns}
           members={localMembers}
           myAthleteId={myAthleteId}
         />
-      )}
+      </div>
 
       {/* ── Goals tab ─────────────────────────────────────────────────────── */}
       {tab === 'goals' && (
@@ -315,13 +315,13 @@ export default function GroupPageClient({
       )}
 
       {/* ── Plans tab ─────────────────────────────────────────────────────── */}
-      {tab === 'plans' && (
+      <div className={tab !== 'plans' ? 'hidden' : ''}>
         <GroupPlansTab
           group={group}
           members={localMembers}
           myAthleteId={myAthleteId}
         />
-      )}
+      </div>
     </main>
   )
 }

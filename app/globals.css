@@ -144,6 +144,16 @@ h1.font-display {
   height: 42px;
 }
 
+/* Safari browser (non-standalone): content must clear the 48px mobile top bar.
+   The pt-8 Tailwind class (32px) isn't enough — add a base rule here so all
+   pages clear the header without editing each page file. The standalone rule
+   below overrides this with safe-area-inset-top on top. */
+@media (max-width: 639px) {
+  .standalone-main {
+    padding-top: 60px;
+  }
+}
+
 /* Standalone overrides
    html.standalone .class has specificity 0,2,1 which beats Tailwind's 0,1,0
    No @layer or !important needed */

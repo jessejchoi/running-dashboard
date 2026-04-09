@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <main className="max-w-4xl mx-auto px-4 pt-20 pb-16 animate-pulse">
+    <main className="max-w-4xl mx-auto px-4 pt-8 sm:pt-20 pb-24 sm:pb-16 animate-pulse">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>

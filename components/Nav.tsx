@@ -105,65 +105,70 @@ export default function Nav() {
         )}
       </nav>
 
-      {/* ── Mobile top bar: two rows ─────────────────────────── */}
-      <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 flex flex-col" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        {/* Row 1: logo + actions */}
-        <div className="flex items-center justify-between h-12 px-4">
-          <span className="font-display font-bold text-xl uppercase tracking-tight">
-            <span style={{ color: 'var(--orange)' }}>RUN</span>
-            <span className="text-white/50">DASH</span>
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
-              style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
-            >
-              <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
-              {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
-            </button>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="p-1.5 flex items-center justify-center rounded-md transition-all"
-              style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-            >
-              <Settings size={14} />
-            </button>
-          </div>
+      {/* ── Mobile top bar: logo + actions ───────────────────── */}
+      <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-4" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <span className="font-display font-bold text-xl uppercase tracking-tight">
+          <span style={{ color: 'var(--orange)' }}>RUN</span>
+          <span className="text-white/50">DASH</span>
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
+            style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
+          >
+            <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
+          </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-1.5 flex items-center justify-center rounded-md transition-all"
+            style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+          >
+            <Settings size={14} />
+          </button>
         </div>
-
-        {/* Row 2: nav tabs with underline indicator */}
-        <div className="flex" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-          {navItems.map(({ href, label }) => {
-            const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
-            const loading = pendingHref === href && isPending
-            return (
-              <Link
-                key={href}
-                href={href}
-                prefetch={true}
-                onClick={(e) => handleNavClick(e, href)}
-                className="flex-1 flex items-center justify-center h-8 text-xs font-medium relative transition-colors duration-150"
-                style={{
-                  color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
-                  opacity: loading ? 0.75 : 1,
-                  WebkitTapHighlightColor: 'transparent',
-                  touchAction: 'manipulation',
-                }}
-              >
-                {label}
-                {(active || loading) && (
-                  <span className="absolute bottom-0 left-1/4 right-1/4 h-[2px] rounded-full" style={{ background: 'var(--orange)' }} />
-                )}
-              </Link>
-            )
-          })}
-        </div>
-
         {isPending && (
           <div className="absolute bottom-0 left-0 h-[2px] animate-pulse" style={{ width: '40%', background: 'var(--orange)' }} />
         )}
+      </div>
+
+      {/* ── Mobile floating nav pill ──────────────────────────── */}
+      <div
+        className="sm:hidden fixed left-1/2 z-50 flex items-center rounded-full p-1"
+        style={{
+          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          transform: 'translateX(-50%)',
+          background: 'rgba(20,20,20,0.95)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        }}
+      >
+        {navItems.map(({ href, label }) => {
+          const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
+          const loading = pendingHref === href && isPending
+          return (
+            <Link
+              key={href}
+              href={href}
+              prefetch={true}
+              onClick={(e) => handleNavClick(e, href)}
+              className="px-6 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-150"
+              style={{
+                color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
+                background: active || loading ? 'rgba(249,115,22,0.12)' : 'transparent',
+                opacity: loading ? 0.7 : 1,
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+              }}
+            >
+              {label}
+            </Link>
+          )
+        })}
       </div>
 
       {/* Settings drawer */}

@@ -148,7 +148,7 @@ h1.font-display {
    html.standalone .class has specificity 0,2,1 which beats Tailwind's 0,1,0
    No @layer or !important needed */
 html.standalone .standalone-main {
-  padding-top: calc(80px + env(safe-area-inset-top, 0px));
+  padding-top: calc(48px + env(safe-area-inset-top, 0px));
 }
 html.standalone .mobile-nav {
   max-height: none;

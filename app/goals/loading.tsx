@@ -4,7 +4,7 @@ export default function GoalsLoading() {
   return (
     <>
       <Nav />
-      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-20 pb-16">
+      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
         {/* Header skeleton */}
         <div className="mb-8 animate-pulse">
           <div className="h-10 w-48 rounded" style={{ background: 'var(--surface-2)' }} />

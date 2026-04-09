@@ -70,7 +70,7 @@ export default async function SourcesPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Nav />
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-20 pb-16">
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/analysis" className="text-[#6b7280] hover:text-white transition-colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>

@@ -201,7 +201,7 @@ export default async function AnalysisPage() {
     <>
       <Nav />
       <AnalysisTabProvider>
-      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-20 pb-16">
+      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold text-4xl mb-1">Race Analysis</h1>
           <p className="text-[#6b7280] text-sm max-w-3xl">

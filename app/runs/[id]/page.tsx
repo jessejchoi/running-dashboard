@@ -46,7 +46,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
   return (
     <>
       <Nav />
-      <main className="standalone-main max-w-4xl mx-auto px-6 pt-20 pb-16">
+      <main className="standalone-main max-w-4xl mx-auto px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
         <Link href="/runs" className="flex items-center gap-2 text-sm mb-6 transition-colors" style={{ color: 'var(--text-muted)' }}>
           <ArrowLeft size={14} /> All runs
         </Link>

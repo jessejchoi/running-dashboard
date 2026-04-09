@@ -1,8 +1,8 @@
 'use client'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Activity, RefreshCw, Users, Settings } from 'lucide-react'
-import { useState, useTransition } from 'react'
+import { useState, useEffect } from 'react'
 import SettingsDrawer from './SettingsDrawer'
 
 const navItems = [
@@ -12,20 +12,22 @@ const navItems = [
 
 export default function Nav() {
   const path = usePathname()
-  const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
   const [pendingHref, setPendingHref] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  function handleNavClick(e: React.MouseEvent, href: string) {
+  // Clear pending state once navigation completes
+  useEffect(() => { setPendingHref(null) }, [path])
+
+  // isPending: clicked a nav item but haven't arrived yet
+  const isPending = pendingHref !== null && pendingHref !== path
+
+  function handleNavClick(href: string) {
     if (href === path) return
-    e.preventDefault()
     setPendingHref(href)
-    startTransition(() => {
-      router.push(href)
-    })
+    // No e.preventDefault() — let <Link> navigate natively so loading.tsx
+    // shows immediately. startTransition suppresses loading skeletons.
   }
 
   async function handleSync() {
@@ -64,7 +66,7 @@ export default function Nav() {
                   key={href}
                   href={href}
                   prefetch={true}
-                  onClick={(e) => handleNavClick(e, href)}
+                  onClick={() => handleNavClick(href)}
                   className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-150"
                   style={{
                     color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
@@ -155,7 +157,7 @@ export default function Nav() {
               key={href}
               href={href}
               prefetch={true}
-              onClick={(e) => handleNavClick(e, href)}
+              onClick={() => handleNavClick(href)}
               className="px-6 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-150"
               style={{
                 color: active || loading ? 'var(--orange)' : 'var(--text-muted)',

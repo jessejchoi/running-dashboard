@@ -160,7 +160,7 @@ export default async function DashboardPage() {
         </Suspense>
 
         {/* ── Recent Runs ── */}
-        <RecentRunsCard runs={activities.slice(0, 5) as any} unit={unit} />
+        <RecentRunsCard runs={activities.slice(0, 7) as any} unit={unit} />
 
       </main>
     </>

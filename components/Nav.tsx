@@ -105,17 +105,46 @@ export default function Nav() {
         )}
       </nav>
 
-      {/* ── Mobile top bar: logo + sync only ─────────────────── */}
-      <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-4" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <span className="font-display font-bold text-xl uppercase tracking-tight">
+      {/* ── Mobile top bar: logo + nav pills + actions ───────── */}
+      <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-3 gap-2" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        {/* Logo */}
+        <span className="font-display font-bold text-lg uppercase tracking-tight shrink-0">
           <span style={{ color: 'var(--orange)' }}>RUN</span>
           <span className="text-white/50">DASH</span>
         </span>
-        <div className="flex items-center gap-1.5">
+
+        {/* Nav pills — centered */}
+        <div className="flex items-center gap-0.5 flex-1 justify-center">
+          {navItems.map(({ href, label }) => {
+            const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
+            const loading = pendingHref === href && isPending
+            return (
+              <Link
+                key={href}
+                href={href}
+                prefetch={true}
+                onClick={(e) => handleNavClick(e, href)}
+                className="px-3 py-1 rounded-md text-xs font-medium transition-all duration-150"
+                style={{
+                  color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
+                  background: active || loading ? 'var(--accent-muted)' : 'transparent',
+                  opacity: loading ? 0.75 : 1,
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation',
+                }}
+              >
+                {label}
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
+            className="flex items-center gap-1 px-2 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
             style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
           >
             <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
@@ -129,41 +158,11 @@ export default function Nav() {
             <Settings size={14} />
           </button>
         </div>
+
         {isPending && (
           <div className="absolute bottom-0 left-0 h-[2px] animate-pulse" style={{ width: '40%', background: 'var(--orange)' }} />
         )}
       </div>
-
-      {/* ── Mobile bottom tab bar ─────────────────────────────── */}
-      <div className="mobile-nav sm:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-1" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
-          const loading = pendingHref === href && isPending
-          return (
-            <Link
-              key={href}
-              href={href}
-              prefetch={true}
-              onClick={(e) => handleNavClick(e, href)}
-              className="flex flex-col items-center gap-0.5 flex-1 transition-opacity duration-75"
-              style={{
-                paddingTop: 6,
-                paddingBottom: 2,
-                color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
-                opacity: loading ? 0.7 : 1,
-                WebkitTapHighlightColor: 'transparent',
-                touchAction: 'manipulation',
-              }}
-            >
-              <Icon size={19} />
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.03em' }}>{label}</span>
-            </Link>
-          )
-        })}
-      </div>
-
-      {/* Mobile bottom spacer */}
-      <div className="mobile-nav-spacer sm:hidden" />
 
       {/* Settings drawer */}
       <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />

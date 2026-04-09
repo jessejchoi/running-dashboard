@@ -87,6 +87,22 @@ const COACH_CHIPS = [
   "What should we focus on?",
 ]
 
+const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
+
+function readCache<T>(key: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return null
+    const { data, cachedAt } = JSON.parse(raw)
+    if (Date.now() - cachedAt > CACHE_TTL) return null
+    return data as T
+  } catch { return null }
+}
+
+function writeCache(key: string, data: unknown) {
+  try { sessionStorage.setItem(key, JSON.stringify({ data, cachedAt: Date.now() })) } catch {}
+}
+
 export default function GroupCoachTab({ groupId, myRole, members, minimal = false }: Props) {
   const [briefing, setBriefing] = useState<BriefingContent | null>(null)
   const [briefingLoading, setBriefingLoading] = useState(false)
@@ -104,6 +120,14 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
+    if (!force) {
+      const cached = readCache<{ briefing: BriefingContent; meta: typeof briefingMeta }>(`rdcoach_briefing_${groupId}`)
+      if (cached) {
+        setBriefing(cached.briefing)
+        setBriefingMeta(cached.meta)
+        return
+      }
+    }
     setBriefingLoading(true)
     setBriefingError(false)
     try {
@@ -111,13 +135,15 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
       const res = await fetch(url)
       if (!res.ok) throw new Error('failed')
       const data = await res.json()
-      setBriefing(data.briefing)
-      setBriefingMeta({
+      const meta = {
         cached: data.cached,
         generated_at: data.generated_at,
         rate_limited: data.rate_limited,
         next_refresh_at: data.next_refresh_at,
-      })
+      }
+      setBriefing(data.briefing)
+      setBriefingMeta(meta)
+      writeCache(`rdcoach_briefing_${groupId}`, { briefing: data.briefing, meta })
     } catch {
       setBriefingError(true)
     } finally {
@@ -127,11 +153,14 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
 
   async function fetchAwards() {
     if (minimal) return
+    const cached = readCache<Award[]>(`rdcoach_awards_${groupId}`)
+    if (cached) { setAwards(cached); return }
     try {
       const res = await fetch(`/api/groups/${groupId}/awards?weeks=4`)
       if (!res.ok) return
       const data = await res.json()
       setAwards(data.awards ?? [])
+      writeCache(`rdcoach_awards_${groupId}`, data.awards ?? [])
     } catch {
       // silent — Trophy Case is non-critical
     }

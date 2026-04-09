@@ -24,6 +24,26 @@ interface Props {
   myAthleteId: number
 }
 
+const PLANS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+function readPlansCache(groupId: string): UserPlan[] | null {
+  try {
+    const raw = sessionStorage.getItem(`group_plans_${groupId}`)
+    if (!raw) return null
+    const { data, cachedAt } = JSON.parse(raw)
+    if (Date.now() - cachedAt > PLANS_CACHE_TTL) return null
+    return data as UserPlan[]
+  } catch { return null }
+}
+
+function writePlansCache(groupId: string, plans: UserPlan[]) {
+  try { sessionStorage.setItem(`group_plans_${groupId}`, JSON.stringify({ data: plans, cachedAt: Date.now() })) } catch {}
+}
+
+function invalidatePlansCache(groupId: string) {
+  try { sessionStorage.removeItem(`group_plans_${groupId}`) } catch {}
+}
+
 export default function GroupPlansTab({ group, members, myAthleteId }: Props) {
   const { unit } = useUnit()
   const toDisplay = (m: number) => unit === 'miles' ? metersToMiles(m) : m / 1000
@@ -37,12 +57,16 @@ export default function GroupPlansTab({ group, members, myAthleteId }: Props) {
 
   useEffect(() => {
     async function loadPlans() {
+      const cached = readPlansCache(group.id)
+      if (cached) { setPlans(cached); return }
       setPlansLoading(true)
       const now = new Date()
       const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
       const res = await fetch(`/api/groups/${group.id}/plans?today=${todayStr}`)
       const data = await res.json()
-      setPlans(data.plans ?? [])
+      const fetched = data.plans ?? []
+      setPlans(fetched)
+      writePlansCache(group.id, fetched)
       setPlansLoading(false)
     }
     loadPlans()
@@ -87,6 +111,7 @@ export default function GroupPlansTab({ group, members, myAthleteId }: Props) {
       next = existing.map((s, i) => i === sessionIdx ? config : s)
     }
     try { localStorage.setItem(`plan_sessions_v3_${date}`, JSON.stringify(next)) } catch {}
+    invalidatePlansCache(group.id)
 
     fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
       .then(() => {
@@ -136,6 +161,7 @@ export default function GroupPlansTab({ group, members, myAthleteId }: Props) {
       }
     } catch {}
 
+    invalidatePlansCache(group.id)
     fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
       .then(() => {
         next.forEach((s, i) => {

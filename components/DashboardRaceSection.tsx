@@ -155,10 +155,7 @@ export default async function DashboardRaceSection({
         <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
           <div className="flex items-center justify-between mb-3">
             <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Race Estimates</p>
-            <Link href="/analysis" className="font-mono text-xs transition-colors" style={{ color: 'var(--text-muted)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--orange)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-            >
+            <Link href="/analysis" className="font-mono text-xs text-[#6b7280] hover:text-orange-500 transition-colors">
               Full analysis →
             </Link>
           </div>

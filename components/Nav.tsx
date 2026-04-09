@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Activity, RefreshCw, Users, Settings } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import SettingsDrawer from './SettingsDrawer'
@@ -12,6 +12,7 @@ const navItems = [
 
 export default function Nav() {
   const path = usePathname()
+  const router = useRouter()
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [pendingHref, setPendingHref] = useState<string | null>(null)

@@ -8,6 +8,7 @@ import TrainingLoadChart from '@/components/TrainingLoadChart'
 import DashboardRaceSection from '@/components/DashboardRaceSection'
 import RecentRunsCard from '@/components/RecentRunsCard'
 import WeeklyPlanCard from '@/components/WeeklyPlanCard'
+import PrefetchGroup from '@/components/PrefetchGroup'
 import { formatDuration, isoWeek, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { format } from 'date-fns'
@@ -35,7 +36,7 @@ async function getFastData(athleteId: number) {
       .single(),
     supabaseAdmin
       .from('user_profiles')
-      .select('display_name, max_hr')
+      .select('display_name, max_hr, primary_group_id')
       .eq('athlete_id', athleteId)
       .maybeSingle(),
   ])
@@ -45,6 +46,7 @@ async function getFastData(athleteId: number) {
     athlete: tokenData?.athlete_data,
     displayName: userProfile?.display_name ?? null,
     hasMaxHr: !!userProfile?.max_hr,
+    primaryGroupId: userProfile?.primary_group_id ?? null,
   }
 }
 
@@ -79,7 +81,7 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, hasMaxHr } = await getFastData(Number(athleteId))
+  const { activities, athlete, displayName, hasMaxHr, primaryGroupId } = await getFastData(Number(athleteId))
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
@@ -93,6 +95,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Nav />
+      {primaryGroupId && <PrefetchGroup groupId={primaryGroupId} />}
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
 
         {/* Page header */}

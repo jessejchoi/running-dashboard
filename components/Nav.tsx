@@ -105,16 +105,36 @@ export default function Nav() {
         )}
       </nav>
 
-      {/* ── Mobile top bar: logo + nav pills + actions ───────── */}
-      <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-3 gap-2" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        {/* Logo */}
-        <span className="font-display font-bold text-lg uppercase tracking-tight shrink-0">
-          <span style={{ color: 'var(--orange)' }}>RUN</span>
-          <span className="text-white/50">DASH</span>
-        </span>
+      {/* ── Mobile top bar: two rows ─────────────────────────── */}
+      <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 flex flex-col" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        {/* Row 1: logo + actions */}
+        <div className="flex items-center justify-between h-12 px-4">
+          <span className="font-display font-bold text-xl uppercase tracking-tight">
+            <span style={{ color: 'var(--orange)' }}>RUN</span>
+            <span className="text-white/50">DASH</span>
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
+              style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
+            >
+              <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
+            </button>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="p-1.5 flex items-center justify-center rounded-md transition-all"
+              style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+            >
+              <Settings size={14} />
+            </button>
+          </div>
+        </div>
 
-        {/* Nav pills — centered */}
-        <div className="flex items-center gap-0.5 flex-1 justify-center">
+        {/* Row 2: nav tabs with underline indicator */}
+        <div className="flex" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
           {navItems.map(({ href, label }) => {
             const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
             const loading = pendingHref === href && isPending
@@ -124,39 +144,21 @@ export default function Nav() {
                 href={href}
                 prefetch={true}
                 onClick={(e) => handleNavClick(e, href)}
-                className="px-3 py-1 rounded-md text-xs font-medium transition-all duration-150"
+                className="flex-1 flex items-center justify-center h-8 text-xs font-medium relative transition-colors duration-150"
                 style={{
                   color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
-                  background: active || loading ? 'var(--accent-muted)' : 'transparent',
                   opacity: loading ? 0.75 : 1,
                   WebkitTapHighlightColor: 'transparent',
                   touchAction: 'manipulation',
                 }}
               >
                 {label}
+                {(active || loading) && (
+                  <span className="absolute bottom-0 left-1/4 right-1/4 h-[2px] rounded-full" style={{ background: 'var(--orange)' }} />
+                )}
               </Link>
             )
           })}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="flex items-center gap-1 px-2 py-1.5 text-xs rounded-md transition-all disabled:opacity-50"
-            style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
-          >
-            <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Syncing…' : syncMsg ?? 'Sync'}
-          </button>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-1.5 flex items-center justify-center rounded-md transition-all"
-            style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-          >
-            <Settings size={14} />
-          </button>
         </div>
 
         {isPending && (

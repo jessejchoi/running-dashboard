@@ -250,7 +250,7 @@ export default function PlanPage() {
   return (
     <>
       <Nav />
-      <main className="standalone-main max-w-6xl mx-auto px-4 pt-8 sm:pt-20 pb-16">
+      <main className="standalone-main max-w-6xl mx-auto px-4 pt-20 pb-16">
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Training Plan</h1>
           {monday && lastDay && (

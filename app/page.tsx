@@ -93,7 +93,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Nav />
-      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-16">
+      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-20 pb-16">
 
         {/* Page header */}
         <div className="mb-6 fade-up">

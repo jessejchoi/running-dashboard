@@ -26,7 +26,7 @@ export default async function RunsPage() {
   return (
     <>
       <Nav />
-      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-16">
+      <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-20 pb-16">
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Activity Log</h1>
           <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{activities.length} runs</p>

@@ -78,7 +78,7 @@ export async function POST() {
       .map(([dk, secs]) => ({
         athlete_id: id,
         distance_key: dk,
-        estimated_secs: secs as number,
+        estimated_secs: Math.round(secs as number),
         snapshotted_at: dateStr,
       }))
 

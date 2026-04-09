@@ -180,10 +180,17 @@ ${JSON.stringify(ctx, null, 2)}`
         })
         .filter(Boolean)
 
+      // Replace this week's awards entirely (delete + insert) so multiple refreshes don't accumulate
+      await supabaseAdmin
+        .from('group_member_awards')
+        .delete()
+        .eq('group_id', params.id)
+        .eq('week_start', weekStartStr)
+
       if (awardRows.length > 0) {
         await supabaseAdmin
           .from('group_member_awards')
-          .upsert(awardRows, { onConflict: 'group_id,athlete_id,award_key,week_start', ignoreDuplicates: true })
+          .insert(awardRows)
       }
     }
 

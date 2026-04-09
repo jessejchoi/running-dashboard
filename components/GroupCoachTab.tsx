@@ -199,8 +199,18 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
 
   if (!briefing) return null
 
-  // Group awards by week for Trophy Case
+  // Current week start (Monday) in local time — exclude from Trophy Case since it's shown above
+  const todayStr = new Date().toISOString().split('T')[0]
+  const todayDate = new Date(todayStr + 'T12:00:00')
+  const dayOfWeek = todayDate.getDay() // 0=Sun
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  const currentWeekStart = new Date(todayDate)
+  currentWeekStart.setDate(todayDate.getDate() - daysToMonday)
+  const currentWeekStr = currentWeekStart.toISOString().split('T')[0]
+
+  // Group awards by week for Trophy Case (past weeks only)
   const awardWeeks = awards.reduce<Record<string, Award[]>>((acc, a) => {
+    if (a.week_start >= currentWeekStr) return acc // skip current week
     acc[a.week_start] = acc[a.week_start] ?? []
     acc[a.week_start].push(a)
     return acc

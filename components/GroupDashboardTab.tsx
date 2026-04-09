@@ -6,8 +6,6 @@ import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekSt
 import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, formatTime } from '@/components/GroupShared'
 import GroupCoachTab from '@/components/GroupCoachTab'
-import PatternInsightCard from '@/components/PatternInsightCard'
-import GroupPeekCard from '@/components/GroupPeekCard'
 import GroupMessageBoard from '@/components/GroupMessageBoard'
 
 interface Props {
@@ -732,10 +730,6 @@ export default function GroupDashboardTab({
       {/* RDCoach section */}
       <div>
         <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">RDCoach</p>
-        <div className="grid sm:grid-cols-2 gap-3 mb-4">
-          <PatternInsightCard />
-          <GroupPeekCard groupId={group.id} />
-        </div>
         <GroupCoachTab groupId={group.id} myRole={myRole} members={members} />
       </div>
 

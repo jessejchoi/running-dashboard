@@ -105,7 +105,7 @@ export default function GroupPageClient({
   }
 
   return (
-    <main className="max-w-4xl mx-auto px-4 pt-14 sm:pt-20 pb-16">
+    <main className="standalone-main max-w-4xl mx-auto px-4 pt-8 sm:pt-20 pb-16">
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6 fade-up">
@@ -117,7 +117,7 @@ export default function GroupPageClient({
                 onChange={e => setRenameValue(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveGroupName(); if (e.key === 'Escape') setRenamingGroup(false) }}
                 autoFocus
-                className="font-display font-extrabold uppercase leading-none bg-transparent border-b-2 border-[#f97316] outline-none text-white w-full"
+                className="font-display font-extrabold uppercase bg-transparent border-b-2 border-[#f97316] outline-none text-white w-full"
               style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}
               />
               <button
@@ -133,7 +133,7 @@ export default function GroupPageClient({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>{groupName}</h1>
+              <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>{groupName}</h1>
               {myRole === 'admin' && (
                 <button
                   onClick={() => { setRenameValue(groupName); setRenamingGroup(true) }}

@@ -46,7 +46,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
   return (
     <>
       <Nav />
-      <main className="max-w-4xl mx-auto px-6 pt-14 sm:pt-24 pb-16">
+      <main className="standalone-main max-w-4xl mx-auto px-6 pt-8 sm:pt-20 pb-16">
         <Link href="/runs" className="flex items-center gap-2 text-sm mb-6 transition-colors" style={{ color: 'var(--text-muted)' }}>
           <ArrowLeft size={14} /> All runs
         </Link>
@@ -55,7 +55,7 @@ export default async function RunDetailPage({ params }: { params: { id: string }
         <div className="mb-8 fade-up">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="font-display font-extrabold uppercase leading-none mb-2" style={{ fontSize: 'clamp(22px, 5vw, 40px)', letterSpacing: '-0.02em' }}>{run.name}</h1>
+              <h1 className="font-display font-extrabold uppercase mb-2" style={{ fontSize: 'clamp(22px, 5vw, 40px)', letterSpacing: '-0.02em' }}>{run.name}</h1>
               <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy · h:mm a')}
               </p>

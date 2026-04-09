@@ -38,9 +38,9 @@ export default async function GoalsPage() {
   return (
     <>
       <Nav />
-      <main className="max-w-5xl mx-auto px-6 pt-24 pb-16">
+      <main className="standalone-main max-w-5xl mx-auto px-6 pt-8 sm:pt-20 pb-16">
         <div className="mb-8 fade-up">
-          <h1 className="font-display font-extrabold uppercase leading-none" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Race Goals</h1>
+          <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Race Goals</h1>
           <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             2026 season · 3 target races
           </p>

@@ -139,9 +139,8 @@ export default function Nav() {
 
       {/* ── Mobile floating nav pill ──────────────────────────── */}
       <div
-        className="sm:hidden fixed left-1/2 z-50 flex items-center rounded-full p-1"
+        className="nav-pill sm:hidden fixed left-1/2 z-50 flex items-center rounded-full p-1"
         style={{
-          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
           transform: 'translateX(-50%)',
           background: 'rgba(0,0,0,0.10)',
           backdropFilter: 'blur(4px)',

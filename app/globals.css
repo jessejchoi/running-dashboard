@@ -125,13 +125,16 @@ h1.font-display {
 }
 
 /* ── Standalone web app ──────────────────────────────────────────────────
-   viewportFit:cover is on globally so env() vars are available everywhere.
-   All env() usage is gated behind html.standalone to prevent Safari bleed.
+   viewport-fit=cover is set globally in layout.tsx so env() vars are always
+   available. All env() usage that affects layout is gated behind html.standalone
+   to prevent env() values from bloating the Safari browser layout.
 
    SAFARI:  navigator.standalone=false → no .standalone class
-            nav = exactly 48px tall, content clips to fit, no env() used
-   WEBAPP:  navigator.standalone=true  → .standalone class on <html>
-            nav grows with safe-area-inset-bottom
+            pill sits at 0.625rem from bottom (close to address bar)
+            nav = exactly 48px tall, content clips to fit
+   WEBAPP:  navigator.standalone=true  → .standalone class on <html> set by
+            blocking script before first paint (no CLS on first load)
+            pill clears home indicator via env(safe-area-inset-bottom)
             header padding accounts for status bar via safe-area-inset-top  */
 
 /* Safari: nav is exactly the height of its content, capped at 48px */
@@ -152,6 +155,17 @@ h1.font-display {
   .standalone-main {
     padding-top: 60px;
   }
+}
+
+/* ── Floating nav pill position ──────────────────────────────────────────
+   bottom is set here (not inline) so html.standalone can override it.
+   Safari browser: small fixed offset, close to the address bar.
+   Standalone webapp: clears the home indicator via env(safe-area-inset-bottom). */
+.nav-pill {
+  bottom: 0.625rem; /* 10px — close to browser address bar */
+}
+html.standalone .nav-pill {
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Standalone overrides

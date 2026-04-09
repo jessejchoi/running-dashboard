@@ -27,6 +27,7 @@ const monoFont = Space_Mono({
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover' as const,
 }
 
 export const metadata: Metadata = {
@@ -46,6 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
       <body className="bg-[#0a0a0a] text-white font-sans antialiased min-h-screen">
+        {/* Blocking script: sets html.standalone before first paint so CSS
+            env(safe-area-inset-*) rules apply from the initial render,
+            preventing the pill position jump on first webapp load. */}
+        <script dangerouslySetInnerHTML={{__html: `(function(){try{if(navigator.standalone===true){document.documentElement.classList.add('standalone')}}catch(e){}})()`}} />
         <StandaloneDetector />
         <UnitProvider unit={unit}>
           {children}

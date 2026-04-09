@@ -36,7 +36,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
   return (
     <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
       <div className="flex items-center justify-between mb-4">
-        <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Recent Runs</p>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Recent Runs</h2>
         <Link href="/runs" className="font-mono text-xs text-[#6b7280] hover:text-orange-500 transition-colors">
           View all →
         </Link>

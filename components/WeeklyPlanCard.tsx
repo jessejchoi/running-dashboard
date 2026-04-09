@@ -78,7 +78,7 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
     <section className="mt-6 mb-3">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Plan This Week</h2>
-        <Link href="/plan" className="font-mono text-xs text-[#f97316] hover:text-orange-400 transition-colors">
+        <Link href="/plan" prefetch={true} className="font-mono text-xs text-[#f97316] hover:text-orange-400 transition-colors">
           Full plan →
         </Link>
       </div>

@@ -15,7 +15,7 @@ export default async function RunsPage() {
 
   const { data: runs } = await supabaseAdmin
     .from('activities')
-    .select('*')
+    .select('id, start_date, distance, moving_time, average_speed, average_heartrate, suffer_score, run_type, run_type_manual, type, name')
     .eq('athlete_id', athleteId)
     .eq('type', 'Run')
     .order('start_date', { ascending: false })

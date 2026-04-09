@@ -47,18 +47,21 @@ export default async function AnalysisPage() {
     targetSecsMap[g.distance_key] = g.target_secs
   }
 
+  // Exclude streams (GPS point arrays) and splits (per-km splits) — large JSONBs not used by analysis
+  const ACTIVITY_COLS = 'id, athlete_id, name, type, start_date, distance, moving_time, elapsed_time, total_elevation_gain, average_speed, max_speed, average_heartrate, max_heartrate, average_cadence, suffer_score, raw, laps, run_type, run_type_manual, is_race, excluded_from_analysis'
+
   const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: allActivities }] = await Promise.all([
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['intervals', 'interval_5k', 'interval_10k']).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['threshold', 'tempo']).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['long', 'long_easy', 'long_progressive', 'long_steady']).order('start_date', { ascending: false }).limit(15),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
+    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', ['intervals', 'interval_5k', 'interval_10k']).order('start_date', { ascending: false }),
+    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', ['threshold', 'tempo']).order('start_date', { ascending: false }),
+    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', ['long', 'long_easy', 'long_progressive', 'long_steady']).order('start_date', { ascending: false }).limit(15),
+    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
     supabaseAdmin.from('activities').select('start_date, run_type, distance').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false }).limit(200),
   ])
 
   // Race query is separate — is_race column may not exist before migration_008
   let raceRuns: any[] = []
   try {
-    const { data } = await supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10)
+    const { data } = await supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10)
     raceRuns = data ?? []
   } catch { /* column doesn't exist yet — ignore */ }
 

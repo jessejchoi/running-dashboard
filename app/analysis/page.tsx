@@ -47,8 +47,9 @@ export default async function AnalysisPage() {
     targetSecsMap[g.distance_key] = g.target_secs
   }
 
-  // Exclude streams (GPS point arrays) and splits (per-km splits) — large JSONBs not used by analysis
-  const ACTIVITY_COLS = 'id, athlete_id, name, type, start_date, distance, moving_time, elapsed_time, total_elevation_gain, average_speed, max_speed, average_heartrate, max_heartrate, average_cadence, suffer_score, raw, laps, run_type, run_type_manual, is_race, excluded_from_analysis'
+  // Exclude streams (GPS point arrays — thousands of points) but keep splits (per-km, ~10–15 entries)
+  // and laps. Both are used by analysis.ts for drift and steady-window computation.
+  const ACTIVITY_COLS = 'id, athlete_id, name, type, start_date, distance, moving_time, elapsed_time, total_elevation_gain, average_speed, max_speed, average_heartrate, max_heartrate, average_cadence, suffer_score, raw, laps, splits, run_type, run_type_manual, is_race, excluded_from_analysis'
 
   const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: allActivities }] = await Promise.all([
     supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', ['intervals', 'interval_5k', 'interval_10k']).order('start_date', { ascending: false }),

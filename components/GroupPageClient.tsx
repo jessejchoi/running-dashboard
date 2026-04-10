@@ -311,7 +311,7 @@ export default function GroupPageClient({
                     const isPast = daysLeft < 0
                     const km = { '5k': 5, '10k': 10, 'half_marathon': 21.0975, 'hm': 21.0975, 'marathon': 42.195, 'fm': 42.195 }[goal.distance_key] ?? 5
                     const targetPace = goal.target_secs / km
-                    const paceStr = (s: number) => `${Math.floor(s / 60)}:${Math.round(s % 60).toString().padStart(2, '0')}`
+                    const paceStr = (s: number) => { const t = Math.round(s); return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}` }
 
                     // Distance color
                     const distColor = ({
@@ -336,8 +336,12 @@ export default function GroupPageClient({
                     const currentSecs = analysisSecs ?? goal.current_secs ?? null
                     const currentPace = currentSecs ? currentSecs / km : null
                     const baselinePace = goal.current_secs ? goal.current_secs / km : targetPace + 30
-                    const progress = currentPace && baselinePace > targetPace
-                      ? Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
+                    const progress = currentPace
+                      ? currentPace <= targetPace
+                        ? 1
+                        : baselinePace > targetPace
+                          ? Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
+                          : 0
                       : 0
 
                     return (

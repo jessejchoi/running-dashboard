@@ -361,13 +361,14 @@ export default function GroupPageClient({
                     const currentPace = currentSecs ? currentSecs / km : null
                     const baselinePace = goal.current_secs ? goal.current_secs / km : targetPace + 30
                     let progress = 0
-                    if (analysisSecs && currentPace) {
-                      // Improvement formula: how far from baseline toward target
+                    if (goal.current_secs && analysisSecs && currentPace && baselinePace > targetPace) {
+                      // Improvement formula: only when we have a real baseline (goal.current_secs)
+                      // and a fresh estimate to compare it against
                       if (currentPace <= targetPace) progress = 1
-                      else if (baselinePace > targetPace) progress = Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
-                    } else if (goal.current_secs) {
+                      else progress = Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
+                    } else if (currentSecs) {
                       // Proximity formula: how close is current best to target
-                      progress = Math.min(1, goal.target_secs / goal.current_secs)
+                      progress = Math.min(1, goal.target_secs / currentSecs)
                     }
 
                     return (

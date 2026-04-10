@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
+import { ChevronDown, Check } from 'lucide-react'
 import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel } from '@/lib/utils'
 import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, StatusTag, type Run, type Member } from '@/components/GroupShared'
@@ -10,6 +11,58 @@ interface Props {
   recentRuns: Run[]
   members: Member[]
   myAthleteId: number
+}
+
+function FilterDropdown({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: { value: string | number; label: string }[]
+  value: string | number
+  onChange: (v: string | number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const selected = options.find(o => o.value === value)
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#1c1c1c] text-xs font-medium text-[#9ca3af] hover:text-white hover:border-[#3a3a3a] transition-colors"
+      >
+        <span>{selected?.label ?? label}</span>
+        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 z-50 bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 min-w-[140px]">
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false) }}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-[#242424] flex items-center justify-between gap-3 transition-colors text-[#9ca3af] hover:text-white"
+            >
+              <span>{opt.label}</span>
+              {value === opt.value && <Check size={10} className="text-[#f97316] shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId }: Props) {
@@ -28,6 +81,15 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
     return true
   })
 
+  const memberOptions = [
+    { value: 'all' as const, label: 'All members' },
+    ...members.map(m => ({ value: m.athlete_id, label: m.is_me ? 'You' : m.name.split(' ')[0] })),
+  ]
+  const typeOptions = [
+    { value: 'all' as const, label: 'All types' },
+    ...presentTypes.map(t => ({ value: t, label: t.replace(/_/g, ' ') })),
+  ]
+
   async function loadMoreRuns() {
     setLoadingMore(true)
     const oldest = allFeedRuns[allFeedRuns.length - 1]?.start_date
@@ -43,51 +105,19 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
       {/* Filters */}
       {allFeedRuns.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {/* Member filter */}
-          <div className="flex flex-wrap gap-1">
-            <button
-              onClick={() => setFeedMember('all')}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                feedMember === 'all' ? 'bg-[#f97316] text-black' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'
-              }`}
-            >
-              All
-            </button>
-            {members.map(m => (
-              <button
-                key={m.athlete_id}
-                onClick={() => setFeedMember(feedMember === m.athlete_id ? 'all' : m.athlete_id)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  feedMember === m.athlete_id ? 'bg-[#f97316] text-black' : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'
-                }`}
-              >
-                {m.is_me ? 'You' : m.name.split(' ')[0]}
-              </button>
-            ))}
-          </div>
-          {/* Run type filter */}
+          <FilterDropdown
+            label="All members"
+            options={memberOptions}
+            value={feedMember}
+            onChange={v => setFeedMember(v as number | 'all')}
+          />
           {presentTypes.length > 1 && (
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => setFeedType('all')}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  feedType === 'all' ? 'bg-[#2a2a2a] text-white' : 'bg-[#1a1a1a] text-[#6b7280] hover:text-white'
-                }`}
-              >
-                All types
-              </button>
-              {presentTypes.map(t => (
-                <button
-                  key={t}
-                  onClick={() => setFeedType(feedType === t ? 'all' : t)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    feedType === t ? 'bg-[#2a2a2a] text-white' : 'bg-[#1a1a1a] text-[#6b7280] hover:text-white'
-                  }`}
-                >
-                  {t.replace(/_/g, ' ')}
-                </button>
-              ))}
-            </div>
+            <FilterDropdown
+              label="All types"
+              options={typeOptions}
+              value={feedType}
+              onChange={v => setFeedType(v as string)}
+            />
           )}
         </div>
       )}
@@ -108,7 +138,6 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="font-bold text-sm">{member?.name ?? `Athlete ${run.athlete_id}`}</span>
                     {isMe && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>}
-                    {member?.gender && <span className="text-[10px] text-[#4b5563] font-mono">{member.gender === 'M' ? '♂' : '♀'}</span>}
                     {member?.status_tag && <StatusTag tag={member.status_tag} />}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-[#6b7280] mb-2">
@@ -117,7 +146,7 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
                     <span>·</span>
                     <span>{format(toJakartaDate(run.start_date), 'EEE MMM d, h:mm a')}</span>
                   </div>
-                  <a href={`/runs/${run.id}`} className="font-medium text-sm text-white hover:text-[#f97316] transition-colors block truncate mb-2">
+                  <a href={`/runs/${run.id}?from=group/${groupId}`} className="font-medium text-sm text-white hover:text-[#f97316] transition-colors block truncate mb-2">
                     {run.name}
                   </a>
                   <div className="flex gap-4 text-xs font-mono">

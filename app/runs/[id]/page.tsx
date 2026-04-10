@@ -11,11 +11,15 @@ import { format } from 'date-fns'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-export default async function RunDetailPage({ params }: { params: { id: string } }) {
+export default async function RunDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { from?: string } }) {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) redirect('/')
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
+
+  const fromGroup = searchParams.from?.startsWith('group/') ? searchParams.from.slice('group/'.length) : null
+  const backHref = fromGroup ? `/group/${fromGroup}` : '/runs'
+  const backLabel = fromGroup ? 'Back to group' : 'All runs'
 
   const { data: run } = await supabaseAdmin
     .from('activities')
@@ -47,8 +51,8 @@ export default async function RunDetailPage({ params }: { params: { id: string }
     <>
       <Nav />
       <main className="standalone-main max-w-4xl mx-auto px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
-        <Link href="/runs" className="flex items-center gap-2 text-sm mb-6 transition-colors" style={{ color: 'var(--text-muted)' }}>
-          <ArrowLeft size={14} /> All runs
+        <Link href={backHref} className="flex items-center gap-2 text-sm mb-6 transition-colors" style={{ color: 'var(--text-muted)' }}>
+          <ArrowLeft size={14} /> {backLabel}
         </Link>
 
         {/* Header */}

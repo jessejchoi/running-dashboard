@@ -1003,7 +1003,7 @@ export default function GroupDashboardTab({
         <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Members</p>
         <div className="space-y-2">
           {members.map(m => (
-            <div key={m.athlete_id} className="card py-2.5 px-3">
+            <div key={m.athlete_id} className="card" style={{ padding: '0.625rem 0.875rem' }}>
               <div className="flex items-center gap-2.5">
                 <Avatar name={m.name} pic={m.profile_pic} size={7} />
                 <div className="flex-1 min-w-0">

@@ -386,10 +386,10 @@ export default function GroupPageClient({
                             <div className="text-[#4b5563] mb-0.5">Target</div>
                             <div className={`font-mono font-bold ${distColor}`}>{paceStr(targetPace)}{paceUnitLabel(unit)}</div>
                           </div>
-                          {currentSecs && (
+                          {currentPace && (
                             <div>
                               <div className="text-[#4b5563] mb-0.5">{analysisSecs ? 'Est.' : 'Current'}</div>
-                              <div className="font-mono text-white font-bold">{formatTime(currentSecs)}</div>
+                              <div className="font-mono text-white font-bold">{paceStr(currentPace * (unit === 'miles' ? 1.60934 : 1))}{paceUnitLabel(unit)}</div>
                             </div>
                           )}
                         </div>

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Send, X, ChevronDown } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format, differenceInHours } from 'date-fns'
 import { Avatar } from '@/components/GroupShared'
 
 interface SimpleMember {
@@ -38,6 +38,8 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
   const [showToDropdown, setShowToDropdown] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const otherMembers = members.filter(m => !m.is_me)
   const selectedTo = otherMembers.find(m => m.athlete_id === toAthleteId) ?? null
@@ -59,6 +61,13 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
     const interval = setInterval(fetchMessages, 30_000)
     return () => clearInterval(interval)
   }, [groupId])
+
+  // Scroll to bottom when messages load or update
+  useEffect(() => {
+    if (!loading) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, loading])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -109,8 +118,9 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
     <div className="card" style={{ padding: '1.25rem' }}>
       {/* Message feed */}
       <div
+        ref={scrollContainerRef}
         className="mb-3 space-y-3 overflow-y-auto"
-        style={{ maxHeight: 280, minHeight: loading || messages.length === 0 ? 0 : undefined }}
+        style={{ maxHeight: 270, minHeight: loading || messages.length === 0 ? 0 : undefined }}
       >
         {loading ? (
           <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>Loading…</p>
@@ -128,6 +138,7 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
             />
           ))
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Compose */}
@@ -250,7 +261,10 @@ function MessageRow({ msg, myRole, onDelete }: { msg: Message; myRole: string; o
   const [hovered, setHovered] = useState(false)
   const canDelete = msg.is_mine || myRole === 'admin'
 
-  const timeAgo = formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })
+  const msgDate = new Date(msg.created_at)
+  const timestamp = differenceInHours(new Date(), msgDate) >= 24
+    ? format(msgDate, 'MMM d, h:mm a')
+    : formatDistanceToNow(msgDate, { addSuffix: true })
 
   return (
     <div
@@ -270,7 +284,7 @@ function MessageRow({ msg, myRole, onDelete }: { msg: Message; myRole: string; o
               <span className="text-xs font-semibold" style={{ color: '#f97316' }}>{msg.to_name.split(' ')[0]}</span>
             </>
           )}
-          <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{timeAgo}</span>
+          <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{timestamp}</span>
         </div>
         <p className="text-sm mt-0.5 break-words leading-relaxed" style={{ color: 'var(--text-2)' }}>
           {msg.content}

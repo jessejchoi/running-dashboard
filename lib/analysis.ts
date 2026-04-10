@@ -1022,7 +1022,8 @@ export function analyzeEasyRun(activity: {
 
   // Cardiac drift on the full-run km splits (wider temporal spread than steady window).
   // Use 8-min windows + 8-min gap so runs ≥35 min can produce reliable drift.
-  const easyTimed = buildTimedSplits(activity.splits ?? [])
+  // Fall back to laps when splits aren't loaded (splits omitted from ACTIVITY_COLS for perf).
+  const easyTimed = buildTimedSplits((activity.splits?.length ? activity.splits : null) ?? activity.laps ?? [])
   const easyDrift = computeCardiacDrift(easyTimed, activity.moving_time, {
     minDurationSecs: 20 * 60,
     windowSecs:       8 * 60,
@@ -1428,8 +1429,9 @@ export function analyzeLongRun(activity: {
   const baselinePace = activity.average_speed ? 1000 / activity.average_speed : 999
   if (!activity.average_heartrate) return null
 
-  // Build timed-split array once; used by all sub-analyses
-  const timed = buildTimedSplits(activity.splits ?? [])
+  // Build timed-split array once; used by all sub-analyses.
+  // Fall back to laps when splits aren't loaded (omitted from ACTIVITY_COLS for perf).
+  const timed = buildTimedSplits((activity.splits?.length ? activity.splits : null) ?? activity.laps ?? [])
 
   // ── Detect fast block ────────────────────────────────────────────────────
   // Only look for fast blocks in "Long Run with Speed" (long_progressive).

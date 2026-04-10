@@ -76,12 +76,19 @@ export default function GroupPageClient({
       .then(r => r.ok ? r.json() : null)
       .then((data: Record<number, Record<string, number>> | null) => {
         if (!data) return
-        // Merge: only overwrite a member's estimates if the fresh data has actual values.
-        // Prevents empty API responses from wiping the server-side 90-day snapshot data.
+        // Merge at distance-key level so fresh data never wipes existing distance
+        // estimates — e.g. API returns only {hm} but 90-day data had {5k,10k,hm,fm}.
         setMemberEstimates(prev => {
-          const merged = { ...prev }
+          const merged: Record<number, Record<string, number>> = {}
+          for (const [id, dists] of Object.entries(prev)) {
+            merged[Number(id)] = { ...dists }
+          }
           for (const [id, estimates] of Object.entries(data)) {
-            if (Object.keys(estimates).length > 0) merged[Number(id)] = estimates
+            const numId = Number(id)
+            merged[numId] ??= {}
+            for (const [dk, secs] of Object.entries(estimates as Record<string, number>)) {
+              merged[numId][dk] = secs
+            }
           }
           return merged
         })

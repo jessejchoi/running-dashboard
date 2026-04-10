@@ -363,8 +363,12 @@ export default function GroupPageClient({
                     const analysisSecs = memberEstimates[m.athlete_id]?.[estimateKey] ?? null
                     const currentSecs = analysisSecs ?? goal.current_secs ?? null
                     const currentPace = currentSecs ? currentSecs / km : null
-                    // Proximity formula: how close is current pace to target pace (consistent, no flicker)
-                    const progress = currentSecs ? Math.min(1, goal.target_secs / currentSecs) : 0
+                    // Fixed baseline = 130% of target time (30% over target = 0%, at target = 100%)
+                    // Gives a meaningful spread for real runners without needing a stored starting point
+                    const baselineSecs = goal.target_secs * 1.3
+                    const progress = currentSecs
+                      ? Math.min(1, Math.max(0, (baselineSecs - currentSecs) / (baselineSecs - goal.target_secs)))
+                      : 0
 
                     return (
                       <div key={goal.id} className="bg-[#111] border border-[#1c1c1c] rounded-xl p-3">

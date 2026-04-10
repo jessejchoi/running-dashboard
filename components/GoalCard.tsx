@@ -14,6 +14,15 @@ const SOURCE_LABELS: Record<string, string> = {
   race_result: 'race',
 }
 
+const DIST_COLORS: Record<string, { text: string; bar: string; bg: string; short: string }> = {
+  '5k':            { text: 'text-red-400',    bar: 'bg-red-400',    bg: 'bg-red-400/10',    short: '5K' },
+  '10k':           { text: 'text-orange-400', bar: 'bg-orange-400', bg: 'bg-orange-400/10', short: '10K' },
+  'half_marathon': { text: 'text-sky-400',    bar: 'bg-sky-400',    bg: 'bg-sky-400/10',    short: 'HM' },
+  'hm':            { text: 'text-sky-400',    bar: 'bg-sky-400',    bg: 'bg-sky-400/10',    short: 'HM' },
+  'marathon':      { text: 'text-purple-400', bar: 'bg-purple-400', bg: 'bg-purple-400/10', short: 'FM' },
+  'fm':            { text: 'text-purple-400', bar: 'bg-purple-400', bg: 'bg-purple-400/10', short: 'FM' },
+}
+
 interface Props {
   goal: UserGoal
   currentEstimateSecs?: number | null   // from analysis engine
@@ -33,6 +42,7 @@ function paceStr(secs: number) {
 export default function GoalCard({ goal, currentEstimateSecs, confidence, sourceCounts, onUpdate, onDelete, unit = 'km' }: Props) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const dist = DIST_COLORS[goal.distance_key] ?? { text: 'text-[#f97316]', bar: 'bg-[#f97316]', bg: 'bg-[#f97316]/10', short: goal.distance_key.toUpperCase() }
 
   const today    = new Date()
   const raceDate = new Date(goal.race_date)
@@ -83,8 +93,11 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 min-w-0">
-            <h3 className="font-display font-bold text-lg leading-tight truncate">{goal.label}</h3>
-            <p className="text-[#6b7280] text-xs mt-0.5">
+            <div className="flex items-center gap-2 mb-0.5">
+              <h3 className="font-display font-bold text-lg leading-tight truncate">{goal.label}</h3>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${dist.text} ${dist.bg}`}>{dist.short}</span>
+            </div>
+            <p className="text-[#6b7280] text-xs">
               {isPast
                 ? `Raced ${format(raceDate, 'MMM d, yyyy')}`
                 : `${format(raceDate, 'MMM d, yyyy')} · ${daysLeft}d away`}
@@ -107,7 +120,7 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Target pace</div>
-            <div className="stat-num text-xl font-bold text-[#f97316]">{paceStr(displayTargetPace)}</div>
+            <div className={`stat-num text-xl font-bold ${dist.text}`}>{paceStr(displayTargetPace)}</div>
             <div className="text-[#6b7280] text-xs">{paceUnitLabel(unit)}</div>
           </div>
           <div>
@@ -139,7 +152,7 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
             <span className="font-mono">{Math.round(progress * 100)}%</span>
           </div>
           <div className="h-1.5 bg-[#242424] rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-[#f97316] transition-all duration-700"
+            <div className={`h-full rounded-full ${dist.bar} transition-all duration-700`}
               style={{ width: `${progress * 100}%` }} />
           </div>
           {goal.current_secs && (

@@ -309,32 +309,62 @@ export default function GroupPageClient({
                   {m.goals.map((goal: Goal) => {
                     const daysLeft = Math.ceil((new Date(goal.race_date).getTime() - Date.now()) / 86400000)
                     const isPast = daysLeft < 0
-                    const km = { '5k': 5, '10k': 10, 'hm': 21.0975, 'fm': 42.195 }[goal.distance_key] ?? 5
+                    const km = { '5k': 5, '10k': 10, 'half_marathon': 21.0975, 'hm': 21.0975, 'marathon': 42.195, 'fm': 42.195 }[goal.distance_key] ?? 5
                     const targetPace = goal.target_secs / km
                     const paceStr = (s: number) => `${Math.floor(s / 60)}:${Math.round(s % 60).toString().padStart(2, '0')}`
-                    const progress = goal.current_secs && goal.current_secs > 0
-                      ? Math.min(1, Math.max(0, goal.target_secs / goal.current_secs))
+
+                    // Distance color
+                    const distColor = ({
+                      '5k': 'text-red-400', '10k': 'text-orange-400',
+                      'half_marathon': 'text-sky-400', 'hm': 'text-sky-400',
+                      'marathon': 'text-purple-400', 'fm': 'text-purple-400',
+                    } as Record<string, string>)[goal.distance_key] ?? 'text-[#f97316]'
+                    const distBar = ({
+                      '5k': 'bg-red-400', '10k': 'bg-orange-400',
+                      'half_marathon': 'bg-sky-400', 'hm': 'bg-sky-400',
+                      'marathon': 'bg-purple-400', 'fm': 'bg-purple-400',
+                    } as Record<string, string>)[goal.distance_key] ?? 'bg-[#f97316]'
+                    const distBg = ({
+                      '5k': 'bg-red-400/10', '10k': 'bg-orange-400/10',
+                      'half_marathon': 'bg-sky-400/10', 'hm': 'bg-sky-400/10',
+                      'marathon': 'bg-purple-400/10', 'fm': 'bg-purple-400/10',
+                    } as Record<string, string>)[goal.distance_key] ?? 'bg-[#f97316]/10'
+
+                    // Match GoalCard progress formula: use analysis estimate as current, goal.current_secs as baseline
+                    const estimateKey = ({ 'half_marathon': 'hm', 'marathon': 'fm' } as Record<string, string>)[goal.distance_key] ?? goal.distance_key
+                    const analysisSecs = memberEstimates[m.athlete_id]?.[estimateKey] ?? null
+                    const currentSecs = analysisSecs ?? goal.current_secs ?? null
+                    const currentPace = currentSecs ? currentSecs / km : null
+                    const baselinePace = goal.current_secs ? goal.current_secs / km : targetPace + 30
+                    const progress = currentPace && baselinePace > targetPace
+                      ? Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
                       : 0
+
                     return (
                       <div key={goal.id} className="bg-[#111] border border-[#1c1c1c] rounded-xl p-3">
-                        <div className="font-bold text-sm mb-1">{goal.label}</div>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="font-bold text-sm leading-tight">{goal.label}</div>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${distColor} ${distBg}`}>
+                            {({ '5k': '5K', '10k': '10K', 'half_marathon': 'HM', 'hm': 'HM', 'marathon': 'FM', 'fm': 'FM' } as Record<string, string>)[goal.distance_key] ?? goal.distance_key.toUpperCase()}
+                          </span>
+                        </div>
                         <div className="text-[#6b7280] text-xs mb-2">
                           {isPast ? 'Past race' : `${daysLeft}d away`} · {format(new Date(goal.race_date), 'MMM d yyyy')}
                         </div>
                         <div className="flex gap-3 text-xs mb-2">
                           <div>
                             <div className="text-[#4b5563] mb-0.5">Target</div>
-                            <div className="font-mono text-[#f97316] font-bold">{paceStr(targetPace)}{paceUnitLabel(unit)}</div>
+                            <div className={`font-mono font-bold ${distColor}`}>{paceStr(targetPace)}{paceUnitLabel(unit)}</div>
                           </div>
-                          {goal.current_secs && (
+                          {currentSecs && (
                             <div>
-                              <div className="text-[#4b5563] mb-0.5">Current</div>
-                              <div className="font-mono text-white font-bold">{formatTime(goal.current_secs)}</div>
+                              <div className="text-[#4b5563] mb-0.5">{analysisSecs ? 'Est.' : 'Current'}</div>
+                              <div className="font-mono text-white font-bold">{formatTime(currentSecs)}</div>
                             </div>
                           )}
                         </div>
                         <div className="h-1 bg-[#242424] rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-[#f97316]" style={{ width: `${progress * 100}%` }} />
+                          <div className={`h-full rounded-full ${distBar} transition-all duration-700`} style={{ width: `${progress * 100}%` }} />
                         </div>
                       </div>
                     )

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { updateLatestEstimates } from '@/lib/latestEstimates'
 import { cookies } from 'next/headers'
 import { RUN_TYPES } from '@/lib/runtypes'
 
@@ -29,6 +30,9 @@ export async function PATCH(request: NextRequest) {
     .eq('athlete_id', athleteId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Re-run analysis in background — recategorization changes which runs feed the engine
+  void updateLatestEstimates(Number(athleteId))
 
   return NextResponse.json({ ok: true })
 }

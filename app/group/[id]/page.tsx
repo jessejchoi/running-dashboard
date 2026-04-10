@@ -6,6 +6,7 @@ import GroupPageClient from '@/components/GroupPageClient'
 import { format } from 'date-fns'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
+import { getGroupLatestEstimates } from '@/lib/latestEstimates'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 
 export const dynamic = 'force-dynamic'
@@ -87,7 +88,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     { data: briefingRow },
     { data: awardsRaw },
     { data: plansRaw },
-    { data: estimateSnapshots },
   ] = await Promise.all([
     allGroupIds.length > 0
       ? supabaseAdmin.from('groups').select('id, name').in('id', allGroupIds)
@@ -137,12 +137,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .lte('plan_date', planEndStr)
       .order('plan_date', { ascending: true })
       .order('session_index', { ascending: true }),
-    supabaseAdmin
-      .from('estimate_snapshots')
-      .select('athlete_id, distance_key, estimated_secs, snapshotted_at')
-      .in('athlete_id', memberIds)
-      .gte('snapshotted_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
-      .order('snapshotted_at', { ascending: false }),
   ])
 
   const allGroups = (allGroupsRaw ?? []).map(g => ({ id: g.id as string, name: g.name as string }))
@@ -176,17 +170,8 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     }
   })
 
-  // Build memberEstimates: most recent snapshot per athlete+distance
-  const memberEstimates: Record<number, Record<string, number>> = {}
-  const seenSnap = new Set<string>()
-  for (const snap of (estimateSnapshots ?? [])) {
-    const key = `${snap.athlete_id}:${snap.distance_key}`
-    if (!seenSnap.has(key)) {
-      seenSnap.add(key)
-      memberEstimates[snap.athlete_id as number] ??= {}
-      memberEstimates[snap.athlete_id as number][snap.distance_key as string] = snap.estimated_secs as number
-    }
-  }
+  // Read latest estimates from user_latest_estimates (single source of truth)
+  const memberEstimates = await getGroupLatestEstimates(memberIds)
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://running-dashboard-three.vercel.app'}/join/${group.invite_code}`
 

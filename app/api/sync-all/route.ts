@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncActivities, syncActivityDetails } from '@/lib/strava'
+import { updateLatestEstimates } from '@/lib/latestEstimates'
 import { cookies } from 'next/headers'
 
 /**
@@ -15,6 +16,8 @@ export async function POST(request: NextRequest) {
   try {
     const newRuns = await syncActivities(Number(athleteId))
     const detailsSynced = await syncActivityDetails(Number(athleteId), 30)
+    // Re-run analysis whenever new runs were synced (after detail sync so run_type is set)
+    if (newRuns > 0) await updateLatestEstimates(Number(athleteId))
     return NextResponse.json({ newRuns, detailsSynced })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

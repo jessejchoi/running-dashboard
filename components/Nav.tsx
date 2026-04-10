@@ -37,7 +37,7 @@ export default function Nav() {
     try {
       const res = await fetch('/api/sync-all', { method: 'POST' })
       const data = await res.json()
-      const n = (data.newRuns ?? 0) + (data.detailsSynced ?? 0)
+      const n = data.newRuns ?? 0
       const msg = n > 0 ? `${n} synced` : 'Up to date'
       setSyncMsg(msg)
       setSyncing(false)

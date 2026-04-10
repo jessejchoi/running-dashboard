@@ -67,35 +67,7 @@ export default function GroupPageClient({
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
-  const [memberEstimates, setMemberEstimates] = useState(initialMemberEstimates)
-  const [estimatesLoading, setEstimatesLoading] = useState(true)
-
-  // Fetch fresh estimates for all members client-side (runs analysis + saves snapshots)
-  useEffect(() => {
-    fetch(`/api/groups/${group.id}/estimates`)
-      .then(r => r.ok ? r.json() : null)
-      .then((data: Record<number, Record<string, number>> | null) => {
-        if (!data) return
-        // Merge at distance-key level so fresh data never wipes existing distance
-        // estimates — e.g. API returns only {hm} but 90-day data had {5k,10k,hm,fm}.
-        setMemberEstimates(prev => {
-          const merged: Record<number, Record<string, number>> = {}
-          for (const [id, dists] of Object.entries(prev)) {
-            merged[Number(id)] = { ...dists }
-          }
-          for (const [id, estimates] of Object.entries(data)) {
-            const numId = Number(id)
-            merged[numId] ??= {}
-            for (const [dk, secs] of Object.entries(estimates as Record<string, number>)) {
-              merged[numId][dk] = secs
-            }
-          }
-          return merged
-        })
-      })
-      .catch(() => {})
-      .finally(() => setEstimatesLoading(false))
-  }, [group.id])
+  const memberEstimates = initialMemberEstimates
 
   // Group name rename
   const [groupName, setGroupName] = useState(group.name)
@@ -404,7 +376,7 @@ export default function GroupPageClient({
           ))}
         </div>
 
-        <GroupRaceEstimatesSection groupId={group.id} members={localMembers} initialEstimates={memberEstimates} myAthleteId={myAthleteId} loading={estimatesLoading} />
+        <GroupRaceEstimatesSection members={localMembers} initialEstimates={memberEstimates} myAthleteId={myAthleteId} />
         </>
       )}
 

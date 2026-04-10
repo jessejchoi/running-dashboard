@@ -4,11 +4,9 @@ import { useUnit } from '@/lib/unit-context'
 import { paceUnitLabel } from '@/lib/utils'
 
 interface Props {
-  groupId: string
   members: Member[]
   initialEstimates: Record<number, Record<string, number>>
   myAthleteId: number
-  loading?: boolean
 }
 
 const DISTANCES = [
@@ -46,17 +44,15 @@ function MemberRow({ member, secs, km, unit, isMe }: {
   )
 }
 
-export default function GroupRaceEstimatesSection({ groupId, members, initialEstimates, myAthleteId, loading = false }: Props) {
+export default function GroupRaceEstimatesSection({ members, initialEstimates, myAthleteId }: Props) {
   const { unit } = useUnit()
-  // Parent (GroupPageClient) owns the fetch and passes live estimates + loading state
   const estimates = initialEstimates
 
-  // Only show cards where at least one member has an estimate
   const cardsToShow = DISTANCES.filter(d =>
     members.some(m => estimates[m.athlete_id]?.[d.key] != null)
   )
 
-  if (!loading && cardsToShow.length === 0) return null
+  if (cardsToShow.length === 0) return null
 
   return (
     <div className="mt-8">
@@ -64,13 +60,10 @@ export default function GroupRaceEstimatesSection({ groupId, members, initialEst
         <h3 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">
           Race Estimates
         </h3>
-        {loading && (
-          <span className="text-[10px] text-[#3a3a3a] font-mono animate-pulse">computing…</span>
-        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {(loading && cardsToShow.length === 0 ? DISTANCES : cardsToShow).map(dist => {
+        {cardsToShow.map(dist => {
           const entries = members
             .filter(m => estimates[m.athlete_id]?.[dist.key] != null)
             .map(m => ({ member: m, secs: estimates[m.athlete_id][dist.key] }))
@@ -78,23 +71,10 @@ export default function GroupRaceEstimatesSection({ groupId, members, initialEst
 
           return (
             <div key={dist.key} className={`bg-[#111] border ${dist.border} rounded-xl p-3`}>
-              {/* Card header */}
               <div className={`text-[10px] font-bold font-display uppercase tracking-widest mb-3 ${dist.color}`}>
                 {dist.label}
               </div>
-
-              {/* Member rows */}
-              {loading && entries.length === 0 ? (
-                <div className="space-y-2 animate-pulse">
-                  {[1, 2].map(i => (
-                    <div key={i} className="flex items-center gap-2.5 py-1.5">
-                      <div className="w-6 h-6 rounded-full bg-[#1c1c1c]" />
-                      <div className="flex-1 h-2.5 bg-[#1c1c1c] rounded" />
-                      <div className="w-12 h-2.5 bg-[#1c1c1c] rounded" />
-                    </div>
-                  ))}
-                </div>
-              ) : entries.length === 0 ? (
+              {entries.length === 0 ? (
                 <p className="text-[#3a3a3a] text-[10px]">No estimates yet</p>
               ) : (
                 <div>

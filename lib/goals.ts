@@ -38,14 +38,15 @@ export function parseTime(t: string): number {
 
 // Total seconds → "mm:ss" or "h:mm:ss"
 export function formatGoalTime(secs: number): string {
-  if (secs >= 3600) {
-    const h = Math.floor(secs / 3600)
-    const m = Math.floor((secs % 3600) / 60)
-    const s = Math.round(secs % 60)
+  const total = Math.round(secs)
+  if (total >= 3600) {
+    const h = Math.floor(total / 3600)
+    const m = Math.floor((total % 3600) / 60)
+    const s = total % 60
     return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
-  const m = Math.floor(secs / 60)
-  const s = Math.round(secs % 60)
+  const m = Math.floor(total / 60)
+  const s = total % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 

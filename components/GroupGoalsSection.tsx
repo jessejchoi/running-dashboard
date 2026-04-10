@@ -18,8 +18,9 @@ interface Props {
 }
 
 function paceStr(secs: number) {
-  const m = Math.floor(secs / 60)
-  const s = Math.round(secs % 60)
+  const total = Math.round(secs)
+  const m = Math.floor(total / 60)
+  const s = total % 60
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
@@ -130,7 +131,7 @@ function GoalRow({ goal, unit }: { goal: MemberGoal; unit: DistanceUnit }) {
   const paceMultiplier = unit === 'miles' ? 1.60934 : 1
   const targetPace = paceSecs(goal.target_secs, goal.distance_key as DistanceKey) * paceMultiplier
   const progress = goal.current_secs && goal.target_secs
-    ? Math.min(1, Math.max(0, (goal.current_secs - goal.target_secs) / goal.current_secs))
+    ? Math.min(1, goal.target_secs / goal.current_secs)
     : 0
 
   const urgencyColor = isPast

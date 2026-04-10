@@ -244,9 +244,9 @@ export default function GroupPageClient({
       {/* Tab bar */}
       <div className="flex gap-0 mb-6 border-b border-[#1c1c1c] fade-up">
         {([
-          { key: 'dashboard', label: 'Dashboard', icon: BarChart2 },
-          { key: 'feed',      label: 'Runs',      icon: Activity },
-          { key: 'goals',     label: 'Goals',     icon: Target },
+          { key: 'dashboard', label: 'Home',  icon: BarChart2 },
+          { key: 'goals',     label: 'Goals', icon: Target },
+          { key: 'feed',      label: 'Runs',  icon: Activity },
           { key: 'plans',     label: 'Plans',     icon: CalendarDays },
         ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
           <button

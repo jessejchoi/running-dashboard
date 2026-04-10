@@ -455,7 +455,7 @@ export default function GroupDashboardTab({
     const cType = c.challenge_type ?? 'group_distance'
 
     return (
-      <div className={`${status === 'active' ? 'bg-[#f97316]/[0.07] rounded-xl p-3 -mx-3' : ''}`}>
+      <div className={`${status === 'active' ? 'bg-[#f97316]/[0.06] rounded-xl p-3 -mx-3' : ''}`}>
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">

@@ -359,24 +359,12 @@ export default function GroupPageClient({
                       'marathon': 'bg-purple-400/10', 'fm': 'bg-purple-400/10',
                     } as Record<string, string>)[goal.distance_key] ?? 'bg-[#f97316]/10'
 
-                    // Progress bar:
-                    // - If analysis estimate available: show improvement from goal.current_secs baseline toward target
-                    // - If only goal.current_secs: show proximity (target / current), no baseline needed
                     const estimateKey = ({ 'half_marathon': 'hm', 'marathon': 'fm' } as Record<string, string>)[goal.distance_key] ?? goal.distance_key
                     const analysisSecs = memberEstimates[m.athlete_id]?.[estimateKey] ?? null
                     const currentSecs = analysisSecs ?? goal.current_secs ?? null
                     const currentPace = currentSecs ? currentSecs / km : null
-                    const baselinePace = goal.current_secs ? goal.current_secs / km : targetPace + 30
-                    let progress = 0
-                    if (goal.current_secs && analysisSecs && currentPace && baselinePace > targetPace) {
-                      // Improvement formula: only when we have a real baseline (goal.current_secs)
-                      // and a fresh estimate to compare it against
-                      if (currentPace <= targetPace) progress = 1
-                      else progress = Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
-                    } else if (currentSecs) {
-                      // Proximity formula: how close is current best to target
-                      progress = Math.min(1, goal.target_secs / currentSecs)
-                    }
+                    // Proximity formula: how close is current pace to target pace (consistent, no flicker)
+                    const progress = currentSecs ? Math.min(1, goal.target_secs / currentSecs) : 0
 
                     return (
                       <div key={goal.id} className="bg-[#111] border border-[#1c1c1c] rounded-xl p-3">

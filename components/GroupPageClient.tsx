@@ -74,7 +74,18 @@ export default function GroupPageClient({
   useEffect(() => {
     fetch(`/api/groups/${group.id}/estimates`)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setMemberEstimates(data) })
+      .then((data: Record<number, Record<string, number>> | null) => {
+        if (!data) return
+        // Merge: only overwrite a member's estimates if the fresh data has actual values.
+        // Prevents empty API responses from wiping the server-side 90-day snapshot data.
+        setMemberEstimates(prev => {
+          const merged = { ...prev }
+          for (const [id, estimates] of Object.entries(data)) {
+            if (Object.keys(estimates).length > 0) merged[Number(id)] = estimates
+          }
+          return merged
+        })
+      })
       .catch(() => {})
       .finally(() => setEstimatesLoading(false))
   }, [group.id])

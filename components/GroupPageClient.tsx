@@ -58,7 +58,7 @@ interface Props {
   initialBriefingMeta?: { cached: boolean; generated_at: string } | null
   initialAwards?: Award[]
   initialPlans?: UserPlan[]
-  memberEstimates?: Record<number, Record<string, number>>
+  memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
 }
 
 export default function GroupPageClient({
@@ -345,7 +345,7 @@ export default function GroupPageClient({
           ))}
         </div>
 
-        <GroupRaceEstimatesSection members={localMembers} memberEstimates={memberEstimates} myAthleteId={myAthleteId} />
+        <GroupRaceEstimatesSection groupId={group.id} members={localMembers} initialEstimates={memberEstimates} myAthleteId={myAthleteId} />
         </>
       )}
 

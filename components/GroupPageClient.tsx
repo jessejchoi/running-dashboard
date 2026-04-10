@@ -330,19 +330,23 @@ export default function GroupPageClient({
                       'marathon': 'bg-purple-400/10', 'fm': 'bg-purple-400/10',
                     } as Record<string, string>)[goal.distance_key] ?? 'bg-[#f97316]/10'
 
-                    // Match GoalCard progress formula: use analysis estimate as current, goal.current_secs as baseline
+                    // Progress bar:
+                    // - If analysis estimate available: show improvement from goal.current_secs baseline toward target
+                    // - If only goal.current_secs: show proximity (target / current), no baseline needed
                     const estimateKey = ({ 'half_marathon': 'hm', 'marathon': 'fm' } as Record<string, string>)[goal.distance_key] ?? goal.distance_key
                     const analysisSecs = memberEstimates[m.athlete_id]?.[estimateKey] ?? null
                     const currentSecs = analysisSecs ?? goal.current_secs ?? null
                     const currentPace = currentSecs ? currentSecs / km : null
                     const baselinePace = goal.current_secs ? goal.current_secs / km : targetPace + 30
-                    const progress = currentPace
-                      ? currentPace <= targetPace
-                        ? 1
-                        : baselinePace > targetPace
-                          ? Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
-                          : 0
-                      : 0
+                    let progress = 0
+                    if (analysisSecs && currentPace) {
+                      // Improvement formula: how far from baseline toward target
+                      if (currentPace <= targetPace) progress = 1
+                      else if (baselinePace > targetPace) progress = Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
+                    } else if (goal.current_secs) {
+                      // Proximity formula: how close is current best to target
+                      progress = Math.min(1, goal.target_secs / goal.current_secs)
+                    }
 
                     return (
                       <div key={goal.id} className="bg-[#111] border border-[#1c1c1c] rounded-xl p-3">

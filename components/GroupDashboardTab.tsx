@@ -750,16 +750,26 @@ export default function GroupDashboardTab({
   return (
     <div className="fade-up space-y-8">
 
+      {/* Group Chat section */}
+      <div>
+        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Group Chat</p>
+        <GroupMessageBoard
+          groupId={group.id}
+          members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
+          myRole={myRole}
+        />
+      </div>
+
       {/* RDCoach section */}
       <div>
-        <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">RDCoach</p>
+        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>RDCoach</p>
         <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
       </div>
 
       {/* Leaderboard section */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest">Leaderboard</p>
+          <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Leaderboard</p>
         </div>
         <div className="flex flex-wrap gap-2 mb-4">
           {ranges.map(r => (
@@ -831,7 +841,7 @@ export default function GroupDashboardTab({
       {/* Challenges section */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest">Challenges</p>
+          <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Challenges</p>
           <div className="flex items-center gap-2">
             {myRole === 'admin' && (
               <button
@@ -946,7 +956,7 @@ export default function GroupDashboardTab({
 
       {/* Training Load section */}
       <div>
-        <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">Training Load</p>
+        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Training Load</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
           {members.map(m => {
             const load = memberTrainingLoads[m.athlete_id] ?? { ctl: 0, atl: 0, tsb: 0 }
@@ -988,21 +998,14 @@ export default function GroupDashboardTab({
         </div>
       </div>
 
-      {/* Message board */}
-      <GroupMessageBoard
-        groupId={group.id}
-        members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
-        myRole={myRole}
-      />
-
       {/* Members section */}
       <div>
-        <p className="text-xs font-bold text-[#6b7280] uppercase tracking-widest mb-3">Members</p>
+        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Members</p>
         <div className="space-y-2">
           {members.map(m => (
-            <div key={m.athlete_id} className="card">
-              <div className="flex items-center gap-3">
-                <Avatar name={m.name} pic={m.profile_pic} size={9} />
+            <div key={m.athlete_id} className="card py-2.5 px-3">
+              <div className="flex items-center gap-2.5">
+                <Avatar name={m.name} pic={m.profile_pic} size={7} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm">{m.name}</span>

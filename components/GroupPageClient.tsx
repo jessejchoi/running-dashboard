@@ -135,7 +135,7 @@ export default function GroupPageClient({
   }
 
   return (
-    <main className="standalone-main max-w-4xl mx-auto px-4 pt-8 sm:pt-20 pb-16">
+    <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
 
       {/* Header */}
       <div className="flex items-start justify-between mb-3 sm:mb-6 fade-up">

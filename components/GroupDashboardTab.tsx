@@ -455,7 +455,7 @@ export default function GroupDashboardTab({
     const cType = c.challenge_type ?? 'group_distance'
 
     return (
-      <div className={`card ${status === 'active' ? 'border-[#f97316]/30' : ''}`}>
+      <div className={`${status === 'active' ? 'bg-[#f97316]/[0.03] rounded-xl p-3 -mx-3' : ''}`}>
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -750,97 +750,87 @@ export default function GroupDashboardTab({
   return (
     <div className="fade-up space-y-8">
 
-      {/* Group Chat section */}
-      <div>
-        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Group Chat</p>
-        <GroupMessageBoard
-          groupId={group.id}
-          members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
-          myRole={myRole}
-        />
-      </div>
+      {/* Group Chat — label lives inside GroupMessageBoard */}
+      <GroupMessageBoard
+        groupId={group.id}
+        members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
+        myRole={myRole}
+      />
 
-      {/* RDCoach section */}
-      <div>
-        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>RDCoach</p>
-        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
-      </div>
+      {/* RDCoach — label lives inside GroupCoachTab */}
+      <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
 
-      {/* Leaderboard section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
+      {/* Leaderboard */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <div className="flex items-center justify-between mb-4">
           <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Leaderboard</p>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {ranges.map(r => (
-            <button
-              key={r.key}
-              onClick={() => setLeaderRange(r.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                leaderRange === r.key
-                  ? 'bg-[#f97316] text-black'
-                  : 'bg-[#1c1c1c] text-[#6b7280] hover:text-white'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
+          <div className="flex flex-wrap gap-1.5">
+            {ranges.map(r => (
+              <button
+                key={r.key}
+                onClick={() => setLeaderRange(r.key)}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
+                  leaderRange === r.key
+                    ? 'bg-[#f97316] text-black'
+                    : 'bg-[#1a1a1a] text-[#6b7280] hover:text-white'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
         {board.every(e => e.distance === 0) ? (
-          <div className="card text-center py-8">
-            <p className="text-[#6b7280] text-sm">No runs recorded in this period.</p>
-          </div>
+          <p className="text-[#6b7280] text-sm text-center py-4">No runs recorded in this period.</p>
         ) : (
-          <div className="card">
-            <div className="space-y-3">
-              {board.map((entry, i) => {
-                const dist = toDisplay(entry.distance)
-                const pct = (entry.distance / maxDist) * 100
-                return (
-                  <div key={entry.athlete_id} className="flex items-center gap-3">
-                    <span className="w-4 shrink-0 flex items-center justify-center">
-                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (
-                        <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>
-                      )}
-                    </span>
-                    <Avatar name={entry.name} pic={entry.profile_pic} size={7} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`text-xs font-bold truncate ${entry.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
-                            {entry.is_me ? 'You' : entry.name.split(' ')[0]}
+          <div className="space-y-3">
+            {board.map((entry, i) => {
+              const dist = toDisplay(entry.distance)
+              const pct = (entry.distance / maxDist) * 100
+              return (
+                <div key={entry.athlete_id} className="flex items-center gap-3">
+                  <span className="w-4 shrink-0 flex items-center justify-center">
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (
+                      <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>
+                    )}
+                  </span>
+                  <Avatar name={entry.name} pic={entry.profile_pic} size={7} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`text-xs font-bold truncate ${entry.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
+                          {entry.is_me ? 'You' : entry.name.split(' ')[0]}
+                        </span>
+                        {entry.streak >= 2 && (
+                          <span className="flex items-center gap-0.5 text-orange-400 text-[10px] font-bold shrink-0">
+                            <Flame size={10} />{entry.streak}w
                           </span>
-                          {entry.streak >= 2 && (
-                            <span className="flex items-center gap-0.5 text-orange-400 text-[10px] font-bold shrink-0">
-                              <Flame size={10} />{entry.streak}w
-                            </span>
-                          )}
-                          <span className="text-[#4b5563] text-[10px] shrink-0">
-                            {entry.count} run{entry.count !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                        <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${entry.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
-                          {dist.toFixed(1)} {label}
+                        )}
+                        <span className="text-[#4b5563] text-[10px] shrink-0">
+                          {entry.count} run{entry.count !== 1 ? 's' : ''}
                         </span>
                       </div>
-                      <div className="h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%`, background: entry.is_me ? '#f97316' : '#3a3a3a' }}
-                        />
-                      </div>
+                      <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${entry.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
+                        {dist.toFixed(1)} {label}
+                      </span>
+                    </div>
+                    <div className="h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: entry.is_me ? '#f97316' : '#3a3a3a' }}
+                      />
                     </div>
                   </div>
-                )
-              })}
-            </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
 
-      {/* Challenges section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
+      {/* Challenges */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <div className="flex items-center justify-between mb-4">
           <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Challenges</p>
           <div className="flex items-center gap-2">
             {myRole === 'admin' && (
@@ -863,36 +853,37 @@ export default function GroupDashboardTab({
           </div>
         </div>
         {challenges.length === 0 ? (
-          <div className="card text-center py-8">
+          <div className="text-center py-6">
             <Trophy size={24} className="text-[#2a2a2a] mx-auto mb-2" />
             <p className="text-[#6b7280] text-sm">No challenges yet.</p>
             <p className="text-[#4b5563] text-xs mt-1">Create one to motivate the group!</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div>
             {active.length > 0 && (
               <div>
-                <p className="text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">Active</p>
-                <div className="space-y-3">{active.map(c => <ChallengeCard key={c.id} c={c} />)}</div>
+                <p className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-3)' }}>Active</p>
+                <div className="space-y-4">{active.map(c => <ChallengeCard key={c.id} c={c} />)}</div>
               </div>
             )}
             {upcoming.length > 0 && (
-              <div>
-                <p className="text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2">Upcoming</p>
-                <div className="space-y-3">{upcoming.map(c => <ChallengeCard key={c.id} c={c} />)}</div>
+              <div className={active.length > 0 ? 'mt-5 pt-5 border-t border-[#1c1c1c]' : ''}>
+                <p className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-3)' }}>Upcoming</p>
+                <div className="space-y-4">{upcoming.map(c => <ChallengeCard key={c.id} c={c} />)}</div>
               </div>
             )}
             {past.length > 0 && (
-              <div>
+              <div className={(active.length > 0 || upcoming.length > 0) ? 'mt-5 pt-5 border-t border-[#1c1c1c]' : ''}>
                 <button
                   onClick={() => setShowHistory(h => !h)}
-                  className="flex items-center gap-2 text-[11px] font-bold text-[#4b5563] uppercase tracking-widest mb-2 hover:text-[#6b7280] transition-colors"
+                  className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest mb-3 hover:opacity-70 transition-opacity"
+                  style={{ color: 'var(--text-3)' }}
                 >
                   History ({past.length})
                   <span className={`transition-transform ${showHistory ? 'rotate-180' : ''}`}>▾</span>
                 </button>
                 {showHistory && (
-                  <div className="card divide-y divide-[#1c1c1c]">
+                  <div className="divide-y divide-[#1c1c1c]">
                     {past.map(c => {
                       const cType = c.challenge_type ?? 'group_distance'
                       const { totalMeters: distMeters } = cType === 'group_distance' ? computeChallengeProgress(leaderboardRuns, c, members) : { totalMeters: 0 }
@@ -906,7 +897,7 @@ export default function GroupDashboardTab({
                         resultStr = `${toDisplay(distMeters).toFixed(1)} ${label}${target > 0 ? ` / ${toDisplay(target).toFixed(0)} ${label}` : ''}`
                       } else if (cType === 'weekly_quota') {
                         resultStr = 'Weekly quota'
-                        achieved = false // complex to compute for past
+                        achieved = false
                       } else if (cType === 'elevation') {
                         achieved = target > 0 && totalElevation >= target
                         resultStr = `${Math.round(totalElevation)}m${target > 0 ? ` / ${Math.round(target)}m` : ''}`
@@ -918,7 +909,7 @@ export default function GroupDashboardTab({
                         achieved = false
                       }
                       return (
-                        <div key={c.id} className="flex items-center justify-between py-2.5 px-1 gap-3">
+                        <div key={c.id} className="flex items-center justify-between py-2.5 gap-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`text-sm shrink-0 ${achieved ? 'text-emerald-400' : 'text-[#4b5563]'}`}>
                               {achieved ? '✓' : '○'}
@@ -954,17 +945,17 @@ export default function GroupDashboardTab({
         )}
       </div>
 
-      {/* Training Load section */}
-      <div>
-        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Training Load</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+      {/* Training Load */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Training Load</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {members.map(m => {
             const load = memberTrainingLoads[m.athlete_id] ?? { ctl: 0, atl: 0, tsb: 0 }
             const tsbColor = load.tsb > 5 ? 'text-emerald-400' : load.tsb >= -10 ? 'text-yellow-400' : 'text-red-400'
             const formLabel = load.tsb > 5 ? 'Fresh' : load.tsb >= -10 ? 'Tired' : 'Very Tired'
             const hasData = load.ctl > 0 || load.atl > 0
             return (
-              <div key={m.athlete_id} className="card p-3">
+              <div key={m.athlete_id} className="bg-[#0f0f0f] rounded-xl p-3">
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <Avatar name={m.name} pic={m.profile_pic} size={5} />
                   <span className={`text-xs font-bold truncate ${m.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
@@ -998,55 +989,53 @@ export default function GroupDashboardTab({
         </div>
       </div>
 
-      {/* Members section */}
-      <div>
-        <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Members</p>
-        <div className="space-y-2">
+      {/* Members */}
+      <div className="card" style={{ padding: '1.25rem' }}>
+        <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Members</p>
+        <div className="divide-y divide-[#1c1c1c]">
           {members.map(m => (
-            <div key={m.athlete_id} className="card" style={{ padding: '0.625rem 0.875rem' }}>
-              <div className="flex items-center gap-2.5">
-                <Avatar name={m.name} pic={m.profile_pic} size={7} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm">{m.name}</span>
-                    {m.is_me && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>}
-                    {m.role === 'admin' && <span className="text-[10px] text-yellow-400 font-bold bg-yellow-400/10 px-1.5 py-0.5 rounded">Admin</span>}
-                    {m.gender && <span className="text-[10px] text-[#4b5563] font-mono">{m.gender === 'M' ? '♂' : '♀'}</span>}
-                  </div>
-                  <p className="text-[#6b7280] text-xs mt-0.5">
-                    Joined {format(new Date(m.joined_at), 'MMM d, yyyy')}
-                    {m.goals.length > 0 && ` · ${m.goals.length} goal${m.goals.length !== 1 ? 's' : ''}`}
-                  </p>
+            <div key={m.athlete_id} className="flex items-center gap-2.5 py-3 first:pt-0 last:pb-0">
+              <Avatar name={m.name} pic={m.profile_pic} size={7} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm">{m.name}</span>
+                  {m.is_me && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>}
+                  {m.role === 'admin' && <span className="text-[10px] text-yellow-400 font-bold bg-yellow-400/10 px-1.5 py-0.5 rounded">Admin</span>}
+                  {m.gender && <span className="text-[10px] text-[#4b5563] font-mono">{m.gender === 'M' ? '♂' : '♀'}</span>}
                 </div>
-                {myRole === 'admin' && !m.is_me && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    {m.role === 'admin' ? (
-                      <button
-                        onClick={() => onUpdateMemberRole(m.athlete_id, 'member')}
-                        className="p-1.5 rounded-lg text-yellow-400/60 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
-                        title="Remove admin"
-                      >
-                        <ShieldOff size={14} />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onUpdateMemberRole(m.athlete_id, 'admin')}
-                        className="p-1.5 rounded-lg text-[#4b5563] hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
-                        title="Make admin"
-                      >
-                        <Shield size={14} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => onKickMember(m.athlete_id)}
-                      className="p-1.5 rounded-lg text-[#4b5563] hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                      title="Remove from group"
-                    >
-                      <UserMinus size={14} />
-                    </button>
-                  </div>
-                )}
+                <p className="text-[#6b7280] text-xs mt-0.5">
+                  Joined {format(new Date(m.joined_at), 'MMM d, yyyy')}
+                  {m.goals.length > 0 && ` · ${m.goals.length} goal${m.goals.length !== 1 ? 's' : ''}`}
+                </p>
               </div>
+              {myRole === 'admin' && !m.is_me && (
+                <div className="flex items-center gap-1 shrink-0">
+                  {m.role === 'admin' ? (
+                    <button
+                      onClick={() => onUpdateMemberRole(m.athlete_id, 'member')}
+                      className="p-1.5 rounded-lg text-yellow-400/60 hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
+                      title="Remove admin"
+                    >
+                      <ShieldOff size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onUpdateMemberRole(m.athlete_id, 'admin')}
+                      className="p-1.5 rounded-lg text-[#4b5563] hover:text-yellow-400 hover:bg-yellow-400/10 transition-colors"
+                      title="Make admin"
+                    >
+                      <Shield size={14} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onKickMember(m.athlete_id)}
+                    className="p-1.5 rounded-lg text-[#4b5563] hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                    title="Remove from group"
+                  >
+                    <UserMinus size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -242,6 +242,9 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   return (
     <div className="space-y-4 fade-up">
 
+      {/* RDCoach section label */}
+      <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>RDCoach</p>
+
       {/* Weekly Briefing */}
       <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -277,7 +280,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
       {/* This Week's Awards */}
       {briefing.shoutouts.length > 0 && (
         <div>
-          <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">This Week&rsquo;s Awards</h3>
+          <h3 className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>This Week&rsquo;s Awards</h3>
           <div className="grid sm:grid-cols-2 gap-3">
             {briefing.shoutouts.map((s, i) => (
               <ShoutoutCard key={i} shoutout={s} members={members} />
@@ -320,7 +323,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
       {/* Trophy Case — past weeks (group page only) */}
       {!minimal && (
         <div>
-          <h3 className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest mb-3">Trophy Case</h3>
+          <h3 className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Trophy Case</h3>
           {sortedWeeks.length === 0 ? (
             <p className="text-[10px] text-[#4b5563] font-mono">
               Awards will appear here after the next briefing refresh.

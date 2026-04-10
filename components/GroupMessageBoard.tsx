@@ -106,7 +106,8 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
   const displayMessages = [...messages].reverse()
 
   return (
-    <div className="card" style={{ padding: '1rem' }}>
+    <div className="card" style={{ padding: '1.25rem' }}>
+      <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Group Chat</p>
       {/* Message feed */}
       <div
         className="mb-3 space-y-3 overflow-y-auto"

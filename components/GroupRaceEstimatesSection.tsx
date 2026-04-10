@@ -1,5 +1,4 @@
 'use client'
-import { useState, useEffect } from 'react'
 import { type Member, Avatar, formatTime } from '@/components/GroupShared'
 import { useUnit } from '@/lib/unit-context'
 import { paceUnitLabel } from '@/lib/utils'
@@ -9,6 +8,7 @@ interface Props {
   members: Member[]
   initialEstimates: Record<number, Record<string, number>>
   myAthleteId: number
+  loading?: boolean
 }
 
 const DISTANCES = [
@@ -46,17 +46,10 @@ function MemberRow({ member, secs, km, unit, isMe }: {
   )
 }
 
-export default function GroupRaceEstimatesSection({ groupId, members, initialEstimates, myAthleteId }: Props) {
+export default function GroupRaceEstimatesSection({ groupId, members, initialEstimates, myAthleteId, loading = false }: Props) {
   const { unit } = useUnit()
-  const [estimates, setEstimates] = useState(initialEstimates)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch(`/api/groups/${groupId}/estimates`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setEstimates(data) })
-      .finally(() => setLoading(false))
-  }, [groupId])
+  // Parent (GroupPageClient) owns the fetch and passes live estimates + loading state
+  const estimates = initialEstimates
 
   // Only show cards where at least one member has an estimate
   const cardsToShow = DISTANCES.filter(d =>

@@ -63,10 +63,21 @@ interface Props {
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, initialAwards, initialPlans, memberEstimates = {},
+  initialBriefing, initialBriefingMeta, initialAwards, initialPlans, memberEstimates: initialMemberEstimates = {},
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
+  const [memberEstimates, setMemberEstimates] = useState(initialMemberEstimates)
+  const [estimatesLoading, setEstimatesLoading] = useState(true)
+
+  // Fetch fresh estimates for all members client-side (runs analysis + saves snapshots)
+  useEffect(() => {
+    fetch(`/api/groups/${group.id}/estimates`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setMemberEstimates(data) })
+      .catch(() => {})
+      .finally(() => setEstimatesLoading(false))
+  }, [group.id])
 
   // Group name rename
   const [groupName, setGroupName] = useState(group.name)
@@ -383,7 +394,7 @@ export default function GroupPageClient({
           ))}
         </div>
 
-        <GroupRaceEstimatesSection groupId={group.id} members={localMembers} initialEstimates={memberEstimates} myAthleteId={myAthleteId} />
+        <GroupRaceEstimatesSection groupId={group.id} members={localMembers} initialEstimates={memberEstimates} myAthleteId={myAthleteId} loading={estimatesLoading} />
         </>
       )}
 

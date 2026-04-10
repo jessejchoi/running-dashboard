@@ -8,6 +8,7 @@ import { Avatar, formatTime, type Group, type Member, type Run, type Leaderboard
 import GroupDashboardTab from '@/components/GroupDashboardTab'
 import GroupFeedTab from '@/components/GroupFeedTab'
 import GroupPlansTab from '@/components/GroupPlansTab'
+import GroupRaceEstimatesSection from '@/components/GroupRaceEstimatesSection'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 
 interface Goal {
@@ -57,11 +58,12 @@ interface Props {
   initialBriefingMeta?: { cached: boolean; generated_at: string } | null
   initialAwards?: Award[]
   initialPlans?: UserPlan[]
+  memberEstimates?: Record<number, Record<string, number>>
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, initialAwards, initialPlans,
+  initialBriefing, initialBriefingMeta, initialAwards, initialPlans, memberEstimates = {},
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
@@ -291,6 +293,7 @@ export default function GroupPageClient({
 
       {/* ── Goals tab ─────────────────────────────────────────────────────── */}
       {tab === 'goals' && (
+        <>
         <div className="space-y-6 fade-up">
           {localMembers.map(m => (
             <div key={m.athlete_id}>
@@ -309,10 +312,8 @@ export default function GroupPageClient({
                     const km = { '5k': 5, '10k': 10, 'hm': 21.0975, 'fm': 42.195 }[goal.distance_key] ?? 5
                     const targetPace = goal.target_secs / km
                     const paceStr = (s: number) => `${Math.floor(s / 60)}:${Math.round(s % 60).toString().padStart(2, '0')}`
-                    const baselinePace = goal.current_secs ? goal.current_secs / km : targetPace + 30
-                    const currentPace = goal.current_secs ? goal.current_secs / km : null
-                    const progress = currentPace && baselinePace > targetPace
-                      ? Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
+                    const progress = goal.current_secs && goal.current_secs > 0
+                      ? Math.min(1, Math.max(0, goal.target_secs / goal.current_secs))
                       : 0
                     return (
                       <div key={goal.id} className="bg-[#111] border border-[#1c1c1c] rounded-xl p-3">
@@ -343,6 +344,9 @@ export default function GroupPageClient({
             </div>
           ))}
         </div>
+
+        <GroupRaceEstimatesSection members={localMembers} memberEstimates={memberEstimates} myAthleteId={myAthleteId} />
+        </>
       )}
 
       {/* ── Plans tab ─────────────────────────────────────────────────────── */}

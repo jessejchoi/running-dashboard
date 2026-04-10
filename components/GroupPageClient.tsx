@@ -367,6 +367,10 @@ export default function GroupPageClient({
                         <div className="h-1 bg-[#242424] rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${distBar} transition-all duration-700`} style={{ width: `${progress * 100}%` }} />
                         </div>
+                        <div className="flex justify-between mt-0.5">
+                          <span className="text-[9px] font-mono text-[#3a3a3a]">{paceStr(baselinePace * (unit === 'miles' ? 1.60934 : 1))}</span>
+                          <span className="text-[9px] font-mono text-[#3a3a3a]">{paceStr(targetPace * (unit === 'miles' ? 1.60934 : 1))}</span>
+                        </div>
                       </div>
                     )
                   })}

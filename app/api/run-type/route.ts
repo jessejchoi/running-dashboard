@@ -15,9 +15,16 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid run type' }, { status: 400 })
   }
 
+  const update: Record<string, unknown> = {
+    run_type: runType ?? null,
+    run_type_manual: runType != null,
+  }
+  // Keep is_race in sync: tagging as race sets it, clearing or changing away unsets it
+  update.is_race = runType === 'race'
+
   const { error } = await supabaseAdmin
     .from('activities')
-    .update({ run_type: runType ?? null, run_type_manual: runType != null })
+    .update(update)
     .eq('id', activityId)
     .eq('athlete_id', athleteId)
 

@@ -15,6 +15,7 @@ export const RUN_TYPES = {
   long_progressive:   { label: 'Long Run with Speed',  color: 'text-blue-400',    bg: 'bg-blue-400/15',    group: 'Long' },
   intervals:          { label: 'Intervals',           color: 'text-red-400',     bg: 'bg-red-400/15',     group: 'Interval' },
   treadmill:          { label: 'Treadmill',           color: 'text-zinc-400',    bg: 'bg-zinc-400/15',    group: 'Other' },
+  race:               { label: 'Race',               color: 'text-amber-400',   bg: 'bg-amber-400/15',   group: 'Other' },
 } as const
 
 export type RunType = keyof typeof RUN_TYPES

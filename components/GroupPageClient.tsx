@@ -363,11 +363,10 @@ export default function GroupPageClient({
                     const analysisSecs = memberEstimates[m.athlete_id]?.[estimateKey] ?? null
                     const currentSecs = analysisSecs ?? goal.current_secs ?? null
                     const currentPace = currentSecs ? currentSecs / km : null
-                    // Fixed baseline = 130% of target time (30% over target = 0%, at target = 100%)
-                    // Gives a meaningful spread for real runners without needing a stored starting point
-                    const baselineSecs = goal.target_secs * 1.3
-                    const progress = currentSecs
-                      ? Math.min(1, Math.max(0, (baselineSecs - currentSecs) / (baselineSecs - goal.target_secs)))
+                    // Same formula as GoalCard: baseline = user's current_secs at goal creation
+                    const baselinePace = goal.current_secs ? goal.current_secs / km : targetPace + 30
+                    const progress = (currentPace && baselinePace > targetPace)
+                      ? Math.min(1, Math.max(0, (baselinePace - currentPace) / (baselinePace - targetPace)))
                       : 0
 
                     return (

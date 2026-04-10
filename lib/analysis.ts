@@ -750,7 +750,40 @@ function extractSteadyWindow(activity: {
     }
   }
 
-  if (!targetLap) return null
+  if (!targetLap) {
+    // No single lap >= 15 min (e.g. Garmin 1km auto-laps, each ~5 min).
+    // Accumulate consecutive laps from the end of the run to build the window.
+    const windowLaps: any[] = []
+    let wSecs = 0
+    for (let i = laps.length - 1; i >= 0 && wSecs < TARGET_WINDOW; i--) {
+      const lapTime = laps[i].moving_time ?? laps[i].elapsed_time ?? 0
+      if (lapTime > 0) {
+        windowLaps.unshift(laps[i])
+        wSecs += lapTime
+      }
+    }
+    if (wSecs >= TARGET_WINDOW) {
+      const lapSplits = windowLaps
+        .filter((l: any) => l.average_heartrate && l.average_speed)
+        .map((l: any) => ({
+          paceSecPerKm: 1000 / l.average_speed,
+          hr: l.average_heartrate,
+          duration: l.moving_time ?? l.elapsed_time ?? 0,
+        }))
+      if (lapSplits.length >= 1) {
+        const totalDur = lapSplits.reduce((s: number, sp: any) => s + sp.duration, 0)
+        if (totalDur > 0) {
+          return {
+            avgPace: lapSplits.reduce((s: number, sp: any) => s + sp.paceSecPerKm * sp.duration, 0) / totalDur,
+            avgHR: lapSplits.reduce((s: number, sp: any) => s + sp.hr * sp.duration, 0) / totalDur,
+            splits: lapSplits,
+            windowSecs: totalDur,
+          }
+        }
+      }
+    }
+    return null
+  }
 
   // Compute target lap's start time
   let lapStartSec = 0

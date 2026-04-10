@@ -768,14 +768,14 @@ export default function GroupDashboardTab({
 
       {/* Leaderboard */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Leaderboard</h2>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mb-4">
+          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-3">Leaderboard</h2>
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
             {ranges.map(r => (
               <button
                 key={r.key}
                 onClick={() => setLeaderRange(r.key)}
-                className={`px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${
+                className={`px-2.5 py-1 rounded-full text-xs font-bold transition-colors shrink-0 ${
                   leaderRange === r.key
                     ? 'bg-[#f97316] text-black'
                     : 'bg-[#1a1a1a] text-[#6b7280] hover:text-white'

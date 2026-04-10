@@ -242,9 +242,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   return (
     <div className="space-y-4 fade-up">
 
-      {/* RDCoach section label */}
-      <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>RDCoach</p>
-
       {/* Weekly Briefing */}
       <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
         <div className="flex items-start justify-between gap-3 mb-3">

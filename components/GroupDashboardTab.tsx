@@ -750,20 +750,26 @@ export default function GroupDashboardTab({
   return (
     <div className="fade-up space-y-8">
 
-      {/* Group Chat — label lives inside GroupMessageBoard */}
-      <GroupMessageBoard
-        groupId={group.id}
-        members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
-        myRole={myRole}
-      />
+      {/* Group Chat */}
+      <div>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">Group Chat</h2>
+        <GroupMessageBoard
+          groupId={group.id}
+          members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
+          myRole={myRole}
+        />
+      </div>
 
-      {/* RDCoach — label lives inside GroupCoachTab */}
-      <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
+      {/* RDCoach */}
+      <div>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">RDCoach</h2>
+        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
+      </div>
 
       {/* Leaderboard */}
-      <div className="card" style={{ padding: '1.25rem' }}>
+      <div>
         <div className="flex items-center justify-between mb-4">
-          <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Leaderboard</p>
+          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Leaderboard</h2>
           <div className="flex flex-wrap gap-1.5">
             {ranges.map(r => (
               <button
@@ -780,6 +786,7 @@ export default function GroupDashboardTab({
             ))}
           </div>
         </div>
+        <div className="card" style={{ padding: '1.25rem' }}>
         {board.every(e => e.distance === 0) ? (
           <p className="text-[#6b7280] text-sm text-center py-4">No runs recorded in this period.</p>
         ) : (
@@ -826,12 +833,13 @@ export default function GroupDashboardTab({
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* Challenges */}
-      <div className="card" style={{ padding: '1.25rem' }}>
+      <div>
         <div className="flex items-center justify-between mb-4">
-          <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Challenges</p>
+          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Challenges</h2>
           <div className="flex items-center gap-2">
             {myRole === 'admin' && (
               <button
@@ -852,6 +860,7 @@ export default function GroupDashboardTab({
             </button>
           </div>
         </div>
+        <div className="card" style={{ padding: '1.25rem' }}>
         {challenges.length === 0 ? (
           <div className="text-center py-6">
             <Trophy size={24} className="text-[#2a2a2a] mx-auto mb-2" />
@@ -943,11 +952,13 @@ export default function GroupDashboardTab({
             )}
           </div>
         )}
-      </div>
+        </div>{/* end challenges card */}
+      </div>{/* end challenges section */}
 
       {/* Training Load */}
-      <div className="card" style={{ padding: '1.25rem' }}>
-        <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Training Load</p>
+      <div>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">Training Load</h2>
+        <div className="card" style={{ padding: '1.25rem' }}>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {members.map(m => {
             const load = memberTrainingLoads[m.athlete_id] ?? { ctl: 0, atl: 0, tsb: 0 }
@@ -987,11 +998,13 @@ export default function GroupDashboardTab({
             )
           })}
         </div>
-      </div>
+        </div>{/* end training load card */}
+      </div>{/* end training load section */}
 
       {/* Members */}
-      <div className="card" style={{ padding: '1.25rem' }}>
-        <p className="font-mono text-xs uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Members</p>
+      <div>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">Members</h2>
+        <div className="card" style={{ padding: '1.25rem' }}>
         <div className="divide-y divide-[#1c1c1c]">
           {members.map(m => (
             <div key={m.athlete_id} className="flex items-center gap-2.5 py-3 first:pt-0 last:pb-0">
@@ -1039,7 +1052,8 @@ export default function GroupDashboardTab({
             </div>
           ))}
         </div>
-      </div>
+        </div>{/* end members card */}
+      </div>{/* end members section */}
 
       {/* Edit challenge modal */}
       {editingChallenge && (

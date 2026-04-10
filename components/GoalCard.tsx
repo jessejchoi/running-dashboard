@@ -6,13 +6,6 @@ import { formatGoalTime, paceSecs, distanceKm, type UserGoal, type DistanceKey }
 import { paceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import GoalSetupModal from './GoalSetupModal'
 
-const SOURCE_LABELS: Record<string, string> = {
-  interval: 'interval',
-  threshold: 'threshold',
-  long_run: 'long run',
-  easy_trend: 'easy trend',
-  race_result: 'race',
-}
 
 const DIST_COLORS: Record<string, { text: string; bar: string; bg: string; short: string }> = {
   '5k':            { text: 'text-red-400',    bar: 'bg-red-400',    bg: 'bg-red-400/10',    short: '5K' },
@@ -31,6 +24,12 @@ interface Props {
   onUpdate: (goal: UserGoal) => void
   onDelete: (id: string) => void
   unit?: DistanceUnit
+}
+
+const DIST_SUFFIXES = /\s+(5[Kk]|10[Kk]|HM|FM|Half[- ]Marathon|Half Marathon|Marathon)$/i
+
+function stripDistanceSuffix(label: string): string {
+  return label.replace(DIST_SUFFIXES, '').trim()
 }
 
 function paceStr(secs: number) {
@@ -93,9 +92,9 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <h3 className="font-display font-bold text-lg leading-tight truncate">{goal.label}</h3>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${dist.text} ${dist.bg}`}>{dist.short}</span>
+            <div className="flex items-baseline gap-2 mb-0.5">
+              <h3 className="font-display font-bold text-lg leading-tight truncate">{stripDistanceSuffix(goal.label)}</h3>
+              <span className={`text-sm font-bold px-2 py-0.5 rounded shrink-0 ${dist.text} ${dist.bg}`}>{dist.short}</span>
             </div>
             <p className="text-[#6b7280] text-xs">
               {isPast
@@ -104,15 +103,17 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
             </p>
           </div>
           <div className="flex items-center gap-1 ml-2 shrink-0">
-            <span className={`text-xs font-mono font-bold px-2 py-1 rounded-md bg-[#1c1c1c] ${statusColor}`}>
+            <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-[#1c1c1c] ${statusColor}`}>
               {statusLabel}
             </span>
-            <button onClick={() => setEditing(true)} className="text-[#4b5563] hover:text-white p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors">
-              <Pencil size={13} />
-            </button>
-            <button onClick={handleDelete} disabled={deleting} className="text-[#4b5563] hover:text-red-400 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors">
-              <Trash2 size={13} />
-            </button>
+            <div className="flex items-center">
+              <button onClick={() => setEditing(true)} className="text-[#4b5563] hover:text-white p-1.5 flex items-center justify-center transition-colors">
+                <Pencil size={13} />
+              </button>
+              <button onClick={handleDelete} disabled={deleting} className="text-[#4b5563] hover:text-red-400 p-1.5 flex items-center justify-center transition-colors">
+                <Trash2 size={13} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -136,11 +137,7 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
               {currentSecs ? formatGoalTime(currentSecs) : '--:--'}
             </div>
             <div className="text-[#6b7280] text-xs">
-              {currentEstimateSecs && confidence != null ? (
-                <span className={`font-mono ${confidence >= 0.7 ? 'text-[var(--success)]' : confidence >= 0.4 ? 'text-[var(--warning)]' : 'text-[var(--accent)]'}`}>
-                  {confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'med' : 'low'} conf.
-                </span>
-              ) : currentEstimateSecs ? 'from analysis' : currentSecs ? 'your estimate' : 'no data'}
+              {currentEstimateSecs ? 'from analysis' : currentSecs ? 'your estimate' : 'no data'}
             </div>
           </div>
         </div>
@@ -159,16 +156,6 @@ export default function GoalCard({ goal, currentEstimateSecs, confidence, source
             <div className="flex justify-between text-[10px] text-[#3a3a3a] mt-1 font-mono">
               <span>{formatGoalTime(goal.current_secs)}</span>
               <span>{formatGoalTime(goal.target_secs)}</span>
-            </div>
-          )}
-          {sourceCounts && Object.keys(sourceCounts).length > 0 && (
-            <div className="text-[10px] text-[#4b5563] mt-2">
-              Based on {Object.entries(sourceCounts).map(([source, count], i, arr) => (
-                <span key={source}>
-                  {count} {SOURCE_LABELS[source] ?? source}{count > 1 ? 's' : ''}
-                  {i < arr.length - 1 ? ', ' : ''}
-                </span>
-              ))}
             </div>
           )}
         </div>

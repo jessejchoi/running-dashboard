@@ -28,23 +28,28 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
 
   // Position dropdown — fixed uses viewport coords, so use rect directly (no scrollY offset)
   function updatePos() {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      // Flip up if not enough space below
-      const dropH = 320
-      const spaceBelow = window.innerHeight - rect.bottom
-      const top = spaceBelow < dropH ? rect.top - dropH - 4 : rect.bottom + 4
-      // Flip left if would overflow right edge
-      const dropW = 200
-      const left = rect.left + dropW > window.innerWidth
-        ? Math.max(4, window.innerWidth - dropW - 8)
-        : rect.left
-      setDropdownPos({ top, left })
-    }
+    if (!btnRef.current) return
+    const rect = btnRef.current.getBoundingClientRect()
+    // Use actual rendered height if available, otherwise estimate
+    const dropH = dropRef.current ? dropRef.current.getBoundingClientRect().height : 360
+    const spaceBelow = window.innerHeight - rect.bottom
+    const top = spaceBelow < dropH ? rect.top - dropH - 4 : rect.bottom + 4
+    // Clamp so dropdown never overflows viewport bottom
+    const clampedTop = Math.min(top, window.innerHeight - dropH - 8)
+    // Flip left if would overflow right edge
+    const dropW = dropRef.current ? dropRef.current.getBoundingClientRect().width : 200
+    const left = rect.left + dropW > window.innerWidth
+      ? Math.max(4, window.innerWidth - dropW - 8)
+      : rect.left
+    setDropdownPos({ top: Math.max(8, clampedTop), left })
   }
 
   useEffect(() => {
-    if (open) updatePos()
+    if (open) {
+      // First pass: position with estimate, then re-measure actual size
+      updatePos()
+      requestAnimationFrame(() => updatePos())
+    }
   }, [open])
 
   useEffect(() => {

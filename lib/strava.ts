@@ -81,28 +81,182 @@ export async function fetchAthlete(token: string) {
   return res.json()
 }
 
+// ─── Pace zones ──────────────────────────────────────────────────────────────
+
+export interface PaceZones {
+  intervalMaxPace: number    // sec/km — at or below = interval effort
+  thresholdMaxPace: number   // sec/km
+  tempoMaxPace: number       // sec/km
+  easyMaxPace: number        // sec/km — above = recovery
+  longRunThresholdKm: number // distance at or above = long run
+  source: 'race_result' | 'user_goal'
+}
+
+const DIST_KM: Record<string, number> = { '5k': 5, '10k': 10, 'hm': 21.097, 'fm': 42.195 }
+const DIST_PRIORITY = ['5k', '10k', 'hm', 'fm']
+
+function isoWeekKey(d: Date): string {
+  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const day = utc.getUTCDay() || 7
+  utc.setUTCDate(utc.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((utc.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return `${utc.getUTCFullYear()}-W${week}`
+}
+
+async function computePaceZones(athleteId: number): Promise<PaceZones | null> {
+  let anchorPace5k: number | null = null
+  let source: PaceZones['source'] = 'race_result'
+
+  // 1. Try actual race results (prefer shortest distance = most accurate predictor)
+  const { data: races } = await supabaseAdmin
+    .from('activities')
+    .select('matched_distance_key, moving_time')
+    .eq('athlete_id', athleteId)
+    .eq('is_race', true)
+    .not('matched_distance_key', 'is', null)
+    .order('start_date', { ascending: false })
+
+  if (races?.length) {
+    for (const dk of DIST_PRIORITY) {
+      const race = races.find(r => r.matched_distance_key === dk)
+      if (race?.moving_time) {
+        const t5k = race.moving_time * Math.pow(5 / DIST_KM[dk], 1.06)
+        anchorPace5k = t5k / 5
+        break
+      }
+    }
+  }
+
+  // 2. Fall back to user-provided goal times
+  if (anchorPace5k === null) {
+    const { data: goals } = await supabaseAdmin
+      .from('user_goals')
+      .select('distance_key, current_secs')
+      .eq('athlete_id', athleteId)
+      .not('current_secs', 'is', null)
+
+    if (goals?.length) {
+      source = 'user_goal'
+      for (const dk of DIST_PRIORITY) {
+        const goal = goals.find(g => g.distance_key === dk && g.current_secs)
+        if (goal) {
+          const t5k = goal.current_secs * Math.pow(5 / DIST_KM[dk], 1.06)
+          anchorPace5k = t5k / 5
+          break
+        }
+      }
+    }
+  }
+
+  if (anchorPace5k === null) return null
+
+  // Zone boundaries as multipliers of 5K pace
+  const p = anchorPace5k
+  const paceZones = {
+    intervalMaxPace:   p * 1.05,
+    thresholdMaxPace:  p * 1.13,
+    tempoMaxPace:      p * 1.25,
+    easyMaxPace:       p * 1.50,
+    source,
+  }
+
+  // Long run threshold: 80% of median weekly long run over last 12 weeks
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - 84)
+  const { data: recentRuns } = await supabaseAdmin
+    .from('activities')
+    .select('start_date, distance')
+    .eq('athlete_id', athleteId)
+    .gte('start_date', cutoff.toISOString())
+    .gt('distance', 0)
+
+  let longRunThresholdKm = 12
+
+  if (recentRuns && recentRuns.length >= 4) {
+    const weeklyMax: Record<string, number> = {}
+    for (const run of recentRuns) {
+      const key = isoWeekKey(new Date(run.start_date))
+      const km = run.distance / 1000
+      if (!weeklyMax[key] || km > weeklyMax[key]) weeklyMax[key] = km
+    }
+    const sorted = Object.values(weeklyMax).sort((a, b) => a - b)
+    if (sorted.length >= 4) {
+      const median = sorted[Math.floor(sorted.length / 2)]
+      longRunThresholdKm = Math.max(8, Math.min(30, median * 0.80))
+    }
+  }
+
+  return { ...paceZones, longRunThresholdKm }
+}
+
+export async function buildUserPaceProfile(athleteId: number): Promise<PaceZones | null> {
+  const { data: profile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('pace_zones, pace_zones_updated_at')
+    .eq('athlete_id', athleteId)
+    .single()
+
+  const updatedAt = profile?.pace_zones_updated_at
+  const ageDays = updatedAt
+    ? (Date.now() - new Date(updatedAt).getTime()) / 86400000
+    : Infinity
+
+  if (ageDays < 14 && profile?.pace_zones) {
+    return profile.pace_zones as PaceZones
+  }
+
+  const zones = await computePaceZones(athleteId)
+  if (zones) {
+    await supabaseAdmin
+      .from('user_profiles')
+      .update({ pace_zones: zones, pace_zones_updated_at: new Date().toISOString() })
+      .eq('athlete_id', athleteId)
+  }
+  return zones
+}
+
 // ─── Run categorization ───────────────────────────────────────────────────────
 
-export function categorizeRun(activity: {
-  distance: number
-  average_speed: number
-  average_heartrate?: number
-  suffer_score?: number
-  splits?: any[]
-  laps?: any[]
-}): string {
+function progressiveCheck(splits: any[]): 'long_progressive' | 'long_easy' {
+  const third = Math.floor(splits.length / 3)
+  if (third >= 2) {
+    const avgPace = (arr: any[]) => {
+      const ps = arr
+        .map((s: any) => s.moving_time && s.distance ? s.moving_time / (s.distance / 1000) : null)
+        .filter((p): p is number => p !== null && p > 0 && p < 600)
+      return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : 0
+    }
+    const first = avgPace(splits.slice(0, third))
+    const last  = avgPace(splits.slice(splits.length - third))
+    if (first > 0 && last > 0 && (first - last) / first > 0.07) return 'long_progressive'
+  }
+  return 'long_easy'
+}
+
+export function categorizeRun(
+  activity: {
+    distance: number
+    average_speed: number
+    average_heartrate?: number
+    suffer_score?: number
+    splits?: any[]
+    laps?: any[]
+  },
+  zones?: PaceZones,
+  maxHr?: number
+): string {
   const distanceKm = activity.distance / 1000
   const avgPaceSeconds = activity.average_speed ? 1000 / activity.average_speed : 999
   const hr = activity.average_heartrate ?? 0
-
   const splits = activity.laps ?? activity.splits ?? []
 
+  // Pace coefficient of variation
   let paceCV = 0
   if (splits.length >= 3) {
     const paces = splits
       .map((s: any) => s.moving_time && s.distance ? s.moving_time / (s.distance / 1000) : null)
       .filter((p: any) => p !== null && p > 0 && p < 600) as number[]
-
     if (paces.length >= 3) {
       const mean = paces.reduce((a, b) => a + b, 0) / paces.length
       const variance = paces.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / paces.length
@@ -115,35 +269,45 @@ export function categorizeRun(activity: {
     : activity.average_speed
   const maxSplitPace = maxSplitSpeed > 0 ? 1000 / maxSplitSpeed : 999
 
-  // Intervals: high pace variability OR very fast individual split
-  if (paceCV > 0.12 || (maxSplitPace < 230 && distanceKm < 18)) return 'intervals'
-
-  // Long runs (≥12 km): detect progressive build by comparing first vs last third.
-  // paceCV alone is unreliable — warmup/cooldown inflates variability on easy runs.
-  if (distanceKm >= 12) {
-    const third = Math.floor(splits.length / 3)
-    if (third >= 2) {
-      const toAvgPace = (arr: any[]) => {
-        const ps = arr.map((s: any) => s.moving_time && s.distance ? s.moving_time / (s.distance / 1000) : null)
-          .filter((p): p is number => p !== null && p > 0 && p < 600)
-        return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : 0
-      }
-      const firstAvg = toAvgPace(splits.slice(0, third))
-      const lastAvg  = toAvgPace(splits.slice(splits.length - third))
-      // Last third ≥7% faster than first third → meaningful progressive build
-      if (firstAvg > 0 && lastAvg > 0 && (firstAvg - lastAvg) / firstAvg > 0.07) {
-        return 'long_progressive'
-      }
-    }
-    return 'long_easy'
+  // ── No zones: fall back to original hardcoded logic ──────────────────────────
+  if (!zones) {
+    if (paceCV > 0.12 || (maxSplitPace < 230 && distanceKm < 18)) return 'intervals'
+    if (distanceKm >= 12) return progressiveCheck(splits)
+    if (avgPaceSeconds < 290 && avgPaceSeconds > 230 && paceCV < 0.08) return 'threshold'
+    if (avgPaceSeconds < 340 && avgPaceSeconds > 270 && paceCV < 0.08) return 'tempo'
+    if (avgPaceSeconds > 380 || (hr > 0 && hr < 135)) return 'recovery'
+    return 'easy'
   }
 
-  // Hard sustained efforts (shorter runs)
-  if (avgPaceSeconds < 290 && avgPaceSeconds > 230 && paceCV < 0.08) return 'threshold'
-  if (avgPaceSeconds < 340 && avgPaceSeconds > 270 && paceCV < 0.08) return 'tempo'
+  // ── With zones: relative thresholds ─────────────────────────────────────────
+  const { intervalMaxPace, thresholdMaxPace, tempoMaxPace, easyMaxPace, longRunThresholdKm } = zones
 
-  // Easy/recovery
-  if (avgPaceSeconds > 380 || (hr > 0 && hr < 135)) return 'recovery'
+  // Strides: very short (<30s) fast bursts within a run
+  const shortBursts = splits.filter((s: any) =>
+    s.moving_time > 0 && s.moving_time < 30 &&
+    s.average_speed > 0 && (1000 / s.average_speed) <= intervalMaxPace
+  ).length
+
+  // 1. Long run (user-adaptive distance threshold)
+  if (distanceKm >= longRunThresholdKm) return progressiveCheck(splits)
+
+  // 2. Intervals: high variability AND at least one split at interval pace
+  if (paceCV > 0.12 && maxSplitPace <= intervalMaxPace) return 'intervals'
+
+  // 3. Threshold: fastest split reaches threshold zone (no paceCV restriction —
+  //    threshold workouts with walk rests have high CV but the fast reps reveal effort)
+  if (maxSplitPace <= thresholdMaxPace) return 'threshold'
+
+  // 4. Tempo
+  if (maxSplitPace <= tempoMaxPace) return 'tempo'
+
+  // 5. Easy + strides: overall easy pace but contains short fast bursts
+  if (avgPaceSeconds > tempoMaxPace && shortBursts >= 2) return 'easy_strides'
+
+  // 6. Recovery: slow overall pace OR low relative HR
+  if (avgPaceSeconds > easyMaxPace) return 'recovery'
+  if (maxHr && hr > 0 && hr < maxHr * 0.70) return 'recovery'
+
   return 'easy'
 }
 
@@ -154,6 +318,13 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 export async function syncActivityDetails(athleteId: number, limit = 50) {
   const token = await getValidToken(athleteId)
   if (!token) throw new Error('No valid token')
+
+  // Build pace zones and fetch max_hr once for all runs in this batch
+  const [zones, profileRes] = await Promise.all([
+    buildUserPaceProfile(athleteId),
+    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).single(),
+  ])
+  const maxHr = profileRes.data?.max_hr ?? undefined
 
   // Fetch runs that are either not yet detail-synced OR missing stream data
   const { data: unsynced } = await supabaseAdmin
@@ -197,7 +368,7 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
         suffer_score: detail.suffer_score,
         splits: detail.splits_metric,
         laps,
-      })
+      }, zones ?? undefined, maxHr)
 
       const isTreadmill = detail.trainer === true
       // Fetch current run_type so we don't overwrite manual tags

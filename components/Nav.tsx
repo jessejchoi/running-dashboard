@@ -58,10 +58,9 @@ export default function Nav() {
             <svg viewBox="52 58 78 64" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <filter id="ng-d"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                <filter id="ng-d2"><feGaussianBlur stdDeviation="1.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
               </defs>
               <path d="M60 66 L100 90 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-d)"/>
-              <path d="M80 66 L120 90 L80 114" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-d2)"/>
+              <path d="M80 66 L120 90 L80 114" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter"/>
             </svg>
             <span style={{ color: 'var(--orange)' }}>RUN</span>
             <span className="text-white/50">DASH</span>
@@ -122,10 +121,9 @@ export default function Nav() {
           <svg viewBox="52 58 78 64" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <filter id="ng-m"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-              <filter id="ng-m2"><feGaussianBlur stdDeviation="1.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
             </defs>
             <path d="M60 66 L100 90 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-m)"/>
-            <path d="M80 66 L120 90 L80 114" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-m2)"/>
+            <path d="M80 66 L120 90 L80 114" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter"/>
           </svg>
           <span style={{ color: 'var(--orange)' }}>RUN</span>
           <span className="text-white/50">DASH</span>

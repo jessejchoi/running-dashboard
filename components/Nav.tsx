@@ -54,8 +54,17 @@ export default function Nav() {
       {/* ── Desktop top nav ───────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 hidden sm:block" style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(16px) saturate(180%)', WebkitBackdropFilter: 'blur(16px) saturate(180%)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
-          <span className="font-display font-bold text-xl uppercase tracking-tight">
-            <span style={{ color: 'var(--orange)' }}>&gt;&gt;</span>
+          <span className="font-display font-bold text-xl uppercase tracking-tight inline-flex items-center">
+            <svg viewBox="55 62 78 56" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <filter id="ng-d">
+                  <feGaussianBlur stdDeviation="2" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <path d="M63 70 L97 90 L63 110" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-d)"/>
+              <path d="M83 70 L117 90 L83 110" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-d)"/>
+            </svg>
             <span style={{ color: 'var(--orange)' }}>RUN</span>
             <span className="text-white/50">DASH</span>
           </span>
@@ -111,8 +120,17 @@ export default function Nav() {
 
       {/* ── Mobile top bar: logo + actions ───────────────────── */}
       <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-4" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <span className="font-display font-bold text-xl uppercase tracking-tight">
-          <span style={{ color: 'var(--orange)' }}>&gt;&gt;</span>
+        <span className="font-display font-bold text-xl uppercase tracking-tight inline-flex items-center">
+          <svg viewBox="55 62 78 56" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="ng-m">
+                <feGaussianBlur stdDeviation="2" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <path d="M63 70 L97 90 L63 110" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-m)"/>
+            <path d="M83 70 L117 90 L83 110" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-m)"/>
+          </svg>
           <span style={{ color: 'var(--orange)' }}>RUN</span>
           <span className="text-white/50">DASH</span>
         </span>

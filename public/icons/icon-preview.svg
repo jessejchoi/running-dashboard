@@ -50,6 +50,6 @@
   <!-- First > — orange -->
   <path d="M60 66 L98.8 89.2 L98.8 90.8 L60 114" fill="none" stroke="#f97316" stroke-width="8" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" filter="url(#chevron-glow)"/>
   <!-- Second > — opaque gray with matching glow and a less clipped tip -->
-  <path d="M80 66 L120.8 89.2 L120.8 90.8 L80 114" fill="none" stroke="#9a9a9a" stroke-width="8" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" filter="url(#chevron-glow)"/>
+  <path d="M80 66 L120.8 89.2 L120.8 90.8 L80 114" fill="none" stroke="#808080" stroke-width="8" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" filter="url(#chevron-glow)"/>
 
 </svg>

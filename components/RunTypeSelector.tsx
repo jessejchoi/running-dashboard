@@ -25,6 +25,12 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
   const currentConfig = selected ? RUN_TYPES[selected as RunType] : null
 
   useEffect(() => { setMounted(true) }, [])
+  useEffect(() => {
+    setSelected(current ?? null)
+  }, [current])
+  useEffect(() => {
+    setManual(isManual ?? false)
+  }, [isManual])
 
   // Position dropdown — fixed uses viewport coords, so use rect directly (no scrollY offset)
   function updatePos() {
@@ -76,7 +82,11 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activityId, runType: type }),
     })
-    if (res.ok) { setSelected(type); setManual(type != null); onUpdate?.(type) }
+    if (res.ok) {
+      setSelected(type)
+      setManual(type != null)
+      onUpdate?.(type)
+    }
     setSaving(false)
   }
 

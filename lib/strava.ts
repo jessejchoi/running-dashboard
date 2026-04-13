@@ -390,6 +390,11 @@ export function calculateTrainingLoad(
 export async function syncActivities(athleteId: number, accessToken?: string) {
   const token = accessToken ?? await getValidToken(athleteId)
   if (!token) throw new Error('No valid token')
+  const [zones, profileRes] = await Promise.all([
+    buildUserPaceProfile(athleteId),
+    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
+  ])
+  const maxHr = profileRes.data?.max_hr ?? undefined
 
   let page = 1
   let totalSynced = 0
@@ -412,26 +417,41 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
 
     const runs = activities
       .filter((a: any) => a.type === 'Run' || a.sport_type === 'Run')
-      .map((a: any) => ({
-        id: a.id,
-        athlete_id: athleteId,
-        name: a.name,
-        type: a.type || a.sport_type,
-        start_date: a.start_date,
-        distance: a.distance,
-        moving_time: a.moving_time,
-        elapsed_time: a.elapsed_time,
-        total_elevation_gain: a.total_elevation_gain,
-        average_speed: a.average_speed,
-        max_speed: a.max_speed,
-        average_heartrate: a.average_heartrate ?? null,
-        max_heartrate: a.max_heartrate ?? null,
-        average_cadence: a.average_cadence ?? null,
-        suffer_score: a.suffer_score ?? null,
-        splits: a.splits_metric ?? null,
-        detail_synced: false,
-        raw: a,
-      }))
+      .map((a: any) => {
+        const isTreadmill = a.trainer === true
+        const runType = isTreadmill
+          ? 'treadmill'
+          : categorizeRun({
+              distance: a.distance,
+              average_speed: a.average_speed,
+              average_heartrate: a.average_heartrate,
+              splits: a.splits_metric ?? [],
+              laps: a.laps ?? [],
+            }, zones ?? undefined, maxHr)
+
+        return {
+          id: a.id,
+          athlete_id: athleteId,
+          name: a.name,
+          type: a.type || a.sport_type,
+          start_date: a.start_date,
+          distance: a.distance,
+          moving_time: a.moving_time,
+          elapsed_time: a.elapsed_time,
+          total_elevation_gain: a.total_elevation_gain,
+          average_speed: a.average_speed,
+          max_speed: a.max_speed,
+          average_heartrate: a.average_heartrate ?? null,
+          max_heartrate: a.max_heartrate ?? null,
+          average_cadence: a.average_cadence ?? null,
+          suffer_score: a.suffer_score ?? null,
+          splits: a.splits_metric ?? null,
+          run_type: runType,
+          run_type_manual: false,
+          detail_synced: false,
+          raw: a,
+        }
+      })
 
     if (runs.length > 0) {
       // Check which IDs are genuinely new before counting

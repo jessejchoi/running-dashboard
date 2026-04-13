@@ -231,8 +231,8 @@ export interface FiveKEstimate {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MIN_EFFORT_DISTANCE = 310
-const MIN_EFFORT_DURATION = 60
+const MIN_EFFORT_DISTANCE = 180
+const MIN_EFFORT_DURATION = 45
 const MAX_EFFORT_PACE = 390    // 6:30/km — slower = recovery
 const MIN_EFFORT_PACE = 160    // 2:40/km — faster = pure sprint
 const RECOVERY_THRESHOLD = 40  // sec/km slower than session avg = recovery lap

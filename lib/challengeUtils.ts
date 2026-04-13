@@ -6,6 +6,7 @@ type SegmentLike = {
 }
 
 export interface ChallengeEffort {
+  activityId: number
   averageSpeed: number
   paceSecPerKm: number
   distanceMeters: number
@@ -61,11 +62,10 @@ function bestUserLap(laps: SegmentLike[]): ChallengeEffort | null {
   return { ...best, source: 'lap' }
 }
 
-export function getBestChallengeEffort(activity: { laps?: SegmentLike[] | null; splits?: SegmentLike[] | null }) {
+export function getBestChallengeEffort(activity: { id: number; laps?: SegmentLike[] | null; splits?: SegmentLike[] | null }) {
   const bestLap = bestUserLap(activity.laps ?? [])
   const bestKm = bestKmSplit(activity.splits ?? [])
+  const best = !bestLap ? bestKm : !bestKm ? bestLap : (bestLap.averageSpeed >= bestKm.averageSpeed ? bestLap : bestKm)
 
-  if (!bestLap) return bestKm
-  if (!bestKm) return bestLap
-  return bestLap.averageSpeed >= bestKm.averageSpeed ? bestLap : bestKm
+  return best ? { activityId: activity.id, ...best } : null
 }

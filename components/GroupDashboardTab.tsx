@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { format } from 'date-fns'
 import { Flame, Trophy, Plus, X, Shield, ShieldOff, UserMinus } from 'lucide-react'
 import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart, computeStreak } from '@/lib/utils'
@@ -717,12 +718,16 @@ export default function GroupDashboardTab({
                       <span className={`text-xs flex-1 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
                         {m.is_me ? 'You' : m.name.split(' ')[0]}
                       </span>
-                      <span className={`text-xs font-mono shrink-0 ${m.bestEffort !== null ? (m.is_me ? 'text-[#f97316]' : 'text-white') : 'text-[#4b5563]'}`}>
-                        {m.bestEffort !== null
-                          ? `${speedToPace(m.bestEffort.averageSpeed, unit)}${paceUnitLabel(unit)}`
-                          : 'No valid split'
-                        }
-                      </span>
+                      {m.bestEffort !== null ? (
+                        <Link
+                          href={`/runs/${m.bestEffort.activityId}?from=group/${group.id}`}
+                          className={`text-xs font-mono shrink-0 underline underline-offset-2 hover:opacity-80 ${m.is_me ? 'text-[#f97316]' : 'text-white'}`}
+                        >
+                          {`${speedToPace(m.bestEffort.averageSpeed, unit)}${paceUnitLabel(unit)}`}
+                        </Link>
+                      ) : (
+                        <span className="text-xs font-mono shrink-0 text-[#4b5563]">No valid split</span>
+                      )}
                     </div>
                   ))}
                 </div>

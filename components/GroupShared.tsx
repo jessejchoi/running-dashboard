@@ -50,6 +50,20 @@ export interface LeaderboardRun {
   average_speed?: number
   run_type?: string | null
   total_elevation_gain?: number
+  laps?: Array<{
+    average_speed?: number | null
+    distance?: number | null
+    moving_time?: number | null
+    elapsed_time?: number | null
+    [key: string]: unknown
+  }> | null
+  splits?: Array<{
+    average_speed?: number | null
+    distance?: number | null
+    moving_time?: number | null
+    elapsed_time?: number | null
+    [key: string]: unknown
+  }> | null
 }
 
 export interface Challenge {

@@ -7,7 +7,7 @@ import { format } from 'date-fns'
 import { calculateTrainingLoad } from '@/lib/strava'
 import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 import { getGroupLatestEstimates } from '@/lib/latestEstimates'
-import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
+import type { BriefingContent } from '@/lib/coachOutputs'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,7 +114,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .limit(100),
     supabaseAdmin
       .from('activities')
-      .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type, total_elevation_gain')
+      .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type, total_elevation_gain, laps, splits')
       .in('athlete_id', memberIds)
       .gte('start_date', sixMonthsAgo)
       .order('start_date', { ascending: false }),

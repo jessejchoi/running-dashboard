@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { Flame, Trophy, Plus, X, Shield, ShieldOff, UserMinus } from 'lucide-react'
 import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart, computeStreak } from '@/lib/utils'
+import { getBestChallengeEffort } from '@/lib/challengeUtils'
 import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, formatTime } from '@/components/GroupShared'
 import GroupCoachTab from '@/components/GroupCoachTab'
@@ -168,24 +169,25 @@ function computeFastestEffort(
   const start = new Date(challenge.start_date)
   const end = new Date(challenge.end_date)
   end.setHours(23, 59, 59, 999)
-  const targetRunType = challenge.config.run_type as string | undefined
-
   const relevant = leaderboardRuns.filter(r => {
     const d = new Date(r.start_date)
-    return d >= start && d <= end && r.run_type === targetRunType
+    return d >= start && d <= end
   })
 
   const byMember = members.map(m => {
     const memberRuns = relevant.filter(r => r.athlete_id === m.athlete_id)
-    const bestSpeed = memberRuns.length > 0
-      ? Math.max(...memberRuns.map(r => r.average_speed ?? 0))
-      : null
-    return { athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me, bestSpeed }
+    const bestEffort = memberRuns.reduce<ReturnType<typeof getBestChallengeEffort>>((best, run) => {
+      const effort = getBestChallengeEffort(run)
+      if (!effort) return best
+      if (!best || effort.averageSpeed > best.averageSpeed) return effort
+      return best
+    }, null)
+    return { athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me, bestEffort }
   }).sort((a, b) => {
-    if (a.bestSpeed === null && b.bestSpeed === null) return 0
-    if (a.bestSpeed === null) return 1
-    if (b.bestSpeed === null) return -1
-    return b.bestSpeed - a.bestSpeed
+    if (a.bestEffort === null && b.bestEffort === null) return 0
+    if (a.bestEffort === null) return 1
+    if (b.bestEffort === null) return -1
+    return b.bestEffort.averageSpeed - a.bestEffort.averageSpeed
   })
 
   return { byMember }
@@ -236,16 +238,87 @@ function computeRunCountProgress(
   return { totalCount: relevant.length, byMember }
 }
 
-const RUN_TYPE_LABELS: Record<string, string> = {
-  intervals: 'Intervals',
-  tempo: 'Tempo',
-  threshold: 'Threshold',
-  long_easy: 'Long — Easy',
-  long_steady: 'Long — Steady',
-  long_progressive: 'Long — Progressive',
-  easy: 'Easy',
-  easy_strides: 'Easy + Strides',
-  recovery: 'Recovery',
+function getLastMonthRange(now: Date) {
+  return {
+    start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+    end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
+  }
+}
+
+function summarizePastChallenge(
+  challenge: Challenge,
+  leaderboardRuns: LeaderboardRun[],
+  members: Member[],
+  unit: 'miles' | 'km',
+) {
+  const toDisplay = (m: number) => unit === 'miles' ? metersToMiles(m) : m / 1000
+  const distanceLabel = distanceUnitLabel(unit)
+  const cType = challenge.challenge_type ?? 'group_distance'
+  const target = challenge.target_meters ?? 0
+
+  if (cType === 'group_distance') {
+    const { totalMeters, byMember } = computeChallengeProgress(leaderboardRuns, challenge, members)
+    const leader = byMember[0]
+    return {
+      achieved: target > 0 && totalMeters >= target,
+      resultStr: `${toDisplay(totalMeters).toFixed(1)} ${distanceLabel}${target > 0 ? ` / ${toDisplay(target).toFixed(0)} ${distanceLabel}` : ''}`,
+      winnerLabel: leader ? `${leader.is_me ? 'You' : leader.name.split(' ')[0]} led with ${toDisplay(leader.meters).toFixed(1)} ${distanceLabel}` : null,
+    }
+  }
+
+  if (cType === 'weekly_quota') {
+    const { weeks, byMember } = computeWeeklyQuota(leaderboardRuns, challenge, members)
+    const totalWeeks = weeks.length
+    const standings = byMember
+      .map(m => ({
+        ...m,
+        hitCount: m.weekResults.filter(Boolean).length,
+      }))
+      .sort((a, b) => b.hitCount - a.hitCount)
+    const leader = standings[0]
+    const achieved = totalWeeks > 0 && standings.length > 0 && standings.every(m => m.hitCount === totalWeeks)
+    return {
+      achieved,
+      resultStr: `${standings.filter(m => m.hitCount === totalWeeks).length}/${standings.length} members completed all ${totalWeeks} weeks`,
+      winnerLabel: leader ? `${leader.is_me ? 'You' : leader.name.split(' ')[0]} topped it at ${leader.hitCount}/${totalWeeks} weeks` : null,
+    }
+  }
+
+  if (cType === 'elevation') {
+    const { totalElevation, byMember } = computeElevationProgress(leaderboardRuns, challenge, members)
+    const leader = byMember[0]
+    return {
+      achieved: target > 0 && totalElevation >= target,
+      resultStr: `${Math.round(totalElevation)}m${target > 0 ? ` / ${Math.round(target)}m` : ''}`,
+      winnerLabel: leader ? `${leader.is_me ? 'You' : leader.name.split(' ')[0]} led with ${Math.round(leader.elevation)}m` : null,
+    }
+  }
+
+  if (cType === 'run_count') {
+    const { totalCount, byMember } = computeRunCountProgress(leaderboardRuns, challenge, members)
+    const leader = byMember[0]
+    return {
+      achieved: target > 0 && totalCount >= target,
+      resultStr: `${totalCount}${target > 0 ? ` / ${target}` : ''} runs`,
+      winnerLabel: leader ? `${leader.is_me ? 'You' : leader.name.split(' ')[0]} logged ${leader.count} runs` : null,
+    }
+  }
+
+  if (cType === 'fastest_effort') {
+    const { byMember } = computeFastestEffort(leaderboardRuns, challenge, members)
+    const winner = byMember.find(m => m.bestEffort)
+    return {
+      achieved: false,
+      resultStr: winner?.bestEffort
+        ? `${speedToPace(winner.bestEffort.averageSpeed, unit)}${paceUnitLabel(unit)}`
+        : 'No valid laps or 1 km splits',
+      winnerLabel: winner?.bestEffort
+        ? `${winner.is_me ? 'You' : winner.name.split(' ')[0]} won with the fastest effort`
+        : null,
+    }
+  }
+
+  return { achieved: false, resultStr: '', winnerLabel: null as string | null }
 }
 
 export default function GroupDashboardTab({
@@ -263,12 +336,12 @@ export default function GroupDashboardTab({
   const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges)
   const [showCreate, setShowCreate] = useState(false)
   const [challengeType, setChallengeType] = useState<ChallengeType>('group_distance')
-  const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
+  const [form, setForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '' })
   const [formError, setFormError] = useState('')
   const [formSaving, setFormSaving] = useState(false)
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null)
   const [editType, setEditType] = useState<ChallengeType>('group_distance')
-  const [editForm, setEditForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
+  const [editForm, setEditForm] = useState({ name: '', description: '', targetDist: '', startDate: '', endDate: '' })
   const [editError, setEditError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -286,6 +359,17 @@ export default function GroupDashboardTab({
   const active   = challenges.filter(c => challengeStatus(c) === 'active')
   const upcoming = challenges.filter(c => challengeStatus(c) === 'upcoming')
   const past     = challenges.filter(c => challengeStatus(c) === 'past')
+  const lastMonthRange = getLastMonthRange(new Date())
+  const lastMonthChallenge = [...past]
+    .filter(c => {
+      const end = new Date(c.end_date)
+      end.setHours(23, 59, 59, 999)
+      return end >= lastMonthRange.start && end <= lastMonthRange.end
+    })
+    .sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime())[0]
+  const lastMonthSummary = lastMonthChallenge
+    ? summarizePastChallenge(lastMonthChallenge, leaderboardRuns, members, unit)
+    : null
 
   async function createChallenge() {
     setFormError('')
@@ -318,8 +402,6 @@ export default function GroupDashboardTab({
       const n = parseInt(form.targetDist)
       if (isNaN(n) || n <= 0) { setFormError('Please enter a valid run count.'); return }
       target_meters = n // stored as count
-    } else if (challengeType === 'fastest_effort') {
-      config = { run_type: form.runType }
     }
 
     setFormSaving(true)
@@ -341,7 +423,7 @@ export default function GroupDashboardTab({
     if (!res.ok) { setFormError(data.error ?? 'Failed to create challenge.'); return }
     setChallenges(prev => [data, ...prev])
     setShowCreate(false)
-    setForm({ name: '', description: '', targetDist: '', startDate: '', endDate: '', runType: 'intervals' })
+    setForm({ name: '', description: '', targetDist: '', startDate: '', endDate: '' })
     setChallengeType('group_distance')
   }
 
@@ -370,7 +452,6 @@ export default function GroupDashboardTab({
       targetDist,
       startDate: c.start_date,
       endDate: c.end_date,
-      runType: (c.config['run_type'] as string) ?? 'intervals',
     })
     setEditError('')
     setEditingChallenge(c)
@@ -403,7 +484,7 @@ export default function GroupDashboardTab({
       if (isNaN(n) || n <= 0) { setEditError('Please enter a valid run count.'); return }
       target_meters = n
     } else if (editType === 'fastest_effort') {
-      config = { ...config, run_type: editForm.runType }
+      config = {}
     }
     setEditSaving(true)
     const res = await fetch(`/api/groups/${group.id}/challenges`, {
@@ -568,8 +649,8 @@ export default function GroupDashboardTab({
               ) : (
                 <div className="space-y-2.5">
                   {byMember.map(m => {
-                    const hitCount = m.weekResults.filter(Boolean).length
-                    const totalWeeks = m.weekResults.length
+                    const totalWeeks = weeks.filter(ws => ws <= now).length
+                    const hitCount = m.weekResults.filter((hit, i) => weeks[i] <= now && hit).length
                     return (
                       <div key={m.athlete_id} className="flex items-center gap-2">
                         <Avatar name={m.name} pic={m.profile_pic} size={5} />
@@ -610,23 +691,22 @@ export default function GroupDashboardTab({
         {/* ── fastest_effort ── */}
         {cType === 'fastest_effort' && (() => {
           const { byMember } = computeFastestEffort(leaderboardRuns, c, members)
-          const runTypeLabel = RUN_TYPE_LABELS[c.config.run_type as string] ?? (c.config.run_type as string)
-          const hasAny = byMember.some(m => m.bestSpeed !== null)
+          const hasAny = byMember.some(m => m.bestEffort !== null)
           return (
             <>
               <p className="text-xs text-[#6b7280] mb-3">
-                Best pace · <span className="text-white">{runTypeLabel}</span>
+                Best pace from a manual lap or 1 km split
               </p>
               {isUpcoming ? (
                 <p className="text-xs text-[#4b5563]">Challenge hasn&apos;t started yet.</p>
               ) : !hasAny ? (
-                <p className="text-xs text-[#4b5563]">No matching runs yet.</p>
+                <p className="text-xs text-[#4b5563]">No valid laps or 1 km splits yet.</p>
               ) : (
                 <div className="space-y-2">
                   {byMember.map((m, i) => (
                     <div key={m.athlete_id} className="flex items-center gap-2">
                       <span className="w-5 shrink-0 flex items-center justify-center text-base">
-                        {m.bestSpeed !== null
+                        {m.bestEffort !== null
                           ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (
                             <span className="text-xs font-mono text-[#4b5563]">{i + 1}</span>
                           ))
@@ -637,9 +717,9 @@ export default function GroupDashboardTab({
                       <span className={`text-xs flex-1 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
                         {m.is_me ? 'You' : m.name.split(' ')[0]}
                       </span>
-                      <span className={`text-xs font-mono shrink-0 ${m.bestSpeed !== null ? (m.is_me ? 'text-[#f97316]' : 'text-white') : 'text-[#4b5563]'}`}>
-                        {m.bestSpeed !== null
-                          ? `${speedToPace(m.bestSpeed, unit)}${paceUnitLabel(unit)}`
+                      <span className={`text-xs font-mono shrink-0 ${m.bestEffort !== null ? (m.is_me ? 'text-[#f97316]' : 'text-white') : 'text-[#4b5563]'}`}>
+                        {m.bestEffort !== null
+                          ? `${speedToPace(m.bestEffort.averageSpeed, unit)}${paceUnitLabel(unit)}`
                           : 'No runs'
                         }
                       </span>
@@ -881,6 +961,39 @@ export default function GroupDashboardTab({
                 <div className="space-y-4">{upcoming.map(c => <ChallengeCard key={c.id} c={c} />)}</div>
               </div>
             )}
+            {lastMonthChallenge && lastMonthSummary && (
+              <div className={(active.length > 0 || upcoming.length > 0) ? 'mt-5 pt-5 border-t border-[#1c1c1c]' : ''}>
+                <p className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-3)' }}>Last Month</p>
+                <div className="bg-[#0f0f0f] rounded-xl p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-bold text-white truncate">{lastMonthChallenge.name}</span>
+                        {lastMonthChallenge.created_by_coach && (
+                          <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 border border-[#f97316]/20 px-1.5 py-0.5 rounded">✦ Coach</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-[#4b5563] font-mono">
+                        {format(new Date(lastMonthChallenge.start_date), 'MMM d')} – {format(new Date(lastMonthChallenge.end_date), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded shrink-0 ${lastMonthSummary.achieved ? 'text-emerald-400 bg-emerald-400/10' : 'text-[#9ca3af] bg-[#1a1a1a]'}`}>
+                      {lastMonthSummary.achieved ? 'Completed' : 'Not Completed'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className={`text-sm font-mono font-bold ${lastMonthSummary.achieved ? 'text-emerald-400' : 'text-[#d1d5db]'}`}>
+                        {lastMonthSummary.resultStr}
+                      </p>
+                      {lastMonthSummary.winnerLabel && (
+                        <p className="text-xs text-[#6b7280] mt-1">{lastMonthSummary.winnerLabel}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {past.length > 0 && (
               <div className={(active.length > 0 || upcoming.length > 0) ? 'mt-5 pt-5 border-t border-[#1c1c1c]' : ''}>
                 <button
@@ -894,29 +1007,7 @@ export default function GroupDashboardTab({
                 {showHistory && (
                   <div className="divide-y divide-[#1c1c1c]">
                     {past.map(c => {
-                      const cType = c.challenge_type ?? 'group_distance'
-                      const { totalMeters: distMeters } = cType === 'group_distance' ? computeChallengeProgress(leaderboardRuns, c, members) : { totalMeters: 0 }
-                      const { totalElevation } = cType === 'elevation' ? computeElevationProgress(leaderboardRuns, c, members) : { totalElevation: 0 }
-                      const { totalCount } = cType === 'run_count' ? computeRunCountProgress(leaderboardRuns, c, members) : { totalCount: 0 }
-                      const target = c.target_meters ?? 0
-                      let achieved = false
-                      let resultStr = ''
-                      if (cType === 'group_distance') {
-                        achieved = target > 0 && distMeters >= target
-                        resultStr = `${toDisplay(distMeters).toFixed(1)} ${label}${target > 0 ? ` / ${toDisplay(target).toFixed(0)} ${label}` : ''}`
-                      } else if (cType === 'weekly_quota') {
-                        resultStr = 'Weekly quota'
-                        achieved = false
-                      } else if (cType === 'elevation') {
-                        achieved = target > 0 && totalElevation >= target
-                        resultStr = `${Math.round(totalElevation)}m${target > 0 ? ` / ${Math.round(target)}m` : ''}`
-                      } else if (cType === 'run_count') {
-                        achieved = target > 0 && totalCount >= target
-                        resultStr = `${totalCount}${target > 0 ? ` / ${target}` : ''} runs`
-                      } else if (cType === 'fastest_effort') {
-                        resultStr = `Fastest ${(c.config['run_type'] as string) ?? 'effort'}`
-                        achieved = false
-                      }
+                      const { achieved, resultStr } = summarizePastChallenge(c, leaderboardRuns, members, unit)
                       return (
                         <div key={c.id} className="flex items-center justify-between py-2.5 gap-3">
                           <div className="flex items-center gap-2 min-w-0">
@@ -1133,18 +1224,9 @@ export default function GroupDashboardTab({
               )}
 
               {editType === 'fastest_effort' && (
-                <div>
-                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Run type *</label>
-                  <select
-                    value={editForm.runType}
-                    onChange={e => setEditForm(f => ({ ...f, runType: e.target.value }))}
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
-                  >
-                    {Object.entries(RUN_TYPE_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <p className="text-xs text-[#6b7280]">
+                  Uses each member&apos;s fastest manual lap or fastest 1 km split during the challenge window.
+                </p>
               )}
 
               <div className="grid grid-cols-2 gap-3">
@@ -1274,20 +1356,10 @@ export default function GroupDashboardTab({
                 </div>
               )}
 
-              {/* Run type selector (fastest_effort) */}
               {challengeType === 'fastest_effort' && (
-                <div>
-                  <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Run type *</label>
-                  <select
-                    value={form.runType}
-                    onChange={e => setForm(f => ({ ...f, runType: e.target.value }))}
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2 text-sm outline-none"
-                  >
-                    {Object.entries(RUN_TYPE_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                <p className="text-xs text-[#6b7280]">
+                  Uses each member&apos;s fastest manual lap or fastest 1 km split during the challenge window.
+                </p>
               )}
 
               <div className="grid grid-cols-2 gap-3">

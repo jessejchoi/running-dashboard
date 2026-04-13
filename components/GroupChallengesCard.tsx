@@ -64,9 +64,11 @@ export default function GroupChallengesCard({ groupId }: Props) {
 
   const active = challenges.filter(c => {
     const now = new Date()
-    return new Date(c.start_date) <= now && new Date(c.end_date) >= now
+    const start = new Date(`${c.start_date}T00:00:00`)
+    const end = new Date(`${c.end_date}T23:59:59`)
+    return start <= now && end >= now
   })
-  const upcoming = challenges.filter(c => new Date(c.start_date) > new Date())
+  const upcoming = challenges.filter(c => new Date(`${c.start_date}T00:00:00`) > new Date())
 
   if (loading) {
     return (
@@ -91,9 +93,9 @@ export default function GroupChallengesCard({ groupId }: Props) {
       ) : (
         <div className="space-y-5">
           {[...active, ...upcoming].map(c => {
-            const isUpcoming = new Date(c.start_date) > new Date()
-            const daysLeft = Math.ceil((new Date(c.end_date).getTime() - Date.now()) / 86400000)
-            const daysToStart = Math.ceil((new Date(c.start_date).getTime() - Date.now()) / 86400000)
+            const isUpcoming = new Date(`${c.start_date}T00:00:00`) > new Date()
+            const daysLeft = Math.ceil((new Date(`${c.end_date}T23:59:59`).getTime() - Date.now()) / 86400000)
+            const daysToStart = Math.ceil((new Date(`${c.start_date}T00:00:00`).getTime() - Date.now()) / 86400000)
             const cType = c.challenge_type ?? 'group_distance'
 
             return (
@@ -254,7 +256,7 @@ export default function GroupChallengesCard({ groupId }: Props) {
                 {/* fastest_effort */}
                 {cType === 'fastest_effort' && (
                   <p className="text-xs text-[#6b7280]">
-                    Fastest {(c.config['run_type'] as string) ?? 'effort'} — see group page for leaderboard
+                    Fastest manual lap or 1 km split — see group page for leaderboard
                   </p>
                 )}
               </div>

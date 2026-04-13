@@ -48,7 +48,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const minStart = challenges[0].start_date
   const { data: activities } = await supabaseAdmin
     .from('activities')
-    .select('athlete_id, start_date, distance, total_elevation_gain')
+    .select('athlete_id, start_date, distance, total_elevation_gain, laps, splits')
     .in('athlete_id', memberIds)
     .gte('start_date', minStart + 'T00:00:00Z')
     .order('start_date', { ascending: false })
@@ -74,6 +74,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         value = memberRuns.reduce((s, a) => s + ((a as any).total_elevation_gain ?? 0), 0)
       } else if (cType === 'run_count') {
         value = memberRuns.length
+      } else if (cType === 'fastest_effort') {
+        value = 0
       } else {
         value = memberRuns.reduce((s, a) => s + (a.distance ?? 0), 0)
       }
@@ -90,6 +92,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       totalValue = relevant.reduce((s, a) => s + ((a as any).total_elevation_gain ?? 0), 0)
     } else if (cType === 'run_count') {
       totalValue = relevant.length
+    } else if (cType === 'fastest_effort') {
+      totalValue = 0
     } else {
       totalValue = relevant.reduce((s, a) => s + (a.distance ?? 0), 0)
     }

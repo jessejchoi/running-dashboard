@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest'
+import { categorizeRun, type PaceZones } from '@/lib/runClassifier'
+
+const zones: PaceZones = {
+  intervalMaxPace: 250,
+  thresholdMaxPace: 300,
+  tempoMaxPace: 325,
+  easyMaxPace: 375,
+  longRunThresholdKm: 14,
+  source: 'user_goal',
+}
+
+function seg(pace: number, duration: number, distance = 1000) {
+  return { average_speed: 1000 / pace, moving_time: duration, distance }
+}
+
+describe('categorizeRun', () => {
+  it('classifies interval reps using user interval pace and recoveries', () => {
+    const runType = categorizeRun({
+      distance: 7000,
+      average_speed: 1000 / 320,
+      laps: [seg(360, 300), seg(245, 180), seg(355, 120), seg(248, 180), seg(370, 300)],
+    }, zones, 190)
+    expect(runType).toBe('intervals')
+  })
+
+  it('classifies structured threshold reps separately from intervals', () => {
+    const runType = categorizeRun({
+      distance: 8000,
+      average_speed: 1000 / 335,
+      laps: [seg(360, 600), seg(298, 600), seg(350, 180), seg(296, 600), seg(365, 600)],
+    }, zones, 190)
+    expect(runType).toBe('threshold')
+  })
+
+  it('classifies continuous tempo blocks', () => {
+    const runType = categorizeRun({
+      distance: 9000,
+      average_speed: 1000 / 320,
+      laps: [seg(350, 300), seg(322, 600), seg(320, 600), seg(355, 300)],
+    }, zones, 190)
+    expect(runType).toBe('tempo')
+  })
+
+  it('uses the user long-run distance threshold and faster block detection', () => {
+    const runType = categorizeRun({
+      distance: 18000,
+      average_speed: 1000 / 355,
+      laps: [seg(380, 1200), seg(370, 1200), seg(320, 900), seg(318, 900), seg(372, 1200)],
+    }, zones, 190)
+    expect(runType).toBe('long_progressive')
+  })
+
+  it('keeps long runs easy when no faster block exists', () => {
+    const runType = categorizeRun({
+      distance: 18000,
+      average_speed: 1000 / 372,
+      laps: [seg(378, 1200), seg(370, 1200), seg(374, 1200), seg(376, 1200)],
+    }, zones, 190)
+    expect(runType).toBe('long_easy')
+  })
+
+  it('detects easy strides only when the overall run stays easy', () => {
+    const runType = categorizeRun({
+      distance: 7000,
+      average_speed: 1000 / 355,
+      laps: [seg(365, 300), seg(240, 20, 120), seg(370, 60, 250), seg(245, 20, 120), seg(368, 300)],
+    }, zones, 190)
+    expect(runType).toBe('easy_strides')
+  })
+
+  it('defaults to recovery for genuinely slow runs', () => {
+    const runType = categorizeRun({
+      distance: 8000,
+      average_speed: 1000 / 390,
+      laps: [seg(392, 600), seg(388, 600), seg(390, 600)],
+      average_heartrate: 128,
+    }, zones, 190)
+    expect(runType).toBe('recovery')
+  })
+})

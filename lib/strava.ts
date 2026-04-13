@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase'
+import { categorizeRun, type PaceZones } from './runClassifier'
 
 const STRAVA_API = 'https://www.strava.com/api/v3'
 
@@ -82,15 +83,6 @@ export async function fetchAthlete(token: string) {
 }
 
 // ─── Pace zones ──────────────────────────────────────────────────────────────
-
-export interface PaceZones {
-  intervalMaxPace: number    // sec/km — at or below = interval effort
-  thresholdMaxPace: number   // sec/km
-  tempoMaxPace: number       // sec/km
-  easyMaxPace: number        // sec/km — above = recovery
-  longRunThresholdKm: number // distance at or above = long run
-  source: 'race_result' | 'user_goal'
-}
 
 const DIST_KM: Record<string, number> = { '5k': 5, '10k': 10, 'hm': 21.097, 'fm': 42.195 }
 const DIST_PRIORITY = ['5k', '10k', 'hm', 'fm']
@@ -218,99 +210,6 @@ export async function buildUserPaceProfile(athleteId: number): Promise<PaceZones
 
 // ─── Run categorization ───────────────────────────────────────────────────────
 
-function progressiveCheck(splits: any[]): 'long_progressive' | 'long_easy' {
-  const third = Math.floor(splits.length / 3)
-  if (third >= 2) {
-    const avgPace = (arr: any[]) => {
-      const ps = arr
-        .map((s: any) => s.moving_time && s.distance ? s.moving_time / (s.distance / 1000) : null)
-        .filter((p): p is number => p !== null && p > 0 && p < 600)
-      return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : 0
-    }
-    const first = avgPace(splits.slice(0, third))
-    const last  = avgPace(splits.slice(splits.length - third))
-    if (first > 0 && last > 0 && (first - last) / first > 0.07) return 'long_progressive'
-  }
-  return 'long_easy'
-}
-
-export function categorizeRun(
-  activity: {
-    distance: number
-    average_speed: number
-    average_heartrate?: number
-    suffer_score?: number
-    splits?: any[]
-    laps?: any[]
-  },
-  zones?: PaceZones,
-  maxHr?: number
-): string {
-  const distanceKm = activity.distance / 1000
-  const avgPaceSeconds = activity.average_speed ? 1000 / activity.average_speed : 999
-  const hr = activity.average_heartrate ?? 0
-  const splits = activity.laps ?? activity.splits ?? []
-
-  // Pace coefficient of variation
-  let paceCV = 0
-  if (splits.length >= 3) {
-    const paces = splits
-      .map((s: any) => s.moving_time && s.distance ? s.moving_time / (s.distance / 1000) : null)
-      .filter((p: any) => p !== null && p > 0 && p < 600) as number[]
-    if (paces.length >= 3) {
-      const mean = paces.reduce((a, b) => a + b, 0) / paces.length
-      const variance = paces.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / paces.length
-      paceCV = Math.sqrt(variance) / mean
-    }
-  }
-
-  const maxSplitSpeed = splits.length > 0
-    ? Math.max(...splits.map((s: any) => s.average_speed ?? 0))
-    : activity.average_speed
-  const maxSplitPace = maxSplitSpeed > 0 ? 1000 / maxSplitSpeed : 999
-
-  // ── No zones: fall back to original hardcoded logic ──────────────────────────
-  if (!zones) {
-    if (paceCV > 0.12 || (maxSplitPace < 230 && distanceKm < 18)) return 'intervals'
-    if (distanceKm >= 12) return progressiveCheck(splits)
-    if (avgPaceSeconds < 290 && avgPaceSeconds > 230 && paceCV < 0.08) return 'threshold'
-    if (avgPaceSeconds < 340 && avgPaceSeconds > 270 && paceCV < 0.08) return 'tempo'
-    if (avgPaceSeconds > 380 || (hr > 0 && hr < 135)) return 'recovery'
-    return 'easy'
-  }
-
-  // ── With zones: relative thresholds ─────────────────────────────────────────
-  const { intervalMaxPace, thresholdMaxPace, tempoMaxPace, easyMaxPace, longRunThresholdKm } = zones
-
-  // Strides: very short (<30s) fast bursts within a run
-  const shortBursts = splits.filter((s: any) =>
-    s.moving_time > 0 && s.moving_time < 30 &&
-    s.average_speed > 0 && (1000 / s.average_speed) <= intervalMaxPace
-  ).length
-
-  // 1. Long run (user-adaptive distance threshold)
-  if (distanceKm >= longRunThresholdKm) return progressiveCheck(splits)
-
-  // 2. Intervals: high variability AND at least one split at interval pace
-  if (paceCV > 0.12 && maxSplitPace <= intervalMaxPace) return 'intervals'
-
-  // 3. Threshold: fastest split reaches threshold zone (no paceCV restriction —
-  //    threshold workouts with walk rests have high CV but the fast reps reveal effort)
-  if (maxSplitPace <= thresholdMaxPace) return 'threshold'
-
-  // 4. Tempo
-  if (maxSplitPace <= tempoMaxPace) return 'tempo'
-
-  // 5. Easy + strides: overall easy pace but contains short fast bursts
-  if (avgPaceSeconds > tempoMaxPace && shortBursts >= 2) return 'easy_strides'
-
-  // 6. Recovery: slow overall pace OR low relative HR
-  if (avgPaceSeconds > easyMaxPace) return 'recovery'
-  if (maxHr && hr > 0 && hr < maxHr * 0.70) return 'recovery'
-
-  return 'easy'
-}
-
 // ─── Lap detail sync ──────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -374,16 +273,15 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
       // Fetch current run_type so we don't overwrite manual tags
       const { data: existing } = await supabaseAdmin
         .from('activities')
-        .select('run_type')
+        .select('run_type, run_type_manual')
         .eq('id', act.id)
         .single()
       const currentType = existing?.run_type
-      // Only auto-set run_type if not yet manually tagged (null or auto-default)
-      const autoTypes = [null, undefined, 'unknown', 'easy', 'recovery']
-      const isAutoAssigning = isTreadmill || autoTypes.includes(currentType)
+      const isManual = existing?.run_type_manual === true
+      const isAutoAssigning = !isManual
       const newRunType = isTreadmill
         ? 'treadmill'
-        : autoTypes.includes(currentType) ? runType : currentType
+        : isAutoAssigning ? runType : currentType
 
       // Race detection: Strava workout_type 1 = Race, or name pattern
       const RACE_NAME_PATTERN = /\b(race|parkrun|marathon|5k|10k|hm|half.?marathon)\b/i

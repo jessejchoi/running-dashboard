@@ -13,66 +13,150 @@ interface Split {
   [key: string]: any
 }
 
-const EASY_RUN_TYPES = new Set(['recovery', 'easy', 'easy_strides', 'long_easy', 'long_progressive'])
+const INTERVAL_RUN_TYPES = new Set(['intervals', 'interval_5k', 'interval_10k'])
+const THRESHOLD_RUN_TYPES = new Set(['threshold', 'tempo'])
+const EASYISH_RUN_TYPES = new Set(['recovery', 'easy', 'easy_strides'])
+const LONG_RUN_TYPES = new Set(['long', 'long_easy', 'long_steady', 'long_progressive'])
 
-export function categorizeLaps(splits: Split[], avgPace: number, runType?: string | null): LapType[] {
-  const paces = splits.map(s => s.average_speed ? 1000 / s.average_speed : 999)
-  const n = paces.length
-  if (n === 0) return []
+function getPaces(splits: Split[]) {
+  return splits.map(s => (s.average_speed ? 1000 / s.average_speed : 999))
+}
 
-  const isEasy = runType ? EASY_RUN_TYPES.has(runType) : false
+function median(values: number[]) {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid]
+}
 
-  // ── EASY RUNS: use 30% threshold to find strides ───────────────────────────
-  if (isEasy) {
-    const STRIDE_FAST   = avgPace * 0.70  // >30% faster = stride
-    const RECOVERY_SLOW = avgPace * 1.30  // >30% slower = recovery jog
-
-    const raw = paces.map(p =>
-      p < STRIDE_FAST   ? 'interval' :
-      p > RECOVERY_SLOW ? 'recovery' :
-      'steady'
-    ) as LapType[]
-
-    const firstInt = raw.findIndex(t => t === 'interval')
-    const lastInt  = n - 1 - [...raw].reverse().findIndex(t => t === 'interval')
-
-    if (firstInt === -1) return paces.map(() => 'steady')
-
-    return raw.map((t, i) => {
-      if (t === 'interval') return 'interval'
-      if (i > lastInt) return 'cooldown'
-      return t === 'recovery' ? 'recovery' : 'steady'
-    })
-  }
-
-  // ── INTERVAL / THRESHOLD RUNS: bimodal gap detection ──────────────────────
-  // Find the biggest pace gap between any two adjacent sorted values.
-  // This naturally separates fast intervals from slow recovery laps.
+function biggestGapThreshold(paces: number[], fallback: number, minGapSec: number) {
   const sorted = [...paces].sort((a, b) => a - b)
   let biggestGap = 0
-  let bimodalThreshold = avgPace * 0.94  // fallback if no clear gap
+  let threshold = fallback
+
   for (let i = 0; i < sorted.length - 1; i++) {
     const gap = sorted[i + 1] - sorted[i]
     if (gap > biggestGap) {
       biggestGap = gap
-      bimodalThreshold = (sorted[i] + sorted[i + 1]) / 2
+      threshold = (sorted[i] + sorted[i + 1]) / 2
     }
   }
-  // Only trust bimodal split if gap is at least 15 sec/km
-  const useThreshold = biggestGap >= 15 ? bimodalThreshold : avgPace * 0.94
 
-  const tagged = paces.map(p => p < useThreshold ? 'interval' : 'other')
-  const firstFast = tagged.findIndex(t => t === 'interval')
-  const lastFast  = n - 1 - [...tagged].reverse().findIndex(t => t === 'interval')
+  return biggestGap >= minGapSec ? threshold : fallback
+}
 
-  if (firstFast === -1) return paces.map(() => 'steady')
+function consecutiveGroups(indexes: number[]) {
+  if (indexes.length === 0) return [] as number[][]
+  const groups: number[][] = [[indexes[0]]]
+  for (let i = 1; i < indexes.length; i++) {
+    const prev = indexes[i - 1]
+    const curr = indexes[i]
+    if (curr === prev + 1) groups[groups.length - 1].push(curr)
+    else groups.push([curr])
+  }
+  return groups
+}
 
-  return tagged.map((t, i) => {
-    if (t === 'interval') return 'interval'
-    if (i < firstFast) return 'warmup'
-    if (i > lastFast)  return 'cooldown'
-    return 'recovery'
-  }) as LapType[]
+function labelSlowEdges(types: LapType[], paces: number[], baseline: number) {
+  if (paces.length < 3 || baseline <= 0) return types
+
+  const first = paces[0]
+  const last = paces[paces.length - 1]
+  if (first > baseline * 1.03) types[0] = 'warmup'
+  if (last > baseline * 1.03) types[paces.length - 1] = 'cooldown'
+  return types
+}
+
+export function categorizeLaps(splits: Split[], avgPace: number, runType?: string | null): LapType[] {
+  const paces = getPaces(splits)
+  const n = paces.length
+  if (n === 0) return []
+
+  const types: LapType[] = paces.map(() => 'steady')
+  const midPace = median(paces)
+
+  if (runType && INTERVAL_RUN_TYPES.has(runType)) {
+    const threshold = biggestGapThreshold(paces, avgPace * 0.95, 12)
+    const fastIdx = paces.flatMap((pace, i) => pace < threshold ? [i] : [])
+    if (fastIdx.length === 0) return types
+
+    const firstFast = fastIdx[0]
+    const lastFast = fastIdx[fastIdx.length - 1]
+    for (const i of fastIdx) types[i] = 'interval'
+    for (let i = 0; i < firstFast; i++) types[i] = 'warmup'
+    for (let i = firstFast; i <= lastFast; i++) {
+      if (types[i] === 'steady') types[i] = 'recovery'
+    }
+    if (lastFast + 1 < n) {
+      for (let i = lastFast + 1; i < n - 1; i++) types[i] = 'recovery'
+      types[n - 1] = 'cooldown'
+    }
+    return types
+  }
+
+  if (runType && THRESHOLD_RUN_TYPES.has(runType)) {
+    const threshold = biggestGapThreshold(paces, avgPace * 0.985, 8)
+    const fastIdx = paces.flatMap((pace, i) => pace < threshold ? [i] : [])
+    if (fastIdx.length === 0) return labelSlowEdges(types, paces, midPace)
+
+    const groups = consecutiveGroups(fastIdx)
+    const firstFast = fastIdx[0]
+    const lastFast = fastIdx[fastIdx.length - 1]
+
+    for (const i of fastIdx) types[i] = 'interval'
+    for (let i = 0; i < firstFast; i++) types[i] = 'warmup'
+    for (let i = lastFast + 1; i < n; i++) types[i] = 'cooldown'
+
+    if (groups.length > 1) {
+      for (let i = firstFast; i <= lastFast; i++) {
+        if (types[i] === 'steady') types[i] = 'recovery'
+      }
+    }
+
+    return types
+  }
+
+  if (runType === 'long_progressive') {
+    const threshold = biggestGapThreshold(paces, avgPace * 0.97, 6)
+    const fastIdx = paces.flatMap((pace, i) => pace < threshold ? [i] : [])
+    for (const i of fastIdx) types[i] = 'interval'
+    return labelSlowEdges(types, paces, midPace)
+  }
+
+  if (runType && LONG_RUN_TYPES.has(runType)) {
+    return labelSlowEdges(types, paces, midPace)
+  }
+
+  if (runType === 'easy_strides') {
+    const fastIdx = splits.flatMap((split, i) => {
+      const duration = split.moving_time ?? split.elapsed_time ?? 0
+      return duration > 0 && duration <= 45 && paces[i] < avgPace * 0.82 ? [i] : []
+    })
+    if (fastIdx.length === 0) return types
+
+    const firstFast = fastIdx[0]
+    const lastFast = fastIdx[fastIdx.length - 1]
+    for (const i of fastIdx) types[i] = 'interval'
+    for (let i = firstFast; i <= lastFast; i++) {
+      if (types[i] !== 'interval' && paces[i] > avgPace * 1.04) types[i] = 'recovery'
+    }
+    for (let i = lastFast + 1; i < n; i++) {
+      if (types[i] === 'steady') types[i] = 'cooldown'
+    }
+    return types
+  }
+
+  if (runType && EASYISH_RUN_TYPES.has(runType)) {
+    for (let i = 0; i < n; i++) {
+      if (paces[i] < avgPace * 0.88) types[i] = 'interval'
+      else if (paces[i] > avgPace * 1.12) types[i] = 'recovery'
+    }
+    return types
+  }
+
+  return labelSlowEdges(types, paces, midPace)
 }
 
 export function buildLapSegments(splits: Split[], avgPace: number, runType?: string | null): LapSegment[] {

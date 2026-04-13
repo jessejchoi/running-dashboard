@@ -98,7 +98,7 @@ export async function POST() {
 
   // Also save today
   const todayEstimates = analyzeAt(new Date())
-  saveSnapshot(id, todayEstimates)
+  await saveSnapshot(id, todayEstimates)
   written.push(`today: ${Object.entries(todayEstimates).filter(([,v])=>v!=null).map(([k,v])=>`${k}=${v}s`).join(', ')}`)
 
   return NextResponse.json({ ok: true, written })

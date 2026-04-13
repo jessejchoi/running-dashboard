@@ -17,6 +17,11 @@ export type EstimateDelta = {
 
 export type AllDeltas = Record<DistanceKey, EstimateDelta>
 
+type SnapshotLookupWindow = {
+  preferBeforeDays: number
+  allowAfterDays: number
+}
+
 /** Date string YYYY-MM-DD, offset by N days from today. */
 function daysAgoDate(n: number): string {
   const d = new Date(Date.now() - n * 86_400_000)
@@ -45,8 +50,9 @@ async function fetchSnapshotWindow(athleteId: number) {
     // Map: date string → distance_key → secs
     const byDate: Record<string, Record<string, number>> = {}
     for (const row of data ?? []) {
-      byDate[row.snapshotted_at] ??= {}
-      byDate[row.snapshotted_at][row.distance_key] = row.estimated_secs
+      const dateKey = String(row.snapshotted_at).split('T')[0]
+      byDate[dateKey] ??= {}
+      byDate[dateKey][row.distance_key] = row.estimated_secs
     }
     return byDate
   } catch {
@@ -54,26 +60,40 @@ async function fetchSnapshotWindow(athleteId: number) {
   }
 }
 
-/** Find the closest snapshot (by date) within ±3 days of the target. */
-function findClosest(
+/**
+ * Find the best historical snapshot around a target date.
+ * Prefer snapshots on or before the target so progress compares "now" to a
+ * real past state rather than a future one. Allow a small after-target fallback
+ * for sparse histories.
+ */
+function findHistoricalSnapshot(
   byDate: Record<string, Record<string, number>>,
   targetDate: string,
   distanceKey: string,
+  window: SnapshotLookupWindow,
 ): number | null {
   const target = new Date(targetDate).getTime()
-  let best: number | null = null
-  let bestDiff = Infinity
+  let bestBefore: number | null = null
+  let bestBeforeDiff = Infinity
+  let bestAfter: number | null = null
+  let bestAfterDiff = Infinity
 
   for (const [dateStr, distMap] of Object.entries(byDate)) {
     if (!(distanceKey in distMap)) continue
-    const diff = Math.abs(new Date(dateStr).getTime() - target)
-    const diffDays = diff / 86_400_000
-    if (diffDays <= 3 && diff < bestDiff) {
-      bestDiff = diff
-      best = distMap[distanceKey]
+    const diffDays = (new Date(dateStr).getTime() - target) / 86_400_000
+
+    if (diffDays <= 0) {
+      const beforeDays = Math.abs(diffDays)
+      if (beforeDays <= window.preferBeforeDays && beforeDays < bestBeforeDiff) {
+        bestBeforeDiff = beforeDays
+        bestBefore = distMap[distanceKey]
+      }
+    } else if (diffDays <= window.allowAfterDays && diffDays < bestAfterDiff) {
+      bestAfterDiff = diffDays
+      bestAfter = distMap[distanceKey]
     }
   }
-  return best
+  return bestBefore ?? bestAfter
 }
 
 /**
@@ -85,9 +105,9 @@ export function buildAllDeltas(
   byDate: Record<string, Record<string, number>>,
 ): AllDeltas {
   const targets = {
-    week:    daysAgoDate(7),
-    month:   daysAgoDate(30),
-    quarter: daysAgoDate(90),
+    week:    { date: daysAgoDate(7),  window: { preferBeforeDays: 21, allowAfterDays: 3 } },
+    month:   { date: daysAgoDate(30), window: { preferBeforeDays: 45, allowAfterDays: 5 } },
+    quarter: { date: daysAgoDate(90), window: { preferBeforeDays: 120, allowAfterDays: 7 } },
   }
 
   const keys: DistanceKey[] = ['5k', '10k', 'hm', 'fm']
@@ -96,9 +116,9 @@ export function buildAllDeltas(
   for (const dk of keys) {
     const cur = current[dk] ?? null
     result[dk] = {
-      week:    cur != null ? buildDelta(cur, findClosest(byDate, targets.week,    dk)) : null,
-      month:   cur != null ? buildDelta(cur, findClosest(byDate, targets.month,   dk)) : null,
-      quarter: cur != null ? buildDelta(cur, findClosest(byDate, targets.quarter, dk)) : null,
+      week:    cur != null ? buildDelta(cur, findHistoricalSnapshot(byDate, targets.week.date, dk, targets.week.window)) : null,
+      month:   cur != null ? buildDelta(cur, findHistoricalSnapshot(byDate, targets.month.date, dk, targets.month.window)) : null,
+      quarter: cur != null ? buildDelta(cur, findHistoricalSnapshot(byDate, targets.quarter.date, dk, targets.quarter.window)) : null,
     }
   }
   return result
@@ -112,10 +132,10 @@ function buildDelta(current: number, historical: number | null): number | null {
  * Fire-and-forget: upsert today's estimates as a snapshot row.
  * Does not block the page render.
  */
-export function saveSnapshot(
+export async function saveSnapshot(
   athleteId: number,
   estimates: Record<string, number | null>,
-): void {
+): Promise<void> {
   const today = todayDate()
   const rows = (Object.entries(estimates) as [string, number | null][])
     .filter(([, v]) => v != null)
@@ -128,9 +148,13 @@ export function saveSnapshot(
 
   if (rows.length === 0) return
 
-  void supabaseAdmin
+  const { error } = await supabaseAdmin
     .from('estimate_snapshots')
     .upsert(rows, { onConflict: 'athlete_id,distance_key,snapshotted_at' })
+
+  if (error) {
+    throw error
+  }
 }
 
 /** Combined helper: fetch snapshot window + build deltas. */

@@ -111,7 +111,7 @@ async function getRaceData(athleteId: number) {
       }
     }
 
-    saveSnapshot(athleteId, estimates)
+    await saveSnapshot(athleteId, estimates)
     // Merge today's new estimates into byDate so delta computation is up-to-date
     byDate[today] = Object.fromEntries(
       Object.entries(estimates).filter(([, v]) => v != null) as [string, number][]

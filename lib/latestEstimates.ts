@@ -73,7 +73,7 @@ export async function updateLatestEstimates(athleteId: number): Promise<void> {
       }, { onConflict: 'athlete_id' })
 
     // Keep estimate_snapshots up to date for delta tracking (week/month/quarter)
-    saveSnapshot(athleteId, estimates)
+    await saveSnapshot(athleteId, estimates)
   } catch (err) {
     console.error(`[updateLatestEstimates] athlete ${athleteId}:`, err)
   }

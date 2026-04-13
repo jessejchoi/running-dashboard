@@ -144,7 +144,8 @@ const RACE_5K_HR_FRACTION = 0.96  // 5K is run at ~96% HRmax
  *
  * Calibrated so typical sessions (WR=2, 180s reps) get ~+4% correction.
  * Duration and HR carry more weight to differentiate short vs long reps
- * and high vs low effort.
+ * and high vs low effort. Very short reps get a steeper penalty than a
+ * simple linear duration term because they overstate sustainable 5K pace.
  *
  * Clamped to [1.0, 1.15]
  */
@@ -153,9 +154,10 @@ function newRepCorrection(workRestRatio: number, repDurationSecs: number, repHR?
   // WR=1→+5%, WR=2→+3.3%, WR=3→+2.5%, WR=5→+1.7%
   const restAdjust = 0.10 / (1 + workRestRatio)
 
-  // Duration adjustment: short reps tap anaerobic systems
-  // 48s(200m)→+10.4%, 96s(400m)→+8.8%, 240s(1km)→+4%, 360s+→0%
-  const durationAdjust = 0.12 * Math.max(0, 1 - repDurationSecs / 360)
+  // Duration adjustment: short reps tap anaerobic systems.
+  // Use a convex curve so 45-90s reps are penalized more than mid-length reps.
+  const shortRepFactor = Math.max(0, 1 - repDurationSecs / 360)
+  const durationAdjust = 0.10 * shortRepFactor + 0.08 * shortRepFactor * shortRepFactor
 
   // HR adjustment: ~2.7% per 10bpm at race intensity, clamped ±5%
   // Positive when repHR > raceHR (unsustainable effort → add correction)
@@ -168,6 +170,17 @@ function newRepCorrection(workRestRatio: number, repDurationSecs: number, repHR?
   }
 
   return Math.max(1.0, Math.min(1.15, 1 + restAdjust + durationAdjust + hrAdjust))
+}
+
+function intervalPositionMultiplier(repIndex: number, numReps: number): number {
+  if (numReps <= 1) return 1
+
+  // Small sessions can lean hard on the finish, but long sessions should not let
+  // the final few reps overwhelm the first 80-90% of the workout.
+  const progress = repIndex / (numReps - 1)
+  const maxExtra = Math.max(0.6, Math.min(2, 2 * Math.sqrt(3 / numReps)))
+  const easedProgress = Math.pow(progress, 0.7)
+  return 1 + maxExtra * easedProgress
 }
 
 // Rest-only correction for structured threshold (avoids double-dip with Daniels)
@@ -386,8 +399,8 @@ function buildEstimate(
     rep.correctedPaceSec = correctedPace
     rep.correctedSecs = corrected5K
     rep.correctionFactor = correction
-    // Position weighting: first rep = 1x, last rep = 3x (fixed from old 2x bug)
-    const positionMultiplier = numReps > 1 ? 1 + 2 * (i / (numReps - 1)) : 1
+    // Later reps matter more, but taper the spread for very large sessions.
+    const positionMultiplier = intervalPositionMultiplier(i, numReps)
     const w = rep.weight * positionMultiplier
     weightedPaceSum += correctedPace * w
     totalWeight += w
@@ -1203,10 +1216,16 @@ const LONG_RUN_MIN_BLOCK_SECS = 8 * 60
 const FAST_BLOCK_MIN_PCT_FASTER = 5
 
 // Fatigue credit applied to fast block pace estimates.
-// A fast block run after 90 min represents better fitness than the same pace fresh.
-// Reference = 30 min of running before the block; ~8 s/km credit per doubling.
+// A fast block run deep into a long run represents better fitness than the same
+// pace fresh. Use block midpoint rather than start time, and give longer blocks
+// a small extra bonus because sustained pace under fatigue is more meaningful
+// than a short surge.
 const FATIGUE_REF_SECS  = 30 * 60
-const FATIGUE_CREDIT_K  = 10
+const FATIGUE_CREDIT_K  = 12
+const FATIGUE_MIN_START_SECS = 10 * 60
+const FATIGUE_DURATION_REF_SECS = 10 * 60
+const FATIGUE_DURATION_BONUS_K = 3
+const FATIGUE_MAX_CREDIT_SECS = 30
 
 // Weighted average pace of the first ~30 min of timed splits (warm-up baseline).
 function getFirst30MinBaseline(timed: TimedSplit[]): number | null {
@@ -1311,6 +1330,21 @@ function detectFastestWindowBlock(
   }
 }
 
+function fastBlockFatigueCredit(block: FastBlock): number {
+  const effectiveMidpoint = Math.max(
+    block.startSec + block.durationSecs / 2,
+    FATIGUE_MIN_START_SECS
+  )
+  const depthCredit = FATIGUE_CREDIT_K * Math.log2(effectiveMidpoint / FATIGUE_REF_SECS)
+  const durationCredit = FATIGUE_DURATION_BONUS_K * Math.log2(
+    Math.max(block.durationSecs, FATIGUE_DURATION_REF_SECS) / FATIGUE_DURATION_REF_SECS
+  )
+  return Math.max(
+    0,
+    Math.min(FATIGUE_MAX_CREDIT_SECS, depthCredit + durationCredit)
+  )
+}
+
 // Treat the fast block like a continuous threshold run — same Daniels ratio
 // with a 20% confidence discount (pre-fatigued) but a fatigue credit applied
 // to pace: blocks deeper into the run represent higher fitness than the same
@@ -1325,9 +1359,7 @@ function fastBlockThresholdEstimates(
   if (block.avgPace < 180 || block.avgPace > 420) return []
 
   // Fatigue credit: blocks later in the run get a pace bonus before estimation.
-  const fatigueCredit = FATIGUE_CREDIT_K * Math.log2(
-    Math.max(block.startSec, 10 * 60) / FATIGUE_REF_SECS
-  )
+  const fatigueCredit = fastBlockFatigueCredit(block)
   const adjustedPace = block.avgPace - fatigueCredit
 
   const ratio    = continuousDanielsRatio(block.avgHR, maxHr)
@@ -1534,9 +1566,7 @@ export function analyzeLongRun(activity: {
   // If no usable steady window but we have fast block estimates, still return
   if (!window || window.windowSecs < 600) {
     if (fastBlockEstimates && fastBlockEstimates.length > 0) {
-      const fatigueCredit = fastBlock
-        ? FATIGUE_CREDIT_K * Math.log2(Math.max(fastBlock.startSec, 10 * 60) / FATIGUE_REF_SECS)
-        : undefined
+      const fatigueCredit = fastBlock ? fastBlockFatigueCredit(fastBlock) : undefined
       return {
         date,
         activityId:   activity.id,
@@ -1648,7 +1678,7 @@ export function analyzeLongRun(activity: {
   if (raceEstimates.length === 0) return null
 
   const fatigueCredit = fastBlock
-    ? FATIGUE_CREDIT_K * Math.log2(Math.max(fastBlock.startSec, 10 * 60) / FATIGUE_REF_SECS)
+    ? fastBlockFatigueCredit(fastBlock)
     : undefined
 
   return {

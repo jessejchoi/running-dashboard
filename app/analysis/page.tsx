@@ -109,7 +109,7 @@ export default async function AnalysisPage() {
   }
 
   // Fetch historical deltas (cheap indexed query) + save today's snapshot (non-blocking)
-  saveSnapshot(Number(athleteId), currentEstimates)
+  await saveSnapshot(Number(athleteId), currentEstimates)
   const allDeltas: AllDeltas = await fetchDeltas(Number(athleteId), currentEstimates)
 
   // Default 5K target

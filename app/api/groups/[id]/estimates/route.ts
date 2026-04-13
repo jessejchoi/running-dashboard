@@ -124,7 +124,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           }
         }
 
-        saveSnapshot(memberId, estimates)
+        await saveSnapshot(memberId, estimates)
       } catch {
         // Skip member if analysis fails
       }

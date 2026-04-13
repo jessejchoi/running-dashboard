@@ -38,8 +38,8 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
   const [showToDropdown, setShowToDropdown] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const hasAutoScrolledRef = useRef(false)
 
   const otherMembers = members.filter(m => !m.is_me)
   const selectedTo = otherMembers.find(m => m.athlete_id === toAthleteId) ?? null
@@ -64,9 +64,12 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
 
   // Scroll to bottom when messages load or update
   useEffect(() => {
-    if (!loading) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+    if (loading || messages.length === 0 || !scrollContainerRef.current) return
+    scrollContainerRef.current.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: hasAutoScrolledRef.current ? 'smooth' : 'auto',
+    })
+    hasAutoScrolledRef.current = true
   }, [messages, loading])
 
   // Close dropdown on outside click
@@ -138,7 +141,6 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
             />
           ))
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Compose */}

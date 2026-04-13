@@ -57,10 +57,10 @@ export default function Nav() {
           <span className="font-display font-bold text-xl uppercase tracking-tight inline-flex items-center">
             <svg viewBox="52 58 78 64" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <filter id="ng-d"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <filter id="ng-d" x="-24" y="-24" width="228" height="228" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
               </defs>
-              <path d="M60 66 L100 90 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-d)"/>
-              <path d="M80 66 L120 90 L80 114" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter"/>
+              <path d="M60 66 L98.8 89.2 L98.8 90.8 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-d)"/>
+              <path d="M80 66 L120.8 89.2 L120.8 90.8 L80 114" fill="none" stroke="#9a9a9a" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-d)"/>
             </svg>
             <span style={{ color: 'var(--orange)' }}>RUN</span>
             <span className="text-white/50">DASH</span>
@@ -120,10 +120,10 @@ export default function Nav() {
         <span className="font-display font-bold text-xl uppercase tracking-tight inline-flex items-center">
           <svg viewBox="52 58 78 64" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <filter id="ng-m"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <filter id="ng-m" x="-24" y="-24" width="228" height="228" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
             </defs>
-            <path d="M60 66 L100 90 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" filter="url(#ng-m)"/>
-            <path d="M80 66 L120 90 L80 114" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter"/>
+            <path d="M60 66 L98.8 89.2 L98.8 90.8 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-m)"/>
+            <path d="M80 66 L120.8 89.2 L120.8 90.8 L80 114" fill="none" stroke="#9a9a9a" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-m)"/>
           </svg>
           <span style={{ color: 'var(--orange)' }}>RUN</span>
           <span className="text-white/50">DASH</span>

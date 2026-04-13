@@ -4,12 +4,8 @@
       <stop offset="0%" stop-color="#f97316" stop-opacity="0.14"/>
       <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
     </radialGradient>
-    <filter id="glow-c">
+    <filter id="chevron-glow" x="-24" y="-24" width="228" height="228" filterUnits="userSpaceOnUse">
       <feGaussianBlur stdDeviation="2" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glow-gray">
-      <feGaussianBlur stdDeviation="1.5" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
@@ -50,7 +46,7 @@
   <circle cx="90" cy="90" r="27" fill="none" stroke="#1e1e1e" stroke-width="1"/>
 
   <!-- First > — orange -->
-  <path d="M60 66 L100 90 L60 114" fill="none" stroke="#f97316" stroke-width="8" stroke-linecap="butt" stroke-linejoin="miter" filter="url(#glow-c)"/>
-  <!-- Second > — light gray (white/50) -->
-  <path d="M80 66 L120 90 L80 114" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="8" stroke-linecap="butt" stroke-linejoin="miter" filter="url(#glow-gray)"/>
+  <path d="M60 66 L98.8 89.2 L98.8 90.8 L60 114" fill="none" stroke="#f97316" stroke-width="8" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" filter="url(#chevron-glow)"/>
+  <!-- Second > — opaque gray with matching glow and a less clipped tip -->
+  <path d="M80 66 L120.8 89.2 L120.8 90.8 L80 114" fill="none" stroke="#9a9a9a" stroke-width="8" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="10" filter="url(#chevron-glow)"/>
 </svg>

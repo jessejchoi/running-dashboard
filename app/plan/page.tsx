@@ -61,9 +61,14 @@ function formatSessionTime(secs: number): string {
 
 // New multi-session storage key
 const SESSIONS_KEY = (date: string) => `plan_sessions_v3_${date}`
+const SYNC_SIG_KEY = (date: string) => `plan_sessions_sync_sig_v1_${date}`
 // Legacy keys (read-only for migration)
 const LEGACY_RUN_KEY = (date: string) => `plan_v2_${date}`
 const LEGACY_REST_KEY = (date: string) => `plan_rest_v1_${date}`
+
+function sessionSignature(sessions: SessionConfig[]): string {
+  return JSON.stringify(sessions)
+}
 
 function loadSessions(date: string): SessionConfig[] {
   try {
@@ -92,9 +97,24 @@ function saveSessions(date: string, sessions: SessionConfig[]) {
   try {
     if (sessions.length === 0) {
       localStorage.removeItem(SESSIONS_KEY(date))
+      localStorage.removeItem(SYNC_SIG_KEY(date))
     } else {
       localStorage.setItem(SESSIONS_KEY(date), JSON.stringify(sessions))
     }
+  } catch {}
+}
+
+function loadSyncSignature(date: string): string | null {
+  try {
+    return localStorage.getItem(SYNC_SIG_KEY(date))
+  } catch {
+    return null
+  }
+}
+
+function markSynced(date: string, sessions: SessionConfig[]) {
+  try {
+    localStorage.setItem(SYNC_SIG_KEY(date), sessionSignature(sessions))
   } catch {}
 }
 
@@ -105,6 +125,7 @@ export default function PlanPage() {
   const [plans, setPlans] = useState<Record<string, SessionConfig[]>>({})
   const [modalDate, setModalDate] = useState<string | null>(null)
   const [modalSessionIdx, setModalSessionIdx] = useState<number | null>(null) // null = new session
+  const [loaded, setLoaded] = useState(false)
 
   const weeks = useMemo(() => {
     const monday = getMondayOfWeek(new Date())
@@ -116,62 +137,69 @@ export default function PlanPage() {
 
   const allDates = useMemo(() => weeks.flatMap(w => w.dates.map(toDateStr)), [weeks])
 
-  useEffect(() => {
-    const loaded: Record<string, SessionConfig[]> = {}
-    for (const date of allDates) {
-      const sessions = loadSessions(date)
-      if (sessions.length > 0) loaded[date] = sessions
+  async function syncSessionsToApi(date: string, sessions: SessionConfig[]) {
+    if (sessions.length === 0) {
+      try {
+        await fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
+        markSynced(date, sessions)
+      } catch (e) {
+        console.error('[plan sync delete all]', date, e)
+      }
+      return
     }
-    setPlans(loaded)
 
-    // Bulk-sync to Supabase on load
-    for (const [date, sessions] of Object.entries(loaded)) {
-      sessions.forEach((config, idx) => {
+    try {
+      await fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
+
+      const responses = await Promise.all(sessions.map((config, idx) => {
         const isRest = config.sessionType === 'rest'
-        const totalMeters = isRest ? null : (calcDist(config) > 0 ? calcDist(config) : null)
-        fetch('/api/plans', {
+        const totalMeters = calcDist(config, unit)
+        return fetch('/api/plans', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             plan_date: date,
             session_index: idx,
             session_type: config.sessionType || 'easy',
-            description: isRest ? null : (config.name || null),
-            target_distance_meters: totalMeters,
+            description: isRest ? null : (config.name || summarizeSession(config, unit) || null),
+            target_distance_meters: isRest || totalMeters <= 0 ? null : totalMeters,
           }),
-        }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync load]', date, idx, d)) })
-          .catch(e => console.error('[plan sync load]', date, idx, e))
-      })
+        })
+      }))
+
+      for (const response of responses) {
+        if (!response.ok) {
+          console.error('[plan sync save]', date, await response.text())
+          return
+        }
+      }
+
+      markSynced(date, sessions)
+    } catch (e) {
+      console.error('[plan sync save]', date, e)
+    }
+  }
+
+  function persistSessions(date: string, sessions: SessionConfig[]) {
+    saveSessions(date, sessions)
+    void syncSessionsToApi(date, sessions)
+  }
+
+  useEffect(() => {
+    const loadedPlans: Record<string, SessionConfig[]> = {}
+    for (const date of allDates) {
+      const sessions = loadSessions(date)
+      if (sessions.length > 0) loadedPlans[date] = sessions
+    }
+    setPlans(loadedPlans)
+    setLoaded(true)
+
+    for (const [date, sessions] of Object.entries(loadedPlans)) {
+      if (loadSyncSignature(date) !== sessionSignature(sessions)) {
+        void syncSessionsToApi(date, sessions)
+      }
     }
   }, [allDates])
-
-  function syncToApi(date: string, idx: number, config: SessionConfig) {
-    const isRest = config.sessionType === 'rest'
-    const totalMeters = calcDist(config, unit)
-    fetch('/api/plans', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        plan_date: date,
-        session_index: idx,
-        session_type: config.sessionType || 'easy',
-        description: isRest ? null : (config.name || summarizeSession(config, unit) || null),
-        target_distance_meters: isRest || totalMeters <= 0 ? null : totalMeters,
-      }),
-    }).then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync save]', date, idx, d)) })
-      .catch(e => console.error('[plan sync save]', date, idx, e))
-  }
-
-  function deleteFromApi(date: string, idx: number) {
-    fetch(`/api/plans?date=${date}&session_index=${idx}`, { method: 'DELETE' })
-      .then(r => { if (!r.ok) r.json().then(d => console.error('[plan sync delete]', date, idx, d)) })
-      .catch(e => console.error('[plan sync delete]', date, idx, e))
-  }
-
-  function deleteAllFromApi(date: string) {
-    fetch(`/api/plans?date=${date}`, { method: 'DELETE' })
-      .catch(e => console.error('[plan sync delete all]', date, e))
-  }
 
   function saveSession(date: string, idx: number | null, config: SessionConfig) {
     setPlans(prev => {
@@ -183,8 +211,7 @@ export default function PlanPage() {
       } else {
         next = existing.map((s, i) => i === idx ? config : s)
       }
-      saveSessions(date, next)
-      next.forEach((s, i) => syncToApi(date, i, s))
+      persistSessions(date, next)
       return { ...prev, [date]: next }
     })
   }
@@ -194,16 +221,12 @@ export default function PlanPage() {
       const existing = prev[date] ?? []
       const next = existing.filter((_, i) => i !== idx)
       if (next.length === 0) {
-        saveSessions(date, [])
-        deleteAllFromApi(date)
+        persistSessions(date, [])
         const updated = { ...prev }
         delete updated[date]
         return updated
       }
-      // Re-index: delete all then re-sync
-      saveSessions(date, next)
-      deleteAllFromApi(date)
-      next.forEach((s, i) => syncToApi(date, i, s))
+      persistSessions(date, next)
       return { ...prev, [date]: next }
     })
   }
@@ -246,6 +269,19 @@ export default function PlanPage() {
 
   const monday = weeks[0]?.dates[0]
   const lastDay = weeks[3]?.dates[6]
+
+  if (!loaded) {
+    return (
+      <>
+        <Nav />
+        <main className="standalone-main max-w-6xl mx-auto px-4 pt-8 sm:pt-20 pb-24 sm:pb-16">
+          <div className="mb-8 fade-up">
+            <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Training Plan</h1>
+          </div>
+        </main>
+      </>
+    )
+  }
 
   return (
     <>

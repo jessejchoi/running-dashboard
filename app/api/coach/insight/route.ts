@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildAthleteContext } from '@/lib/coachContext'
 import { claudeMessage } from '@/lib/claude'
+import { normalizeInsightContent } from '@/lib/coachOutputs'
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -48,12 +49,15 @@ Goals: ${JSON.stringify(ctx.goals.map(g => ({ label: g.label, days_to_race: g.da
 
   let content: string
   try {
-    content = await claudeMessage({
+    const rawContent = await claudeMessage({
       model: 'claude-haiku-4-5-20251001',
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
       max_tokens: 200,
     })
+    const normalized = normalizeInsightContent(rawContent)
+    if (!normalized) throw new Error('Empty coach insight')
+    content = normalized
   } catch {
     return NextResponse.json({ error: 'Coach is unavailable.' }, { status: 503 })
   }

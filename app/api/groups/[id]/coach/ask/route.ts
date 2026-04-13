@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildCoachContext } from '@/lib/coachContext'
 import { claudeStream } from '@/lib/claude'
+import { normalizeInsightContent } from '@/lib/coachOutputs'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const athleteId = cookies().get('athlete_id')?.value
@@ -103,15 +104,19 @@ ${myName} asks: ${question}`
           controller.close()
         }
 
+        const finalAnswer = normalizeInsightContent(fullAnswer) ?? 'Coach is taking a rest day.'
+
         // Fire-and-forget: persist conversation turns
         supabaseAdmin
           .from('coach_conversations')
           .insert([
             { athlete_id: numericAthleteId, group_id: params.id, role: 'user', content: question },
-            { athlete_id: numericAthleteId, group_id: params.id, role: 'assistant', content: fullAnswer },
+            { athlete_id: numericAthleteId, group_id: params.id, role: 'assistant', content: finalAnswer },
           ])
-          .then(() => {})
-          .catch((err: Error) => console.error('[coach/ask/persist]', err.message))
+          .then(
+            () => {},
+            (err: Error) => console.error('[coach/ask/persist]', err.message)
+          )
       },
     })
 

@@ -3,20 +3,11 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildCoachContext } from '@/lib/coachContext'
 import { claudeMessage } from '@/lib/claude'
-import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
+import { AWARD_CATEGORIES } from '@/lib/awards'
+import { parseAndSanitizeBriefing, type BriefingContent } from '@/lib/coachOutputs'
 import { getWeekStart, toJakartaDate } from '@/lib/utils'
 
-export interface BriefingContent {
-  weekly_summary: string
-  shoutouts: Array<{
-    athlete_name: string
-    award_label: string
-    caption: string
-    award_key: string
-  }>
-  group_momentum: 'rising' | 'steady' | 'dipping'
-  coach_tip: string
-}
+export type { BriefingContent } from '@/lib/coachOutputs'
 
 const VALID_AWARD_KEYS = Object.keys(AWARD_CATEGORIES).join(' | ')
 
@@ -111,23 +102,11 @@ ${JSON.stringify(ctx, null, 2)}`
       messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    let briefing: BriefingContent
-    try {
-      briefing = JSON.parse(text)
-    } catch (parseErr) {
+    const briefing = parseAndSanitizeBriefing(raw)
+    if (!briefing) {
       console.error('[coach/briefing/parse]', raw)
       return NextResponse.json({ error: 'Coach returned unparseable response.' }, { status: 503 })
     }
-
-    // Validate and drop invalid award_keys
-    briefing.shoutouts = briefing.shoutouts.filter(s => {
-      if (!isValidAwardKey(s.award_key)) {
-        console.warn('[coach/briefing] dropping shoutout with invalid award_key:', s.award_key)
-        return false
-      }
-      return true
-    })
 
     const generatedAt = new Date().toISOString()
 

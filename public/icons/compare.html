@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Icon Comparison</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #080808;
+    font-family: monospace;
+    color: #a1a1aa;
+    padding: 40px 32px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #3a3a3a;
+    margin-bottom: 40px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 32px;
+    max-width: 1200px;
+  }
+  .card {
+    background: #111;
+    border: 1px solid #1e1e1e;
+    border-radius: 12px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .card:hover {
+    border-color: #2a2a2a;
+  }
+  .label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #3a3a3a;
+  }
+  .name {
+    font-size: 13px;
+    color: #f97316;
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+  .sizes {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+  }
+  .size-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: #2a2a2a;
+    text-align: center;
+    margin-top: 8px;
+  }
+  .size-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  img { display: block; }
+
+  /* Dark bg swatch + light bg swatch */
+  .swatches {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+  }
+  .swatch {
+    flex: 1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .swatch.dark { background: #0a0a0a; border: 1px solid #1e1e1e; }
+  .swatch.light { background: #f0f0f0; border: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<h1>RunDash — Icon Variants</h1>
+<div class="grid">
+
+  <div class="card">
+    <div>
+      <div class="label">Option A</div>
+      <div class="name">Timing Gate</div>
+    </div>
+    <div class="swatches">
+      <div class="swatch dark">
+        <img src="icon-a-timing-gate.svg" width="80" height="80"/>
+      </div>
+      <div class="swatch light">
+        <img src="icon-a-timing-gate.svg" width="80" height="80"/>
+      </div>
+    </div>
+    <div class="sizes">
+      <div class="size-wrap">
+        <img src="icon-a-timing-gate.svg" width="32" height="32"/>
+        <div class="size-label">32px</div>
+      </div>
+      <div class="size-wrap">
+        <img src="icon-a-timing-gate.svg" width="16" height="16"/>
+        <div class="size-label">16px</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div>
+      <div class="label">Option B</div>
+      <div class="name">Pace Waveform</div>
+    </div>
+    <div class="swatches">
+      <div class="swatch dark">
+        <img src="icon-b-waveform.svg" width="80" height="80"/>
+      </div>
+      <div class="swatch light">
+        <img src="icon-b-waveform.svg" width="80" height="80"/>
+      </div>
+    </div>
+    <div class="sizes">
+      <div class="size-wrap">
+        <img src="icon-b-waveform.svg" width="32" height="32"/>
+        <div class="size-label">32px</div>
+      </div>
+      <div class="size-wrap">
+        <img src="icon-b-waveform.svg" width="16" height="16"/>
+        <div class="size-label">16px</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div>
+      <div class="label">Option C</div>
+      <div class="name">HUD Crosshair</div>
+    </div>
+    <div class="swatches">
+      <div class="swatch dark">
+        <img src="icon-c-hud.svg" width="80" height="80"/>
+      </div>
+      <div class="swatch light">
+        <img src="icon-c-hud.svg" width="80" height="80"/>
+      </div>
+    </div>
+    <div class="sizes">
+      <div class="size-wrap">
+        <img src="icon-c-hud.svg" width="32" height="32"/>
+        <div class="size-label">32px</div>
+      </div>
+      <div class="size-wrap">
+        <img src="icon-c-hud.svg" width="16" height="16"/>
+        <div class="size-label">16px</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div>
+      <div class="label">Option D</div>
+      <div class="name">Tachometer Arc</div>
+    </div>
+    <div class="swatches">
+      <div class="swatch dark">
+        <img src="icon-d-tachometer.svg" width="80" height="80"/>
+      </div>
+      <div class="swatch light">
+        <img src="icon-d-tachometer.svg" width="80" height="80"/>
+      </div>
+    </div>
+    <div class="sizes">
+      <div class="size-wrap">
+        <img src="icon-d-tachometer.svg" width="32" height="32"/>
+        <div class="size-label">32px</div>
+      </div>
+      <div class="size-wrap">
+        <img src="icon-d-tachometer.svg" width="16" height="16"/>
+        <div class="size-label">16px</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div>
+      <div class="label">Option E</div>
+      <div class="name">Bolt-R</div>
+    </div>
+    <div class="swatches">
+      <div class="swatch dark">
+        <img src="icon-e-bolt-r.svg" width="80" height="80"/>
+      </div>
+      <div class="swatch light">
+        <img src="icon-e-bolt-r.svg" width="80" height="80"/>
+      </div>
+    </div>
+    <div class="sizes">
+      <div class="size-wrap">
+        <img src="icon-e-bolt-r.svg" width="32" height="32"/>
+        <div class="size-label">32px</div>
+      </div>
+      <div class="size-wrap">
+        <img src="icon-e-bolt-r.svg" width="16" height="16"/>
+        <div class="size-label">16px</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <defs>
+    <filter id="glow-e">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="slash-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <clipPath id="icon-clip">
+      <rect width="180" height="180" rx="36"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="180" height="180" rx="36" fill="#0a0a0a"/>
+  <rect x="1" y="1" width="178" height="178" rx="35" fill="none" stroke="#1e1e1e" stroke-width="1"/>
+
+  <!-- Subtle orange glow behind the R -->
+  <ellipse cx="82" cy="90" rx="50" ry="56" fill="#f97316" opacity="0.04" filter="url(#glow-e)"/>
+
+  <!-- Corner marks -->
+  <path d="M18 30 L18 18 L30 18" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="square"/>
+  <path d="M150 18 L162 18 L162 30" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="square"/>
+  <path d="M18 150 L18 162 L30 162" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="square"/>
+  <path d="M162 150 L162 162 L150 162" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="square"/>
+
+  <!-- === GEOMETRIC R === -->
+  <!-- Built from rectangles — precise, architectural -->
+  <!-- Vertical stem -->
+  <rect x="30" y="26" width="22" height="128" fill="#e8e8e8"/>
+
+  <!-- Top horizontal bar -->
+  <rect x="30" y="26" width="82" height="22" fill="#e8e8e8"/>
+
+  <!-- Middle horizontal bar -->
+  <rect x="30" y="76" width="76" height="20" fill="#e8e8e8"/>
+
+  <!-- Top right vertical (closes the bowl) -->
+  <rect x="90" y="26" width="22" height="72" fill="#e8e8e8"/>
+
+  <!-- Mask out inside of bowl to create the counter/aperture -->
+  <rect x="52" y="48" width="38" height="28" fill="#0a0a0a"/>
+
+  <!-- === BOLT SLASH — replaces the R leg === -->
+  <!-- The R's bottom-right leg is replaced with a bold diagonal orange slash -->
+  <!-- The slash runs from where the leg would start (mid-right, ~96,96) down to bottom-right -->
+  <!-- We mask the original bottom-right area and draw the slash over it -->
+
+  <!-- Cut out the lower right of the R where the leg would be -->
+  <rect x="52" y="96" width="100" height="60" fill="#0a0a0a"/>
+
+  <!-- Slash: bold parallelogram going from bowl bottom-right down to bottom-right edge -->
+  <!-- From (106, 96) → (150, 154): a thick diagonal stroke -->
+  <polygon
+    points="96,96 118,96 162,154 140,154"
+    fill="url(#slash-grad)"
+    filter="url(#glow-e)"
+    clip-path="url(#icon-clip)"
+  />
+
+  <!-- Slash bright edge highlight -->
+  <line x1="96" y1="96" x2="140" y2="154" stroke="#ffd099" stroke-width="1.5" opacity="0.5" clip-path="url(#icon-clip)"/>
+
+  <!-- Speed lines — suggest motion, very subtle -->
+  <g clip-path="url(#icon-clip)">
+    <line x1="138" y1="108" x2="162" y2="108" stroke="#f97316" stroke-width="1" opacity="0.2"/>
+    <line x1="143" y1="118" x2="162" y2="118" stroke="#f97316" stroke-width="1" opacity="0.15"/>
+    <line x1="148" y1="128" x2="162" y2="128" stroke="#f97316" stroke-width="1" opacity="0.1"/>
+  </g>
+
+  <!-- Baseline rule under the whole mark -->
+  <rect x="30" y="152" width="110" height="2" fill="#2a2a2a"/>
+
+  <!-- Tiny label -->
+  <text x="162" y="158" font-family="monospace" font-size="6" fill="#2a2a2a" text-anchor="end" letter-spacing="2">RD</text>
+</svg>

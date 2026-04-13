@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <defs>
+    <radialGradient id="glow-a" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur-a">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="180" height="180" rx="36" fill="#0a0a0a"/>
+  <!-- Subtle border -->
+  <rect x="1" y="1" width="178" height="178" rx="35" fill="none" stroke="#1e1e1e" stroke-width="1"/>
+
+  <!-- Corner registration marks -->
+  <path d="M14 28 L14 14 L28 14" fill="none" stroke="#2a2a2a" stroke-width="1.5" stroke-linecap="square"/>
+  <path d="M152 14 L166 14 L166 28" fill="none" stroke="#2a2a2a" stroke-width="1.5" stroke-linecap="square"/>
+  <path d="M14 152 L14 166 L28 166" fill="none" stroke="#2a2a2a" stroke-width="1.5" stroke-linecap="square"/>
+  <path d="M166 152 L166 166 L152 166" fill="none" stroke="#2a2a2a" stroke-width="1.5" stroke-linecap="square"/>
+
+  <!-- Left pillar -->
+  <rect x="36" y="38" width="14" height="104" rx="1" fill="#1a1a1a" stroke="#2e2e2e" stroke-width="1"/>
+  <!-- Pillar top cap accent -->
+  <rect x="36" y="38" width="14" height="4" rx="1" fill="#f97316"/>
+  <!-- Pillar tick marks -->
+  <rect x="50" y="52" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="50" y="68" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="50" y="84" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="50" y="100" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="50" y="116" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="50" y="132" width="6" height="1" fill="#2a2a2a"/>
+
+  <!-- Right pillar -->
+  <rect x="130" y="38" width="14" height="104" rx="1" fill="#1a1a1a" stroke="#2e2e2e" stroke-width="1"/>
+  <!-- Pillar top cap accent -->
+  <rect x="130" y="38" width="14" height="4" rx="1" fill="#f97316"/>
+  <!-- Pillar tick marks -->
+  <rect x="124" y="52" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="124" y="68" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="124" y="84" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="124" y="100" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="124" y="116" width="6" height="1" fill="#2a2a2a"/>
+  <rect x="124" y="132" width="6" height="1" fill="#2a2a2a"/>
+
+  <!-- Glow halo around beam -->
+  <rect x="50" y="82" width="80" height="16" rx="8" fill="url(#glow-a)"/>
+
+  <!-- Beam — orange timing laser -->
+  <rect x="50" y="88" width="80" height="4" rx="2" fill="#f97316" filter="url(#blur-a)"/>
+  <!-- Beam core bright line -->
+  <rect x="50" y="89" width="80" height="2" rx="1" fill="#ffb347"/>
+
+  <!-- Sensor dot left -->
+  <circle cx="50" cy="90" r="5" fill="#0a0a0a" stroke="#f97316" stroke-width="1.5"/>
+  <circle cx="50" cy="90" r="2" fill="#f97316"/>
+  <!-- Sensor dot right -->
+  <circle cx="130" cy="90" r="5" fill="#0a0a0a" stroke="#f97316" stroke-width="1.5"/>
+  <circle cx="130" cy="90" r="2" fill="#f97316"/>
+
+  <!-- Bottom label text — Space Mono style -->
+  <text x="90" y="158" font-family="monospace" font-size="8" font-weight="700" fill="#3a3a3a" text-anchor="middle" letter-spacing="3">TIMING</text>
+</svg>

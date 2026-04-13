@@ -720,7 +720,7 @@ export default function GroupDashboardTab({
                       <span className={`text-xs font-mono shrink-0 ${m.bestEffort !== null ? (m.is_me ? 'text-[#f97316]' : 'text-white') : 'text-[#4b5563]'}`}>
                         {m.bestEffort !== null
                           ? `${speedToPace(m.bestEffort.averageSpeed, unit)}${paceUnitLabel(unit)}`
-                          : 'No runs'
+                          : 'No valid split'
                         }
                       </span>
                     </div>

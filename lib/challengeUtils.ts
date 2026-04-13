@@ -43,14 +43,11 @@ function bestKmSplit(splits: SegmentLike[]): ChallengeEffort | null {
 }
 
 function bestUserLap(laps: SegmentLike[]): ChallengeEffort | null {
-  // A single lap entry is almost always the whole run average, not a deliberate lap press.
-  if (laps.length < 2) return null
-
   const candidates = laps
     .filter(lap => {
       const dist = lap.distance ?? 0
       const dur = lap.moving_time ?? lap.elapsed_time ?? 0
-      return dist >= 300 && Math.abs(dist - 1000) > 100 && dur >= 30 && (lap.average_speed ?? 0) > 0
+      return dist >= 200 && dur >= 20 && (lap.average_speed ?? 0) > 0
     })
     .map(lap => paceFrom(lap))
     .filter((lap): lap is NonNullable<typeof lap> => lap !== null)

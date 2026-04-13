@@ -32,7 +32,7 @@ describe('getBestChallengeEffort', () => {
     expect(effort?.paceSecPerKm).toBeCloseTo(235, 1)
   })
 
-  it('ignores a single whole-run lap entry', () => {
+  it('accepts a single valid lap when split data is absent', () => {
     const effort = getBestChallengeEffort({
       laps: [
         { distance: 5000, moving_time: 1200, average_speed: 4.1667 },
@@ -40,6 +40,7 @@ describe('getBestChallengeEffort', () => {
       splits: [],
     })
 
-    expect(effort).toBeNull()
+    expect(effort?.source).toBe('lap')
+    expect(effort?.paceSecPerKm).toBeCloseTo(240, 1)
   })
 })

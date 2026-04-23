@@ -55,7 +55,7 @@ export default function Nav() {
       {/* ── Desktop top nav ───────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 hidden sm:block" style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(16px) saturate(180%)', WebkitBackdropFilter: 'blur(16px) saturate(180%)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
-          <RunDashWordmark imageClassName="h-5 w-5" textClassName="text-xl" />
+          <RunDashWordmark imageClassName="h-6 w-6" textClassName="text-xl" />
           <div className="flex items-center gap-1">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
@@ -108,7 +108,7 @@ export default function Nav() {
 
       {/* ── Mobile top bar: logo + actions ───────────────────── */}
       <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-4" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <RunDashWordmark imageClassName="h-5 w-5" textClassName="text-xl" />
+        <RunDashWordmark imageClassName="h-6 w-6" textClassName="text-xl" />
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleSync}

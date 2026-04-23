@@ -15,8 +15,8 @@ export default function RunDashWordmark({
         src="/rundash-icon.png"
         alt=""
         aria-hidden="true"
-        width={620}
-        height={620}
+        width={680}
+        height={680}
         priority
         className={`mr-2 object-contain ${imageClassName}`}
       />

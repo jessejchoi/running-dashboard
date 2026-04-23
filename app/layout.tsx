@@ -34,8 +34,9 @@ export const metadata: Metadata = {
   title: 'RunDash',
   description: 'Personal running dashboard',
   icons: {
-    icon: '/icon.svg',
-    apple: '/apple-touch-icon.png',
+    icon: '/rundash-icon.png',
+    apple: '/rundash-icon.png',
+    shortcut: '/rundash-icon.png',
   },
   themeColor: '#0a0a0a',
 }

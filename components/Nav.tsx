@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Activity, RefreshCw, Users, Settings } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import SettingsDrawer from './SettingsDrawer'
+import RunDashWordmark from './RunDashWordmark'
 
 const navItems = [
   { href: '/',       label: 'Dashboard', icon: Activity },
@@ -54,17 +55,7 @@ export default function Nav() {
       {/* ── Desktop top nav ───────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 hidden sm:block" style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(16px) saturate(180%)', WebkitBackdropFilter: 'blur(16px) saturate(180%)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
-          <span className="font-display font-bold text-xl uppercase tracking-tight inline-flex items-center">
-            <svg viewBox="52 58 78 64" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <filter id="ng-d" x="-24" y="-24" width="228" height="228" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-              </defs>
-              <path d="M60 66 L98.8 89.2 L98.8 90.8 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-d)"/>
-              <path d="M80 66 L120.8 89.2 L120.8 90.8 L80 114" fill="none" stroke="#808080" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-d)"/>
-            </svg>
-            <span style={{ color: 'var(--orange)' }}>RUN</span>
-            <span className="text-white/50">DASH</span>
-          </span>
+          <RunDashWordmark imageClassName="h-5 w-5" textClassName="text-xl" />
           <div className="flex items-center gap-1">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
@@ -117,17 +108,7 @@ export default function Nav() {
 
       {/* ── Mobile top bar: logo + actions ───────────────────── */}
       <div className="mobile-top-bar sm:hidden fixed top-0 left-0 right-0 z-50 h-12 flex items-center justify-between px-4" style={{ background: 'rgba(8,8,8,0.9)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <span className="font-display font-bold text-xl uppercase tracking-tight inline-flex items-center">
-          <svg viewBox="52 58 78 64" className="h-5 w-auto mr-0.5" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <filter id="ng-m" x="-24" y="-24" width="228" height="228" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            </defs>
-            <path d="M60 66 L98.8 89.2 L98.8 90.8 L60 114" fill="none" stroke="#f97316" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-m)"/>
-            <path d="M80 66 L120.8 89.2 L120.8 90.8 L80 114" fill="none" stroke="#808080" strokeWidth="8" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" filter="url(#ng-m)"/>
-          </svg>
-          <span style={{ color: 'var(--orange)' }}>RUN</span>
-          <span className="text-white/50">DASH</span>
-        </span>
+        <RunDashWordmark imageClassName="h-5 w-5" textClassName="text-xl" />
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleSync}

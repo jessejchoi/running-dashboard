@@ -40,6 +40,11 @@ export interface CoachContext {
     target_km: number | null
     pct: number
     source_count: number
+    progress_value: number
+    target_value: number | null
+    progress_unit: 'km' | 'meters_elevation' | 'runs' | 'member_weeks' | 'efforts'
+    completed_member_weeks?: number
+    elapsed_member_weeks?: number
   }>
 }
 

@@ -7,6 +7,7 @@ import { AWARD_CATEGORIES } from '@/lib/awards'
 import { parseAndSanitizeBriefing, type BriefingContent } from '@/lib/coachOutputs'
 import { getWeekStart, toJakartaDate } from '@/lib/utils'
 import { persistCoachAuditEvent } from '@/lib/coachMetrics'
+import { buildGroupEngagement } from '@/lib/coachEngagement'
 
 export type { BriefingContent } from '@/lib/coachOutputs'
 
@@ -52,14 +53,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // Generate fresh briefing
   try {
     const ctx = await buildCoachContext(params.id)
+    const engagement = buildGroupEngagement(ctx)
 
     const systemPrompt = `You are RDCoach — AI running coach for ${ctx.group.name}.
-Playful, slightly snarky, competitive, genuinely encouraging underneath.
+Sharper, more snarky, competitive, genuinely encouraging underneath.
+You sound like a track-side group coach with receipts, not a wellness newsletter.
 Use real names and real numbers. Notice effort, patterns, and who's slacking.
 The coach facts are canonical. Never invent totals, YTD distance, challenge progress, or member volume. If you mention a number, it must appear in the facts/signals.
 Return ONLY a JSON object matching this exact interface — no markdown, no code fences:
 {
   "weekly_summary": "2-3 sentence group overview",
+  "storylines": [
+    { "label": "short storyline label", "angle": "one snarky but useful sentence", "evidence": "specific fact that supports it" }
+  ],
+  "team_focus": "one concrete group focus for the next 48-72 hours",
+  "challenge_nudge": "one challenge-specific action sentence",
+  "risks": ["0-3 short risk/nudge sentences"],
+  "ask_prompts": ["4 short questions members would actually tap"],
   "shoutouts": [
     {
       "athlete_name": "first name only",
@@ -72,7 +82,12 @@ Return ONLY a JSON object matching this exact interface — no markdown, no code
   "coach_tip": "one tactical sentence for the week ahead"
 }
 Rules:
+- Voice: 20% more bite than before. Funny jab, useful coaching. No motivational poster sludge.
+- Use the deterministic engagement plan as the spine. You may rewrite the wording, not the facts.
+- storylines should be the main group drama: challenge pressure, leaderboard carrying, inactive nudges, volume/risk.
+- ask_prompts should be timely and group-specific, not generic.
 - 2-4 shoutouts. At least one per member who ran this week.
+- Choose shoutouts from award_candidates when possible.
 - award_key MUST be one of the exact strings listed above — no other values.
 - award_label should be the human-readable name matching the award_key.
 - Reference specific paces, distances, run types from the data.
@@ -86,6 +101,8 @@ Coach facts (canonical source of truth):
 ${JSON.stringify(ctx.facts, null, 2)}
 Coach signals:
 ${JSON.stringify(ctx.signals, null, 2)}
+Deterministic engagement plan:
+${JSON.stringify(engagement, null, 2)}
 Group narrative context:
 ${JSON.stringify({
   group: ctx.group,
@@ -100,7 +117,17 @@ ${JSON.stringify({
       messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const briefing = parseAndSanitizeBriefing(raw)
+    const parsedBriefing = parseAndSanitizeBriefing(raw)
+    const briefing = parsedBriefing
+      ? {
+          ...parsedBriefing,
+          storylines: parsedBriefing.storylines?.length ? parsedBriefing.storylines : engagement.storylines,
+          team_focus: parsedBriefing.team_focus || engagement.team_focus,
+          challenge_nudge: parsedBriefing.challenge_nudge || engagement.challenge_nudge,
+          risks: parsedBriefing.risks?.length ? parsedBriefing.risks : engagement.risks,
+          ask_prompts: parsedBriefing.ask_prompts?.length ? parsedBriefing.ask_prompts : engagement.ask_prompts,
+        }
+      : null
     if (!briefing) {
       console.error('[coach/briefing/parse]', raw)
       return NextResponse.json({ error: 'Coach returned unparseable response.' }, { status: 503 })

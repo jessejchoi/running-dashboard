@@ -88,10 +88,10 @@ function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shouto
 }
 
 const COACH_CHIPS = [
+  "Give us a 48-hour mission",
   "Who's slacking?",
-  "Call out who crushed it",
-  "Roast us this week",
-  "Who's race-ready?",
+  "Roast the leaderboard",
+  "Who is carrying the group?",
   "What should we focus on?",
 ]
 
@@ -217,6 +217,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
     return acc
   }, {})
   const sortedWeeks = Object.keys(awardWeeks).sort((a, b) => b.localeCompare(a))
+  const coachChips = briefing.ask_prompts?.length ? briefing.ask_prompts : COACH_CHIPS
 
   return (
     <div className="space-y-4 fade-up">
@@ -247,6 +248,55 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
         <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>
       </div>
 
+      {/* Engagement Engine */}
+      {((briefing.storylines?.length ?? 0) > 0 || briefing.team_focus || briefing.challenge_nudge || (briefing.risks?.length ?? 0) > 0) && (
+        <div className="space-y-3">
+          {briefing.storylines && briefing.storylines.length > 0 && (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {briefing.storylines.map((storyline, i) => (
+                <div key={`${storyline.label}-${i}`} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#f97316] mb-2">
+                    {storyline.label}
+                  </div>
+                  <p className="text-sm text-[#d1d5db] leading-relaxed">{storyline.angle}</p>
+                  {storyline.evidence && (
+                    <p className="text-[10px] text-[#6b7280] font-mono mt-2">{storyline.evidence}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(briefing.team_focus || briefing.challenge_nudge) && (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {briefing.team_focus && (
+                <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#6b7280] mb-2">Team Focus</div>
+                  <p className="text-sm text-white leading-relaxed">{briefing.team_focus}</p>
+                </div>
+              )}
+              {briefing.challenge_nudge && (
+                <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#6b7280] mb-2">Challenge Nudge</div>
+                  <p className="text-sm text-white leading-relaxed">{briefing.challenge_nudge}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {briefing.risks && briefing.risks.length > 0 && (
+            <div className="bg-[#111] border border-amber-500/20 rounded-xl p-4">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-amber-400 mb-2">Watch List</div>
+              <div className="space-y-1.5">
+                {briefing.risks.map((risk, i) => (
+                  <p key={i} className="text-xs text-[#d1d5db] leading-relaxed">{risk}</p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* This Week's Awards */}
       {briefing.shoutouts.length > 0 && (
         <div>
@@ -264,7 +314,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
         <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
           <h3 className="font-display font-bold text-sm text-white mb-3">Ask Coach</h3>
           <div className="flex flex-wrap gap-2 mb-3">
-            {COACH_CHIPS.map(chip => (
+            {coachChips.map(chip => (
               <button
                 key={chip}
                 onClick={() => askCoach(chip)}

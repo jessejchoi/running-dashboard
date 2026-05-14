@@ -2,6 +2,15 @@ import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 
 export interface BriefingContent {
   weekly_summary: string
+  storylines?: Array<{
+    label: string
+    angle: string
+    evidence: string
+  }>
+  team_focus?: string
+  challenge_nudge?: string
+  risks?: string[]
+  ask_prompts?: string[]
   shoutouts: Array<{
     athlete_name: string
     award_label: string
@@ -45,6 +54,29 @@ export function parseAndSanitizeBriefing(raw: string): BriefingContent | null {
   const coachTip = cleanText(obj.coach_tip, 240)
   if (!weeklySummary || !coachTip) return null
 
+  const storylines = (Array.isArray(obj.storylines) ? obj.storylines : [])
+    .map(item => {
+      if (!item || typeof item !== 'object') return null
+      const rawStoryline = item as Record<string, unknown>
+      const label = cleanText(rawStoryline.label, 48)
+      const angle = cleanText(rawStoryline.angle, 220)
+      const evidence = cleanText(rawStoryline.evidence, 120)
+      if (!label || !angle) return null
+      return { label, angle, evidence }
+    })
+    .filter((item): item is NonNullable<BriefingContent['storylines']>[number] => item !== null)
+    .slice(0, 4)
+
+  const risks = (Array.isArray(obj.risks) ? obj.risks : [])
+    .map(item => cleanText(item, 180))
+    .filter(Boolean)
+    .slice(0, 3)
+
+  const askPrompts = (Array.isArray(obj.ask_prompts) ? obj.ask_prompts : [])
+    .map(item => cleanText(item, 64))
+    .filter(Boolean)
+    .slice(0, 4)
+
   const momentum = obj.group_momentum
   const groupMomentum: BriefingContent['group_momentum'] =
     momentum === 'rising' || momentum === 'steady' || momentum === 'dipping'
@@ -76,6 +108,11 @@ export function parseAndSanitizeBriefing(raw: string): BriefingContent | null {
 
   return {
     weekly_summary: weeklySummary,
+    storylines,
+    team_focus: cleanText(obj.team_focus, 220),
+    challenge_nudge: cleanText(obj.challenge_nudge, 220),
+    risks,
+    ask_prompts: askPrompts,
     shoutouts,
     group_momentum: groupMomentum,
     coach_tip: coachTip,

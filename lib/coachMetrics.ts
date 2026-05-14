@@ -90,6 +90,11 @@ export interface CoachChallengeMetrics {
   target_km: number | null
   pct: number
   source_count: number
+  progress_value: number
+  target_value: number | null
+  progress_unit: 'km' | 'meters_elevation' | 'runs' | 'member_weeks' | 'efforts'
+  completed_member_weeks?: number
+  elapsed_member_weeks?: number
 }
 
 export interface CoachGroupMetrics {
@@ -386,9 +391,15 @@ export function buildChallengeMetricsFromActivities(params: {
     target_meters: number | null
     start_date: string
     end_date: string
+    config?: Record<string, unknown> | null
   }>
   activities: CoachActivity[]
+  memberIds?: number[]
+  now?: Date
 }): CoachChallengeMetrics[] {
+  const now = params.now ?? new Date()
+  const memberIds = params.memberIds ?? Array.from(new Set(params.activities.map(a => a.athlete_id)))
+
   return params.challenges.map(challenge => {
     const start = new Date(challenge.start_date + 'T00:00:00Z')
     const end = new Date(challenge.end_date + 'T23:59:59Z')
@@ -397,17 +408,98 @@ export function buildChallengeMetricsFromActivities(params: {
       const d = new Date(a.start_date)
       return d >= start && d <= end
     })
+    const cType = challenge.challenge_type ?? 'group_distance'
     const meters = relevant.reduce((sum, a) => sum + (a.distance ?? 0), 0)
     const targetKm = challenge.target_meters ? challenge.target_meters / 1000 : null
-    return {
+    const distancePct = targetKm ? Math.min(Math.round((meters / 1000 / targetKm) * 100), 100) : 0
+    const base = {
       name: challenge.name,
-      type: challenge.challenge_type,
+      type: cType,
       start_date: challenge.start_date,
       end_date: challenge.end_date,
       total_km: Math.round((meters / 1000) * 10) / 10,
       target_km: targetKm,
-      pct: targetKm ? Math.min(Math.round((meters / 1000 / targetKm) * 100), 100) : 0,
       source_count: relevant.length,
+    }
+
+    if (cType === 'elevation') {
+      const elevation = relevant.reduce((sum, a) => sum + (a.total_elevation_gain ?? 0), 0)
+      const target = challenge.target_meters ?? null
+      return {
+        ...base,
+        pct: target ? Math.min(Math.round((elevation / target) * 100), 100) : 0,
+        progress_value: Math.round(elevation),
+        target_value: target,
+        progress_unit: 'meters_elevation',
+      }
+    }
+
+    if (cType === 'run_count') {
+      const target = challenge.target_meters ?? null
+      return {
+        ...base,
+        pct: target ? Math.min(Math.round((relevant.length / target) * 100), 100) : 0,
+        progress_value: relevant.length,
+        target_value: target,
+        progress_unit: 'runs',
+      }
+    }
+
+    if (cType === 'weekly_quota') {
+      const weeklyMeters = Number(challenge.config?.weekly_meters ?? challenge.target_meters ?? 0)
+      const weeks: Date[] = []
+      const firstWeekStart = getCoachRangeDefinitions(start).week.range_start
+      let cur = new Date(firstWeekStart ?? start)
+      while (cur <= end) {
+        weeks.push(new Date(cur))
+        cur = new Date(cur.getTime() + 7 * DAY_MS)
+      }
+
+      let elapsedMemberWeeks = 0
+      let completedMemberWeeks = 0
+      for (const athleteId of memberIds) {
+        const memberRuns = relevant.filter(a => a.athlete_id === athleteId)
+        for (const weekStart of weeks) {
+          if (weekStart > now) continue
+          elapsedMemberWeeks++
+          const weekEnd = new Date(weekStart.getTime() + 7 * DAY_MS - 1)
+          const weekMeters = memberRuns
+            .filter(a => {
+              const d = new Date(a.start_date)
+              return d >= weekStart && d <= weekEnd
+            })
+            .reduce((sum, a) => sum + (a.distance ?? 0), 0)
+          if (weeklyMeters > 0 && weekMeters >= weeklyMeters) completedMemberWeeks++
+        }
+      }
+
+      return {
+        ...base,
+        pct: elapsedMemberWeeks > 0 ? Math.min(Math.round((completedMemberWeeks / elapsedMemberWeeks) * 100), 100) : 0,
+        progress_value: completedMemberWeeks,
+        target_value: elapsedMemberWeeks,
+        progress_unit: 'member_weeks',
+        completed_member_weeks: completedMemberWeeks,
+        elapsed_member_weeks: elapsedMemberWeeks,
+      }
+    }
+
+    if (cType === 'fastest_effort') {
+      return {
+        ...base,
+        pct: relevant.length > 0 ? 100 : 0,
+        progress_value: relevant.length,
+        target_value: null,
+        progress_unit: 'efforts',
+      }
+    }
+
+    return {
+      ...base,
+      pct: distancePct,
+      progress_value: Math.round((meters / 1000) * 10) / 10,
+      target_value: targetKm,
+      progress_unit: 'km',
     }
   })
 }
@@ -529,7 +621,7 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
       .limit(25),
     supabaseAdmin
       .from('group_challenges')
-      .select('name, challenge_type, target_meters, start_date, end_date')
+      .select('name, challenge_type, target_meters, start_date, end_date, config')
       .eq('group_id', groupId)
       .lte('start_date', today)
       .gte('end_date', today),
@@ -556,7 +648,7 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     group: { id: groupId, name: group?.name ?? 'Group' },
     totals,
     members,
-    active_challenges: buildChallengeMetricsFromActivities({ challenges: challenges ?? [], activities: allActivities }),
+    active_challenges: buildChallengeMetricsFromActivities({ challenges: challenges ?? [], activities: allActivities, memberIds, now }),
     signals: [],
   }
 

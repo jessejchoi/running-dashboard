@@ -91,6 +91,61 @@ describe('challenge metrics', () => {
       total_km: 300,
       pct: 100,
       source_count: 3,
+      progress_value: 300,
+      target_value: 300,
+      progress_unit: 'km',
+    })
+  })
+
+  it('calculates weekly quota progress as completed member-weeks', () => {
+    const metrics = buildChallengeMetricsFromActivities({
+      challenges: [{
+        name: 'Weekly Base',
+        challenge_type: 'weekly_quota',
+        target_meters: 10000,
+        config: { weekly_meters: 10000 },
+        start_date: '2026-05-04',
+        end_date: '2026-05-31',
+      }],
+      memberIds: [1, 2, 3, 4],
+      now: new Date('2026-05-14T12:00:00Z'),
+      activities: [
+        { athlete_id: 1, start_date: '2026-05-05T08:00:00Z', distance: 10000, type: 'Run' },
+        { athlete_id: 2, start_date: '2026-05-06T08:00:00Z', distance: 10000, type: 'Run' },
+        { athlete_id: 3, start_date: '2026-05-12T08:00:00Z', distance: 10000, type: 'Run' },
+      ],
+    })
+
+    expect(metrics[0]).toMatchObject({
+      pct: 38,
+      progress_value: 3,
+      target_value: 8,
+      progress_unit: 'member_weeks',
+      completed_member_weeks: 3,
+      elapsed_member_weeks: 8,
+    })
+  })
+
+  it('uses elevation target units for elevation challenges', () => {
+    const metrics = buildChallengeMetricsFromActivities({
+      challenges: [{
+        name: 'Climb Club',
+        challenge_type: 'elevation',
+        target_meters: 1000,
+        start_date: '2026-05-01',
+        end_date: '2026-05-31',
+      }],
+      activities: [
+        { athlete_id: 1, start_date: '2026-05-05T08:00:00Z', distance: 8000, total_elevation_gain: 180, type: 'Run' },
+        { athlete_id: 2, start_date: '2026-05-06T08:00:00Z', distance: 9000, total_elevation_gain: 180, type: 'Run' },
+      ],
+    })
+
+    expect(metrics[0]).toMatchObject({
+      pct: 36,
+      progress_value: 360,
+      target_value: 1000,
+      progress_unit: 'meters_elevation',
     })
   })
 })

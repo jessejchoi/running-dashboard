@@ -42,7 +42,7 @@ describe('coach insight route', () => {
   it('returns cached insight when fresh cache exists', async () => {
     queueSupabaseTables(
       mockFrom,
-      createQueryChain({ data: { content: 'cached note', generated_at: '2026-04-13T00:00:00Z' } }),
+      createQueryChain({ data: { content: 'cached note', generated_at: new Date().toISOString() } }),
     )
 
     const response = await getInsight()

@@ -46,7 +46,9 @@ export interface LeaderboardRun {
   id: number
   athlete_id: number
   distance: number
+  moving_time: number
   start_date: string
+  suffer_score?: number | null
   average_speed?: number
   run_type?: string | null
   total_elevation_gain?: number

@@ -114,8 +114,9 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .limit(100),
     supabaseAdmin
       .from('activities')
-      .select('id, athlete_id, distance, moving_time, start_date, average_speed, run_type, total_elevation_gain, laps, splits')
+      .select('id, athlete_id, distance, moving_time, start_date, suffer_score, average_speed, run_type, total_elevation_gain, laps, splits')
       .in('athlete_id', memberIds)
+      .eq('type', 'Run')
       .gte('start_date', sixMonthsAgo)
       .order('start_date', { ascending: false }),
     supabaseAdmin

@@ -1076,15 +1076,15 @@ export default function GroupDashboardTab({
                   <div className="flex justify-between">
                     <div>
                       <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Fit</p>
-                      <p className="text-base font-mono font-bold text-sky-400">{load.ctl.toFixed(0)}</p>
+                      <p className="text-base font-mono font-bold text-blue-400">{load.ctl.toFixed(1)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Fat</p>
-                      <p className="text-base font-mono font-bold text-orange-400">{load.atl.toFixed(0)}</p>
+                      <p className="text-base font-mono font-bold text-orange-400">{load.atl.toFixed(1)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Form</p>
-                      <p className={`text-base font-mono font-bold ${tsbColor}`}>{load.tsb > 0 ? '+' : ''}{load.tsb.toFixed(0)}</p>
+                      <p className={`text-base font-mono font-bold ${tsbColor}`}>{load.tsb > 0 ? '+' : ''}{load.tsb.toFixed(1)}</p>
                     </div>
                   </div>
                 ) : (

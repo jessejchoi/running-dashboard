@@ -117,19 +117,23 @@ export function computeStreak(
   const myRuns = runs.filter(r => r.athlete_id === athleteId)
   if (!myRuns.length) return 0
 
-  // Convert to Jakarta time for week boundary detection
-  const jakartaRuns = myRuns.map(r => toJakartaDate(r.start_date))
+  const jakartaWeekStartMs = (utcStr: string) => {
+    const jakarta = toJakartaDate(utcStr)
+    const day = jakarta.getUTCDay()
+    const diff = jakarta.getUTCDate() - day + (day === 0 ? -6 : 1)
+    const weekStartJakartaUtc = Date.UTC(jakarta.getUTCFullYear(), jakarta.getUTCMonth(), diff)
+    return weekStartJakartaUtc
+  }
 
   // Get unique week-start timestamps (Monday midnight Jakarta)
   const weekStarts = Array.from(
-    new Set(jakartaRuns.map(d => getWeekStart(d).getTime()))
+    new Set(myRuns.map(r => jakartaWeekStartMs(r.start_date)))
   ).sort((a, b) => b - a)
 
   if (!weekStarts.length) return 0
 
   // Must have run this week or last week to have an active streak
-  const nowJakarta = toJakartaDate(new Date().toISOString())
-  const thisWeek = getWeekStart(nowJakarta).getTime()
+  const thisWeek = jakartaWeekStartMs(new Date().toISOString())
   const lastWeek = thisWeek - 7 * 24 * 60 * 60 * 1000
 
   if (weekStarts[0] !== thisWeek && weekStarts[0] !== lastWeek) return 0

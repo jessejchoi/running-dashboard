@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildCoachContext } from '@/lib/coachContext'
 import { claudeMessage } from '@/lib/claude'
+import { persistCoachAuditEvent } from '@/lib/coachMetrics'
 
 // Called by admin UI (manual) or cron job (automated).
 // Generates one AI coach challenge for the upcoming/current month.
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const systemPrompt = `You are RDCoach generating a monthly group challenge for ${ctx.group.name}.
 Create ONE challenge that fits the group's current fitness and is achievable but motivating.
+Use only canonical coach facts for volume and member counts. Do not estimate monthly/YTD totals from recent runs.
 Return ONLY a JSON object — no markdown, no code fences:
 {
   "name": "short challenge name (≤40 chars)",
@@ -88,11 +90,17 @@ Make the name fun and specific to ${monthName} (e.g. "${monthName} Vertical Club
 
   const userPrompt = `Today: ${ctx.today}
 Month: ${monthName} ${year}
-Group stats:
+Coach facts (canonical source of truth):
+${JSON.stringify(ctx.facts, null, 2)}
+Coach signals:
+${JSON.stringify(ctx.signals, null, 2)}
+Challenge sizing stats:
 ${JSON.stringify({
   members: ctx.members.map(m => ({
     name: m.name,
     this_month_km: m.this_month_km,
+    ytd_km: m.ytd_km,
+    rolling_4w_km: m.rolling_4w_km,
     this_week_km: m.this_week_km,
     streak: m.streak,
   })),
@@ -133,6 +141,13 @@ ${JSON.stringify({
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await persistCoachAuditEvent({
+      scope: 'group',
+      route: 'groups/challenges/generate',
+      group_id: params.id,
+      facts: ctx.facts,
+      signals: ctx.signals,
+    })
     return NextResponse.json({ challenge })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

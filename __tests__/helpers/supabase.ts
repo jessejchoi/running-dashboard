@@ -18,6 +18,7 @@ type ChainMethod =
   | 'update'
   | 'insert'
   | 'upsert'
+  | 'limit'
 
 const CHAIN_METHODS: ChainMethod[] = [
   'select',
@@ -30,6 +31,7 @@ const CHAIN_METHODS: ChainMethod[] = [
   'update',
   'insert',
   'upsert',
+  'limit',
 ]
 
 export function createQueryChain<T = unknown>(result: QueryResult<T>) {

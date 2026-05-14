@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { buildCoachContext } from '@/lib/coachContext'
 import { claudeStream } from '@/lib/claude'
 import { normalizeInsightContent } from '@/lib/coachOutputs'
+import { persistCoachAuditEvent } from '@/lib/coachMetrics'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const athleteId = cookies().get('athlete_id')?.value
@@ -62,11 +63,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const systemPrompt = `You are RDCoach for ${ctx.group.name}. Direct, a bit snarky, knowledgeable running coach.
 Answer in under 200 words. Reference the asking athlete's actual data when relevant.
+Only cite numbers from the canonical coach facts, coach signals, and narrative context provided. Do not make up totals or infer YTD/month/week distance.
 The athlete asking is: ${myName}
 Today: ${ctx.today}`
 
-    const userPrompt = `Group data:
-${JSON.stringify(ctx, null, 2)}
+    const userPrompt = `Coach facts (canonical source of truth):
+${JSON.stringify(ctx.facts, null, 2)}
+Coach signals:
+${JSON.stringify(ctx.signals, null, 2)}
+Group narrative context:
+${JSON.stringify({
+  group: ctx.group,
+  members: ctx.members,
+  active_challenges: ctx.active_challenges,
+}, null, 2)}
 
 ${myName} asks: ${question}`
 
@@ -117,6 +127,15 @@ ${myName} asks: ${question}`
             () => {},
             (err: Error) => console.error('[coach/ask/persist]', err.message)
           )
+
+        persistCoachAuditEvent({
+          scope: 'group',
+          route: 'groups/coach/ask',
+          athlete_id: numericAthleteId,
+          group_id: params.id,
+          facts: ctx.facts,
+          signals: ctx.signals,
+        })
       },
     })
 

@@ -1,0 +1,594 @@
+import { supabaseAdmin } from '@/lib/supabase'
+import { computeStreak, speedToPace } from '@/lib/utils'
+
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export type CoachRangeKey = 'week' | 'month' | 'rolling_4w' | 'rolling_12w' | 'ytd' | 'all_time'
+
+export interface CoachRangeDefinition {
+  key: CoachRangeKey
+  label: string
+  range_start: string | null
+  range_end: string
+}
+
+export interface CoachMetricTotal extends CoachRangeDefinition {
+  unit: 'km'
+  meters: number
+  km: number
+  source_count: number
+}
+
+export interface CoachActivity {
+  id?: number
+  athlete_id: number
+  start_date: string
+  distance: number | null
+  moving_time?: number | null
+  average_speed?: number | null
+  average_heartrate?: number | null
+  run_type?: string | null
+  type?: string | null
+  total_elevation_gain?: number | null
+}
+
+export interface CoachGoal {
+  label: string
+  distance_key: string
+  target_secs: number
+  current_secs: number | null
+  race_date: string
+}
+
+export interface CoachDebrief {
+  run_id: number
+  perceived_effort: string | null
+  athlete_note: string | null
+  generated_at: string
+}
+
+export interface CoachSignal {
+  key: string
+  label: string
+  severity: 'info' | 'positive' | 'warning'
+  confidence: number
+  evidence: string
+  athlete_id?: number
+}
+
+export interface CoachAthleteMetrics {
+  athlete_id: number
+  name: string
+  totals: Record<CoachRangeKey, CoachMetricTotal>
+  run_type_mix_4w: Record<string, number>
+  recent_runs: Array<{
+    date: string
+    type: string | null
+    distance_km: number
+    pace_per_km: string
+  }>
+  streak: number
+  goals: Array<{
+    label: string
+    distance_key: string
+    target_secs: number
+    current_secs: number | null
+    days_to_race: number
+    gap_secs: number | null
+  }>
+  recent_debriefs: CoachDebrief[]
+  signals: CoachSignal[]
+}
+
+export interface CoachChallengeMetrics {
+  name: string
+  type: string
+  start_date: string
+  end_date: string
+  total_km: number
+  target_km: number | null
+  pct: number
+  source_count: number
+}
+
+export interface CoachGroupMetrics {
+  generated_at: string
+  today: string
+  group: { id: string; name: string }
+  totals: Record<CoachRangeKey, CoachMetricTotal>
+  members: CoachAthleteMetrics[]
+  active_challenges: CoachChallengeMetrics[]
+  signals: CoachSignal[]
+}
+
+function jakartaParts(date: Date) {
+  const shifted = new Date(date.getTime() + JAKARTA_OFFSET_MS)
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth(),
+    date: shifted.getUTCDate(),
+    day: shifted.getUTCDay(),
+  }
+}
+
+function localMidnightUtc(year: number, month: number, date: number) {
+  return new Date(Date.UTC(year, month, date) - JAKARTA_OFFSET_MS)
+}
+
+function ymd(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+export function getCoachRangeDefinitions(now = new Date()): Record<CoachRangeKey, CoachRangeDefinition> {
+  const parts = jakartaParts(now)
+  const todayStartUtc = localMidnightUtc(parts.year, parts.month, parts.date)
+  const tomorrowStartUtc = new Date(todayStartUtc.getTime() + DAY_MS)
+  const weekStartUtc = new Date(todayStartUtc.getTime() - (parts.day === 0 ? 6 : parts.day - 1) * DAY_MS)
+  const monthStartUtc = localMidnightUtc(parts.year, parts.month, 1)
+  const yearStartUtc = localMidnightUtc(parts.year, 0, 1)
+  const rangeEnd = tomorrowStartUtc.toISOString()
+
+  return {
+    week: {
+      key: 'week',
+      label: 'This week',
+      range_start: weekStartUtc.toISOString(),
+      range_end: rangeEnd,
+    },
+    month: {
+      key: 'month',
+      label: 'This month',
+      range_start: monthStartUtc.toISOString(),
+      range_end: rangeEnd,
+    },
+    rolling_4w: {
+      key: 'rolling_4w',
+      label: 'Rolling 4 weeks',
+      range_start: new Date(tomorrowStartUtc.getTime() - 28 * DAY_MS).toISOString(),
+      range_end: rangeEnd,
+    },
+    rolling_12w: {
+      key: 'rolling_12w',
+      label: 'Rolling 12 weeks',
+      range_start: new Date(tomorrowStartUtc.getTime() - 84 * DAY_MS).toISOString(),
+      range_end: rangeEnd,
+    },
+    ytd: {
+      key: 'ytd',
+      label: 'YTD',
+      range_start: yearStartUtc.toISOString(),
+      range_end: rangeEnd,
+    },
+    all_time: {
+      key: 'all_time',
+      label: 'All time',
+      range_start: null,
+      range_end: rangeEnd,
+    },
+  }
+}
+
+function isRun(activity: CoachActivity) {
+  return activity.type === 'Run'
+}
+
+function inRange(activity: CoachActivity, range: CoachRangeDefinition) {
+  const t = new Date(activity.start_date).getTime()
+  if (Number.isNaN(t)) return false
+  if (range.range_start && t < new Date(range.range_start).getTime()) return false
+  return t < new Date(range.range_end).getTime()
+}
+
+function totalForRange(activities: CoachActivity[], range: CoachRangeDefinition): CoachMetricTotal {
+  const runs = activities.filter(a => isRun(a) && inRange(a, range))
+  const meters = runs.reduce((sum, a) => sum + (a.distance ?? 0), 0)
+  return {
+    ...range,
+    unit: 'km',
+    meters: Math.round(meters),
+    km: Math.round((meters / 1000) * 10) / 10,
+    source_count: runs.length,
+  }
+}
+
+export function buildCoachTotals(
+  activities: CoachActivity[],
+  now = new Date(),
+): Record<CoachRangeKey, CoachMetricTotal> {
+  const ranges = getCoachRangeDefinitions(now)
+  return {
+    week: totalForRange(activities, ranges.week),
+    month: totalForRange(activities, ranges.month),
+    rolling_4w: totalForRange(activities, ranges.rolling_4w),
+    rolling_12w: totalForRange(activities, ranges.rolling_12w),
+    ytd: totalForRange(activities, ranges.ytd),
+    all_time: totalForRange(activities, ranges.all_time),
+  }
+}
+
+function daysToRace(raceDate: string, now: Date) {
+  const today = ymd(new Date(now.getTime() + JAKARTA_OFFSET_MS))
+  const todayDate = new Date(today + 'T00:00:00Z')
+  return Math.ceil((new Date(raceDate).getTime() - todayDate.getTime()) / DAY_MS)
+}
+
+function runTypeMix(activities: CoachActivity[], range: CoachMetricTotal) {
+  const mix: Record<string, number> = {}
+  for (const activity of activities) {
+    if (!isRun(activity) || !inRange(activity, range)) continue
+    const type = activity.run_type ?? 'untyped'
+    mix[type] = (mix[type] ?? 0) + 1
+  }
+  return mix
+}
+
+function recentRuns(activities: CoachActivity[]) {
+  return activities
+    .filter(isRun)
+    .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
+    .slice(0, 10)
+    .map(a => ({
+      date: a.start_date.slice(0, 10),
+      type: a.run_type ?? null,
+      distance_km: Math.round(((a.distance ?? 0) / 1000) * 10) / 10,
+      pace_per_km: speedToPace(a.average_speed ?? 0, 'km'),
+    }))
+}
+
+export function buildAthleteSignals(metrics: {
+  athlete_id: number
+  name: string
+  totals: Record<CoachRangeKey, CoachMetricTotal>
+  run_type_mix_4w: Record<string, number>
+  goals: CoachAthleteMetrics['goals']
+}): CoachSignal[] {
+  const signals: CoachSignal[] = []
+  const week = metrics.totals.week.km
+  const fourWeekAvg = metrics.totals.rolling_4w.km / 4
+  const twelveWeekAvg = metrics.totals.rolling_12w.km / 12
+
+  if (fourWeekAvg > 0) {
+    const change = (week - fourWeekAvg) / fourWeekAvg
+    if (change > 0.25) {
+      signals.push({
+        key: 'volume_spike',
+        label: 'Volume spike',
+        severity: 'warning',
+        confidence: 0.8,
+        athlete_id: metrics.athlete_id,
+        evidence: `${metrics.name} is at ${week.toFixed(1)}km this week vs ${fourWeekAvg.toFixed(1)}km/week over the last 4 weeks.`,
+      })
+    } else if (change < -0.35) {
+      signals.push({
+        key: 'volume_dip',
+        label: 'Volume dip',
+        severity: 'info',
+        confidence: 0.75,
+        athlete_id: metrics.athlete_id,
+        evidence: `${metrics.name} is at ${week.toFixed(1)}km this week vs ${fourWeekAvg.toFixed(1)}km/week over the last 4 weeks.`,
+      })
+    }
+  }
+
+  const qualityRuns = Object.entries(metrics.run_type_mix_4w)
+    .filter(([key]) => ['intervals', 'interval_5k', 'interval_10k', 'threshold', 'tempo'].includes(key))
+    .reduce((sum, [, count]) => sum + count, 0)
+  const totalRuns4w = Object.values(metrics.run_type_mix_4w).reduce((sum, count) => sum + count, 0)
+  if (totalRuns4w >= 4 && qualityRuns / totalRuns4w > 0.45) {
+    signals.push({
+      key: 'intensity_heavy',
+      label: 'Intensity-heavy block',
+      severity: 'warning',
+      confidence: 0.7,
+      athlete_id: metrics.athlete_id,
+      evidence: `${qualityRuns} of ${totalRuns4w} runs in the last 4 weeks were quality sessions.`,
+    })
+  }
+
+  const nextGoal = metrics.goals
+    .filter(g => g.days_to_race >= 0)
+    .sort((a, b) => a.days_to_race - b.days_to_race)[0]
+  if (nextGoal?.gap_secs != null) {
+    signals.push({
+      key: nextGoal.gap_secs <= 0 ? 'goal_ready' : 'goal_gap',
+      label: nextGoal.gap_secs <= 0 ? 'Goal pace is in range' : 'Goal gap remains',
+      severity: nextGoal.gap_secs <= 0 ? 'positive' : 'info',
+      confidence: 0.75,
+      athlete_id: metrics.athlete_id,
+      evidence: `${metrics.name}'s current ${nextGoal.distance_key} estimate is ${Math.abs(nextGoal.gap_secs)}s ${nextGoal.gap_secs <= 0 ? 'ahead of' : 'behind'} target with ${nextGoal.days_to_race} days to race.`,
+    })
+  }
+
+  if (twelveWeekAvg > 0 && fourWeekAvg > twelveWeekAvg * 1.15) {
+    signals.push({
+      key: 'momentum_rising',
+      label: 'Volume momentum rising',
+      severity: 'positive',
+      confidence: 0.72,
+      athlete_id: metrics.athlete_id,
+      evidence: `${metrics.name} averaged ${fourWeekAvg.toFixed(1)}km/week over 4 weeks vs ${twelveWeekAvg.toFixed(1)}km/week over 12 weeks.`,
+    })
+  }
+
+  return signals
+}
+
+export function buildAthleteMetricsFromActivities(params: {
+  athlete_id: number
+  name: string
+  activities: CoachActivity[]
+  goals: CoachGoal[]
+  debriefs?: CoachDebrief[]
+  now?: Date
+}): CoachAthleteMetrics {
+  const now = params.now ?? new Date()
+  const totals = buildCoachTotals(params.activities, now)
+  const goals = params.goals.map(g => ({
+    label: g.label,
+    distance_key: g.distance_key,
+    target_secs: g.target_secs,
+    current_secs: g.current_secs,
+    days_to_race: daysToRace(g.race_date, now),
+    gap_secs: g.current_secs == null ? null : g.current_secs - g.target_secs,
+  }))
+  const athleteRuns = params.activities.filter(a => a.athlete_id === params.athlete_id && isRun(a))
+  const metricsWithoutSignals = {
+    athlete_id: params.athlete_id,
+    name: params.name,
+    totals,
+    run_type_mix_4w: runTypeMix(params.activities, totals.rolling_4w),
+    recent_runs: recentRuns(params.activities),
+    streak: computeStreak(athleteRuns.map(a => ({ athlete_id: a.athlete_id, start_date: a.start_date })), params.athlete_id),
+    goals,
+    recent_debriefs: params.debriefs ?? [],
+    signals: [],
+  }
+  return {
+    ...metricsWithoutSignals,
+    signals: buildAthleteSignals(metricsWithoutSignals),
+  }
+}
+
+export function buildGroupSignals(group: Pick<CoachGroupMetrics, 'totals' | 'members'>): CoachSignal[] {
+  const signals: CoachSignal[] = []
+  const week = group.totals.week.km
+  const fourWeekAvg = group.totals.rolling_4w.km / 4
+  if (fourWeekAvg > 0) {
+    const change = (week - fourWeekAvg) / fourWeekAvg
+    signals.push({
+      key: change > 0.15 ? 'group_momentum_rising' : change < -0.25 ? 'group_momentum_dipping' : 'group_momentum_steady',
+      label: change > 0.15 ? 'Group momentum rising' : change < -0.25 ? 'Group momentum dipping' : 'Group momentum steady',
+      severity: change > 0.15 ? 'positive' : change < -0.25 ? 'warning' : 'info',
+      confidence: 0.78,
+      evidence: `Group is at ${week.toFixed(1)}km this week vs ${fourWeekAvg.toFixed(1)}km/week over the last 4 weeks.`,
+    })
+  }
+
+  const inactive = group.members.filter(m => m.totals.week.source_count === 0)
+  if (inactive.length > 0) {
+    signals.push({
+      key: 'inactive_members',
+      label: 'Members need a nudge',
+      severity: 'info',
+      confidence: 0.85,
+      evidence: `${inactive.map(m => m.name.split(' ')[0]).join(', ')} have not logged a run this week.`,
+    })
+  }
+
+  return signals
+}
+
+export function buildChallengeMetricsFromActivities(params: {
+  challenges: Array<{
+    name: string
+    challenge_type: string
+    target_meters: number | null
+    start_date: string
+    end_date: string
+  }>
+  activities: CoachActivity[]
+}): CoachChallengeMetrics[] {
+  return params.challenges.map(challenge => {
+    const start = new Date(challenge.start_date + 'T00:00:00Z')
+    const end = new Date(challenge.end_date + 'T23:59:59Z')
+    const relevant = params.activities.filter(a => {
+      if (!isRun(a)) return false
+      const d = new Date(a.start_date)
+      return d >= start && d <= end
+    })
+    const meters = relevant.reduce((sum, a) => sum + (a.distance ?? 0), 0)
+    const targetKm = challenge.target_meters ? challenge.target_meters / 1000 : null
+    return {
+      name: challenge.name,
+      type: challenge.challenge_type,
+      start_date: challenge.start_date,
+      end_date: challenge.end_date,
+      total_km: Math.round((meters / 1000) * 10) / 10,
+      target_km: targetKm,
+      pct: targetKm ? Math.min(Math.round((meters / 1000 / targetKm) * 100), 100) : 0,
+      source_count: relevant.length,
+    }
+  })
+}
+
+export function buildCoachFactsSnapshot(metrics: CoachGroupMetrics | CoachAthleteMetrics) {
+  if ('members' in metrics) {
+    return {
+      generated_at: metrics.generated_at,
+      today: metrics.today,
+      group: metrics.group,
+      group_totals: metrics.totals,
+      member_totals: metrics.members.map(m => ({
+        athlete_id: m.athlete_id,
+        name: m.name,
+        totals: m.totals,
+      })),
+      active_challenges: metrics.active_challenges,
+      signals: metrics.signals,
+    }
+  }
+
+  return {
+    athlete_id: metrics.athlete_id,
+    name: metrics.name,
+    totals: metrics.totals,
+    goals: metrics.goals,
+    run_type_mix_4w: metrics.run_type_mix_4w,
+    recent_debriefs: metrics.recent_debriefs,
+    signals: metrics.signals,
+  }
+}
+
+export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthleteMetrics> {
+  const now = new Date()
+  const [{ data: allRuns }, { data: tokenRow }, { data: goals }, { data: debriefs }] = await Promise.all([
+    supabaseAdmin
+      .from('activities')
+      .select('id, athlete_id, start_date, distance, moving_time, average_speed, average_heartrate, run_type, type, total_elevation_gain')
+      .eq('athlete_id', athleteId)
+      .eq('type', 'Run')
+      .order('start_date', { ascending: false }),
+    supabaseAdmin
+      .from('strava_tokens')
+      .select('athlete_name')
+      .eq('athlete_id', athleteId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('user_goals')
+      .select('label, distance_key, target_secs, current_secs, race_date')
+      .eq('athlete_id', athleteId)
+      .order('race_date', { ascending: true }),
+    supabaseAdmin
+      .from('run_coach_notes')
+      .select('run_id, perceived_effort, athlete_note, generated_at')
+      .eq('athlete_id', athleteId)
+      .order('generated_at', { ascending: false })
+      .limit(5),
+  ])
+
+  const activities = allRuns ?? []
+  return buildAthleteMetricsFromActivities({
+    athlete_id: athleteId,
+    name: tokenRow?.athlete_name ?? `Athlete ${athleteId}`,
+    activities,
+    goals: goals ?? [],
+    debriefs: debriefs ?? [],
+    now,
+  })
+}
+
+export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetrics> {
+  const now = new Date()
+  const today = ymd(new Date(now.getTime() + JAKARTA_OFFSET_MS))
+  const { data: group } = await supabaseAdmin
+    .from('groups')
+    .select('name')
+    .eq('id', groupId)
+    .single()
+
+  const { data: memberRows } = await supabaseAdmin
+    .from('group_members')
+    .select('athlete_id')
+    .eq('group_id', groupId)
+
+  const memberIds = (memberRows ?? []).map(m => m.athlete_id)
+  if (memberIds.length === 0) {
+    const totals = buildCoachTotals([], now)
+    return {
+      generated_at: now.toISOString(),
+      today,
+      group: { id: groupId, name: group?.name ?? 'Group' },
+      totals,
+      members: [],
+      active_challenges: [],
+      signals: [],
+    }
+  }
+
+  const [{ data: tokens }, { data: goals }, { data: activities }, { data: debriefs }, { data: challenges }] = await Promise.all([
+    supabaseAdmin
+      .from('strava_tokens')
+      .select('athlete_id, athlete_name')
+      .in('athlete_id', memberIds),
+    supabaseAdmin
+      .from('user_goals')
+      .select('athlete_id, label, distance_key, target_secs, current_secs, race_date')
+      .in('athlete_id', memberIds),
+    supabaseAdmin
+      .from('activities')
+      .select('id, athlete_id, start_date, distance, moving_time, average_speed, average_heartrate, run_type, type, total_elevation_gain')
+      .in('athlete_id', memberIds)
+      .eq('type', 'Run')
+      .order('start_date', { ascending: false }),
+    supabaseAdmin
+      .from('run_coach_notes')
+      .select('run_id, athlete_id, perceived_effort, athlete_note, generated_at')
+      .in('athlete_id', memberIds)
+      .order('generated_at', { ascending: false })
+      .limit(25),
+    supabaseAdmin
+      .from('group_challenges')
+      .select('name, challenge_type, target_meters, start_date, end_date')
+      .eq('group_id', groupId)
+      .lte('start_date', today)
+      .gte('end_date', today),
+  ])
+
+  const nameMap: Record<number, string> = {}
+  for (const token of tokens ?? []) {
+    nameMap[token.athlete_id] = token.athlete_name ?? `Athlete ${token.athlete_id}`
+  }
+
+  const allActivities = activities ?? []
+  const members = memberIds.map(athleteId => buildAthleteMetricsFromActivities({
+    athlete_id: athleteId,
+    name: nameMap[athleteId] ?? `Athlete ${athleteId}`,
+    activities: allActivities.filter(a => a.athlete_id === athleteId),
+    goals: (goals ?? []).filter(g => g.athlete_id === athleteId),
+    debriefs: (debriefs ?? []).filter(d => d.athlete_id === athleteId),
+    now,
+  }))
+  const totals = buildCoachTotals(allActivities, now)
+  const groupWithoutSignals = {
+    generated_at: now.toISOString(),
+    today,
+    group: { id: groupId, name: group?.name ?? 'Group' },
+    totals,
+    members,
+    active_challenges: buildChallengeMetricsFromActivities({ challenges: challenges ?? [], activities: allActivities }),
+    signals: [],
+  }
+
+  return {
+    ...groupWithoutSignals,
+    signals: buildGroupSignals(groupWithoutSignals),
+  }
+}
+
+export async function persistCoachAuditEvent(params: {
+  scope: 'athlete' | 'group' | 'run'
+  route: string
+  athlete_id?: number | null
+  group_id?: string | null
+  run_id?: number | null
+  facts: unknown
+  signals?: unknown
+}) {
+  try {
+    await supabaseAdmin
+      .from('coach_audit_events')
+      .insert({
+        scope: params.scope,
+        route: params.route,
+        athlete_id: params.athlete_id ?? null,
+        group_id: params.group_id ?? null,
+        run_id: params.run_id ?? null,
+        facts_json: params.facts,
+        signals_json: params.signals ?? null,
+        generated_at: new Date().toISOString(),
+      })
+  } catch (err) {
+    console.error('[coach/audit]', err instanceof Error ? err.message : String(err))
+  }
+}

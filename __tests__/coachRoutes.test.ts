@@ -84,6 +84,7 @@ describe('group briefing route', () => {
     const membershipChain = createQueryChain({ data: { role: 'member' } })
     const cachedChain = createQueryChain({ data: null })
     const upsertChain = createQueryChain({ error: null })
+    const auditChain = createQueryChain({ error: null })
     const groupMembersChain = createQueryChain({ data: [{ athlete_id: 1 }, { athlete_id: 2 }] })
     const tokensChain = createQueryChain({
       data: [
@@ -100,6 +101,7 @@ describe('group briefing route', () => {
       membershipChain,
       cachedChain,
       upsertChain,
+      auditChain,
       groupMembersChain,
       tokensChain,
       deleteAwardsChain,

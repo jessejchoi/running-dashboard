@@ -26,12 +26,13 @@ const mockFrom = supabaseAdmin.from as ReturnType<typeof vi.fn>
 
 function makeChain(returnVal: unknown) {
   const chain: Record<string, ReturnType<typeof vi.fn>> = {}
-  const methods = ['select', 'eq', 'maybeSingle', 'upsert', 'single']
+  const methods = ['select', 'eq', 'maybeSingle', 'upsert', 'insert', 'single']
   for (const m of methods) {
     chain[m] = vi.fn().mockReturnValue(chain)
   }
   chain['maybeSingle'] = vi.fn().mockResolvedValue(returnVal)
   chain['upsert'] = vi.fn().mockResolvedValue({ error: null })
+  chain['insert'] = vi.fn().mockResolvedValue({ error: null })
   return chain
 }
 

@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { buildAthleteContext } from '@/lib/coachContext'
 import { claudeMessage } from '@/lib/claude'
 import { speedToPace } from '@/lib/utils'
+import { persistCoachAuditEvent } from '@/lib/coachMetrics'
 
 export interface CoachNoteOpts {
   perceivedEffort?: string
@@ -92,11 +93,15 @@ export async function generateCoachNote(
     ? `\nAthlete's note: "${opts.athleteNote}"`
     : ''
 
-  const systemPrompt = `You are RDCoach. Give 2-3 sentences of specific coaching feedback on this run. Use the athlete's name. Reference specific numbers. Connect it to their race goal. Be direct, a touch snarky, genuinely encouraging. No generic praise.${effortContext || noteContext ? ' The athlete has added their own context — acknowledge it specifically.' : ''}`
+  const systemPrompt = `You are RDCoach. Give 2-3 sentences of specific coaching feedback on this run. Use the athlete's name. Reference specific numbers. Connect it to their race goal. Be direct, a touch snarky, genuinely encouraging. No generic praise. Only use numbers present in the run data and canonical coach facts.${effortContext || noteContext ? ' The athlete has added their own context — acknowledge it specifically.' : ''}`
 
   const userPrompt = `Athlete: ${ctx.name}
 Run data: ${JSON.stringify(runContext)}
-Athlete context: this week ${ctx.this_week_km}km, streak ${ctx.streak} weeks, avg weekly km (4w) ${ctx.avg_weekly_km_4w}km${effortContext}${noteContext}`
+Canonical coach facts:
+${JSON.stringify(ctx.facts, null, 2)}
+Coach signals:
+${JSON.stringify(ctx.signals, null, 2)}
+Athlete context: this week ${ctx.this_week_km}km, YTD ${ctx.ytd_km}km, streak ${ctx.streak} weeks, avg weekly km (4w) ${ctx.avg_weekly_km_4w}km${effortContext}${noteContext}`
 
   let content: string
   try {
@@ -124,6 +129,15 @@ Athlete context: this week ${ctx.this_week_km}km, streak ${ctx.streak} weeks, av
       },
       { onConflict: 'run_id' }
     )
+
+  await persistCoachAuditEvent({
+    scope: 'run',
+    route: 'runs/coach-note',
+    athlete_id: athleteId,
+    run_id: runId,
+    facts: ctx.facts,
+    signals: ctx.signals,
+  })
 
   return content
 }

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { formatDistanceToNow, formatDistance } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 
@@ -26,8 +26,6 @@ interface Award {
 interface BriefingMeta {
   cached: boolean
   generated_at: string
-  rate_limited?: boolean
-  next_refresh_at?: string
 }
 
 interface Props {
@@ -120,8 +118,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
       setBriefingMeta({
         cached: data.cached,
         generated_at: data.generated_at,
-        rate_limited: data.rate_limited,
-        next_refresh_at: data.next_refresh_at,
       })
     } catch {
       setBriefingError(true)
@@ -222,23 +218,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   }, {})
   const sortedWeeks = Object.keys(awardWeeks).sort((a, b) => b.localeCompare(a))
 
-  // Refresh button state
-  const canRefresh = (() => {
-    if (!briefingMeta?.generated_at) return true
-    if (briefingMeta.rate_limited && briefingMeta.next_refresh_at) return false
-    const age = Date.now() - new Date(briefingMeta.generated_at).getTime()
-    return age >= 4 * 60 * 60 * 1000
-  })()
-
-  const refreshCountdown = (() => {
-    const target = briefingMeta?.next_refresh_at
-      ?? (briefingMeta?.generated_at
-        ? new Date(new Date(briefingMeta.generated_at).getTime() + 4 * 60 * 60 * 1000).toISOString()
-        : null)
-    if (!target || canRefresh) return null
-    return formatDistance(new Date(), new Date(target), { addSuffix: false })
-  })()
-
   return (
     <div className="space-y-4 fade-up">
 
@@ -256,19 +235,13 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
                 {formatDistanceToNow(new Date(briefingMeta.generated_at), { addSuffix: true })}
               </span>
             )}
-            {canRefresh ? (
-              <button
-                onClick={() => fetchBriefing(true)}
-                className="text-[#6b7280] hover:text-[#f97316] transition-colors"
-                title="Refresh briefing"
-              >
-                <RefreshCw size={13} />
-              </button>
-            ) : (
-              <span className="text-[10px] text-[#4b5563]" title="Refresh available soon">
-                in {refreshCountdown}
-              </span>
-            )}
+            <button
+              onClick={() => fetchBriefing(true)}
+              className="text-[#6b7280] hover:text-[#f97316] transition-colors"
+              title="Refresh briefing"
+            >
+              <RefreshCw size={13} />
+            </button>
           </div>
         </div>
         <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>

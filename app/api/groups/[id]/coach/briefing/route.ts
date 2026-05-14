@@ -6,6 +6,7 @@ import { claudeMessage } from '@/lib/claude'
 import { AWARD_CATEGORIES } from '@/lib/awards'
 import { parseAndSanitizeBriefing, type BriefingContent } from '@/lib/coachOutputs'
 import { getWeekStart, toJakartaDate } from '@/lib/utils'
+import { persistCoachAuditEvent } from '@/lib/coachMetrics'
 
 export type { BriefingContent } from '@/lib/coachOutputs'
 
@@ -25,7 +26,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!membership) return NextResponse.json({ error: 'Not a member' }, { status: 403 })
 
   const force = req.nextUrl.searchParams.get('force') === 'true'
-  const REFRESH_MIN_MS = 4 * 60 * 60 * 1000 // 4 hours
 
   // Always check cache first
   const { data: cached } = await supabaseAdmin
@@ -37,19 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (cached) {
     const age = Date.now() - new Date(cached.generated_at).getTime()
 
-    if (force) {
-      // Rate-limit: anyone can force refresh, but only once per 4h per group
-      if (age < REFRESH_MIN_MS) {
-        const nextRefreshAt = new Date(new Date(cached.generated_at).getTime() + REFRESH_MIN_MS).toISOString()
-        return NextResponse.json({
-          briefing: cached.content_json as BriefingContent,
-          cached: true,
-          generated_at: cached.generated_at,
-          rate_limited: true,
-          next_refresh_at: nextRefreshAt,
-        })
-      }
-    } else {
+    if (!force) {
       // Normal load: serve cache if < 20h
       if (age < 20 * 60 * 60 * 1000) {
         return NextResponse.json({
@@ -68,6 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const systemPrompt = `You are RDCoach — AI running coach for ${ctx.group.name}.
 Playful, slightly snarky, competitive, genuinely encouraging underneath.
 Use real names and real numbers. Notice effort, patterns, and who's slacking.
+The coach facts are canonical. Never invent totals, YTD distance, challenge progress, or member volume. If you mention a number, it must appear in the facts/signals.
 Return ONLY a JSON object matching this exact interface — no markdown, no code fences:
 {
   "weekly_summary": "2-3 sentence group overview",
@@ -87,13 +76,22 @@ Rules:
 - award_key MUST be one of the exact strings listed above — no other values.
 - award_label should be the human-readable name matching the award_key.
 - Reference specific paces, distances, run types from the data.
+- Prefer canonical totals from coach_facts over recent_runs; recent_runs are only narrative examples.
 - If someone hasn't run in a week, call it out gently with their name.
 - coach_tip must be specific to what you see in the data — no generic advice.
 - group_momentum: rising if volume trending up, dipping if down, steady otherwise.`
 
     const userPrompt = `Today: ${ctx.today}
-Group data:
-${JSON.stringify(ctx, null, 2)}`
+Coach facts (canonical source of truth):
+${JSON.stringify(ctx.facts, null, 2)}
+Coach signals:
+${JSON.stringify(ctx.signals, null, 2)}
+Group narrative context:
+${JSON.stringify({
+  group: ctx.group,
+  members: ctx.members,
+  active_challenges: ctx.active_challenges,
+}, null, 2)}`
 
     const raw = await claudeMessage({
       model: 'claude-sonnet-4-6',
@@ -119,6 +117,15 @@ ${JSON.stringify(ctx, null, 2)}`
         generated_at: generatedAt,
         generated_by: parseInt(athleteId),
       }, { onConflict: 'group_id' })
+
+    await persistCoachAuditEvent({
+      scope: 'group',
+      route: 'groups/coach/briefing',
+      group_id: params.id,
+      athlete_id: parseInt(athleteId),
+      facts: ctx.facts,
+      signals: ctx.signals,
+    })
 
     // Persist awards to group_member_awards
     if (briefing.shoutouts.length > 0) {
@@ -183,6 +190,7 @@ ${JSON.stringify(ctx, null, 2)}`
       briefing,
       cached: false,
       generated_at: row?.generated_at ?? generatedAt,
+      coach_facts: ctx.facts,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

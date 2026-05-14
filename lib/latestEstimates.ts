@@ -8,13 +8,8 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { analyzeAllAndCombine } from '@/lib/analysis'
 import { saveSnapshot } from '@/lib/estimateSnapshots'
-
-const INTERVAL_TYPES  = ['intervals', 'interval_5k', 'interval_10k']
-const THRESHOLD_TYPES = ['threshold', 'tempo']
-const LONG_TYPES      = ['long', 'long_easy', 'long_progressive', 'long_steady']
-const EASY_TYPES      = ['easy', 'easy_strides', 'long_easy', 'recovery']
+import { getAthleteAnalysis } from '@/lib/analysis/service'
 
 /**
  * Run the full analysis engine for one athlete and persist the results to
@@ -25,41 +20,9 @@ const EASY_TYPES      = ['easy', 'easy_strides', 'long_easy', 'recovery']
  */
 export async function updateLatestEstimates(athleteId: number): Promise<void> {
   try {
-    const [
-      { data: intervalRuns },
-      { data: thresholdRuns },
-      { data: longRuns },
-      { data: easyRuns },
-      { data: allActivities },
-      { data: raceRuns },
-      { data: profile },
-    ] = await Promise.all([
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', INTERVAL_TYPES).order('start_date', { ascending: false }),
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', THRESHOLD_TYPES).order('start_date', { ascending: false }),
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', LONG_TYPES).order('start_date', { ascending: false }),
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_TYPES).order('start_date', { ascending: false }),
-      supabaseAdmin.from('activities').select('start_date, run_type, distance').eq('athlete_id', athleteId).not('run_type', 'is', null).order('start_date', { ascending: false }),
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }),
-      supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
-    ])
-
-    const maxHr = profile?.max_hr ?? 195
-    const analysis = analyzeAllAndCombine(
-      intervalRuns  ?? [],
-      thresholdRuns ?? [],
-      longRuns      ?? [],
-      easyRuns      ?? [],
-      raceRuns      ?? [],
-      maxHr,
-      allActivities ?? [],
-    )
-
-    const estimates: Record<string, number | null> = {
-      '5k':  analysis.combined['5k']?.bestEstimateSecs  ?? null,
-      '10k': analysis.combined['10k']?.bestEstimateSecs ?? null,
-      'hm':  analysis.combined['hm']?.bestEstimateSecs  ?? null,
-      'fm':  analysis.combined['fm']?.bestEstimateSecs  ?? null,
-    }
+    const { currentEstimates: estimates } = await getAthleteAnalysis(athleteId, {
+      activityColumns: '*',
+    })
 
     await supabaseAdmin
       .from('user_latest_estimates')

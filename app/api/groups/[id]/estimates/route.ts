@@ -14,12 +14,8 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { analyzeAllAndCombine } from '@/lib/analysis'
 import { saveSnapshot } from '@/lib/estimateSnapshots'
-
-const INTERVAL_TYPES = ['intervals', 'interval_5k', 'interval_10k']
-const THRESHOLD_TYPES = ['threshold', 'tempo']
-const LONG_TYPES = ['long', 'long_easy', 'long_progressive', 'long_steady']
-const EASY_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
-const DISTANCE_KEYS = ['5k', '10k', 'hm', 'fm'] as const
+import { ANALYSIS_RUN_TYPES, DISTANCE_KEYS } from '@/lib/analysis/constants'
+import { currentEstimatesFromResult } from '@/lib/analysis/service'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -85,10 +81,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       { data: raceRuns },
       { data: profiles },
     ] = await Promise.all([
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', INTERVAL_TYPES).order('start_date', { ascending: false }).limit(needsAnalysis.length * 20),
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', THRESHOLD_TYPES).order('start_date', { ascending: false }).limit(needsAnalysis.length * 20),
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', LONG_TYPES).order('start_date', { ascending: false }).limit(needsAnalysis.length * 15),
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', EASY_TYPES).order('start_date', { ascending: false }).limit(needsAnalysis.length * 30),
+      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.intervals).order('start_date', { ascending: false }).limit(needsAnalysis.length * 20),
+      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.threshold).order('start_date', { ascending: false }).limit(needsAnalysis.length * 20),
+      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.long).order('start_date', { ascending: false }).limit(needsAnalysis.length * 15),
+      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.easy).order('start_date', { ascending: false }).limit(needsAnalysis.length * 30),
       supabaseAdmin.from('activities').select('start_date,run_type,distance,athlete_id').in('athlete_id', needsAnalysis).order('start_date', { ascending: false }).limit(needsAnalysis.length * 200),
       supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).eq('is_race', true).order('start_date', { ascending: false }).limit(needsAnalysis.length * 10),
       supabaseAdmin.from('user_profiles').select('athlete_id, max_hr').in('athlete_id', needsAnalysis),
@@ -114,13 +110,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           memberRaces, maxHr, memberRecent,
         )
 
-        const estimates: Record<string, number | null> = {}
+        const estimates = currentEstimatesFromResult(analysis)
         for (const dk of DISTANCE_KEYS) {
-          const c = analysis.combined[dk]
-          estimates[dk] = c?.bestEstimateSecs ?? null
-          if (c?.bestEstimateSecs) {
+          if (estimates[dk]) {
             result[memberId] ??= {}
-            result[memberId][dk] = Math.round(c.bestEstimateSecs)
+            result[memberId][dk] = Math.round(estimates[dk])
           }
         }
 

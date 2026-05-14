@@ -1,22 +1,19 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import FiveKTrendChart from '@/components/FiveKTrendChart'
 import AerobicEfficiencyChart from '@/components/AerobicEfficiencyChart'
 import {
-  analyzeAllAndCombine,
   formatTime, formatPace,
   type FiveKEstimate,
   type EasyRunEfficiency,
   type LongRunAnalysis,
   type RaceResultAnalysis,
-  type CombinedEstimate,
   type EstimateSource,
 } from '@/lib/analysis'
 import { speedToPace, formatDuration, vdotFrom5K, toJakartaDate, paceUnitLabel, formatDistanceShort, type DistanceUnit } from '@/lib/utils'
-import { type DistanceKey, distanceLabel } from '@/lib/goals'
-import { format, subMonths, parseISO } from 'date-fns'
+import { distanceLabel } from '@/lib/goals'
+import { format, parseISO } from 'date-fns'
 import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
@@ -26,10 +23,9 @@ import SourceEstimateBadge from '@/components/SourceEstimateBadge'
 import RunEstimateBadge from '@/components/RunEstimateBadge'
 import RepTableClient from '@/components/RepTableClient'
 import { fetchDeltas, saveSnapshot, type AllDeltas } from '@/lib/estimateSnapshots'
+import { getAthleteAnalysis } from '@/lib/analysis/service'
 
 export const revalidate = 60
-
-const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
 
 export default async function AnalysisPage() {
   const cookieStore = cookies()
@@ -37,55 +33,18 @@ export default async function AnalysisPage() {
   if (!athleteId) redirect('/')
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
-  const [{ data: goalRows }, { data: userProfile }] = await Promise.all([
-    supabaseAdmin.from('user_goals').select('distance_key, target_secs').eq('athlete_id', parseInt(athleteId)),
-    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
-  ])
-  const maxHr: number | undefined = userProfile?.max_hr ?? undefined
-  const targetSecsMap: Record<string, number> = {}
-  for (const g of goalRows ?? []) {
-    targetSecsMap[g.distance_key] = g.target_secs
-  }
-
-  // Exclude streams (GPS point arrays — thousands of points) but keep splits (per-km, ~10–15 entries)
-  // and laps. Both are used by analysis.ts for drift and steady-window computation.
-  const ACTIVITY_COLS = 'id, athlete_id, name, type, start_date, distance, moving_time, elapsed_time, total_elevation_gain, average_speed, max_speed, average_heartrate, max_heartrate, average_cadence, suffer_score, raw, laps, splits, run_type, run_type_manual, is_race, excluded_from_analysis'
-
-  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: allActivities }] = await Promise.all([
-    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', ['intervals', 'interval_5k', 'interval_10k']).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', ['threshold', 'tempo']).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', ['long', 'long_easy', 'long_progressive', 'long_steady']).order('start_date', { ascending: false }).limit(15),
-    supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select('start_date, run_type, distance').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false }).limit(200),
-  ])
-
-  // Race query is separate — is_race column may not exist before migration_008
-  let raceRuns: any[] = []
-  try {
-    const { data } = await supabaseAdmin.from('activities').select(ACTIVITY_COLS).eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10)
-    raceRuns = data ?? []
-  } catch { /* column doesn't exist yet — ignore */ }
-
-  let result: ReturnType<typeof analyzeAllAndCombine>
-  try {
-    result = analyzeAllAndCombine(
-      intervalRuns ?? [],
-      thresholdRuns ?? [],
-      longRuns ?? [],
-      easyRuns ?? [],
-      raceRuns,
-      maxHr ?? 195,
-      allActivities ?? [],
-    )
-  } catch (err) {
-    console.error('analyzeAllAndCombine failed:', err)
-    result = {
-      intervalEstimates: [], thresholdEstimates: [], longRunAnalyses: [],
-      raceAnalyses: [], easyRunResults: [], easyTrendEstimates: [],
-      allRaceEstimates: [],
-      combined: { '5k': null, '10k': null, 'hm': null, 'fm': null },
-    }
-  }
+  const {
+    inputs: { intervalRuns, thresholdRuns, longRuns, easyRuns, hasMaxHr },
+    result,
+    combinedJson,
+    currentEstimates,
+    targetSecsMap,
+  } = await getAthleteAnalysis(Number(athleteId), {
+    easyLookbackMonths: 3,
+    longLimit: 15,
+    raceLimit: 10,
+    allActivitiesLimit: 200,
+  })
 
   const { intervalEstimates, thresholdEstimates, longRunAnalyses, raceAnalyses, easyRunResults, longRunEfficiencyPoints, combined, allRaceEstimates } = result
   // Unified aerobic dataset: easy runs + long run steady portions (same chart, same series)
@@ -96,17 +55,6 @@ export default async function AnalysisPage() {
     run: r,
     result: easyRunResults.find(e => e.activityId === r.id) ?? null,
   }))
-
-  // Serialise combined for client components
-  const combinedJson = JSON.parse(JSON.stringify(combined)) as Record<DistanceKey, CombinedEstimate | null>
-
-  // Current estimates map (for snapshot + deltas)
-  const currentEstimates: Record<string, number | null> = {
-    '5k':  combined['5k']?.bestEstimateSecs  ?? null,
-    '10k': combined['10k']?.bestEstimateSecs ?? null,
-    'hm':  combined['hm']?.bestEstimateSecs  ?? null,
-    'fm':  combined['fm']?.bestEstimateSecs  ?? null,
-  }
 
   // Fetch historical deltas (cheap indexed query) + save today's snapshot (non-blocking)
   await saveSnapshot(Number(athleteId), currentEstimates)
@@ -208,7 +156,7 @@ export default async function AnalysisPage() {
           <p className="text-[#6b7280] text-sm max-w-3xl">
             Multi-distance estimates from intervals, tempo, long runs, easy trends, and race results — combined with confidence and recency weighting.
           </p>
-          {!maxHr && (
+          {!hasMaxHr && (
             <div className="flex items-center gap-2 bg-[#1a1a0a] border border-[#f97316]/30 rounded-xl px-4 py-3 mt-4 text-sm max-w-xl">
               <span className="text-[#f97316] shrink-0">⚠</span>
               <span className="text-[#9ca3af]">HR-based corrections use a default max HR of 195 bpm — open <span className="text-white font-medium">Settings</span> (gear icon) to add your actual max HR.</span>

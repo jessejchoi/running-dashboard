@@ -4,32 +4,28 @@
  * Streams into the dashboard independently of the group section.
  */
 import { supabaseAdmin } from '@/lib/supabase'
-import { analyzeAllAndCombine } from '@/lib/analysis'
 import { saveSnapshot, fetchSnapshotsByDate, buildAllDeltas, todayDate } from '@/lib/estimateSnapshots'
 import GoalsSection from '@/components/GoalsSection'
 import { formatDuration, type DistanceUnit } from '@/lib/utils'
 import Link from 'next/link'
 import { type UserGoal } from '@/lib/goals'
+import {
+  confidenceByDistance,
+  getAthleteAnalysis,
+  sourceCountsByDistance,
+} from '@/lib/analysis/service'
 
 async function getRaceData(athleteId: number) {
-  const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
-
   // Single snapshot query serves dual purpose:
   // 1. Today's cache check (skip re-running analysis if already computed today)
   // 2. Historical byDate map for delta arrows
-  const [goalsData, userProfile, byDate] = await Promise.all([
+  const [goalsData, byDate] = await Promise.all([
     supabaseAdmin
       .from('user_goals')
       .select('*')
       .eq('athlete_id', athleteId)
       .order('race_date', { ascending: true })
       .then(r => (r.data ?? []) as UserGoal[]),
-    supabaseAdmin
-      .from('user_profiles')
-      .select('max_hr')
-      .eq('athlete_id', athleteId)
-      .maybeSingle()
-      .then(r => r.data),
     fetchSnapshotsByDate(athleteId),
   ])
 
@@ -51,65 +47,19 @@ async function getRaceData(athleteId: number) {
     }
   } else {
     // Cache miss — run full analysis and save snapshot
-    const maxHr = userProfile?.max_hr ?? 195
+    const analysis = await getAthleteAnalysis(athleteId, {
+      activityColumns: '*',
+      intervalLimit: 20,
+      thresholdLimit: 20,
+      longLimit: 15,
+      easyLimit: 30,
+      raceLimit: 10,
+      allActivitiesLimit: 200,
+    })
 
-    const [
-      { data: intervalRuns },
-      { data: thresholdRuns },
-      { data: longRuns },
-      { data: easyRuns },
-      allActivities,
-    ] = await Promise.all([
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['intervals', 'interval_5k', 'interval_10k']).order('start_date', { ascending: false }).limit(20),
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['threshold', 'tempo']).order('start_date', { ascending: false }).limit(20),
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['long', 'long_easy', 'long_progressive', 'long_steady']).order('start_date', { ascending: false }).limit(15),
-      supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).order('start_date', { ascending: false }).limit(30),
-      supabaseAdmin.from('activities').select('start_date,run_type,distance').eq('athlete_id', athleteId).eq('type', 'Run').order('start_date', { ascending: false }).limit(200).then(r => r.data ?? []),
-    ])
-
-    let raceRuns: any[] = []
-    try {
-      const { data } = await supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10)
-      raceRuns = data ?? []
-    } catch {}
-
-    let analysisResult: ReturnType<typeof analyzeAllAndCombine>
-    try {
-      analysisResult = analyzeAllAndCombine(
-        intervalRuns ?? [],
-        thresholdRuns ?? [],
-        longRuns ?? [],
-        easyRuns ?? [],
-        raceRuns,
-        maxHr,
-        allActivities,
-      )
-    } catch {
-      analysisResult = {
-        intervalEstimates: [], thresholdEstimates: [], longRunAnalyses: [],
-        raceAnalyses: [], easyRunResults: [], easyTrendEstimates: [], allRaceEstimates: [],
-        combined: { '5k': null, '10k': null, 'hm': null, 'fm': null },
-      } as any
-    }
-
-    estimates = {
-      '5k':  analysisResult.combined['5k']?.bestEstimateSecs  ?? null,
-      '10k': analysisResult.combined['10k']?.bestEstimateSecs ?? null,
-      'hm':  analysisResult.combined['hm']?.bestEstimateSecs  ?? null,
-      'fm':  analysisResult.combined['fm']?.bestEstimateSecs  ?? null,
-    }
-
-    for (const dk of ['5k', '10k', 'hm', 'fm'] as const) {
-      const c = analysisResult.combined[dk]
-      if (c) {
-        confidence[dk] = c.confidence
-        const counts: Record<string, number> = {}
-        for (const contrib of c.contributors) {
-          counts[contrib.source] = (counts[contrib.source] ?? 0) + 1
-        }
-        sourceCounts[dk] = counts
-      }
-    }
+    estimates = analysis.currentEstimates
+    confidence = confidenceByDistance(analysis.result)
+    sourceCounts = sourceCountsByDistance(analysis.result)
 
     await saveSnapshot(athleteId, estimates)
     // Merge today's new estimates into byDate so delta computation is up-to-date

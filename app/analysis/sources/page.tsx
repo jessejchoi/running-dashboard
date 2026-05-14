@@ -1,71 +1,24 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
-import {
-  analyzeAllAndCombine,
-  type CombinedEstimate,
-} from '@/lib/analysis'
-import { type DistanceKey } from '@/lib/goals'
-import { subMonths } from 'date-fns'
 import SourcesPageClient from '@/components/SourcesPageClient'
 import Link from 'next/link'
+import { getAthleteAnalysis } from '@/lib/analysis/service'
 
 export const revalidate = 60
-
-const EASY_RUN_TYPES = ['easy', 'easy_strides', 'long_easy', 'recovery']
 
 export default async function SourcesPage() {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) redirect('/')
 
-  const [{ data: goalRows }, { data: userProfile }] = await Promise.all([
-    supabaseAdmin.from('user_goals').select('distance_key, target_secs').eq('athlete_id', parseInt(athleteId)),
-    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
-  ])
-  const maxHr: number | undefined = userProfile?.max_hr ?? undefined
-  const targetSecsMap: Record<string, number> = {}
-  for (const g of goalRows ?? []) {
-    targetSecsMap[g.distance_key] = g.target_secs
-  }
-
-  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: allActivities }] = await Promise.all([
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['intervals', 'interval_5k', 'interval_10k']).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['threshold', 'tempo']).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', ['long', 'long_easy', 'long_progressive', 'long_steady']).order('start_date', { ascending: false }).limit(15),
-    supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).in('run_type', EASY_RUN_TYPES).gte('start_date', subMonths(new Date(), 3).toISOString()).order('start_date', { ascending: false }),
-    supabaseAdmin.from('activities').select('start_date, run_type, distance').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false }).limit(200),
-  ])
-
-  let raceRuns: any[] = []
-  try {
-    const { data } = await supabaseAdmin.from('activities').select('*').eq('athlete_id', athleteId).eq('is_race', true).order('start_date', { ascending: false }).limit(10)
-    raceRuns = data ?? []
-  } catch { /* column doesn't exist yet */ }
-
-  let result: ReturnType<typeof analyzeAllAndCombine>
-  try {
-    result = analyzeAllAndCombine(
-      intervalRuns ?? [],
-      thresholdRuns ?? [],
-      longRuns ?? [],
-      easyRuns ?? [],
-      raceRuns,
-      maxHr ?? 195,
-      allActivities ?? [],
-    )
-  } catch (err) {
-    console.error('analyzeAllAndCombine failed:', err)
-    result = {
-      intervalEstimates: [], thresholdEstimates: [], longRunAnalyses: [],
-      raceAnalyses: [], easyRunResults: [], easyTrendEstimates: [],
-      allRaceEstimates: [],
-      combined: { '5k': null, '10k': null, 'hm': null, 'fm': null },
-    }
-  }
-
-  const combinedJson = JSON.parse(JSON.stringify(result.combined)) as Record<DistanceKey, CombinedEstimate | null>
+  const { combinedJson, targetSecsMap } = await getAthleteAnalysis(Number(athleteId), {
+    activityColumns: '*',
+    easyLookbackMonths: 3,
+    longLimit: 15,
+    raceLimit: 10,
+    allActivitiesLimit: 200,
+  })
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">

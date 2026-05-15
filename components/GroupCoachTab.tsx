@@ -218,12 +218,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   }, {})
   const sortedWeeks = Object.keys(awardWeeks).sort((a, b) => b.localeCompare(a))
   const coachChips = briefing.ask_prompts?.length ? briefing.ask_prompts : COACH_CHIPS
-  const briefingLines = [
-    ...(briefing.storylines?.map(storyline => storyline.angle) ?? []),
-    briefing.challenge_nudge,
-    briefing.team_focus,
-    ...(briefing.risks ?? []),
-  ].filter((line): line is string => Boolean(line))
 
   return (
     <div className="space-y-4 fade-up">
@@ -251,18 +245,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             </button>
           </div>
         </div>
-        <div className="space-y-3">
-          <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>
-          {briefingLines.length > 0 && (
-            <div className="space-y-2 border-t border-[#242424] pt-3">
-              {briefingLines.map((line, i) => (
-                <p key={`${line}-${i}`} className="text-sm leading-relaxed text-[#a1a1aa]">
-                  {line}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
+        <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>
       </div>
 
       {/* This Week's Awards */}

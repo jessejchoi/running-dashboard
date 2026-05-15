@@ -14,9 +14,16 @@ export type { BriefingContent } from '@/lib/coachOutputs'
 const VALID_AWARD_KEYS = Object.keys(AWARD_CATEGORIES).join(' | ')
 
 function buildFallbackBriefing(engagement: CoachEngagementPlan): BriefingContent {
+  const briefingPieces = [
+    ...engagement.storylines.map(story => story.angle),
+    engagement.challenge_nudge,
+    engagement.team_focus,
+    ...engagement.risks,
+  ].filter(Boolean)
+
   return {
-    weekly_summary: engagement.storylines.length > 0
-      ? engagement.storylines.map(story => story.angle).slice(0, 2).join(' ')
+    weekly_summary: briefingPieces.length > 0
+      ? briefingPieces.slice(0, 5).join(' ')
       : 'No dramatic group pattern yet. Deeply suspicious, but we will allow it.',
     storylines: engagement.storylines,
     team_focus: engagement.team_focus,
@@ -112,7 +119,7 @@ The coach facts are canonical. Never invent totals, YTD distance, challenge prog
 The backend already owns the briefing structure. You are only improving the copy.
 Return ONLY a JSON object matching this exact interface — no markdown, no code fences. If unsure, omit the field and the backend keeps its deterministic copy:
 {
-  "weekly_summary": "2-3 sentence group overview using only provided facts",
+  "weekly_summary": "one cohesive coach briefing paragraph, 3-5 sentences, using only provided facts",
   "storylines": [
     { "label": "copy the provided label", "angle": "rewrite the provided angle, same fact", "evidence": "copy the provided evidence" }
   ],
@@ -133,6 +140,8 @@ Return ONLY a JSON object matching this exact interface — no markdown, no code
 }
 Rules:
 - Voice: 20% more bite than before. Funny jab, useful coaching. No motivational poster sludge.
+- weekly_summary is the main product. It must read like one organic coach monologue, not bullets, not a list, not separate sections.
+- Fold the challenge state, leader/nudge story, watch items, and next action into weekly_summary naturally.
 - Use the base briefing as the spine. Rewrite wording, never change facts.
 - Do not add new storylines, awards, names, percentages, distances, or winners.
 - award_key MUST be one of the exact strings listed above — no other values.

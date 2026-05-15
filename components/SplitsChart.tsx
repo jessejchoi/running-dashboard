@@ -84,7 +84,7 @@ export default function SplitsChart({
   }
 
   const lapTypes = colorMode === 'lap-type' ? categorizeLaps(splits, avgPace, runType) : null
-  const usedTypes = lapTypes ? ([...new Set(lapTypes)] as LapType[]) : []
+  const usedTypes = lapTypes ? (Array.from(new Set(lapTypes)) as LapType[]) : []
 
   // Shared: pace → bar width (faster = wider, same as km splits)
   const paces = data.map(d => d.pace)

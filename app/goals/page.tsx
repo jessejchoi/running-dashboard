@@ -4,7 +4,27 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import GoalCard from '@/components/GoalCard'
 import { RACE_GOALS, speedToPace, metersToKm, isoWeek } from '@/lib/utils'
+import { type DistanceKey, type UserGoal } from '@/lib/goals'
 import { differenceInWeeks } from 'date-fns'
+
+const DISTANCE_TO_KEY: Record<number, DistanceKey> = {
+  5000: '5k',
+  10000: '10k',
+  21097: 'hm',
+  42195: 'fm',
+}
+
+function staticRaceGoalToUserGoal(goal: (typeof RACE_GOALS)[number], index: number): UserGoal {
+  return {
+    id: `static-${index}`,
+    athlete_id: 0,
+    distance_key: DISTANCE_TO_KEY[goal.distance] ?? '5k',
+    label: goal.label,
+    target_secs: goal.targetTime,
+    current_secs: null,
+    race_date: goal.raceDate.toISOString(),
+  }
+}
 
 export default async function GoalsPage() {
   const cookieStore = cookies()
@@ -67,7 +87,12 @@ export default async function GoalsPage() {
         {/* Goal cards */}
         <div className="flex flex-col gap-5">
           {RACE_GOALS.map((goal, i) => (
-            <GoalCard key={i} goal={goal} activities={runs} />
+            <GoalCard
+              key={i}
+              goal={staticRaceGoalToUserGoal(goal, i)}
+              onUpdate={() => {}}
+              onDelete={() => {}}
+            />
           ))}
         </div>
 

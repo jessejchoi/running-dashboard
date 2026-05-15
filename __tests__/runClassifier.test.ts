@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categorizeRun, type PaceZones } from '@/lib/runClassifier'
+import { categorizeRun, detectRace, type PaceZones } from '@/lib/run-classification'
 
 const zones: PaceZones = {
   intervalMaxPace: 250,
@@ -60,6 +60,15 @@ describe('categorizeRun', () => {
     expect(runType).toBe('long_easy')
   })
 
+  it('classifies sustained faster long runs as long steady', () => {
+    const runType = categorizeRun({
+      distance: 18000,
+      average_speed: 1000 / 345,
+      laps: [seg(346, 1200), seg(342, 1200), seg(345, 1200), seg(347, 1200)],
+    }, zones, 190)
+    expect(runType).toBe('long_steady')
+  })
+
   it('detects easy strides only when the overall run stays easy', () => {
     const runType = categorizeRun({
       distance: 7000,
@@ -77,5 +86,14 @@ describe('categorizeRun', () => {
       average_heartrate: 128,
     }, zones, 190)
     expect(runType).toBe('recovery')
+  })
+
+  it('detects race names and matches standard distances', () => {
+    const detection = detectRace({
+      name: 'Spring 10K Race',
+      distance: 10020,
+    })
+    expect(detection.isRace).toBe(true)
+    expect(detection.matchedDistanceKey).toBe('10k')
   })
 })

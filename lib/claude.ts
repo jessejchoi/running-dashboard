@@ -78,7 +78,7 @@ export async function claudeStream(params: {
   system: string
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
   max_tokens: number
-}): Promise<Anthropic.MessageStreamManager> {
+}): Promise<ReturnType<typeof anthropic.messages.stream>> {
   for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
     try {
       const stream = anthropic.messages.stream({

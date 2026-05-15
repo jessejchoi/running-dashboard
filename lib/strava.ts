@@ -1,5 +1,11 @@
 import { supabaseAdmin } from './supabase'
-import { categorizeRun, type PaceZones } from './runClassifier'
+import {
+  categorizeRun,
+  detectRace,
+  raceFieldsForRunType,
+  resolvePersistedRunType,
+  type PaceZones,
+} from './run-classification'
 
 const STRAVA_API = 'https://www.strava.com/api/v3'
 
@@ -270,6 +276,11 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
       }, zones ?? undefined, maxHr)
 
       const isTreadmill = detail.trainer === true
+      const raceDetection = detectRace({
+        name: detail.name,
+        distance: detail.distance,
+        workout_type: detail.workout_type,
+      })
       // Fetch current run_type so we don't overwrite manual tags
       const { data: existing } = await supabaseAdmin
         .from('activities')
@@ -278,44 +289,25 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
         .single()
       const currentType = existing?.run_type
       const isManual = existing?.run_type_manual === true
-      const isAutoAssigning = !isManual
-      const newRunType = isTreadmill
-        ? 'treadmill'
-        : isAutoAssigning ? runType : currentType
-
-      // Race detection: Strava workout_type 1 = Race, or name pattern
-      const RACE_NAME_PATTERN = /\b(race|parkrun|marathon|5k|10k|hm|half.?marathon)\b/i
-      const isRace = detail.workout_type === 1 || RACE_NAME_PATTERN.test(detail.name ?? '')
-
-      // Match to nearest standard distance (±10% tolerance)
-      let matchedDistanceKey: string | null = null
-      if (isRace) {
-        const distKm = detail.distance / 1000
-        const standards = [
-          { key: '5k', km: 5 },
-          { key: '10k', km: 10 },
-          { key: 'hm', km: 21.097 },
-          { key: 'fm', km: 42.195 },
-        ]
-        for (const std of standards) {
-          if (Math.abs(distKm - std.km) / std.km <= 0.10) {
-            matchedDistanceKey = std.key
-            break
-          }
-        }
-      }
+      const newRunType = resolvePersistedRunType({
+        automaticRunType: runType,
+        currentRunType: currentType,
+        isManual,
+        isTreadmill,
+        raceDetection,
+      })
+      const raceFields = raceFieldsForRunType(newRunType, raceDetection)
 
       await supabaseAdmin
         .from('activities')
         .update({
           laps,
           run_type: newRunType,
-          ...(isAutoAssigning ? { run_type_manual: false } : {}),
+          ...(!isManual ? { run_type_manual: false } : {}),
           splits: detail.splits_metric ?? null,
           streams: streams ?? null,
           detail_synced: true,
-          is_race: isRace,
-          matched_distance_key: matchedDistanceKey,
+          ...raceFields,
         })
         .eq('id', act.id)
 
@@ -419,15 +411,24 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
       .filter((a: any) => a.type === 'Run' || a.sport_type === 'Run')
       .map((a: any) => {
         const isTreadmill = a.trainer === true
-        const runType = isTreadmill
-          ? 'treadmill'
-          : categorizeRun({
+        const raceDetection = detectRace({
+          name: a.name,
+          distance: a.distance,
+          workout_type: a.workout_type,
+        })
+        const automaticRunType = categorizeRun({
               distance: a.distance,
               average_speed: a.average_speed,
               average_heartrate: a.average_heartrate,
               splits: a.splits_metric ?? [],
               laps: a.laps ?? [],
             }, zones ?? undefined, maxHr)
+        const runType = resolvePersistedRunType({
+          automaticRunType,
+          isTreadmill,
+          raceDetection,
+        })
+        const raceFields = raceFieldsForRunType(runType, raceDetection)
 
         return {
           id: a.id,
@@ -448,6 +449,7 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
           splits: a.splits_metric ?? null,
           run_type: runType,
           run_type_manual: false,
+          ...raceFields,
           detail_synced: false,
           raw: a,
         }

@@ -1,11 +1,8 @@
+import { RUN_TYPE_BUCKETS } from '@/lib/run-classification'
+
 export const DISTANCE_KEYS = ['5k', '10k', 'hm', 'fm'] as const
 
-export const ANALYSIS_RUN_TYPES = {
-  intervals: ['intervals', 'interval_5k', 'interval_10k'],
-  threshold: ['threshold', 'tempo'],
-  long: ['long', 'long_easy', 'long_progressive', 'long_steady'],
-  easy: ['easy', 'easy_strides', 'long_easy', 'recovery'],
-} as const
+export const ANALYSIS_RUN_TYPES = RUN_TYPE_BUCKETS
 
 // Exclude streams (GPS point arrays, often thousands of points) but keep laps
 // and splits, which the analysis engine uses for drift and steady windows.

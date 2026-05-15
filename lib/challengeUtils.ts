@@ -14,6 +14,8 @@ export interface ChallengeEffort {
   source: 'lap' | 'split_1km'
 }
 
+type ChallengeEffortCandidate = Omit<ChallengeEffort, 'activityId'>
+
 function paceFrom(segment: SegmentLike) {
   const speed = segment.average_speed ?? 0
   if (!(speed > 0)) return null
@@ -25,7 +27,7 @@ function paceFrom(segment: SegmentLike) {
   }
 }
 
-function bestKmSplit(splits: SegmentLike[]): ChallengeEffort | null {
+function bestKmSplit(splits: SegmentLike[]): ChallengeEffortCandidate | null {
   const candidates = splits
     .filter(sp => {
       const dist = sp.distance ?? 0
@@ -43,7 +45,7 @@ function bestKmSplit(splits: SegmentLike[]): ChallengeEffort | null {
   return { ...best, source: 'split_1km' }
 }
 
-function bestUserLap(laps: SegmentLike[]): ChallengeEffort | null {
+function bestUserLap(laps: SegmentLike[]): ChallengeEffortCandidate | null {
   const candidates = laps
     .filter(lap => {
       const dist = lap.distance ?? 0

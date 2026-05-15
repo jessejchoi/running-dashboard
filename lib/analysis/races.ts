@@ -1,14 +1,6 @@
 import { type DistanceKey, type RaceEstimate, type RaceResultAnalysis } from './types'
 import { DISTANCE_KM, riegelProject } from './riegel'
-// ─── Race result detector ────────────────────────────────────────────────────
-
-const RACE_NAME_PATTERN = /\b(race|parkrun|marathon|5k|10k|hm|half.?marathon)\b/i
-const STANDARD_DISTANCES: { key: DistanceKey; km: number }[] = [
-  { key: '5k', km: 5 },
-  { key: '10k', km: 10 },
-  { key: 'hm', km: 21.097 },
-  { key: 'fm', km: 42.195 },
-]
+import { STANDARD_RACE_DISTANCES, detectRace } from '@/lib/run-classification'
 
 export function detectAndAnalyzeRace(activity: {
   id: number
@@ -21,30 +13,13 @@ export function detectAndAnalyzeRace(activity: {
   matched_distance_key?: string
   raw?: any
 }): RaceResultAnalysis | null {
-  // Detection: Strava workout_type === 1, is_race flag, or name pattern
-  const isRace = activity.is_race ||
-    activity.raw?.workout_type === 1 ||
-    RACE_NAME_PATTERN.test(activity.name)
+  const detection = detectRace(activity)
+  if (!detection.isRace || !detection.matchedDistanceKey || !detection.matchedDistanceKm) return null
 
-  if (!isRace) return null
-
-  const distKm = activity.distance / 1000
-
-  // Match to nearest standard distance (±10% tolerance)
-  let matched: { key: DistanceKey; km: number } | null = null
-  if (activity.matched_distance_key) {
-    matched = STANDARD_DISTANCES.find(d => d.key === activity.matched_distance_key) ?? null
+  const matched = {
+    key: detection.matchedDistanceKey,
+    km: detection.matchedDistanceKm,
   }
-  if (!matched) {
-    for (const std of STANDARD_DISTANCES) {
-      if (Math.abs(distKm - std.km) / std.km <= 0.10) {
-        matched = std
-        break
-      }
-    }
-  }
-
-  if (!matched) return null
 
   const date = activity.start_date.split('T')[0]
   const raceTimeSecs = activity.moving_time
@@ -63,7 +38,7 @@ export function detectAndAnalyzeRace(activity: {
   ]
 
   // Project to other distances via Riegel with log-distance decay
-  for (const std of STANDARD_DISTANCES) {
+  for (const std of STANDARD_RACE_DISTANCES) {
     if (std.key === matched.key) continue
     const projectedSecs = riegelProject(raceTimeSecs, matched.km, std.km)
     const distRatio = Math.abs(Math.log(std.km / matched.km))

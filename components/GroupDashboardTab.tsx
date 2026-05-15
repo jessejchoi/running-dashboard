@@ -9,6 +9,7 @@ import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, formatTime } from '@/components/GroupShared'
 import GroupCoachTab from '@/components/GroupCoachTab'
 import GroupMessageBoard from '@/components/GroupMessageBoard'
+import { GroupBetsDashboardCard } from '@/components/GroupBets'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 
 interface Award {
@@ -844,6 +845,12 @@ export default function GroupDashboardTab({
           myRole={myRole}
         />
       </div>
+
+      <GroupBetsDashboardCard
+        groupId={group.id}
+        members={members}
+        myRole={myRole}
+      />
 
       {/* RDCoach */}
       <div>

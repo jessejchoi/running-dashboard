@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Target, Activity, BarChart2, CalendarDays } from 'lucide-react'
+import { Target, Activity, BarChart2, CalendarDays, Banknote } from 'lucide-react'
 import { type Group, type Member, type Run, type LeaderboardRun, type Challenge, type TrainingLoad } from '@/components/GroupShared'
 import GroupDashboardTab from '@/components/GroupDashboardTab'
 import GroupFeedTab from '@/components/GroupFeedTab'
 import GroupPlansTab from '@/components/GroupPlansTab'
 import GroupGoalsTab from '@/components/GroupGoalsTab'
 import GroupPageHeader from '@/components/GroupPageHeader'
+import { GroupBetsTab } from '@/components/GroupBets'
 import type { BriefingContent } from '@/lib/coachOutputs'
 
 interface Award {
@@ -54,7 +55,7 @@ export default function GroupPageClient({
   initialBriefing, initialBriefingMeta, initialAwards, initialPlans, memberEstimates: initialMemberEstimates = {},
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans' | 'bets'>('dashboard')
   const memberEstimates = initialMemberEstimates
 
   // Group name rename
@@ -150,6 +151,7 @@ export default function GroupPageClient({
         {([
           { key: 'dashboard', label: 'Home',  icon: BarChart2 },
           { key: 'goals',     label: 'Goals', icon: Target },
+          { key: 'bets',      label: 'Bets',  icon: Banknote },
           { key: 'feed',      label: 'Runs',  icon: Activity },
           { key: 'plans',     label: 'Plans',     icon: CalendarDays },
         ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
@@ -202,6 +204,15 @@ export default function GroupPageClient({
           members={localMembers}
           memberEstimates={memberEstimates}
           myAthleteId={myAthleteId}
+        />
+      )}
+
+      {/* ── Bets tab ──────────────────────────────────────────────────────── */}
+      {tab === 'bets' && (
+        <GroupBetsTab
+          groupId={group.id}
+          members={localMembers}
+          myRole={myRole}
         />
       )}
 

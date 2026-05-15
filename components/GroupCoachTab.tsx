@@ -218,15 +218,21 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   }, {})
   const sortedWeeks = Object.keys(awardWeeks).sort((a, b) => b.localeCompare(a))
   const coachChips = briefing.ask_prompts?.length ? briefing.ask_prompts : COACH_CHIPS
+  const briefingLines = [
+    ...(briefing.storylines?.map(storyline => storyline.angle) ?? []),
+    briefing.challenge_nudge,
+    briefing.team_focus,
+    ...(briefing.risks ?? []),
+  ].filter((line): line is string => Boolean(line))
 
   return (
     <div className="space-y-4 fade-up">
 
-      {/* Weekly Briefing */}
+      {/* Coach Briefing */}
       <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display font-bold text-sm text-white">Weekly Briefing</span>
+            <span className="font-display font-bold text-sm text-white">Coach Briefing</span>
             <MomentumBadge momentum={briefing.group_momentum} />
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -245,57 +251,19 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             </button>
           </div>
         </div>
-        <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>
-      </div>
-
-      {/* Engagement Engine */}
-      {((briefing.storylines?.length ?? 0) > 0 || briefing.team_focus || briefing.challenge_nudge || (briefing.risks?.length ?? 0) > 0) && (
         <div className="space-y-3">
-          {briefing.storylines && briefing.storylines.length > 0 && (
-            <div className="grid sm:grid-cols-2 gap-3">
-              {briefing.storylines.map((storyline, i) => (
-                <div key={`${storyline.label}-${i}`} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#f97316] mb-2">
-                    {storyline.label}
-                  </div>
-                  <p className="text-sm text-[#d1d5db] leading-relaxed">{storyline.angle}</p>
-                  {storyline.evidence && (
-                    <p className="text-[10px] text-[#6b7280] font-mono mt-2">{storyline.evidence}</p>
-                  )}
-                </div>
+          <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>
+          {briefingLines.length > 0 && (
+            <div className="space-y-2 border-t border-[#242424] pt-3">
+              {briefingLines.map((line, i) => (
+                <p key={`${line}-${i}`} className="text-sm leading-relaxed text-[#a1a1aa]">
+                  {line}
+                </p>
               ))}
             </div>
           )}
-
-          {(briefing.team_focus || briefing.challenge_nudge) && (
-            <div className="grid sm:grid-cols-2 gap-3">
-              {briefing.team_focus && (
-                <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#6b7280] mb-2">Team Focus</div>
-                  <p className="text-sm text-white leading-relaxed">{briefing.team_focus}</p>
-                </div>
-              )}
-              {briefing.challenge_nudge && (
-                <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl p-4">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#6b7280] mb-2">Challenge Nudge</div>
-                  <p className="text-sm text-white leading-relaxed">{briefing.challenge_nudge}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {briefing.risks && briefing.risks.length > 0 && (
-            <div className="bg-[#111] border border-amber-500/20 rounded-xl p-4">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-amber-400 mb-2">Watch List</div>
-              <div className="space-y-1.5">
-                {briefing.risks.map((risk, i) => (
-                  <p key={i} className="text-xs text-[#d1d5db] leading-relaxed">{risk}</p>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      )}
+      </div>
 
       {/* This Week's Awards */}
       {briefing.shoutouts.length > 0 && (

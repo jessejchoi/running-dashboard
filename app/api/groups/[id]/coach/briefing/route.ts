@@ -34,6 +34,32 @@ function buildFallbackBriefing(engagement: CoachEngagementPlan): BriefingContent
   }
 }
 
+function applyCoachCopy(base: BriefingContent, raw: string): BriefingContent {
+  const parsed = parseAndSanitizeBriefing(raw)
+  if (!parsed) return base
+
+  return {
+    ...base,
+    weekly_summary: parsed.weekly_summary || base.weekly_summary,
+    storylines: base.storylines?.map((storyline, i) => ({
+      ...storyline,
+      angle: parsed.storylines?.[i]?.angle || storyline.angle,
+    })) ?? base.storylines,
+    team_focus: parsed.team_focus || base.team_focus,
+    challenge_nudge: parsed.challenge_nudge || base.challenge_nudge,
+    risks: parsed.risks?.length ? parsed.risks : base.risks,
+    ask_prompts: parsed.ask_prompts?.length ? parsed.ask_prompts : base.ask_prompts,
+    shoutouts: base.shoutouts.length > 0
+      ? base.shoutouts.map((shoutout, i) => ({
+          ...shoutout,
+          caption: parsed.shoutouts[i]?.caption || shoutout.caption,
+        }))
+      : parsed.shoutouts,
+    group_momentum: parsed.group_momentum,
+    coach_tip: parsed.coach_tip || base.coach_tip,
+  }
+}
+
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const athleteId = cookies().get('athlete_id')?.value
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -76,19 +102,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const ctx = await buildCoachContext(params.id)
     const engagement = buildGroupEngagement(ctx)
 
+    const baseBriefing = buildFallbackBriefing(engagement)
+
     const systemPrompt = `You are RDCoach — AI running coach for ${ctx.group.name}.
 Sharper, more snarky, competitive, genuinely encouraging underneath.
 You sound like a track-side group coach with receipts, not a wellness newsletter.
 Use real names and real numbers. Notice effort, patterns, and who's slacking.
 The coach facts are canonical. Never invent totals, YTD distance, challenge progress, or member volume. If you mention a number, it must appear in the facts/signals.
-Return ONLY a JSON object matching this exact interface — no markdown, no code fences:
+The backend already owns the briefing structure. You are only improving the copy.
+Return ONLY a JSON object matching this exact interface — no markdown, no code fences. If unsure, omit the field and the backend keeps its deterministic copy:
 {
-  "weekly_summary": "2-3 sentence group overview",
+  "weekly_summary": "2-3 sentence group overview using only provided facts",
   "storylines": [
-    { "label": "short storyline label", "angle": "one snarky but useful sentence", "evidence": "specific fact that supports it" }
+    { "label": "copy the provided label", "angle": "rewrite the provided angle, same fact", "evidence": "copy the provided evidence" }
   ],
-  "team_focus": "one concrete group focus for the next 48-72 hours",
-  "challenge_nudge": "one challenge-specific action sentence",
+  "team_focus": "rewrite the provided team focus",
+  "challenge_nudge": "rewrite the provided challenge nudge",
   "risks": ["0-3 short risk/nudge sentences"],
   "ask_prompts": ["4 short questions members would actually tap"],
   "shoutouts": [
@@ -104,11 +133,8 @@ Return ONLY a JSON object matching this exact interface — no markdown, no code
 }
 Rules:
 - Voice: 20% more bite than before. Funny jab, useful coaching. No motivational poster sludge.
-- Use the deterministic engagement plan as the spine. You may rewrite the wording, not the facts.
-- storylines should be the main group drama: challenge pressure, leaderboard carrying, inactive nudges, volume/risk.
-- ask_prompts should be timely and group-specific, not generic.
-- 2-4 shoutouts. At least one per member who ran this week.
-- Choose shoutouts from award_candidates when possible.
+- Use the base briefing as the spine. Rewrite wording, never change facts.
+- Do not add new storylines, awards, names, percentages, distances, or winners.
 - award_key MUST be one of the exact strings listed above — no other values.
 - award_label should be the human-readable name matching the award_key.
 - Reference specific paces, distances, run types from the data.
@@ -124,6 +150,8 @@ Coach signals:
 ${JSON.stringify(ctx.signals, null, 2)}
 Deterministic engagement plan:
 ${JSON.stringify(engagement, null, 2)}
+Base briefing owned by backend:
+${JSON.stringify(baseBriefing, null, 2)}
 Group narrative context:
 ${JSON.stringify({
   group: ctx.group,
@@ -143,21 +171,7 @@ ${JSON.stringify({
       console.error('[coach/briefing/claude]', err instanceof Error ? err.message : String(err))
     }
 
-    const parsedBriefing = parseAndSanitizeBriefing(raw)
-    const briefing = parsedBriefing
-      ? {
-          ...parsedBriefing,
-          storylines: parsedBriefing.storylines?.length ? parsedBriefing.storylines : engagement.storylines,
-          team_focus: parsedBriefing.team_focus || engagement.team_focus,
-          challenge_nudge: parsedBriefing.challenge_nudge || engagement.challenge_nudge,
-          risks: parsedBriefing.risks?.length ? parsedBriefing.risks : engagement.risks,
-          ask_prompts: parsedBriefing.ask_prompts?.length ? parsedBriefing.ask_prompts : engagement.ask_prompts,
-        }
-      : buildFallbackBriefing(engagement)
-    if (!briefing) {
-      console.error('[coach/briefing/parse]', raw)
-      return NextResponse.json({ error: 'Coach returned unparseable response.' }, { status: 503 })
-    }
+    const briefing = applyCoachCopy(baseBriefing, raw)
 
     const generatedAt = new Date().toISOString()
 

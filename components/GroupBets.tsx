@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { format } from 'date-fns'
-import { Banknote, Check, Clock, Plus, Trash2, X } from 'lucide-react'
+import { format, formatDistanceToNow } from 'date-fns'
+import { Banknote, Check, Clock, ExternalLink, MessageCircle, Plus, Sparkles, Trophy, Trash2, X } from 'lucide-react'
 import { useUnit } from '@/lib/unit-context'
 import { defaultWeekWindow, metricProgressPercent, metricTargetLabel, type BetMetricType, type BetSide } from '@/lib/groupBets'
 import { DISTANCE_OPTIONS, parseTime } from '@/lib/goals'
@@ -16,6 +16,27 @@ interface BetPosition {
   side: BetSide
   pledge_cents: number
   is_me: boolean
+}
+
+interface BetComment {
+  id: string
+  author_athlete_id: number
+  author_name: string
+  author_profile: string | null
+  content: string
+  created_at: string
+  is_mine: boolean
+}
+
+interface BetEvent {
+  id: string
+  bet_id: string | null
+  actor_athlete_id: number | null
+  actor_name: string | null
+  actor_profile: string | null
+  event_type: 'created' | 'joined' | 'accepted' | 'declined' | 'resolved' | 'voided' | 'deleted' | 'coach_suggested'
+  payload: Record<string, unknown>
+  created_at: string
 }
 
 interface GroupBet {
@@ -41,16 +62,64 @@ interface GroupBet {
   outcome_achieved: boolean | null
   winning_side: BetSide | null
   resolution: Record<string, unknown>
+  best_activity_id?: number | null
   is_creator: boolean
   is_target: boolean
   my_position: BetPosition | null
   positions: BetPosition[]
+  comments: BetComment[]
   live_result: {
     achieved: boolean
     currentValue: number
     evidenceLabel: string
     winningSide: BetSide
   }
+}
+
+interface ScoreboardMember {
+  athlete_id: number
+  athlete_name: string
+  athlete_profile: string | null
+  wins: number
+  losses: number
+  voids: number
+  winRate: number
+  totalPledgeCents: number
+  openExposureCents: number
+  is_me?: boolean
+}
+
+interface BetScoreboard {
+  members: ScoreboardMember[]
+  bestPredictor: ScoreboardMember | null
+  mostBackedAthlete: { athlete_id: number; athlete_name: string; athlete_profile: string | null } | null
+  mostDoubtedAthlete: { athlete_id: number; athlete_name: string; athlete_profile: string | null } | null
+  biggestUpset: { betId: string; winnerCount: number; loserCount: number } | null
+  totalPledgedCents: number
+}
+
+interface BetSuggestion {
+  id: string
+  title: string
+  reason: string
+  template: BetTemplate
+}
+
+interface BetTemplate {
+  mode?: 'pool' | 'direct'
+  target_athlete_id?: number
+  metric_type?: BetMetricType
+  comparator?: 'gte' | 'lte'
+  target_value?: number
+  target_value_km?: number
+  distance_key?: '5k' | '10k' | 'hm' | 'fm'
+  target_time?: string
+  target_secs?: number
+  window_start?: string
+  window_end?: string
+  creator_side?: BetSide
+  pledge_amount?: number
+  config?: Record<string, unknown>
 }
 
 interface Props {
@@ -80,6 +149,29 @@ function sideCopy(side: BetSide) {
   return side === 'for' ? 'They will' : 'They will not'
 }
 
+function eventCopy(event: BetEvent) {
+  const actor = event.actor_name?.split(' ')[0] ?? 'RunDash'
+  const side = typeof event.payload.side === 'string' ? sideCopy(event.payload.side as BetSide).toLowerCase() : ''
+  if (event.event_type === 'created') return `${actor} created a bet`
+  if (event.event_type === 'joined') return `${actor} joined ${side}`
+  if (event.event_type === 'accepted') return `${actor} accepted the direct bet`
+  if (event.event_type === 'declined') return `${actor} declined the direct bet`
+  if (event.event_type === 'resolved') return `Resolved: ${event.payload.evidence_label ?? 'result posted'}`
+  if (event.event_type === 'voided') return 'Bet voided'
+  if (event.event_type === 'deleted') return `${actor} deleted a bet`
+  return 'Coach suggested a bet'
+}
+
+function valueLabel(bet: GroupBet, value: number) {
+  if (bet.metric_type === 'race_time') {
+    const min = Math.floor(value / 60)
+    const sec = Math.round(value % 60)
+    return `${min}:${String(sec).padStart(2, '0')}`
+  }
+  if (bet.metric_type === 'run_count') return `${Math.round(value)} runs`
+  return `${(value / 1000).toFixed(1)} km`
+}
+
 function BetStatusChip({ status }: { status: GroupBet['status'] }) {
   return (
     <span className={`inline-flex items-center border px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${STATUS_STYLE[status]}`}>
@@ -102,6 +194,7 @@ function BetCard({
   compact?: boolean
 }) {
   const [busy, setBusy] = useState<string | null>(null)
+  const [comment, setComment] = useState('')
   const targetLabel = metricTargetLabel(bet)
   const progress = metricProgressPercent(bet, bet.live_result.currentValue)
   const forCount = bet.positions.filter(p => p.side === 'for').length
@@ -144,6 +237,49 @@ function BetCard({
       setBusy(null)
     }
   }
+
+  async function sendComment() {
+    const trimmed = comment.trim()
+    if (!trimmed) return
+    setBusy('comment')
+    try {
+      const res = await fetch(`/api/groups/${groupId}/bets/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bet_id: bet.id, content: trimmed }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? 'Could not add comment.')
+        return
+      }
+      setComment('')
+      onChanged()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function deleteComment(commentId: string) {
+    setBusy(`comment-${commentId}`)
+    try {
+      const res = await fetch(`/api/groups/${groupId}/bets/comments?commentId=${commentId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error ?? 'Could not delete comment.')
+        return
+      }
+      onChanged()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const attempts = Array.isArray(bet.resolution?.attempts) ? bet.resolution.attempts as Array<{ activityId: number; label: string; value: number; isBest: boolean }> : []
+  const contributing = Array.isArray(bet.resolution?.contributing_activities)
+    ? bet.resolution.contributing_activities as Array<{ activityId: number; label: string; value: number }>
+    : []
+  const winningPositions = bet.positions.filter(p => p.side === (bet.winning_side ?? bet.live_result.winningSide))
 
   return (
     <div className="bg-[#111111] border border-[#2a2a2a] rounded-xl p-4 transition-colors hover:border-[#383838]">
@@ -204,9 +340,56 @@ function BetCard({
       )}
 
       {bet.status === 'won' || bet.status === 'lost' ? (
-        <div className="flex items-center gap-2 text-xs text-[#a1a1aa]">
-          <Check size={13} className={bet.winning_side === 'for' ? 'text-emerald-400' : 'text-red-400'} />
-          Winning side: {sideCopy(bet.winning_side ?? bet.live_result.winningSide)}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-[#a1a1aa]">
+            <Check size={13} className={bet.winning_side === 'for' ? 'text-emerald-400' : 'text-red-400'} />
+            Winning side: {sideCopy(bet.winning_side ?? bet.live_result.winningSide)}
+          </div>
+          {!compact && (
+            <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-2.5 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[10px] font-mono uppercase text-[#6b7280]">Final evidence</span>
+                <span className="text-xs font-mono text-white">{valueLabel(bet, Number(bet.resolution?.current_value ?? bet.live_result.currentValue))}</span>
+              </div>
+              {bet.best_activity_id && (
+                <a href={`/runs/${bet.best_activity_id}?from=group/${groupId}`} className="inline-flex items-center gap-1 text-xs text-[#f97316] hover:text-[#fdba74] transition-colors">
+                  Decisive run <ExternalLink size={11} />
+                </a>
+              )}
+              {attempts.length > 0 && (
+                <div className="space-y-1">
+                  {attempts.slice(0, 4).map(attempt => (
+                    <a
+                      key={attempt.activityId}
+                      href={`/runs/${attempt.activityId}?from=group/${groupId}`}
+                      className={`flex items-center justify-between gap-2 text-xs rounded px-2 py-1 ${attempt.isBest ? 'bg-[#f97316]/10 text-[#f97316]' : 'text-[#9ca3af] hover:text-white'}`}
+                    >
+                      <span>{attempt.label}</span>
+                      {attempt.isBest && <span className="font-mono">best</span>}
+                    </a>
+                  ))}
+                </div>
+              )}
+              {attempts.length === 0 && contributing.length > 0 && (
+                <div className="space-y-1">
+                  {contributing.slice(0, 3).map(activity => (
+                    <a key={activity.activityId} href={`/runs/${activity.activityId}?from=group/${groupId}`} className="flex items-center justify-between gap-2 text-xs text-[#9ca3af] hover:text-white rounded px-2 py-1">
+                      <span className="truncate">{activity.label}</span>
+                      <span className="font-mono shrink-0">{valueLabel(bet, activity.value)}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+              {winningPositions.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[10px] text-[#6b7280] font-mono uppercase">Winners</span>
+                  {winningPositions.map(p => (
+                    <Avatar key={p.id} name={p.athlete_name} pic={p.athlete_profile} size={4} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : bet.status === 'void' ? (
         <div className="flex items-center gap-2 text-xs text-[#6b7280]">
@@ -272,6 +455,52 @@ function BetCard({
           </button>
         </div>
       )}
+
+      {!compact && (
+        <div className="mt-3 pt-3 border-t border-[#1c1c1c]">
+          <div className="flex items-center gap-1.5 mb-2">
+            <MessageCircle size={12} className="text-[#6b7280]" />
+            <span className="text-[10px] font-mono uppercase text-[#6b7280]">Trash talk</span>
+          </div>
+          {bet.comments.length > 0 && (
+            <div className="space-y-2 mb-2">
+              {bet.comments.slice(-4).map(c => (
+                <div key={c.id} className="flex items-start gap-2 text-xs">
+                  <Avatar name={c.author_name} pic={c.author_profile} size={4} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[#d1d5db]">{c.is_mine ? 'You' : c.author_name.split(' ')[0]}</span>
+                      <span className="font-mono text-[10px] text-[#4b5563]">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</span>
+                      {(c.is_mine || myRole === 'admin') && (
+                        <button onClick={() => deleteComment(c.id)} className="text-[#4b5563] hover:text-red-400 transition-colors">
+                          <X size={10} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[#9ca3af] break-words">{c.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              maxLength={280}
+              placeholder="Add a comment..."
+              className="flex-1 min-h-[36px] bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-md px-3 text-xs outline-none"
+            />
+            <button
+              onClick={sendComment}
+              disabled={!comment.trim() || busy !== null}
+              className="min-h-[36px] px-3 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#f97316] text-[#d1d5db] hover:text-white rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -279,28 +508,30 @@ function BetCard({
 function CreateBetModal({
   groupId,
   members,
+  initialTemplate,
   onClose,
   onCreated,
 }: {
   groupId: string
   members: Member[]
+  initialTemplate?: BetTemplate | null
   onClose: () => void
   onCreated: () => void
 }) {
   const { unit } = useUnit()
   const week = useMemo(() => defaultWeekWindow(), [])
-  const otherMembers = members.filter(m => !m.is_me)
+  const otherMembers = useMemo(() => members.filter(m => !m.is_me), [members])
   const fallbackTarget = otherMembers[0]?.athlete_id ?? members[0]?.athlete_id ?? 0
-  const [mode, setMode] = useState<'pool' | 'direct'>('pool')
-  const [targetAthleteId, setTargetAthleteId] = useState(fallbackTarget)
-  const [metricType, setMetricType] = useState<BetMetricType>('weekly_distance')
-  const [creatorSide, setCreatorSide] = useState<BetSide>('against')
-  const [targetValue, setTargetValue] = useState('100')
-  const [distanceKey, setDistanceKey] = useState<'5k' | '10k' | 'hm' | 'fm'>('10k')
-  const [targetTime, setTargetTime] = useState('45:00')
-  const [windowStart, setWindowStart] = useState(week.start)
-  const [windowEnd, setWindowEnd] = useState(week.end)
-  const [pledgeAmount, setPledgeAmount] = useState('20')
+  const [mode, setMode] = useState<'pool' | 'direct'>(initialTemplate?.mode ?? 'pool')
+  const [targetAthleteId, setTargetAthleteId] = useState(initialTemplate?.target_athlete_id ?? fallbackTarget)
+  const [metricType, setMetricType] = useState<BetMetricType>(initialTemplate?.metric_type ?? 'weekly_distance')
+  const [creatorSide, setCreatorSide] = useState<BetSide>(initialTemplate?.creator_side ?? 'against')
+  const [targetValue, setTargetValue] = useState(String(initialTemplate?.target_value_km ?? initialTemplate?.target_value ?? 100))
+  const [distanceKey, setDistanceKey] = useState<'5k' | '10k' | 'hm' | 'fm'>(initialTemplate?.distance_key ?? '10k')
+  const [targetTime, setTargetTime] = useState(initialTemplate?.target_time ?? '45:00')
+  const [windowStart, setWindowStart] = useState(initialTemplate?.window_start ?? week.start)
+  const [windowEnd, setWindowEnd] = useState(initialTemplate?.window_end ?? week.end)
+  const [pledgeAmount, setPledgeAmount] = useState(String(initialTemplate?.pledge_amount ?? 20))
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -311,14 +542,16 @@ function CreateBetModal({
   }, [mode, targetAthleteId, members, otherMembers])
 
   useEffect(() => {
+    if (initialTemplate) return
     if (metricType === 'weekly_distance') {
       setWindowStart(week.start)
       setWindowEnd(week.end)
     }
     if (metricType === 'run_count') setTargetValue('4')
     if (metricType === 'longest_run') setTargetValue(unit === 'miles' ? '12' : '20')
+    if (metricType === 'planned_session') setTargetValue(unit === 'miles' ? '6' : '10')
     if (metricType === 'distance' || metricType === 'weekly_distance') setTargetValue(unit === 'miles' ? '62' : '100')
-  }, [metricType, unit, week.end, week.start])
+  }, [initialTemplate, metricType, unit, week.end, week.start])
 
   async function createBet() {
     setError('')
@@ -330,7 +563,7 @@ function CreateBetModal({
     if (metricType === 'race_time' && targetSecs <= 0) { setError('Enter a valid target time.'); return }
     if (metricType !== 'race_time' && (!numericTarget || numericTarget <= 0)) { setError('Enter a valid target.'); return }
 
-    const isDistanceMetric = metricType === 'weekly_distance' || metricType === 'distance' || metricType === 'longest_run'
+    const isDistanceMetric = metricType === 'weekly_distance' || metricType === 'distance' || metricType === 'longest_run' || metricType === 'planned_session'
     const meters = isDistanceMetric
       ? unit === 'miles' ? numericTarget * 1609.344 : numericTarget * 1000
       : numericTarget
@@ -352,6 +585,7 @@ function CreateBetModal({
           window_end: windowEnd,
           pledge_amount: pledge,
           creator_side: creatorSide,
+          config: initialTemplate?.config ?? {},
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -379,6 +613,30 @@ function CreateBetModal({
         </div>
 
         <div className="space-y-4">
+          {!initialTemplate && (
+            <div>
+              <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Template</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {([
+                  { key: 'weekly_distance', label: 'Weekly' },
+                  { key: 'longest_run', label: 'Long run' },
+                  { key: 'race_time', label: 'Race time' },
+                  { key: 'planned_session', label: 'Plan' },
+                  { key: 'run_count', label: 'Streak' },
+                  { key: 'distance', label: 'Custom' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setMetricType(opt.key)}
+                    className={`min-h-[44px] rounded-md px-2 text-xs font-bold border transition-colors ${metricType === opt.key ? 'bg-[#f97316] border-[#f97316] text-black' : 'bg-[#0f0f0f] border-[#2a2a2a] text-[#a1a1aa] hover:text-white'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Mode</label>
             <div className="grid grid-cols-2 gap-2">
@@ -419,6 +677,7 @@ function CreateBetModal({
                 { key: 'run_count', label: 'Run count' },
                 { key: 'longest_run', label: 'Longest run' },
                 { key: 'race_time', label: 'Race time' },
+                { key: 'planned_session', label: 'Planned session' },
               ] as const).map(opt => (
                 <button
                   key={opt.key}
@@ -537,18 +796,140 @@ function CreateBetModal({
   )
 }
 
+function ScoreboardPanel({ scoreboard }: { scoreboard: BetScoreboard | null }) {
+  if (!scoreboard || scoreboard.members.length === 0) {
+    return (
+      <div className="card py-5">
+        <div className="flex items-center gap-2 text-[#6b7280] text-sm">
+          <Trophy size={16} />
+          No resolved bets yet. The scoreboard is waiting for receipts.
+        </div>
+      </div>
+    )
+  }
+
+  const stat = (label: string, value: string) => (
+    <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-3">
+      <div className="text-[10px] font-mono uppercase text-[#6b7280] mb-1">{label}</div>
+      <div className="font-mono font-bold text-white">{value}</div>
+    </div>
+  )
+
+  return (
+    <div className="card space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-display font-bold text-sm text-white">Betting Board</h3>
+        <span className="text-[10px] font-mono text-[#6b7280]">{money(scoreboard.totalPledgedCents)} pledged</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {stat('Best predictor', scoreboard.bestPredictor?.athlete_name?.split(' ')[0] ?? '-')}
+        {stat('Most backed', scoreboard.mostBackedAthlete?.athlete_name?.split(' ')[0] ?? '-')}
+        {stat('Most doubted', scoreboard.mostDoubtedAthlete?.athlete_name?.split(' ')[0] ?? '-')}
+        {stat('Biggest upset', scoreboard.biggestUpset ? `${scoreboard.biggestUpset.winnerCount}/${scoreboard.biggestUpset.loserCount}` : '-')}
+      </div>
+      <div className="divide-y divide-[#1c1c1c]">
+        {scoreboard.members.slice(0, 6).map(member => (
+          <div key={member.athlete_id} className="flex items-center gap-3 py-2.5">
+            <Avatar name={member.athlete_name} pic={member.athlete_profile} size={6} />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold text-white truncate">{member.is_me ? 'You' : member.athlete_name}</div>
+              <div className="text-[10px] text-[#6b7280] font-mono">
+                {member.wins}W {member.losses}L {member.voids}V
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs font-mono text-[#f97316]">{Math.round(member.winRate * 100)}%</div>
+              <div className="text-[10px] text-[#6b7280]">{money(member.openExposureCents)} open</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CoachPicks({
+  suggestions,
+  onUse,
+}: {
+  suggestions: BetSuggestion[]
+  onUse: (template: BetTemplate) => void
+}) {
+  if (suggestions.length === 0) return null
+  return (
+    <div className="card">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles size={15} className="text-[#f97316]" />
+        <h3 className="font-display font-bold text-sm text-white">Coach Picks</h3>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2">
+        {suggestions.slice(0, 4).map(suggestion => (
+          <div key={suggestion.id} className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-3">
+            <div className="text-sm font-bold text-white mb-1">{suggestion.title}</div>
+            <p className="text-xs text-[#6b7280] leading-relaxed mb-3">{suggestion.reason}</p>
+            <button
+              onClick={() => onUse(suggestion.template)}
+              className="min-h-[36px] px-3 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#f97316] text-[#d1d5db] hover:text-white rounded-md text-xs font-bold transition-colors"
+            >
+              Use template
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BetEventFeed({ events }: { events: BetEvent[] }) {
+  if (events.length === 0) return null
+  return (
+    <div className="card">
+      <div className="flex items-center gap-2 mb-3">
+        <Clock size={15} className="text-[#f97316]" />
+        <h3 className="font-display font-bold text-sm text-white">Bet Feed</h3>
+      </div>
+      <div className="space-y-2">
+        {events.slice(0, 8).map(event => (
+          <div key={event.id} className="flex items-center gap-3 border-l-2 border-[#f97316]/40 pl-3 py-1.5">
+            {event.actor_name && <Avatar name={event.actor_name} pic={event.actor_profile} size={5} />}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-[#d1d5db]">{eventCopy(event)}</p>
+              <p className="text-[10px] font-mono text-[#4b5563]">{formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function GroupBetsTab({ groupId, members, myRole }: Props) {
   const [bets, setBets] = useState<GroupBet[]>([])
+  const [events, setEvents] = useState<BetEvent[]>([])
+  const [scoreboard, setScoreboard] = useState<BetScoreboard | null>(null)
+  const [suggestions, setSuggestions] = useState<BetSuggestion[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'active' | 'open' | 'resolved'>('active')
   const [showCreate, setShowCreate] = useState(false)
+  const [createTemplate, setCreateTemplate] = useState<BetTemplate | null>(null)
 
   async function fetchBets() {
     try {
-      const res = await fetch(`/api/groups/${groupId}/bets`)
-      if (!res.ok) return
-      const data = await res.json()
-      setBets(data.bets ?? [])
+      const [betsRes, scoreboardRes, suggestionsRes] = await Promise.all([
+        fetch(`/api/groups/${groupId}/bets`),
+        fetch(`/api/groups/${groupId}/bets/scoreboard`),
+        fetch(`/api/groups/${groupId}/bets/suggestions`),
+      ])
+      if (betsRes.ok) {
+        const data = await betsRes.json()
+        setBets(data.bets ?? [])
+        setEvents(data.events ?? [])
+      }
+      if (scoreboardRes.ok) setScoreboard(await scoreboardRes.json())
+      if (suggestionsRes.ok) {
+        const data = await suggestionsRes.json()
+        setSuggestions(data.suggestions ?? [])
+      }
     } finally {
       setLoading(false)
     }
@@ -565,7 +946,17 @@ export function GroupBetsTab({ groupId, members, myRole }: Props) {
   })
 
   return (
-    <div className="fade-up">
+    <div className="fade-up space-y-4">
+      <ScoreboardPanel scoreboard={scoreboard} />
+      <CoachPicks
+        suggestions={suggestions}
+        onUse={template => {
+          setCreateTemplate(template)
+          setShowCreate(true)
+        }}
+      />
+      <BetEventFeed events={events} />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div className="flex gap-1.5">
           {([
@@ -583,7 +974,7 @@ export function GroupBetsTab({ groupId, members, myRole }: Props) {
           ))}
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => { setCreateTemplate(null); setShowCreate(true) }}
           className="min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 bg-[#f97316] hover:bg-[#ea580c] text-black rounded-md text-xs font-bold transition-colors"
         >
           <Plus size={14} />
@@ -614,6 +1005,7 @@ export function GroupBetsTab({ groupId, members, myRole }: Props) {
         <CreateBetModal
           groupId={groupId}
           members={members}
+          initialTemplate={createTemplate}
           onClose={() => setShowCreate(false)}
           onCreated={fetchBets}
         />
@@ -624,14 +1016,20 @@ export function GroupBetsTab({ groupId, members, myRole }: Props) {
 
 export function GroupBetsDashboardCard({ groupId, members, myRole }: Props) {
   const [bets, setBets] = useState<GroupBet[]>([])
+  const [scoreboard, setScoreboard] = useState<BetScoreboard | null>(null)
   const [loading, setLoading] = useState(true)
 
   async function fetchBets() {
     try {
-      const res = await fetch(`/api/groups/${groupId}/bets`)
-      if (!res.ok) return
-      const data = await res.json()
-      setBets(data.bets ?? [])
+      const [betsRes, boardRes] = await Promise.all([
+        fetch(`/api/groups/${groupId}/bets`),
+        fetch(`/api/groups/${groupId}/bets/scoreboard`),
+      ])
+      if (betsRes.ok) {
+        const data = await betsRes.json()
+        setBets(data.bets ?? [])
+      }
+      if (boardRes.ok) setScoreboard(await boardRes.json())
     } finally {
       setLoading(false)
     }
@@ -660,6 +1058,14 @@ export function GroupBetsDashboardCard({ groupId, members, myRole }: Props) {
           </div>
         ) : (
           <div className="space-y-3">
+            {scoreboard?.bestPredictor && (
+              <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-2.5 flex items-center justify-between gap-3">
+                <span className="text-[10px] font-mono uppercase text-[#6b7280]">Best predictor</span>
+                <span className="text-xs font-bold text-white">
+                  {scoreboard.bestPredictor.athlete_name.split(' ')[0]} · {scoreboard.bestPredictor.wins}W
+                </span>
+              </div>
+            )}
             {active.map(bet => (
               <BetCard key={bet.id} bet={bet} groupId={groupId} myRole={myRole} onChanged={fetchBets} compact />
             ))}

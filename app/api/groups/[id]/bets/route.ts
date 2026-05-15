@@ -38,7 +38,7 @@ function isValidMode(mode: unknown): mode is BetMode {
 }
 
 function isValidMetric(metric: unknown): metric is BetMetricType {
-  return metric === 'weekly_distance' || metric === 'distance' || metric === 'run_count' || metric === 'longest_run' || metric === 'race_time'
+  return metric === 'weekly_distance' || metric === 'distance' || metric === 'run_count' || metric === 'longest_run' || metric === 'race_time' || metric === 'planned_session'
 }
 
 function isValidComparator(comparator: unknown): comparator is BetComparator {
@@ -66,12 +66,30 @@ async function fetchBetActivities(memberIds: number[], minStart: string) {
   if (memberIds.length === 0) return []
   const { data } = await supabaseAdmin
     .from('activities')
-    .select('id, athlete_id, start_date, distance, moving_time, matched_distance_key')
+    .select('id, athlete_id, name, start_date, distance, moving_time, matched_distance_key')
     .in('athlete_id', memberIds)
     .gte('start_date', `${minStart}T00:00:00.000Z`)
     .eq('type', 'Run')
 
   return (data ?? []) as BetActivity[]
+}
+
+async function emitBetEvent(params: {
+  groupId: string
+  betId: string | null
+  actorAthleteId: number | null
+  eventType: 'created' | 'joined' | 'accepted' | 'declined' | 'resolved' | 'voided' | 'deleted' | 'coach_suggested'
+  payload?: Record<string, unknown>
+}) {
+  await supabaseAdmin
+    .from('group_bet_events')
+    .insert({
+      group_id: params.groupId,
+      bet_id: params.betId,
+      actor_athlete_id: params.actorAthleteId,
+      event_type: params.eventType,
+      payload: params.payload ?? {},
+    })
 }
 
 async function resolveEligibleBets(groupId: string, bets: any[], positionsByBet: Record<string, any[]>, activities: BetActivity[]) {
@@ -90,6 +108,13 @@ async function resolveEligibleBets(groupId: string, bets: any[], positionsByBet:
         resolved_at: new Date().toISOString(),
         resolution: { reason: 'not_enough_participants' },
       }
+      await emitBetEvent({
+        groupId,
+        betId: bet.id,
+        actorAthleteId: null,
+        eventType: 'voided',
+        payload: { reason: 'not_enough_participants' },
+      })
       continue
     }
 
@@ -100,13 +125,28 @@ async function resolveEligibleBets(groupId: string, bets: any[], positionsByBet:
       status: creatorWon ? 'won' : 'lost',
       outcome_achieved: outcome.achieved,
       winning_side: outcome.winningSide,
+      best_activity_id: outcome.bestActivityId,
       resolved_at: new Date().toISOString(),
       resolution: {
         current_value: outcome.currentValue,
         evidence_label: outcome.evidenceLabel,
         best_activity_id: outcome.bestActivityId,
+        attempts: outcome.attempts ?? [],
+        contributing_activities: outcome.contributingActivities ?? [],
       },
     }
+    await emitBetEvent({
+      groupId,
+      betId: bet.id,
+      actorAthleteId: null,
+      eventType: 'resolved',
+      payload: {
+        achieved: outcome.achieved,
+        winning_side: outcome.winningSide,
+        evidence_label: outcome.evidenceLabel,
+        best_activity_id: outcome.bestActivityId,
+      },
+    })
   }
 
   for (const [id, update] of Object.entries(updates)) {
@@ -174,6 +214,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     (tokens ?? []).map(t => [t.athlete_id, { name: t.athlete_name, profile_pic: t.athlete_profile ?? null }])
   )
 
+  const [{ data: eventsRaw }, { data: commentsRaw }] = await Promise.all([
+    supabaseAdmin
+      .from('group_bet_events')
+      .select('*')
+      .eq('group_id', params.id)
+      .order('created_at', { ascending: false })
+      .limit(30),
+    supabaseAdmin
+      .from('group_bet_comments')
+      .select('*')
+      .eq('group_id', params.id)
+      .in('bet_id', betIds)
+      .order('created_at', { ascending: true }),
+  ])
+
+  const commentsByBet = (commentsRaw ?? []).reduce<Record<string, any[]>>((acc, comment) => {
+    acc[comment.bet_id] = [...(acc[comment.bet_id] ?? []), comment]
+    return acc
+  }, {})
+
   const enriched = resolvedBets.map(bet => {
     const outcome = resolveBetOutcome(bet as BetCore, activities)
     const betPositions = positionsByBet[bet.id] ?? []
@@ -192,11 +252,24 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         athlete_profile: tokenMap[pos.athlete_id]?.profile_pic ?? null,
         is_me: pos.athlete_id === athleteId,
       })),
+      comments: (commentsByBet[bet.id] ?? []).map(comment => ({
+        ...comment,
+        author_name: tokenMap[comment.author_athlete_id]?.name ?? `Athlete ${comment.author_athlete_id}`,
+        author_profile: tokenMap[comment.author_athlete_id]?.profile_pic ?? null,
+        is_mine: comment.author_athlete_id === athleteId,
+      })),
       live_result: outcome,
     }
   })
 
-  return NextResponse.json({ bets: enriched })
+  return NextResponse.json({
+    bets: enriched,
+    events: (eventsRaw ?? []).map(event => ({
+      ...event,
+      actor_name: event.actor_athlete_id ? tokenMap[event.actor_athlete_id]?.name ?? `Athlete ${event.actor_athlete_id}` : null,
+      actor_profile: event.actor_athlete_id ? tokenMap[event.actor_athlete_id]?.profile_pic ?? null : null,
+    })),
+  })
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -274,6 +347,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       currency: 'USD',
       creator_side: creatorSide,
       status: 'open',
+      config: typeof body.config === 'object' && body.config !== null ? body.config : {},
     })
     .select()
     .single()
@@ -291,6 +365,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     })
 
   if (posError) return NextResponse.json({ error: posError.message }, { status: 500 })
+
+  await emitBetEvent({
+    groupId: params.id,
+    betId: bet.id,
+    actorAthleteId: athleteId,
+    eventType: 'created',
+    payload: {
+      mode,
+      metric_type: metricType,
+      target_athlete_id: targetAthleteId,
+      creator_side: creatorSide,
+      pledge_cents: pledgeCents,
+    },
+  })
 
   return NextResponse.json(bet)
 }
@@ -348,6 +436,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    await emitBetEvent({
+      groupId: params.id,
+      betId: bet.id,
+      actorAthleteId: athleteId,
+      eventType: action === 'accept' ? 'accepted' : 'joined',
+      payload: { side, pledge_cents: pledgeCents },
+    })
+
     if (bet.mode === 'direct') {
       await supabaseAdmin
         .from('group_bets')
@@ -374,6 +470,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .eq('group_id', params.id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await emitBetEvent({
+      groupId: params.id,
+      betId: bet.id,
+      actorAthleteId: athleteId,
+      eventType: 'declined',
+      payload: { reason: 'declined' },
+    })
     return NextResponse.json({ ok: true })
   }
 
@@ -426,5 +529,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     .eq('group_id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await emitBetEvent({
+    groupId: params.id,
+    betId: null,
+    actorAthleteId: athleteId,
+    eventType: 'deleted',
+    payload: { bet_id: bet.id, target_athlete_id: bet.target_athlete_id },
+  })
   return NextResponse.json({ ok: true })
 }

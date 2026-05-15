@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveBetOutcome, type BetActivity, type BetCore } from '@/lib/groupBets'
+import { buildBetScoreboard, resolveBetOutcome, type BetActivity, type BetCore } from '@/lib/groupBets'
 
 const baseBet: BetCore = {
   target_athlete_id: 10,
@@ -109,5 +109,87 @@ describe('resolveBetOutcome', () => {
     expect(outcome.achieved).toBe(false)
     expect(outcome.currentValue).toBe(0)
     expect(outcome.winningSide).toBe('against')
+  })
+
+  it('resolves planned-session bets from a same-window run that meets the planned distance', () => {
+    const outcome = resolveBetOutcome({
+      ...baseBet,
+      metric_type: 'planned_session',
+      target_value: 12_000,
+      window_start: '2026-05-15',
+      window_end: '2026-05-15',
+    }, [
+      run({ id: 1, distance: 10_000, start_date: '2026-05-15T08:00:00.000Z' }),
+      run({ id: 2, distance: 13_000, start_date: '2026-05-15T18:00:00.000Z' }),
+    ])
+
+    expect(outcome.achieved).toBe(true)
+    expect(outcome.bestActivityId).toBe(2)
+    expect(outcome.winningSide).toBe('for')
+  })
+
+  it('fails planned-session bets when the planned run is missing', () => {
+    const outcome = resolveBetOutcome({
+      ...baseBet,
+      metric_type: 'planned_session',
+      target_value: 12_000,
+      window_start: '2026-05-15',
+      window_end: '2026-05-15',
+    }, [
+      run({ id: 1, distance: 11_000, start_date: '2026-05-15T08:00:00.000Z' }),
+    ])
+
+    expect(outcome.achieved).toBe(false)
+    expect(outcome.winningSide).toBe('against')
+  })
+})
+
+describe('buildBetScoreboard', () => {
+  it('aggregates wins, losses, voids, pledge totals, and open exposure', () => {
+    const scoreboard = buildBetScoreboard([
+      {
+        ...baseBet,
+        id: 'bet-1',
+        creator_athlete_id: 10,
+        status: 'won',
+        winning_side: 'for',
+        pledge_cents: 2000,
+      },
+      {
+        ...baseBet,
+        id: 'bet-2',
+        creator_athlete_id: 20,
+        status: 'void',
+        winning_side: null,
+        pledge_cents: 1500,
+      },
+      {
+        ...baseBet,
+        id: 'bet-3',
+        creator_athlete_id: 30,
+        status: 'open',
+        winning_side: null,
+        pledge_cents: 1000,
+      },
+    ], {
+      'bet-1': [
+        { athlete_id: 10, side: 'for', pledge_cents: 2000 },
+        { athlete_id: 20, side: 'against', pledge_cents: 2000 },
+        { athlete_id: 30, side: 'against', pledge_cents: 2000 },
+      ],
+      'bet-2': [
+        { athlete_id: 10, side: 'for', pledge_cents: 1500 },
+      ],
+      'bet-3': [
+        { athlete_id: 20, side: 'for', pledge_cents: 1000 },
+      ],
+    })
+
+    expect(scoreboard.bestPredictor?.athlete_id).toBe(10)
+    expect(scoreboard.biggestUpset).toEqual({ betId: 'bet-1', winnerCount: 1, loserCount: 2 })
+    expect(scoreboard.members.find(m => m.athlete_id === 10)?.wins).toBe(1)
+    expect(scoreboard.members.find(m => m.athlete_id === 20)?.losses).toBe(1)
+    expect(scoreboard.members.find(m => m.athlete_id === 10)?.voids).toBe(1)
+    expect(scoreboard.members.find(m => m.athlete_id === 20)?.openExposureCents).toBe(1000)
   })
 })

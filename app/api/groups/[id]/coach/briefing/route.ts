@@ -7,11 +7,32 @@ import { AWARD_CATEGORIES } from '@/lib/awards'
 import { parseAndSanitizeBriefing, type BriefingContent } from '@/lib/coachOutputs'
 import { getWeekStart, toJakartaDate } from '@/lib/utils'
 import { persistCoachAuditEvent } from '@/lib/coachMetrics'
-import { buildGroupEngagement } from '@/lib/coachEngagement'
+import { buildGroupEngagement, type CoachEngagementPlan } from '@/lib/coachEngagement'
 
 export type { BriefingContent } from '@/lib/coachOutputs'
 
 const VALID_AWARD_KEYS = Object.keys(AWARD_CATEGORIES).join(' | ')
+
+function buildFallbackBriefing(engagement: CoachEngagementPlan): BriefingContent {
+  return {
+    weekly_summary: engagement.storylines.length > 0
+      ? engagement.storylines.map(story => story.angle).slice(0, 2).join(' ')
+      : 'No dramatic group pattern yet. Deeply suspicious, but we will allow it.',
+    storylines: engagement.storylines,
+    team_focus: engagement.team_focus,
+    challenge_nudge: engagement.challenge_nudge,
+    risks: engagement.risks,
+    ask_prompts: engagement.ask_prompts,
+    shoutouts: engagement.award_candidates.slice(0, 4).map(candidate => ({
+      athlete_name: candidate.athlete_name,
+      award_key: candidate.award_key,
+      award_label: AWARD_CATEGORIES[candidate.award_key]?.label ?? 'Coach Pick',
+      caption: `${candidate.evidence}. Not bad. Try not to act shocked.`,
+    })),
+    group_momentum: 'steady',
+    coach_tip: engagement.team_focus,
+  }
+}
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const athleteId = cookies().get('athlete_id')?.value
@@ -110,12 +131,17 @@ ${JSON.stringify({
   active_challenges: ctx.active_challenges,
 }, null, 2)}`
 
-    const raw = await claudeMessage({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    })
+    let raw = ''
+    try {
+      raw = await claudeMessage({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      })
+    } catch (err) {
+      console.error('[coach/briefing/claude]', err instanceof Error ? err.message : String(err))
+    }
 
     const parsedBriefing = parseAndSanitizeBriefing(raw)
     const briefing = parsedBriefing
@@ -127,7 +153,7 @@ ${JSON.stringify({
           risks: parsedBriefing.risks?.length ? parsedBriefing.risks : engagement.risks,
           ask_prompts: parsedBriefing.ask_prompts?.length ? parsedBriefing.ask_prompts : engagement.ask_prompts,
         }
-      : null
+      : buildFallbackBriefing(engagement)
     if (!briefing) {
       console.error('[coach/briefing/parse]', raw)
       return NextResponse.json({ error: 'Coach returned unparseable response.' }, { status: 503 })

@@ -154,4 +154,85 @@ describe('group briefing route', () => {
       }),
     ])
   })
+
+  it('falls back to deterministic engagement when coach returns malformed JSON', async () => {
+    const membershipChain = createQueryChain({ data: { role: 'member' } })
+    const cachedChain = createQueryChain({ data: null })
+    const upsertChain = createQueryChain({ error: null })
+    const auditChain = createQueryChain({ error: null })
+    const groupMembersChain = createQueryChain({ data: [{ athlete_id: 1 }] })
+    const tokensChain = createQueryChain({ data: [{ athlete_id: 1, athlete_name: 'Jesse Choi' }] })
+    const deleteAwardsChain = createQueryChain({ error: null })
+    const insertAwardsChain = createQueryChain({ error: null })
+    const finalRowChain = createQueryChain({ data: { generated_at: '2026-04-13T00:00:00Z' } })
+
+    queueSupabaseTables(
+      mockFrom,
+      membershipChain,
+      cachedChain,
+      upsertChain,
+      auditChain,
+      groupMembersChain,
+      tokensChain,
+      deleteAwardsChain,
+      insertAwardsChain,
+      finalRowChain,
+    )
+
+    ;(buildCoachContext as ReturnType<typeof vi.fn>).mockResolvedValue({
+      group: { name: 'Track Rats' },
+      today: '2026-04-13',
+      facts: {},
+      totals: {},
+      signals: [],
+      members: [
+        {
+          athlete_id: 1,
+          name: 'Jesse Choi',
+          streak: 1,
+          goals: [],
+          current_estimates: [],
+          this_week_km: 24,
+          this_month_km: 70,
+          ytd_km: 400,
+          rolling_4w_km: 120,
+          rolling_12w_km: 280,
+          run_count_this_week: 3,
+          recent_runs: [],
+        },
+      ],
+      active_challenges: [
+        {
+          name: 'Climb Club',
+          type: 'elevation',
+          start_date: '2026-04-01',
+          end_date: '2026-04-30',
+          total_km: 40,
+          target_km: null,
+          pct: 36,
+          source_count: 4,
+          progress_value: 360,
+          target_value: 1000,
+          progress_unit: 'meters_elevation',
+        },
+      ],
+    })
+    ;(claudeMessage as ReturnType<typeof vi.fn>).mockResolvedValue('not json, just chaos')
+
+    const response = await getBriefing(
+      new NextRequest('http://localhost/api/groups/group-1/coach/briefing?force=true'),
+      { params: { id: 'group-1' } }
+    )
+    const json = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(json.briefing.challenge_nudge).toContain('Climb Club')
+    expect(json.briefing.storylines[0]).toMatchObject({ label: 'Challenge pressure' })
+    expect(upsertChain.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content_json: expect.objectContaining({ challenge_nudge: expect.stringContaining('Climb Club') }),
+      }),
+      { onConflict: 'group_id' },
+    )
+  })
 })

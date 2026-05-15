@@ -27,8 +27,6 @@ interface Award {
 interface BriefingMeta {
   cached: boolean
   generated_at: string
-  rate_limited?: boolean
-  next_refresh_at?: string
 }
 
 interface Props {

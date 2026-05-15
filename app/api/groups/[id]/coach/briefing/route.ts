@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { buildCoachContext } from '@/lib/coachContext'
+import { buildCoachContext, type CoachContext } from '@/lib/coachContext'
 import { claudeMessage } from '@/lib/claude'
 import { AWARD_CATEGORIES } from '@/lib/awards'
 import { parseAndSanitizeBriefing, type BriefingContent } from '@/lib/coachOutputs'
@@ -13,17 +13,84 @@ export type { BriefingContent } from '@/lib/coachOutputs'
 
 const VALID_AWARD_KEYS = Object.keys(AWARD_CATEGORIES).join(' | ')
 
+function compactTotal(total: CoachContext['totals'][string] | undefined) {
+  if (!total) return null
+  return {
+    km: total.km,
+    range_start: total.range_start,
+    range_end: total.range_end,
+    source_count: total.source_count,
+    unit: total.unit,
+  }
+}
+
+function buildBriefingPromptInput(
+  ctx: CoachContext,
+  engagement: CoachEngagementPlan,
+  baseBriefing: BriefingContent,
+) {
+  return {
+    today: ctx.today,
+    group: ctx.group,
+    source_rules: {
+      canonical: 'Only these totals/challenge values may be used as numbers in copy.',
+      recent_activity: 'Not provided here on purpose; this briefing should not infer totals from recent slices.',
+    },
+    group_totals: {
+      week: compactTotal(ctx.totals?.week),
+      month: compactTotal(ctx.totals?.month),
+      rolling_4w: compactTotal(ctx.totals?.rolling_4w),
+      ytd: compactTotal(ctx.totals?.ytd),
+    },
+    members: (ctx.members ?? []).map(member => ({
+      name: member.name.split(' ')[0] || member.name,
+      this_week_km: member.this_week_km,
+      run_count_this_week: member.run_count_this_week,
+      ytd_km: member.ytd_km,
+      streak: member.streak,
+    })),
+    active_challenges: (ctx.active_challenges ?? []).map(challenge => ({
+      name: challenge.name,
+      type: challenge.type,
+      start_date: challenge.start_date,
+      end_date: challenge.end_date,
+      pct: challenge.pct,
+      source_count: challenge.source_count,
+      progress_value: challenge.progress_value,
+      target_value: challenge.target_value,
+      progress_unit: challenge.progress_unit,
+      total_km: challenge.total_km,
+      target_km: challenge.target_km,
+      completed_member_weeks: challenge.completed_member_weeks,
+      elapsed_member_weeks: challenge.elapsed_member_weeks,
+    })),
+    engagement_plan: {
+      storylines: engagement.storylines.slice(0, 3),
+      award_candidates: engagement.award_candidates,
+      team_focus: engagement.team_focus,
+      challenge_nudge: engagement.challenge_nudge,
+      risks: engagement.risks.slice(0, 1),
+      ask_prompts: engagement.ask_prompts,
+    },
+    base_briefing: {
+      weekly_summary: baseBriefing.weekly_summary,
+      shoutouts: baseBriefing.shoutouts,
+      group_momentum: baseBriefing.group_momentum,
+      coach_tip: baseBriefing.coach_tip,
+    },
+  }
+}
+
 function buildFallbackBriefing(engagement: CoachEngagementPlan): BriefingContent {
-  const briefingPieces = [
-    ...engagement.storylines.map(story => story.angle),
-    engagement.challenge_nudge,
-    engagement.team_focus,
-    ...engagement.risks,
-  ].filter(Boolean)
+  const primary = engagement.storylines[0]?.angle
+  const secondary = engagement.storylines.find(story => story.key !== engagement.storylines[0]?.key)?.angle
+  const focus = engagement.team_focus ? `Next move: ${engagement.team_focus}` : ''
+  const risk = engagement.risks[0] ? `Watch item: ${engagement.risks[0]}` : ''
+  const briefingPieces = [primary, secondary, focus, risk].filter(Boolean)
 
   return {
     weekly_summary: briefingPieces.length > 0
-      ? briefingPieces.slice(0, 5).join(' ')
+      ? briefingPieces.slice(0, 3).join(' ')
       : 'No dramatic group pattern yet. Deeply suspicious, but we will allow it.',
     storylines: engagement.storylines,
     team_focus: engagement.team_focus,
@@ -110,16 +177,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const engagement = buildGroupEngagement(ctx)
 
     const baseBriefing = buildFallbackBriefing(engagement)
+    const briefingInput = buildBriefingPromptInput(ctx, engagement, baseBriefing)
 
     const systemPrompt = `You are RDCoach — AI running coach for ${ctx.group.name}.
 Sharper, more snarky, competitive, genuinely encouraging underneath.
 You sound like a track-side group coach with receipts, not a wellness newsletter.
 Use real names and real numbers. Notice effort, patterns, and who's slacking.
-The coach facts are canonical. Never invent totals, YTD distance, challenge progress, or member volume. If you mention a number, it must appear in the facts/signals.
+The briefing input is canonical. Never invent totals, YTD distance, challenge progress, member volume, names, or winners. If you mention a number, it must appear in the briefing input.
 The backend already owns the briefing structure. You are only improving the copy.
 Return ONLY a JSON object matching this exact interface — no markdown, no code fences. If unsure, omit the field and the backend keeps its deterministic copy:
 {
-  "weekly_summary": "one cohesive coach briefing paragraph, 3-5 sentences, using only provided facts",
+  "weekly_summary": "one cohesive coach briefing paragraph, 55-90 words, 3-4 sentences, using only provided facts",
   "storylines": [
     { "label": "copy the provided label", "angle": "rewrite the provided angle, same fact", "evidence": "copy the provided evidence" }
   ],
@@ -140,33 +208,19 @@ Return ONLY a JSON object matching this exact interface — no markdown, no code
 }
 Rules:
 - Voice: 20% more bite than before. Funny jab, useful coaching. No motivational poster sludge.
-- weekly_summary is the main product. It must read like one organic coach monologue, not bullets, not a list, not separate sections.
-- Fold the challenge state, leader/nudge story, watch items, and next action into weekly_summary naturally.
+- weekly_summary is the main product. It must read like one organic coach monologue, not bullets, not a list, not separate sections, not "First/Second/Finally".
+- Fold one challenge state, one leader/nudge story, and one next action into weekly_summary naturally. Do not mention every supplied item.
 - Use the base briefing as the spine. Rewrite wording, never change facts.
 - Do not add new storylines, awards, names, percentages, distances, or winners.
 - award_key MUST be one of the exact strings listed above — no other values.
 - award_label should be the human-readable name matching the award_key.
-- Reference specific paces, distances, run types from the data.
-- Prefer canonical totals from coach_facts over recent_runs; recent_runs are only narrative examples.
+- Reference at most two numbers in weekly_summary. Keep it tight enough to fit in the dashboard card.
 - If someone hasn't run in a week, call it out gently with their name.
 - coach_tip must be specific to what you see in the data — no generic advice.
 - group_momentum: rising if volume trending up, dipping if down, steady otherwise.`
 
-    const userPrompt = `Today: ${ctx.today}
-Coach facts (canonical source of truth):
-${JSON.stringify(ctx.facts, null, 2)}
-Coach signals:
-${JSON.stringify(ctx.signals, null, 2)}
-Deterministic engagement plan:
-${JSON.stringify(engagement, null, 2)}
-Base briefing owned by backend:
-${JSON.stringify(baseBriefing, null, 2)}
-Group narrative context:
-${JSON.stringify({
-  group: ctx.group,
-  members: ctx.members,
-  active_challenges: ctx.active_challenges,
-}, null, 2)}`
+    const userPrompt = `Briefing input:
+${JSON.stringify(briefingInput, null, 2)}`
 
     let raw = ''
     try {

@@ -223,7 +223,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
     <div className="space-y-4 fade-up">
 
       {/* Coach Briefing */}
-      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
+      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5 overflow-visible">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-display font-bold text-sm text-white">Coach Briefing</span>
@@ -245,7 +245,9 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             </button>
           </div>
         </div>
-        <p className="text-[#d1d5db] text-sm leading-relaxed">{briefing.weekly_summary}</p>
+        <p className="text-[#d1d5db] text-[13px] leading-6 break-words overflow-visible pb-0.5">
+          {briefing.weekly_summary}
+        </p>
       </div>
 
       {/* This Week's Awards */}

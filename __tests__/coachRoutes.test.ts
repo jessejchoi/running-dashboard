@@ -228,6 +228,12 @@ describe('group briefing route', () => {
     expect(response.status).toBe(200)
     expect(json.briefing.challenge_nudge).toContain('Climb Club')
     expect(json.briefing.storylines[0]).toMatchObject({ label: 'Challenge pressure' })
+    const coachCall = (claudeMessage as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    const coachPrompt = coachCall.messages[0].content
+    expect(coachPrompt).toContain('Briefing input')
+    expect(coachPrompt).toContain('"pct": 36')
+    expect(coachPrompt).not.toContain('recent_runs')
+    expect(coachPrompt).not.toContain('Coach facts')
     expect(upsertChain.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         content_json: expect.objectContaining({ challenge_nudge: expect.stringContaining('Climb Club') }),

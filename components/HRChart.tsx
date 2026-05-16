@@ -15,11 +15,15 @@ interface Props {
 }
 
 const SEGMENT_COLOR: Record<string, string> = {
-  warmup:   'rgba(250,204,21,0.15)',
-  interval: 'rgba(248,113,113,0.18)',
-  recovery: 'rgba(96,165,250,0.15)',
-  cooldown: 'rgba(167,139,250,0.15)',
-  steady:   'rgba(249,115,22,0.12)',
+  warmup:   'rgba(161,161,170,0.12)',
+  cooldown: 'rgba(107,114,128,0.12)',
+  recovery: 'rgba(59,130,246,0.14)',
+  easy:     'rgba(34,197,94,0.12)',
+  steady:   'rgba(34,197,94,0.10)',
+  tempo:    'rgba(234,179,8,0.14)',
+  threshold:'rgba(245,158,11,0.16)',
+  interval: 'rgba(249,115,22,0.16)',
+  stride:   'rgba(239,68,68,0.16)',
 }
 
 function CustomTooltip({ active, payload }: any) {

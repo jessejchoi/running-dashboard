@@ -1,5 +1,6 @@
 'use client'
 import { categorizeLaps, type LapType } from '@/lib/lapUtils'
+import { type PaceZones } from '@/lib/run-classification'
 import type { DistanceUnit } from '@/lib/utils'
 
 interface SplitData {
@@ -20,19 +21,32 @@ interface Props {
   runType?: string | null
   kmSplitCount?: number
   unit?: DistanceUnit
+  paceZones?: PaceZones | null
+  maxHr?: number | null
 }
 
 const TYPE_COLOR: Record<LapType, string> = {
-  warmup:   '#facc15',  // yellow
-  interval: '#dc2626',  // dark red
-  recovery: '#60a5fa',  // blue
-  cooldown: '#a78bfa',  // purple
-  steady:   '#f97316',  // orange
+  warmup:   '#a1a1aa',
+  cooldown: '#6b7280',
+  recovery: '#3b82f6',
+  easy:     '#22c55e',
+  steady:   '#22c55e',
+  tempo:    '#eab308',
+  threshold:'#f59e0b',
+  interval: '#f97316',
+  stride:   '#ef4444',
 }
 
 const TYPE_LABEL: Record<LapType, string> = {
-  warmup: 'warmup', interval: 'interval', recovery: 'recovery',
-  cooldown: 'cooldown', steady: 'steady',
+  warmup: 'warmup',
+  cooldown: 'cooldown',
+  recovery: 'recovery',
+  easy: 'easy',
+  steady: 'steady',
+  tempo: 'tempo',
+  threshold: 'threshold',
+  interval: 'interval',
+  stride: 'stride',
 }
 
 // s is always sec/km; converts to sec/mile for display when unit === 'miles'
@@ -47,7 +61,7 @@ function paceStr(s: number, unit: DistanceUnit = 'km') {
 
 export default function SplitsChart({
   splits, avgPace, label = 'km', showDistance = false,
-  colorMode = 'uniform', runType, kmSplitCount, unit = 'km'
+  colorMode = 'uniform', runType, kmSplitCount, unit = 'km', paceZones, maxHr
 }: Props) {
   const data = splits.map((s, i) => ({
     index: i + 1,
@@ -83,8 +97,21 @@ export default function SplitsChart({
     )
   }
 
-  const lapTypes = colorMode === 'lap-type' ? categorizeLaps(splits, avgPace, runType) : null
+  const lapTypes = colorMode === 'lap-type'
+    ? categorizeLaps(splits, avgPace, runType, { paceZones, maxHr })
+    : null
   const usedTypes = lapTypes ? (Array.from(new Set(lapTypes)) as LapType[]) : []
+
+  const legend = colorMode === 'lap-type' && usedTypes.length > 1 ? (
+    <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 mt-1 border-t border-[#2a2a2a]">
+      {usedTypes.map(t => (
+        <span key={t} className="flex items-center gap-1.5 text-[11px] font-medium text-[#9ca3af]">
+          <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ backgroundColor: TYPE_COLOR[t] }} />
+          {TYPE_LABEL[t]}
+        </span>
+      ))}
+    </div>
+  ) : null
 
   // Shared: pace → bar width (faster = wider, same as km splits)
   const paces = data.map(d => d.pace)
@@ -96,27 +123,33 @@ export default function SplitsChart({
   // ── KM SPLITS ──────────────────────────────────────────────────────────────
   if (label === 'km') {
     return (
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-2 pb-1 border-b border-[#1c1c1c]">
-          <div className="w-5 shrink-0" />
-          <div className="flex-1" />
-          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">Pace</div>
-          <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">HR</div>
-        </div>
-        {data.map((d, i) => (
-          <div key={d.index} className="flex items-center gap-2">
-            <div className="text-[#6b7280] text-xs font-mono w-5 shrink-0 text-right">
-              {i === data.length - 1 && d.distKm < 0.95
-                ? `0.${Math.round(d.distKm * 10)}`
-                : `${d.index}`}
-            </div>
-            <div className="flex-1 flex items-center" style={{ height: 22 }}>
-              <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: 16, backgroundColor: '#f97316', opacity: 0.8 }} />
-            </div>
-            <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace, unit)}</div>
-            <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">{d.hr ?? '—'}</div>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 pb-1 border-b border-[#1c1c1c]">
+            <div className="w-5 shrink-0" />
+            <div className="flex-1" />
+            <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">Pace</div>
+            <div className="text-[10px] font-medium text-[#4b5563] uppercase tracking-wider w-8 shrink-0 text-right">HR</div>
           </div>
-        ))}
+          {data.map((d, i) => {
+            const color = lapTypes ? TYPE_COLOR[lapTypes[i]] : '#f97316'
+            return (
+              <div key={d.index} className="flex items-center gap-2">
+                <div className="text-[#6b7280] text-xs font-mono w-5 shrink-0 text-right">
+                  {i === data.length - 1 && d.distKm < 0.95
+                    ? `0.${Math.round(d.distKm * 10)}`
+                    : `${d.index}`}
+                </div>
+                <div className="flex-1 flex items-center" style={{ height: 22 }}>
+                  <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: 16, backgroundColor: color, opacity: 0.85 }} />
+                </div>
+                <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace, unit)}</div>
+                <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">{d.hr ?? '—'}</div>
+              </div>
+            )
+          })}
+        </div>
+        {legend}
       </div>
     )
   }
@@ -193,17 +226,7 @@ export default function SplitsChart({
         </div>
       </div>
 
-      {/* Legend — always below chart with solid background */}
-      {colorMode === 'lap-type' && usedTypes.length > 1 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 mt-1 border-t border-[#2a2a2a]">
-          {usedTypes.map(t => (
-            <span key={t} className="flex items-center gap-1.5 text-[11px] font-medium text-[#9ca3af]">
-              <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ backgroundColor: TYPE_COLOR[t] }} />
-              {TYPE_LABEL[t]}
-            </span>
-          ))}
-        </div>
-      )}
+      {legend}
     </div>
   )
 }

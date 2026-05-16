@@ -10,6 +10,7 @@ import { speedToPace, formatDuration, toJakartaDate, formatDistance, paceUnitLab
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { type PaceZones } from '@/lib/run-classification'
 
 export default async function RunDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { from?: string } }) {
   const cookieStore = cookies()
@@ -21,11 +22,18 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
   const backHref = fromGroup ? `/group/${fromGroup}` : '/runs'
   const backLabel = fromGroup ? 'Back to group' : 'All runs'
 
-  const { data: run } = await supabaseAdmin
-    .from('activities')
-    .select('*')
-    .eq('id', params.id)
-    .single()
+  const [{ data: run }, { data: profile }] = await Promise.all([
+    supabaseAdmin
+      .from('activities')
+      .select('*')
+      .eq('id', params.id)
+      .single(),
+    supabaseAdmin
+      .from('user_profiles')
+      .select('pace_zones, max_hr')
+      .eq('athlete_id', athleteId)
+      .maybeSingle(),
+  ])
 
   if (!run) notFound()
 
@@ -41,8 +49,12 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
       paceSeconds = lapPaces[Math.floor(lapPaces.length / 2)]
     }
   }
+  const paceZones = (profile?.pace_zones ?? null) as PaceZones | null
+  const maxHr = (profile?.max_hr ?? null) as number | null
   // Build segments for any run with laps (including single-lap for HR overlay)
-  const lapSegments = laps.length > 0 ? buildLapSegments(laps, paceSeconds, run.run_type) : []
+  const lapSegments = laps.length > 0
+    ? buildLapSegments(laps, paceSeconds, run.run_type, { paceZones, maxHr })
+    : []
 
   // Fetch HR stream from Strava if available (stored in raw or streams column)
   const streams = run.streams ?? null
@@ -126,7 +138,16 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
               {unit === 'miles' ? 'Mile Splits' : 'Km Splits'}
             </p>
             <div className="pb-4">
-            <SplitsChart splits={splits} avgPace={paceSeconds} label="km" colorMode="uniform" runType={run.run_type} unit={unit} />
+            <SplitsChart
+              splits={splits}
+              avgPace={paceSeconds}
+              label="km"
+              colorMode="lap-type"
+              runType={run.run_type}
+              unit={unit}
+              paceZones={paceZones}
+              maxHr={maxHr}
+            />
             </div>
           </div>
         )}
@@ -138,7 +159,18 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
               Laps ({laps.length})
             </p>
             <div className="pb-4">
-            <SplitsChart splits={laps} avgPace={paceSeconds} label="lap" showDistance={true} colorMode="lap-type" runType={run.run_type} kmSplitCount={rawSplits.length} unit={unit} />
+            <SplitsChart
+              splits={laps}
+              avgPace={paceSeconds}
+              label="lap"
+              showDistance={true}
+              colorMode="lap-type"
+              runType={run.run_type}
+              kmSplitCount={rawSplits.length}
+              unit={unit}
+              paceZones={paceZones}
+              maxHr={maxHr}
+            />
             </div>
           </div>
         )}

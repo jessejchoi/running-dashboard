@@ -16,14 +16,14 @@ describe('categorizeLaps', () => {
   it('detects a continuous threshold block with warmup and cooldown', () => {
     const splits = [360, 320, 318, 321, 355].map(p => split(p))
     expect(categorizeLaps(splits, 335, 'threshold')).toEqual([
-      'warmup', 'interval', 'interval', 'interval', 'cooldown',
+      'warmup', 'threshold', 'threshold', 'threshold', 'cooldown',
     ])
   })
 
   it('detects structured threshold reps and recoveries', () => {
     const splits = [365, 322, 350, 320, 360].map(p => split(p))
     expect(categorizeLaps(splits, 343, 'tempo')).toEqual([
-      'warmup', 'interval', 'recovery', 'interval', 'cooldown',
+      'warmup', 'tempo', 'recovery', 'tempo', 'cooldown',
     ])
   })
 
@@ -37,7 +37,7 @@ describe('categorizeLaps', () => {
   it('detects faster blocks inside long runs with speed', () => {
     const splits = [380, 368, 345, 342, 367, 381].map(p => split(p))
     expect(categorizeLaps(splits, 364, 'long_progressive')).toEqual([
-      'warmup', 'steady', 'interval', 'interval', 'steady', 'cooldown',
+      'warmup', 'steady', 'tempo', 'tempo', 'steady', 'cooldown',
     ])
   })
 
@@ -50,14 +50,50 @@ describe('categorizeLaps', () => {
       split(380, 300),
     ]
     expect(categorizeLaps(splits, 325, 'easy_strides')).toEqual([
-      'steady', 'interval', 'recovery', 'interval', 'cooldown',
+      'easy', 'stride', 'recovery', 'stride', 'cooldown',
     ])
   })
 
   it('keeps plain easy and recovery runs steady unless there are clear outliers', () => {
     const splits = [372, 368, 374, 370].map(p => split(p))
     expect(categorizeLaps(splits, 371, 'easy')).toEqual([
-      'steady', 'steady', 'steady', 'steady',
+      'easy', 'easy', 'easy', 'easy',
+    ])
+  })
+
+  it('uses pace zones to classify workout intensity independent of run average', () => {
+    const zones = {
+      intervalMaxPace: 250,
+      thresholdMaxPace: 300,
+      tempoMaxPace: 325,
+      easyMaxPace: 380,
+      longRunThresholdKm: 14,
+      source: 'training' as const,
+    }
+    const splits = [370, 318, 296, 245, 395].map(p => split(p))
+
+    expect(categorizeLaps(splits, 345, 'tempo', { paceZones: zones })).toEqual([
+      'warmup', 'tempo', 'threshold', 'interval', 'cooldown',
+    ])
+  })
+
+  it('can use high HR to avoid treating hard steady work as easy', () => {
+    const zones = {
+      intervalMaxPace: 250,
+      thresholdMaxPace: 300,
+      tempoMaxPace: 325,
+      easyMaxPace: 380,
+      longRunThresholdKm: 14,
+      source: 'training' as const,
+    }
+    const splits = [
+      { ...split(350), average_heartrate: 172 },
+      { ...split(348), average_heartrate: 174 },
+      { ...split(352), average_heartrate: 176 },
+    ]
+
+    expect(categorizeLaps(splits, 350, 'easy', { paceZones: zones, maxHr: 190 })).toEqual([
+      'tempo', 'tempo', 'tempo',
     ])
   })
 })

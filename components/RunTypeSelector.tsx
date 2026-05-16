@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { RUN_TYPES, getTypesByGroup, type RunType } from '@/lib/runtypes'
 import { ChevronDown, Check } from 'lucide-react'
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function RunTypeSelector({ activityId, current, isManual, onUpdate }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string | null>(current ?? null)
   const [manual, setManual] = useState<boolean>(isManual ?? false)
@@ -77,17 +79,24 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
   async function handleSelect(type: RunType | null) {
     setSaving(true)
     setOpen(false)
-    const res = await fetch('/api/run-type', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activityId, runType: type }),
-    })
-    if (res.ok) {
-      setSelected(type)
-      setManual(type != null)
-      onUpdate?.(type)
+    try {
+      const res = await fetch('/api/run-type', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activityId, runType: type }),
+      })
+      if (res.ok) {
+        const payload = await res.json()
+        const savedType = (payload.runType ?? null) as RunType | null
+        const savedManual = Boolean(payload.isManual)
+        setSelected(savedType)
+        setManual(savedManual)
+        onUpdate?.(savedType)
+        router.refresh()
+      }
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const dropdown = mounted && open ? createPortal(

@@ -177,6 +177,7 @@ async function recategorizeRecentAutomaticRuns(athleteId: number, zones: PaceZon
       .from('activities')
       .update({ run_type: nextType, run_type_manual: false })
       .eq('id', activity.id)
+      .or('run_type_manual.is.false,run_type_manual.is.null')
 
     if (error) throw error
     updated++
@@ -275,14 +276,23 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
         .from('activities')
         .update({
           laps,
-          run_type: newRunType,
-          ...(!isManual ? { run_type_manual: false } : {}),
           splits: detail.splits_metric ?? null,
           streams: streams ?? null,
           detail_synced: true,
-          ...raceFields,
         })
         .eq('id', act.id)
+
+      if (!isManual) {
+        await supabaseAdmin
+          .from('activities')
+          .update({
+            run_type: newRunType,
+            run_type_manual: false,
+            ...raceFields,
+          })
+          .eq('id', act.id)
+          .or('run_type_manual.is.false,run_type_manual.is.null')
+      }
 
       synced++
       await sleep(1100)

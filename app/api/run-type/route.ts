@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { updateLatestEstimates } from '@/lib/latestEstimates'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { detectRaceFieldsForRunType, isManualRunType } from '@/lib/run-classification'
 
 export async function PATCH(request: NextRequest) {
@@ -55,5 +56,9 @@ export async function PATCH(request: NextRequest) {
   // Re-run analysis in background — recategorization changes which runs feed the engine
   void updateLatestEstimates(numericAthleteId)
 
-  return NextResponse.json({ ok: true })
+  revalidatePath('/')
+  revalidatePath('/runs')
+  revalidatePath(`/runs/${activityId}`)
+
+  return NextResponse.json({ ok: true, runType: runType ?? null, isManual: runType != null })
 }

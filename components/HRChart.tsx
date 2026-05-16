@@ -1,6 +1,7 @@
 'use client'
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, Customized } from 'recharts'
 import type { LapSegment } from '@/lib/lapUtils'
+import { RUN_SEGMENT_STYLE } from '@/lib/run-segments'
 
 interface StreamData {
   heartrate?: { data: number[] }
@@ -12,18 +13,6 @@ interface Props {
   avgHR?: number | null
   maxHR?: number | null
   lapSegments?: LapSegment[]
-}
-
-const SEGMENT_COLOR: Record<string, string> = {
-  warmup:   'rgba(161,161,170,0.12)',
-  cooldown: 'rgba(107,114,128,0.12)',
-  recovery: 'rgba(59,130,246,0.14)',
-  easy:     'rgba(34,197,94,0.12)',
-  steady:   'rgba(34,197,94,0.10)',
-  tempo:    'rgba(234,179,8,0.14)',
-  threshold:'rgba(245,158,11,0.16)',
-  interval: 'rgba(249,115,22,0.16)',
-  stride:   'rgba(239,68,68,0.16)',
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -45,7 +34,7 @@ function SegmentBands({ segments, totalDuration, chartX, chartY, chartWidth, cha
   return (
     <g>
       {segments.map((seg: LapSegment, i: number) => {
-        const color = SEGMENT_COLOR[seg.type]
+        const color = RUN_SEGMENT_STYLE[seg.type].bandColor
         if (!color || color === 'transparent') return null
         const xStart = chartX + (seg.startSec / totalDuration) * chartWidth
         const w = ((seg.endSec - seg.startSec) / totalDuration) * chartWidth

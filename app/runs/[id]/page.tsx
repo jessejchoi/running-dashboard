@@ -142,7 +142,7 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
               splits={splits}
               avgPace={paceSeconds}
               label="km"
-              colorMode="lap-type"
+              colorMode="uniform"
               runType={run.run_type}
               unit={unit}
               paceZones={paceZones}

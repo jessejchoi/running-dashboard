@@ -41,6 +41,54 @@ export interface RunSegmentOptions {
   maxHr?: number | null
 }
 
+export const RUN_SEGMENT_STYLE: Record<RunSegmentType, { color: string; bandColor: string; label: string }> = {
+  warmup: {
+    color: '#a1a1aa',
+    bandColor: 'rgba(161,161,170,0.12)',
+    label: 'warmup',
+  },
+  cooldown: {
+    color: '#6b7280',
+    bandColor: 'rgba(107,114,128,0.12)',
+    label: 'cooldown',
+  },
+  recovery: {
+    color: '#3b82f6',
+    bandColor: 'rgba(59,130,246,0.14)',
+    label: 'recovery',
+  },
+  easy: {
+    color: '#22c55e',
+    bandColor: 'rgba(34,197,94,0.12)',
+    label: 'easy',
+  },
+  steady: {
+    color: '#22c55e',
+    bandColor: 'rgba(34,197,94,0.10)',
+    label: 'steady',
+  },
+  tempo: {
+    color: '#eab308',
+    bandColor: 'rgba(234,179,8,0.14)',
+    label: 'tempo',
+  },
+  threshold: {
+    color: '#f59e0b',
+    bandColor: 'rgba(245,158,11,0.16)',
+    label: 'threshold',
+  },
+  interval: {
+    color: '#f97316',
+    bandColor: 'rgba(249,115,22,0.16)',
+    label: 'interval',
+  },
+  stride: {
+    color: '#ef4444',
+    bandColor: 'rgba(239,68,68,0.16)',
+    label: 'stride',
+  },
+}
+
 const INTERVAL_RUN_TYPES = new Set(['intervals', 'interval_5k', 'interval_10k'])
 const THRESHOLD_RUN_TYPES = new Set(['threshold'])
 const TEMPO_RUN_TYPES = new Set(['tempo'])

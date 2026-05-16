@@ -18,17 +18,20 @@ export async function POST() {
 
   for (const id of ids) {
     try {
-      const [zones, profileRes, activitiesRes] = await Promise.all([
-        buildUserPaceProfile(id),
-        supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', id).maybeSingle(),
+      const { data: profile } = await supabaseAdmin
+        .from('user_profiles')
+        .select('max_hr')
+        .eq('athlete_id', id)
+        .maybeSingle()
+      const maxHr = profile?.max_hr ?? undefined
+      const [zones, activitiesRes] = await Promise.all([
+        buildUserPaceProfile(id, maxHr),
         supabaseAdmin
           .from('activities')
           .select('id, distance, average_speed, average_heartrate, run_type, run_type_manual, laps, splits, is_race, type')
           .eq('athlete_id', id)
           .eq('type', 'Run'),
       ])
-
-      const maxHr = profileRes.data?.max_hr ?? undefined
       const activities = activitiesRes.data ?? []
       let updated = 0
 

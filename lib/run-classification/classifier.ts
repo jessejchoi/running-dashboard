@@ -39,6 +39,19 @@ function countFastReps(
   }, 0)
 }
 
+function fastDuration(
+  segments: { pace: number; duration: number }[],
+  fastPace: number,
+  minDuration: number,
+  maxDuration?: number,
+) {
+  return segments.reduce((total, segment) => {
+    if (segment.duration < minDuration) return total
+    if (maxDuration && segment.duration > maxDuration) return total
+    return segment.pace <= fastPace ? total + segment.duration : total
+  }, 0)
+}
+
 function repStructure(
   segments: { pace: number; duration: number }[],
   fastPace: number,
@@ -62,6 +75,35 @@ function repStructure(
   }
 
   return { repCount: repIndexes.length, recoveryCount }
+}
+
+function hasClearLongIntervalWorkout(
+  segments: { pace: number; duration: number }[],
+  zones: PaceZones,
+  paceCV: number,
+) {
+  const intervalReps = repStructure(segments, zones.intervalMaxPace, zones.thresholdMaxPace * 1.02, 45, 600)
+  const intervalWorkSecs = fastDuration(segments, zones.intervalMaxPace, 45, 600)
+  return (
+    intervalReps.repCount >= 3 &&
+    intervalReps.recoveryCount >= 2 &&
+    intervalWorkSecs >= 6 * 60 &&
+    paceCV >= 0.10
+  )
+}
+
+function hasClearLongThresholdWorkout(
+  segments: { pace: number; duration: number }[],
+  zones: PaceZones,
+) {
+  const thresholdReps = repStructure(segments, zones.thresholdMaxPace, zones.thresholdMaxPace * 1.08, 180, 1800)
+  const thresholdWorkSecs = fastDuration(segments, zones.thresholdMaxPace, 180, 1800)
+  const continuousThresholdSecs = longestFastBlock(segments, zones.thresholdMaxPace)
+
+  return (
+    (thresholdReps.repCount >= 3 && thresholdReps.recoveryCount >= 2 && thresholdWorkSecs >= 18 * 60) ||
+    continuousThresholdSecs >= 25 * 60
+  )
 }
 
 function longestFastBlock(
@@ -140,6 +182,8 @@ export function categorizeRun(
   const shortBursts = countFastReps(segments, zones.intervalMaxPace, 12, 45)
 
   if (distanceKm >= zones.longRunThresholdKm) {
+    if (hasClearLongIntervalWorkout(segments, zones, paceCV)) return 'intervals'
+    if (hasClearLongThresholdWorkout(segments, zones)) return 'threshold'
     return longRunType(segments, avgPaceSeconds, zones)
   }
 

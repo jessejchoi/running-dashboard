@@ -4,7 +4,30 @@ export interface PaceZones {
   tempoMaxPace: number
   easyMaxPace: number
   longRunThresholdKm: number
-  source: 'race_result' | 'user_goal'
+  source: 'race_result' | 'user_goal' | 'training'
+  confidence?: 'low' | 'medium' | 'high'
+  sampleSize?: number
+  easySampleSize?: number
+  tempoSampleSize?: number
+  thresholdSampleSize?: number
+  intervalSampleSize?: number
+  generatedAt?: string
+  reason?: string
+  easyAnchorPace?: number
+  tempoAnchorPace?: number
+  thresholdAnchorPace?: number
+  intervalAnchorPace?: number
+  hrReliability?: 'known' | 'estimated' | 'missing'
+  effectiveMaxHr?: number
+  estimatedMaxHr?: number
+  easyActivityCount?: number
+  hardActivityCount?: number
+  uniqueActivityCount?: number
+  medianWeeklyLongestRunKm?: number
+  p75RunDistanceKm?: number
+  longRunThresholdReason?: string
+  derivedAnchors?: string[]
+  qualityWarnings?: string[]
 }
 
 export interface Segment {

@@ -6,6 +6,7 @@ import {
   resolvePersistedRunType,
   type PaceZones,
 } from './run-classification'
+import { buildTrainingPaceZones, type PaceProfileActivity } from './pace-profile'
 
 const STRAVA_API = 'https://www.strava.com/api/v3'
 
@@ -90,105 +91,50 @@ export async function fetchAthlete(token: string) {
 
 // ─── Pace zones ──────────────────────────────────────────────────────────────
 
-const DIST_KM: Record<string, number> = { '5k': 5, '10k': 10, 'hm': 21.097, 'fm': 42.195 }
-const DIST_PRIORITY = ['5k', '10k', 'hm', 'fm']
+const PACE_PROFILE_LOOKBACK_DAYS = 90
+const PACE_PROFILE_CACHE_HOURS = 24
 
-function isoWeekKey(d: Date): string {
-  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const day = utc.getUTCDay() || 7
-  utc.setUTCDate(utc.getUTCDate() + 4 - day)
-  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1))
-  const week = Math.ceil(((utc.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-  return `${utc.getUTCFullYear()}-W${week}`
-}
-
-async function computePaceZones(athleteId: number): Promise<PaceZones | null> {
-  let anchorPace5k: number | null = null
-  let source: PaceZones['source'] = 'race_result'
-
-  // 1. Try actual race results (prefer shortest distance = most accurate predictor)
-  const { data: races } = await supabaseAdmin
-    .from('activities')
-    .select('matched_distance_key, moving_time')
-    .eq('athlete_id', athleteId)
-    .eq('is_race', true)
-    .not('matched_distance_key', 'is', null)
-    .order('start_date', { ascending: false })
-
-  if (races?.length) {
-    for (const dk of DIST_PRIORITY) {
-      const race = races.find(r => r.matched_distance_key === dk)
-      if (race?.moving_time) {
-        const t5k = race.moving_time * Math.pow(5 / DIST_KM[dk], 1.06)
-        anchorPace5k = t5k / 5
-        break
-      }
-    }
-  }
-
-  // 2. Fall back to user-provided goal times
-  if (anchorPace5k === null) {
-    const { data: goals } = await supabaseAdmin
-      .from('user_goals')
-      .select('distance_key, current_secs')
-      .eq('athlete_id', athleteId)
-      .not('current_secs', 'is', null)
-
-    if (goals?.length) {
-      source = 'user_goal'
-      for (const dk of DIST_PRIORITY) {
-        const goal = goals.find(g => g.distance_key === dk && g.current_secs)
-        if (goal) {
-          const t5k = goal.current_secs * Math.pow(5 / DIST_KM[dk], 1.06)
-          anchorPace5k = t5k / 5
-          break
-        }
-      }
-    }
-  }
-
-  if (anchorPace5k === null) return null
-
-  // Zone boundaries as multipliers of 5K pace
-  const p = anchorPace5k
-  const paceZones = {
-    intervalMaxPace:   p * 1.05,
-    thresholdMaxPace:  p * 1.13,
-    tempoMaxPace:      p * 1.25,
-    easyMaxPace:       p * 1.50,
-    source,
-  }
-
-  // Long run threshold: 80% of median weekly long run over last 12 weeks
+async function fetchRecentTrainingActivities(athleteId: number): Promise<PaceProfileActivity[]> {
   const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - 84)
-  const { data: recentRuns } = await supabaseAdmin
+  cutoff.setDate(cutoff.getDate() - PACE_PROFILE_LOOKBACK_DAYS)
+  const { data } = await supabaseAdmin
     .from('activities')
-    .select('start_date, distance')
+    .select('id, name, type, start_date, distance, moving_time, average_speed, average_heartrate, total_elevation_gain, run_type, run_type_manual, is_race, excluded_from_analysis, laps, splits, raw')
     .eq('athlete_id', athleteId)
+    .eq('type', 'Run')
     .gte('start_date', cutoff.toISOString())
-    .gt('distance', 0)
+    .order('start_date', { ascending: false })
+    .limit(200)
 
-  let longRunThresholdKm = 12
-
-  if (recentRuns && recentRuns.length >= 4) {
-    const weeklyMax: Record<string, number> = {}
-    for (const run of recentRuns) {
-      const key = isoWeekKey(new Date(run.start_date))
-      const km = run.distance / 1000
-      if (!weeklyMax[key] || km > weeklyMax[key]) weeklyMax[key] = km
-    }
-    const sorted = Object.values(weeklyMax).sort((a, b) => a - b)
-    if (sorted.length >= 4) {
-      const median = sorted[Math.floor(sorted.length / 2)]
-      longRunThresholdKm = Math.max(8, Math.min(30, median * 0.80))
-    }
-  }
-
-  return { ...paceZones, longRunThresholdKm }
+  return (data ?? []) as PaceProfileActivity[]
 }
 
-export async function buildUserPaceProfile(athleteId: number): Promise<PaceZones | null> {
+async function latestRunSyncedAfter(athleteId: number, updatedAt?: string | null) {
+  if (!updatedAt) return true
+  const { data } = await supabaseAdmin
+    .from('activities')
+    .select('created_at')
+    .eq('athlete_id', athleteId)
+    .eq('type', 'Run')
+    .gt('created_at', updatedAt)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  return Boolean(data?.length)
+}
+
+export async function refreshUserPaceProfile(athleteId: number, maxHr?: number): Promise<PaceZones | null> {
+  const activities = await fetchRecentTrainingActivities(athleteId)
+  const { zones } = buildTrainingPaceZones(activities, { maxHr })
+  if (zones) {
+    await supabaseAdmin
+      .from('user_profiles')
+      .update({ pace_zones: zones, pace_zones_updated_at: new Date().toISOString() })
+      .eq('athlete_id', athleteId)
+  }
+  return zones
+}
+
+export async function buildUserPaceProfile(athleteId: number, maxHr?: number): Promise<PaceZones | null> {
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
     .select('pace_zones, pace_zones_updated_at')
@@ -199,19 +145,44 @@ export async function buildUserPaceProfile(athleteId: number): Promise<PaceZones
   const ageDays = updatedAt
     ? (Date.now() - new Date(updatedAt).getTime()) / 86400000
     : Infinity
+  const ageHours = ageDays * 24
 
-  if (ageDays < 14 && profile?.pace_zones) {
+  if (ageHours < PACE_PROFILE_CACHE_HOURS && profile?.pace_zones && !(await latestRunSyncedAfter(athleteId, updatedAt))) {
     return profile.pace_zones as PaceZones
   }
 
-  const zones = await computePaceZones(athleteId)
-  if (zones) {
-    await supabaseAdmin
-      .from('user_profiles')
-      .update({ pace_zones: zones, pace_zones_updated_at: new Date().toISOString() })
-      .eq('athlete_id', athleteId)
+  return await refreshUserPaceProfile(athleteId, maxHr)
+}
+
+async function recategorizeRecentAutomaticRuns(athleteId: number, zones: PaceZones, maxHr?: number) {
+  const activities = await fetchRecentTrainingActivities(athleteId)
+  let updated = 0
+
+  for (const activity of activities) {
+    if (activity.run_type_manual === true) continue
+    if (activity.is_race || activity.run_type === 'race' || activity.run_type === 'treadmill') continue
+    if (!activity.average_speed || !activity.distance) continue
+
+    const nextType = categorizeRun({
+      distance: activity.distance,
+      average_speed: activity.average_speed,
+      average_heartrate: activity.average_heartrate ?? undefined,
+      laps: (activity.laps ?? []) as any[],
+      splits: (activity.splits ?? []) as any[],
+    }, zones, maxHr)
+
+    if (nextType === activity.run_type && activity.run_type_manual === false) continue
+
+    const { error } = await supabaseAdmin
+      .from('activities')
+      .update({ run_type: nextType, run_type_manual: false })
+      .eq('id', activity.id)
+
+    if (error) throw error
+    updated++
   }
-  return zones
+
+  return updated
 }
 
 // ─── Run categorization ───────────────────────────────────────────────────────
@@ -225,11 +196,13 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
   if (!token) throw new Error('No valid token')
 
   // Build pace zones and fetch max_hr once for all runs in this batch
-  const [zones, profileRes] = await Promise.all([
-    buildUserPaceProfile(athleteId),
-    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).single(),
-  ])
-  const maxHr = profileRes.data?.max_hr ?? undefined
+  const { data: profile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('max_hr')
+    .eq('athlete_id', athleteId)
+    .single()
+  const maxHr = profile?.max_hr ?? undefined
+  const zones = await buildUserPaceProfile(athleteId, maxHr)
 
   // Fetch runs that are either not yet detail-synced OR missing stream data
   const { data: unsynced } = await supabaseAdmin
@@ -318,6 +291,11 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
     }
   }
 
+  if (synced > 0) {
+    const refreshedZones = await refreshUserPaceProfile(athleteId, maxHr)
+    if (refreshedZones) await recategorizeRecentAutomaticRuns(athleteId, refreshedZones, maxHr)
+  }
+
   return synced
 }
 
@@ -382,11 +360,13 @@ export function calculateTrainingLoad(
 export async function syncActivities(athleteId: number, accessToken?: string) {
   const token = accessToken ?? await getValidToken(athleteId)
   if (!token) throw new Error('No valid token')
-  const [zones, profileRes] = await Promise.all([
-    buildUserPaceProfile(athleteId),
-    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
-  ])
-  const maxHr = profileRes.data?.max_hr ?? undefined
+  const { data: profile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('max_hr')
+    .eq('athlete_id', athleteId)
+    .maybeSingle()
+  const maxHr = profile?.max_hr ?? undefined
+  const zones = await buildUserPaceProfile(athleteId, maxHr)
 
   let page = 1
   let totalSynced = 0
@@ -476,6 +456,11 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
 
     if (hasKnown || activities.length < 100) break
     page++
+  }
+
+  if (totalSynced > 0) {
+    const refreshedZones = await refreshUserPaceProfile(athleteId, maxHr)
+    if (refreshedZones) await recategorizeRecentAutomaticRuns(athleteId, refreshedZones, maxHr)
   }
 
   return totalSynced

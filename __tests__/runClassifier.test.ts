@@ -69,6 +69,59 @@ describe('categorizeRun', () => {
     expect(runType).toBe('long_steady')
   })
 
+  it('keeps marathon-pace blocks inside a long run as long progressive', () => {
+    const runType = categorizeRun({
+      distance: 24000,
+      average_speed: 1000 / 355,
+      laps: [
+        seg(380, 1800),
+        seg(323, 1200),
+        seg(372, 600),
+        seg(322, 1200),
+        seg(372, 600),
+        seg(321, 1200),
+        seg(382, 1200),
+      ],
+    }, zones, 190)
+    expect(runType).toBe('long_progressive')
+  })
+
+  it('classifies unmistakable long interval workouts as intervals', () => {
+    const runType = categorizeRun({
+      distance: 20000,
+      average_speed: 1000 / 350,
+      laps: [
+        seg(380, 1800),
+        seg(246, 180),
+        seg(380, 150),
+        seg(248, 180),
+        seg(382, 150),
+        seg(247, 180),
+        seg(384, 150),
+        seg(249, 180),
+        seg(390, 1800),
+      ],
+    }, zones, 190)
+    expect(runType).toBe('intervals')
+  })
+
+  it('classifies unmistakable long threshold workouts as threshold', () => {
+    const runType = categorizeRun({
+      distance: 22000,
+      average_speed: 1000 / 345,
+      laps: [
+        seg(380, 1800),
+        seg(298, 600),
+        seg(350, 180),
+        seg(296, 600),
+        seg(352, 180),
+        seg(297, 600),
+        seg(385, 1800),
+      ],
+    }, zones, 190)
+    expect(runType).toBe('threshold')
+  })
+
   it('detects easy strides only when the overall run stays easy', () => {
     const runType = categorizeRun({
       distance: 7000,

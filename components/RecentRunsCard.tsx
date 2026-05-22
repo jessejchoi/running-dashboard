@@ -34,14 +34,15 @@ export default function RecentRunsCard({ runs, unit }: Props) {
   if (runs.length === 0) return null
 
   return (
-    <section className="mt-6 mb-3">
+    <section className="mt-8 mb-[14px]">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Recent Runs</h2>
-        <Link href="/runs" prefetch={true} className="font-mono text-xs text-[#f97316] hover:text-orange-400 transition-colors">
-          View all →
+        <h2 className="font-display font-bold text-[28px] text-[#F4F4F4] uppercase leading-none">Recent Runs</h2>
+        <Link href="/runs" prefetch={true} className="pulse-link">
+          View all
         </Link>
       </div>
-      <div className="card fade-up" style={{ padding: '1.25rem' }}>
+      <div className="card top-stripe-magenta fade-up" style={{ padding: '24px' }}>
+        <span className="card-index">[09]</span>
 
       <div className="flex flex-col">
         {runs.map((run, i) => {
@@ -53,13 +54,14 @@ export default function RecentRunsCard({ runs, unit }: Props) {
           return (
             <div
               key={run.id}
-              className="rounded-lg transition-colors duration-100"
+              className="transition-colors duration-100"
               style={{
-                background: hoveredId === run.id ? 'var(--surface-2)' : 'transparent',
-                borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                background: hoveredId === run.id ? 'var(--ink-2)' : 'transparent',
+                borderBottom: isLast ? 'none' : '1px solid var(--hair-1)',
+                borderLeft: hoveredId === run.id ? '3px solid var(--magenta)' : '3px solid transparent',
                 opacity: isTreadmill ? 0.5 : 1,
-                margin: '0 -0.5rem',
-                padding: '0.625rem 0.5rem',
+                margin: '0 -14px',
+                padding: '14px',
               }}
               onMouseEnter={() => setHoveredId(run.id)}
               onMouseLeave={() => setHoveredId(null)}
@@ -71,9 +73,9 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                 <Link
                   href={`/runs/${run.id}`}
                   className="font-mono text-xs shrink-0 hover:text-white transition-colors w-10"
-                  style={{ color: 'var(--text-muted)' }}
+                  style={{ color: 'var(--fg-4)' }}
                 >
-                  {format(toJakartaDate(run.start_date), 'MMM d')}
+                  [{String(i + 1).padStart(2, '0')}]
                 </Link>
 
                 {/* Type selector */}
@@ -89,38 +91,41 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                 {/* Run name */}
                 <Link
                   href={`/runs/${run.id}`}
-                  className="text-sm text-white truncate flex-1 min-w-0 hover:text-orange-400 transition-colors"
+                  className="font-display text-[16px] font-bold uppercase text-white truncate flex-1 min-w-0 hover:text-[var(--magenta)] transition-colors"
                 >
                   {run.name}
+                  <span className="block font-mono text-[10px] font-medium uppercase tracking-[0.14em]" style={{ color: 'var(--fg-3)' }}>
+                    {format(toJakartaDate(run.start_date), 'MMM d')}
+                  </span>
                 </Link>
 
                 {/* Stats — right aligned */}
                 <div className="flex items-center gap-4 shrink-0 ml-auto">
                   {/* Distance */}
-                  <span className="font-mono text-sm font-bold" style={{ color: 'var(--orange)' }}>
+                  <span className="font-mono text-sm font-bold" style={{ color: 'var(--magenta)' }}>
                     {formatDistance(run.distance, unit)}
                   </span>
 
                   {/* Pace */}
                   <span
                     className="font-mono text-xs font-bold hidden sm:block"
-                    style={{ color: isFast ? 'var(--success)' : 'var(--text-2)' }}
+                    style={{ color: isFast ? 'var(--acid)' : 'var(--fg-2)' }}
                   >
                     {speedToPace(run.average_speed, unit)}{paceUnitLabel(unit)}
                   </span>
 
                   {/* Duration */}
-                  <span className="font-mono text-xs hidden md:block" style={{ color: 'var(--text-2)' }}>
+                  <span className="font-mono text-xs hidden md:block" style={{ color: 'var(--fg-2)' }}>
                     {formatDuration(run.moving_time)}
                   </span>
 
                   {/* HR */}
                   {run.average_heartrate ? (
-                    <span className="font-mono text-xs hidden lg:block" style={{ color: 'var(--text-muted)' }}>
+                    <span className="font-mono text-xs hidden lg:block" style={{ color: 'var(--fg-3)' }}>
                       {Math.round(run.average_heartrate)} bpm
                     </span>
                   ) : (
-                    <span className="font-mono text-xs hidden lg:block" style={{ color: 'var(--text-3)' }}>—</span>
+                    <span className="font-mono text-xs hidden lg:block" style={{ color: 'var(--fg-4)' }}>--</span>
                   )}
                 </div>
               </div>

@@ -103,27 +103,27 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
     <div
       ref={dropRef}
       style={{ top: dropdownPos.top, left: dropdownPos.left }}
-      className="fixed z-[9999] bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 min-w-[200px]"
+      className="fixed z-[9999] bg-[#111111] border border-[rgba(255,255,255,0.22)] shadow-2xl py-1 min-w-[220px]"
     >
       <button
         onClick={() => handleSelect(null)}
-        className="w-full text-left px-3 py-2 text-xs text-[#6b7280] hover:bg-[#242424] flex items-center justify-between"
+        className="w-full text-left px-3 py-2 text-xs text-[#6A6A6A] hover:bg-[#232323] flex items-center justify-between uppercase tracking-[0.16em] font-mono"
       >
         <span>Clear</span>
         {!selected && <Check size={10} />}
       </button>
-      <div className="border-t border-[#2a2a2a] my-1" />
+      <div className="border-t border-[rgba(255,255,255,0.10)] my-1" />
       {Object.entries(groups).map(([group, types]) => (
         <div key={group}>
-          <div className="px-3 py-1 text-[10px] font-bold text-[#4b5563] uppercase tracking-widest">{group}</div>
+          <div className="px-3 py-1 text-[10px] font-bold text-[#424242] uppercase tracking-widest font-mono">/ {group}</div>
           {types.map(({ key, label, color, bg }) => (
             <button
               key={key}
               onClick={() => handleSelect(key)}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-[#242424] flex items-center justify-between gap-2 transition-colors"
+              className="w-full text-left px-3 py-2 text-xs hover:bg-[#232323] flex items-center justify-between gap-2 transition-colors font-mono uppercase tracking-[0.12em]"
             >
               <span className={`flex items-center gap-2 ${color}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${bg.replace('/10', '')} inline-block`} />
+                <span className={`w-1.5 h-1.5 ${bg} inline-block`} />
                 {label}
               </span>
               {selected === key && <Check size={10} className={color} />}
@@ -141,18 +141,18 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
         ref={btnRef}
         onClick={() => setOpen(!open)}
         disabled={saving}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+        className={`flex min-h-[32px] items-center gap-2 px-3 py-1.5 border text-[10.5px] font-bold uppercase tracking-[0.16em] transition-all ${
           currentConfig
-            ? `${currentConfig.color} ${currentConfig.bg} border-transparent`
-            : 'text-[#6b7280] bg-[#1c1c1c] border-[#2a2a2a] hover:border-[#3a3a3a]'
+            ? `${currentConfig.color} ${currentConfig.bg} border-current`
+            : 'text-[#6A6A6A] bg-[#232323] border-[rgba(255,255,255,0.10)] hover:border-[rgba(255,255,255,0.22)]'
         } ${saving ? 'opacity-50' : ''}`}
       >
-        {saving ? <span className="animate-pulse">Saving…</span> : (
+        {saving ? <span className="animate-pulse">Saving</span> : (
           <>
             {currentConfig ? (
               <>
                 {currentConfig.label}
-                {!manual && <span className="opacity-50 font-normal normal-case tracking-normal ml-1">· auto-detect</span>}
+                {!manual && <span className="opacity-50 font-normal tracking-[0.12em] ml-1">/ Auto</span>}
               </>
             ) : 'Set type'}
             <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />

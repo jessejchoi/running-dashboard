@@ -1,27 +1,35 @@
 import type { Metadata } from 'next'
 import StandaloneDetector from '@/components/StandaloneDetector'
-import { Syne, Space_Mono, DM_Sans } from 'next/font/google'
+import { Archivo_Narrow, Archivo, JetBrains_Mono } from 'next/font/google'
 import { cookies } from 'next/headers'
 import { UnitProvider } from '@/lib/unit-context'
 import type { DistanceUnit } from '@/lib/utils'
 import './globals.css'
 
-const displayFont = Syne({
+// ── PULSE typography ─────────────────────────────────────────────────────
+//   display: Archivo Narrow — UPPERCASE, tight letterspacing, 700
+//   body:    Archivo (the wider sibling) — readable paragraph text
+//   mono:    JetBrains Mono — tabular numerals for every data field
+//
+// All three variables are exposed to CSS as --font-display / --font-body /
+// --font-mono so globals.css and Tailwind both pick them up.
+
+const displayFont = Archivo_Narrow({
   subsets: ['latin'],
   variable: '--font-display',
-  weight: ['700', '800'],
+  weight: ['500', '600', '700'],
 })
 
-const bodyFont = DM_Sans({
+const bodyFont = Archivo({
   subsets: ['latin'],
   variable: '--font-body',
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
 })
 
-const monoFont = Space_Mono({
+const monoFont = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
-  weight: ['400', '700'],
+  weight: ['400', '500', '700'],
 })
 
 export const viewport = {
@@ -47,10 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
-      <body className="bg-[#0a0a0a] text-white font-sans antialiased min-h-screen">
-        {/* Blocking script: sets html.standalone before first paint so CSS
-            env(safe-area-inset-*) rules apply from the initial render,
-            preventing the pill position jump on first webapp load. */}
+      <body className="bg-[#0a0a0a] text-white antialiased min-h-screen" style={{ fontFamily: 'var(--font-body)' }}>
         <script dangerouslySetInnerHTML={{__html: `(function(){try{if(navigator.standalone===true){document.documentElement.classList.add('standalone')}}catch(e){}})()`}} />
         <StandaloneDetector />
         <UnitProvider unit={unit}>

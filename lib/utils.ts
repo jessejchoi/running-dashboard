@@ -79,29 +79,34 @@ export function formatDuration(seconds: number): string {
 
 // ─── Timezone ─────────────────────────────────────────────────────────────────
 
+const LOCAL_TIMEZONE_OFFSET_MS = 7 * 60 * 60 * 1000
+
 /**
  * Strava returns start_date in UTC. Convert to Jakarta local time (WIB = UTC+7).
  * Use this instead of new Date(str) for all display purposes.
  */
 export function toJakartaDate(utcStr: string): Date {
   const d = new Date(utcStr)
-  return new Date(d.getTime() + 7 * 60 * 60 * 1000)
+  return new Date(d.getTime() + LOCAL_TIMEZONE_OFFSET_MS)
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
+function toLocalWeekDate(date: Date): Date {
+  return new Date(date.getTime() + LOCAL_TIMEZONE_OFFSET_MS)
+}
+
 export function getWeekStart(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
-  return d
+  const local = toLocalWeekDate(date)
+  const day = local.getUTCDay()
+  const diff = local.getUTCDate() - day + (day === 0 ? -6 : 1)
+  const localWeekStartMs = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), diff)
+  return new Date(localWeekStartMs - LOCAL_TIMEZONE_OFFSET_MS)
 }
 
 export function isoWeek(date: Date): string {
-  const w = getWeekStart(date)
-  return w.toISOString().split('T')[0]
+  const localWeekStart = toLocalWeekDate(getWeekStart(date))
+  return localWeekStart.toISOString().split('T')[0]
 }
 
 /**

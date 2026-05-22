@@ -27,18 +27,29 @@ export default async function RunsPage() {
     <>
       <Nav />
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
-        <div className="mb-8 fade-up">
-          <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>Activity Log</h1>
-          <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{activities.length} runs</p>
+        <div className="mb-8 fade-up pb-6" style={{ borderBottom: '2px solid var(--fg-1)' }}>
+          <h1
+            className="font-display font-bold uppercase"
+            style={{ fontSize: 'clamp(40px, 7vw, 72px)', letterSpacing: '-0.04em', lineHeight: 0.92 }}
+          >
+            ACTIVITY LOG<span style={{ color: 'var(--magenta)' }}>.</span>
+          </h1>
+          <p className="pulse-label mt-3">{activities.length} RUNS · STRAVA SYNC LIVE</p>
         </div>
 
-        <div className="card p-0 overflow-hidden fade-up">
+        <div className="card pulse-bar p-0 overflow-hidden fade-up" style={{ padding: 0 }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Date', 'Type', 'Distance', 'Avg Pace', 'Time', 'HR', 'Suffer'].map(h => (
-                    <th key={h} className="text-left px-2 sm:px-4 py-2 sm:py-3 font-mono text-[10px] uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                <tr style={{ borderBottom: '2px solid var(--fg-1)' }}>
+                  {['DATE', 'TYPE', 'DISTANCE', 'PACE', 'TIME', 'HR', 'TSS'].map(h => (
+                    <th
+                      key={h}
+                      className="text-left px-2 sm:px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-[0.18em] whitespace-nowrap"
+                      style={{ color: 'var(--fg-3)' }}
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -48,7 +59,9 @@ export default async function RunsPage() {
                 ))}
                 {activities.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-2 sm:px-4 py-8 sm:py-12 text-center" style={{ color: 'var(--text-muted)' }}>No runs yet.</td>
+                    <td colSpan={7} className="px-2 sm:px-4 py-12 text-center font-mono uppercase tracking-[0.18em]" style={{ color: 'var(--fg-3)' }}>
+                      No runs yet.
+                    </td>
                   </tr>
                 )}
               </tbody>

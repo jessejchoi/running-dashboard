@@ -14,6 +14,11 @@ const navItems = [
   { href: '/groups',   label: 'Group' },
 ]
 
+const mobileNavItems = [
+  navItems[0],
+  navItems[4],
+]
+
 // ── PULSE nav ──────────────────────────────────────────────────────────
 // Opaque ink-1, 2px bone bottom border, 3px magenta top stripe.
 // Active items are solid magenta blocks with ink text — no fade, no glow.
@@ -164,7 +169,7 @@ export default function Nav() {
           boxShadow: '0 4px 24px rgba(0,0,0,0.7)',
         }}
       >
-        {navItems.slice(0, 4).map(({ href, label }) => {
+        {mobileNavItems.map(({ href, label }) => {
           const active = isActive(href)
           const loading = pendingHref === href && isPending
           return (

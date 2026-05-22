@@ -56,7 +56,7 @@ function FilterDropdown({
               className="w-full text-left px-3 py-2 text-xs hover:bg-[#242424] flex items-center justify-between gap-3 transition-colors text-[#9ca3af] hover:text-white"
             >
               <span>{opt.label}</span>
-              {value === opt.value && <Check size={10} className="text-[#f97316] shrink-0" />}
+              {value === opt.value && <Check size={10} className="text-[#ff1d6c] shrink-0" />}
             </button>
           ))}
         </div>
@@ -137,7 +137,7 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="font-bold text-sm">{member?.name ?? `Athlete ${run.athlete_id}`}</span>
-                    {isMe && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>}
+                    {isMe && <span className="text-[10px] text-[#ff1d6c] font-bold bg-[#ff1d6c]/10 px-1.5 py-0.5 rounded">You</span>}
                     {member?.status_tag && <StatusTag tag={member.status_tag} />}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-[#6b7280] mb-2">
@@ -146,11 +146,11 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
                     <span>·</span>
                     <span>{format(toJakartaDate(run.start_date), 'EEE MMM d, h:mm a')}</span>
                   </div>
-                  <a href={`/runs/${run.id}?from=group/${groupId}`} className="font-medium text-sm text-white hover:text-[#f97316] transition-colors block truncate mb-2">
+                  <a href={`/runs/${run.id}?from=group/${groupId}`} className="font-medium text-sm text-white hover:text-[#ff1d6c] transition-colors block truncate mb-2">
                     {run.name}
                   </a>
                   <div className="flex gap-4 text-xs font-mono">
-                    <span className="text-[#f97316] font-bold">{formatDistanceShort(run.distance, unit)}</span>
+                    <span className="text-[#ff1d6c] font-bold">{formatDistanceShort(run.distance, unit)}</span>
                     <span className="text-white">{speedToPace(run.average_speed, unit)}{paceUnitLabel(unit)}</span>
                     <span className="text-[#6b7280]">{formatDuration(run.moving_time)}</span>
                     {run.average_heartrate && (
@@ -169,7 +169,7 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
           <button
             onClick={loadMoreRuns}
             disabled={loadingMore}
-            className="px-4 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#f97316] text-[#6b7280] hover:text-[#f97316] rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#ff1d6c] text-[#6b7280] hover:text-[#ff1d6c] rounded-lg transition-colors disabled:opacity-50"
           >
             {loadingMore ? 'Loading…' : 'Load older runs'}
           </button>

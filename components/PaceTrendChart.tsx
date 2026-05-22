@@ -73,14 +73,14 @@ export default function PaceTrendChart({ activities, targetPaceSeconds = 270 }: 
         <Tooltip content={<CustomTooltip />} />
         <ReferenceLine
           y={targetPaceSeconds}
-          stroke="#f97316"
+          stroke="#ff1d6c"
           strokeDasharray="4 4"
           strokeOpacity={0.6}
           strokeWidth={1.5}
           label={{
             value: `Goal ${paceLabel(targetPaceSeconds)}`,
             position: 'insideTopRight',
-            fill: '#f97316',
+            fill: '#ff1d6c',
             fontSize: 9,
             fontFamily: 'var(--font-mono)',
           }}
@@ -88,10 +88,10 @@ export default function PaceTrendChart({ activities, targetPaceSeconds = 270 }: 
         <Line
           type="monotone"
           dataKey="pace"
-          stroke="#f97316"
+          stroke="#ff1d6c"
           strokeWidth={1.5}
           dot={false}
-          activeDot={{ r: 4, fill: '#f97316', strokeWidth: 0 }}
+          activeDot={{ r: 4, fill: '#ff1d6c', strokeWidth: 0 }}
         />
       </LineChart>
     </ResponsiveContainer>

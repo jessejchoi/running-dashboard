@@ -46,7 +46,7 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   }
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="w-8 h-8 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs">
+    <div className="w-8 h-8 rounded-full bg-[#ff1d6c]/20 flex items-center justify-center text-[#ff1d6c] font-bold text-xs">
       {initials}
     </div>
   )
@@ -54,9 +54,9 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
 
 function MomentumBadge({ momentum }: { momentum: 'rising' | 'steady' | 'dipping' }) {
   const config = {
-    rising:  { label: 'Rising',  color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
-    steady:  { label: 'Steady',  color: 'text-sky-400 bg-sky-400/10 border-sky-400/20' },
-    dipping: { label: 'Dipping', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
+    rising:  { label: 'Rising',  color: 'text-[#d9ff36] bg-[#d9ff36]/10 border-[#d9ff36]/20' },
+    steady:  { label: 'Steady',  color: 'text-[#5ad7ff] bg-[#5ad7ff]/10 border-sky-400/20' },
+    dipping: { label: 'Dipping', color: 'text-[#ff7a1c] bg-[#ff7a1c]/10 border-amber-400/20' },
   }
   const c = config[momentum]
   return (
@@ -79,7 +79,7 @@ function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shouto
         </div>
         <div>
           <div className="font-bold text-sm text-white">{shoutout.athlete_name}</div>
-          <div className="text-[10px] font-bold text-[#f97316] uppercase tracking-wide">{shoutout.award_label}</div>
+          <div className="text-[10px] font-bold text-[#ff1d6c] uppercase tracking-wide">{shoutout.award_label}</div>
         </div>
       </div>
       <p className="text-[#9ca3af] text-xs leading-relaxed">{shoutout.caption}</p>
@@ -190,7 +190,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
         <p className="text-[#6b7280] text-sm">RDCoach is taking a rest day.</p>
         <button
           onClick={() => fetchBriefing()}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#f97316] text-sm font-medium rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#ff1d6c] text-sm font-medium rounded-lg transition-colors"
         >
           <RefreshCw size={14} /> Retry
         </button>
@@ -238,7 +238,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             )}
             <button
               onClick={() => fetchBriefing(true)}
-              className="text-[#6b7280] hover:text-[#f97316] transition-colors"
+              className="text-[#6b7280] hover:text-[#ff1d6c] transition-colors"
               title="Refresh briefing"
             >
               <RefreshCw size={13} />
@@ -274,7 +274,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
                 disabled={answerStreaming}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
                   activeChip === chip
-                    ? 'bg-[#f97316] border-[#f97316] text-black'
+                    ? 'bg-[#ff1d6c] border-[#ff1d6c] text-black'
                     : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#9ca3af] hover:text-white hover:border-[#3a3a3a]'
                 }`}
               >
@@ -286,7 +286,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             <div ref={answerRef} className="text-sm text-[#d1d5db] leading-relaxed bg-[#0f0f0f] rounded-xl p-4 border border-[#2a2a2a]">
               {answer}
               {answerStreaming && (
-                <span className="inline-block w-2 h-3.5 bg-[#f97316] animate-pulse ml-0.5 align-middle" />
+                <span className="inline-block w-2 h-3.5 bg-[#ff1d6c] animate-pulse ml-0.5 align-middle" />
               )}
             </div>
           )}
@@ -315,7 +315,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
                           {a.athlete_profile ? (
                             <img src={a.athlete_profile} alt={a.athlete_name} className="w-7 h-7 rounded-full object-cover" />
                           ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-[10px]">
+                            <div className="w-7 h-7 rounded-full bg-[#ff1d6c]/20 flex items-center justify-center text-[#ff1d6c] font-bold text-[10px]">
                               {a.athlete_name.slice(0, 2).toUpperCase()}
                             </div>
                           )}

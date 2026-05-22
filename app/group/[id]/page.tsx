@@ -38,7 +38,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         <div className="text-4xl mb-2">🔒</div>
         <h1 className="font-display font-bold text-2xl">Not a member</h1>
         <p className="text-[#6b7280] text-sm">You need an invite link to join this group.</p>
-        <a href="/" className="text-[#f97316] text-sm hover:underline">Back to dashboard</a>
+        <a href="/" className="text-[#ff1d6c] text-sm hover:underline">Back to dashboard</a>
       </div>
     )
   }

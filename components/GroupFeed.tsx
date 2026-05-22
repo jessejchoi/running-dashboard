@@ -35,11 +35,11 @@ const RUN_TYPE_COLORS: Record<string, string> = {
   intervals:    '#ef4444',
   interval_5k:  '#ef4444',
   tempo:        '#fb7185',
-  threshold:    '#f97316',
+  threshold:    '#ff1d6c',
   long_easy:    '#38bdf8',
   long_steady:  '#22d3ee',
-  long_progressive: '#60a5fa',
-  easy:         '#34d399',
+  long_progressive: '#5ad7ff',
+  easy:         '#d9ff36',
   easy_strides: '#2dd4bf',
   recovery:     '#86efac',
 }
@@ -48,7 +48,7 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   if (pic) return <img src={pic} alt={name} className="w-8 h-8 rounded-full object-cover shrink-0" />
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="w-8 h-8 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs shrink-0">
+    <div className="w-8 h-8 rounded-full bg-[#ff1d6c]/20 flex items-center justify-center text-[#ff1d6c] font-bold text-xs shrink-0">
       {initials}
     </div>
   )
@@ -68,7 +68,7 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId, unit 
         </h2>
         <Link
           href={`/group/${groupId}`}
-          className="flex items-center text-xs text-[#f97316] hover:underline whitespace-nowrap shrink-0 ml-2 min-h-[44px]"
+          className="flex items-center text-xs text-[#ff1d6c] hover:underline whitespace-nowrap shrink-0 ml-2 min-h-[44px]"
           prefetch
         >
           All runs →
@@ -100,12 +100,12 @@ export default function GroupFeed({ runs, memberMap, myAthleteId, groupId, unit 
                 <Link
                   href={`/runs/${run.id}`}
                   prefetch
-                  className={`text-sm font-medium block truncate mb-1 hover:text-[#f97316] transition-colors ${isMe ? 'text-white' : 'text-[#9ca3af]'}`}
+                  className={`text-sm font-medium block truncate mb-1 hover:text-[#ff1d6c] transition-colors ${isMe ? 'text-white' : 'text-[#9ca3af]'}`}
                 >
                   {run.name}
                 </Link>
                 <div className="flex gap-3 text-xs font-mono">
-                  <span className={isMe ? 'text-[#f97316] font-bold' : 'text-[#6b7280]'}>
+                  <span className={isMe ? 'text-[#ff1d6c] font-bold' : 'text-[#6b7280]'}>
                     {formatDistanceShort(run.distance, unit)}
                   </span>
                   <span className={isMe ? 'text-white' : 'text-[#6b7280]'}>

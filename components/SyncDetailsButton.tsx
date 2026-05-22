@@ -28,7 +28,7 @@ export default function SyncDetailsButton({ unsynced }: { unsynced: number }) {
         </p>
       )}
       {status === 'done' && (
-        <p className="text-xs text-emerald-400">✓ Synced {synced} runs</p>
+        <p className="text-xs text-[#d9ff36]">✓ Synced {synced} runs</p>
       )}
       <button
         onClick={handleSync}

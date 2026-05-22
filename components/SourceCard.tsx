@@ -22,11 +22,11 @@ interface Props {
 }
 
 const SOURCE_CONFIG: Record<EstimateSource, { label: string; color: string; icon: string; emptyHint: string }> = {
-  interval: { label: 'Intervals', color: '#f97316', icon: '⚡', emptyHint: 'Tag interval workouts to generate estimates' },
-  threshold: { label: 'Tempo', color: '#60a5fa', icon: '🔥', emptyHint: 'Tag tempo runs to generate estimates' },
-  long_run: { label: 'Long Runs', color: '#34d399', icon: '🏃', emptyHint: 'Needs 12km+ runs with heart rate data' },
-  easy_trend: { label: 'Aerobic Efficiency', color: '#a78bfa', icon: '📈', emptyHint: 'Need 3+ easy runs in the last 6 weeks' },
-  race_result: { label: 'Race Results', color: '#f472b6', icon: '🏆', emptyHint: 'No races detected yet' },
+  interval: { label: 'Intervals', color: '#ff1d6c', icon: '⚡', emptyHint: 'Tag interval workouts to generate estimates' },
+  threshold: { label: 'Tempo', color: '#5ad7ff', icon: '🔥', emptyHint: 'Tag tempo runs to generate estimates' },
+  long_run: { label: 'Long Runs', color: '#d9ff36', icon: '🏃', emptyHint: 'Needs 12km+ runs with heart rate data' },
+  easy_trend: { label: 'Aerobic Efficiency', color: '#5ad7ff', icon: '📈', emptyHint: 'Need 3+ easy runs in the last 6 weeks' },
+  race_result: { label: 'Race Results', color: '#ff1d6c', icon: '🏆', emptyHint: 'No races detected yet' },
 }
 
 const DISTANCE_HINTS: Partial<Record<EstimateSource, Partial<Record<DistanceKey, string>>>> = {
@@ -104,7 +104,7 @@ export default function SourceCard({ source, contributors, distanceKey, sourceAv
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-2">
                 {driftExcess != null && (
-                  <span className={`text-[10px] font-mono font-bold ${driftExcess > 1 ? 'text-orange-400' : driftExcess < -0.5 ? 'text-emerald-400' : 'text-[#4b5563]'}`}>
+                  <span className={`text-[10px] font-mono font-bold ${driftExcess > 1 ? 'text-[#ff7a1c]' : driftExcess < -0.5 ? 'text-[#d9ff36]' : 'text-[#4b5563]'}`}>
                     drift {driftExcess > 0 ? '+' : ''}{driftExcess.toFixed(1)}%
                   </span>
                 )}

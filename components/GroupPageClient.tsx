@@ -160,7 +160,7 @@ export default function GroupPageClient({
             onClick={() => setTab(key)}
             className={`flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === key
-                ? 'border-[#f97316] text-white'
+                ? 'border-[#ff1d6c] text-white'
                 : 'border-transparent text-[#6b7280] hover:text-white'
             }`}
           >

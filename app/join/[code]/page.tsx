@@ -28,7 +28,7 @@ export default async function JoinPage({ params }: { params: { code: string } })
         <p className="text-[#6b7280] text-sm max-w-xs">
           This invite link is invalid or has expired. Ask your group admin for a new link.
         </p>
-        <a href="/" className="text-[#f97316] text-sm hover:underline">Back to dashboard</a>
+        <a href="/" className="text-[#ff1d6c] text-sm hover:underline">Back to dashboard</a>
       </div>
     )
   }
@@ -56,7 +56,7 @@ export default async function JoinPage({ params }: { params: { code: string } })
           <p className="text-[#6b7280] text-sm max-w-xs">
             You can be in a maximum of 3 groups. Leave a group before joining <strong className="text-white">{group.name}</strong>.
           </p>
-          <a href="/groups" className="text-[#f97316] text-sm hover:underline">Manage my groups</a>
+          <a href="/groups" className="text-[#ff1d6c] text-sm hover:underline">Manage my groups</a>
         </div>
       )
     }

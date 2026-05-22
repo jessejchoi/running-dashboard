@@ -60,9 +60,9 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
   const vdot = distanceKey === '5k' ? vdotFrom5K(bestEstimateSecs) : vdotFrom5K(bestEstimateSecs / Math.pow(km / 5, 1.06) * 1)
 
   const confLabel = confidence >= 0.85 ? 'High' : confidence >= 0.6 ? 'Medium' : 'Low'
-  const confColor = confidence >= 0.85 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-    : confidence >= 0.6 ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'
-    : 'text-orange-400 bg-orange-400/10 border-orange-400/20'
+  const confColor = confidence >= 0.85 ? 'text-[#d9ff36] bg-[#d9ff36]/10 border-[#d9ff36]/20'
+    : confidence >= 0.6 ? 'text-[#d9ff36] bg-[#d9ff36]/10 border-yellow-400/20'
+    : 'text-[#ff7a1c] bg-[#ff7a1c]/10 border-[#ff7a1c]/20'
 
   const sourceTypes = new Set(contributors.map(c => c.source))
   const gapSecs = targetSecs ? bestEstimateSecs - targetSecs : null
@@ -82,7 +82,7 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Best estimate</div>
-          <div className="stat-num text-2xl font-bold text-[#f97316]">{formatTime(bestEstimateSecs)}</div>
+          <div className="stat-num text-2xl font-bold text-[#ff1d6c]">{formatTime(bestEstimateSecs)}</div>
         </div>
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Pace</div>
@@ -91,7 +91,7 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
         {targetSecs && gapSecs != null && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Gap to goal</div>
-            <div className={`stat-num text-2xl font-bold ${gapSecs <= 0 ? 'text-emerald-400' : 'text-[#f97316]'}`}>
+            <div className={`stat-num text-2xl font-bold ${gapSecs <= 0 ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'}`}>
               {gapSecs <= 0 ? 'At goal' : `−${formatTime(gapSecs)}`}
             </div>
           </div>

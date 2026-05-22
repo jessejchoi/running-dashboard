@@ -54,14 +54,14 @@ function CreateGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
               placeholder="e.g. Saturday Crew"
               autoFocus
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#f97316] rounded-lg px-3 py-2.5 text-white text-sm outline-none transition-colors"
+              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2.5 text-white text-sm outline-none transition-colors"
             />
           </div>
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-[#ff1d6c] text-xs">{error}</p>}
           <button
             onClick={handleCreate}
             disabled={saving}
-            className="w-full bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
+            className="w-full bg-[#ff1d6c] hover:bg-[#d4185a] disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
           >
             {saving ? 'Creating…' : 'Create Group'}
           </button>
@@ -104,7 +104,7 @@ function ConfirmModal({
               : <>This will permanently delete <span className="text-white font-medium">{group.name}</span> and remove all members.</>
             }
           </p>
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-[#ff1d6c] text-xs">{error}</p>}
           <div className="flex gap-3">
             <button
               onClick={onCancel}
@@ -115,7 +115,7 @@ function ConfirmModal({
             <button
               onClick={onConfirm}
               disabled={loading}
-              className={`flex-1 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-colors text-sm ${type === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#f97316] hover:bg-[#ea580c]'}`}
+              className={`flex-1 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-colors text-sm ${type === 'delete' ? 'bg-[#ff1d6c] hover:bg-[#ff1d6c]' : 'bg-[#ff1d6c] hover:bg-[#d4185a]'}`}
             >
               {loading ? '…' : type === 'leave' ? 'Leave' : 'Delete'}
             </button>
@@ -204,7 +204,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
         {!atLimit && (
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors whitespace-nowrap"
+            className="flex items-center gap-1.5 bg-[#ff1d6c] hover:bg-[#d4185a] text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors whitespace-nowrap"
           >
             <Plus size={14} /> New Group
           </button>
@@ -216,8 +216,8 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
 
       {groups.length === 0 ? (
         <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-4 fade-up" style={{ paddingTop: 56, paddingBottom: 56 }}>
-          <div className="w-14 h-14 rounded-full bg-[#f97316]/10 flex items-center justify-center">
-            <Users size={22} className="text-[#f97316]" />
+          <div className="w-14 h-14 rounded-full bg-[#ff1d6c]/10 flex items-center justify-center">
+            <Users size={22} className="text-[#ff1d6c]" />
           </div>
           <div>
             <p className="font-bold text-white mb-1">No groups yet</p>
@@ -227,7 +227,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
           </div>
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm"
+            className="flex items-center gap-2 bg-[#ff1d6c] hover:bg-[#d4185a] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm"
           >
             <Plus size={14} /> Create your first group
           </button>
@@ -262,8 +262,8 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
               )}
 
               {/* Icon */}
-              <div className="w-10 h-10 rounded-full bg-[#f97316]/15 flex items-center justify-center shrink-0">
-                <Users size={16} className="text-[#f97316]" />
+              <div className="w-10 h-10 rounded-full bg-[#ff1d6c]/15 flex items-center justify-center shrink-0">
+                <Users size={16} className="text-[#ff1d6c]" />
               </div>
 
               {/* Info — clicking navigates to group */}
@@ -271,7 +271,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
                 <div className="flex items-center gap-2">
                   <span className="font-bold truncate">{g.name}</span>
                   {g.my_role === 'admin' && (
-                    <span className="text-[10px] text-yellow-400 font-bold bg-yellow-400/10 px-1.5 py-0.5 rounded shrink-0">Admin</span>
+                    <span className="text-[10px] text-[#d9ff36] font-bold bg-[#d9ff36]/10 px-1.5 py-0.5 rounded shrink-0">Admin</span>
                   )}
                 </div>
                 <p className="text-[#6b7280] text-xs mt-0.5">
@@ -291,7 +291,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
                   </button>
                   <button
                     onClick={() => { setActionError(''); setConfirm({ group: g, type: 'delete' }) }}
-                    className="p-2 rounded-lg transition-colors text-red-500/60 hover:text-red-500 hover:bg-red-500/10"
+                    className="p-2 rounded-lg transition-colors text-[#ff1d6c]/60 hover:text-[#ff1d6c] hover:bg-[#ff1d6c]/10"
                     title="Delete group"
                   >
                     <Trash2 size={15} />

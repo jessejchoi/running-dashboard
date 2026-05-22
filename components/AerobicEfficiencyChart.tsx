@@ -8,7 +8,7 @@ import { formatPace } from '@/lib/analysis'
 import type { EasyRunEfficiency } from '@/lib/analysis'
 import { vdotFrom5K } from '@/lib/utils'
 
-const COLOR = '#a78bfa'
+const COLOR = '#5ad7ff'
 const REF_HR = 150
 
 function CustomTooltip({ active, payload }: any) {
@@ -91,7 +91,7 @@ export default function AerobicEfficiencyChart({ runs }: Props) {
       <div className="flex flex-wrap items-start gap-6 mb-6 text-sm">
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Trend</div>
-          <div className={`font-mono font-bold ${improving ? 'text-emerald-400' : 'text-red-400'}`}>
+          <div className={`font-mono font-bold ${improving ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'}`}>
             {improving ? '▼' : '▲'} {Math.abs(weeklyChangeSec).toFixed(1)}s/km · week
           </div>
           <div className="text-[#4b5563] text-xs mt-0.5">{improving ? 'getting faster' : 'getting slower'}</div>
@@ -108,7 +108,7 @@ export default function AerobicEfficiencyChart({ runs }: Props) {
         {data.length > 1 && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Total improvement</div>
-            <div className={`font-mono font-bold ${data[0].normalizedPaceSec > latest.normalizedPaceSec ? 'text-emerald-400' : 'text-red-400'}`}>
+            <div className={`font-mono font-bold ${data[0].normalizedPaceSec > latest.normalizedPaceSec ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'}`}>
               {data[0].normalizedPaceSec > latest.normalizedPaceSec ? '▼ ' : '▲ '}
               {Math.abs(data[0].normalizedPaceSec - latest.normalizedPaceSec).toFixed(1)}s/km
             </div>

@@ -66,13 +66,13 @@ export default function GroupPageHeader({
                   if (e.key === 'Escape') setRenamingGroup(false)
                 }}
                 autoFocus
-                className="font-display font-extrabold uppercase bg-transparent border-b-2 border-[#f97316] outline-none text-white w-full"
+                className="font-display font-extrabold uppercase bg-transparent border-b-2 border-[#ff1d6c] outline-none text-white w-full"
                 style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}
               />
               <button
                 onClick={onSaveGroupName}
                 disabled={renameLoading}
-                className="text-xs font-bold text-[#f97316] hover:text-[#ea580c] disabled:opacity-50 shrink-0"
+                className="text-xs font-bold text-[#ff1d6c] hover:text-[#d4185a] disabled:opacity-50 shrink-0"
               >
                 {renameLoading ? '…' : 'Save'}
               </button>
@@ -116,11 +116,11 @@ export default function GroupPageHeader({
                       href={`/group/${group.id}`}
                       className={`flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors no-underline ${
                         group.id === groupId
-                          ? 'text-[#f97316] bg-[#f97316]/10'
+                          ? 'text-[#ff1d6c] bg-[#ff1d6c]/10'
                           : 'text-[#9ca3af] hover:text-white hover:bg-[#1c1c1c]'
                       }`}
                     >
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${group.id === groupId ? 'bg-[#f97316]' : 'bg-[#3a3a3a]'}`} />
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${group.id === groupId ? 'bg-[#ff1d6c]' : 'bg-[#3a3a3a]'}`} />
                       <span className="truncate">{group.name}</span>
                     </a>
                   ))}
@@ -130,9 +130,9 @@ export default function GroupPageHeader({
           )}
           <button
             onClick={copyInvite}
-            className="flex items-center gap-2 px-3 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#f97316] text-[#6b7280] hover:text-[#f97316] rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#ff1d6c] text-[#6b7280] hover:text-[#ff1d6c] rounded-lg transition-colors"
           >
-            {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+            {copied ? <Check size={12} className="text-[#d9ff36]" /> : <Copy size={12} />}
             {copied ? 'Copied!' : 'Invite link'}
           </button>
         </div>
@@ -141,15 +141,15 @@ export default function GroupPageHeader({
       {localMemberCount < 2 && (
         <div className="card border-dashed border-[#2a2a2a] mb-6 fade-up">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#f97316]/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Users size={14} className="text-[#f97316]" />
+            <div className="w-8 h-8 rounded-full bg-[#ff1d6c]/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Users size={14} className="text-[#ff1d6c]" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm mb-1">Invite your training partners</p>
               <p className="text-[#6b7280] text-xs mb-3">Share this link so they can join the group.</p>
               <div className="flex items-center gap-2 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2">
                 <span className="text-[#6b7280] text-xs font-mono truncate flex-1">{inviteUrl}</span>
-                <button onClick={copyInvite} className="text-[#f97316] text-xs font-bold shrink-0 hover:underline">
+                <button onClick={copyInvite} className="text-[#ff1d6c] text-xs font-bold shrink-0 hover:underline">
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
               </div>

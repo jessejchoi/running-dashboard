@@ -46,7 +46,7 @@ export default function RepTableClient({ efforts, targetSecsMap, defaultTargetSe
                 <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm, unit)}{paceUnitLabel(unit)}</td>
                 <td className="px-2 py-2 font-mono text-[#9ca3af] whitespace-nowrap">{formatDuration(rep.durationSecs)}</td>
                 <td className="px-2 py-2 font-mono text-[#9ca3af]">{rep.avgHR ? Math.round(rep.avgHR) : '—'}</td>
-                <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${projectedSecs <= targetSecs ? 'text-emerald-400' : 'text-white'}`}>
+                <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${projectedSecs <= targetSecs ? 'text-[#d9ff36]' : 'text-white'}`}>
                   {formatTime(projectedSecs)}
                 </td>
               </tr>

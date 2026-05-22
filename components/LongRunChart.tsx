@@ -8,7 +8,7 @@ import { formatPace, formatTime, type LongRunAnalysis } from '@/lib/analysis'
 import { useAnalysisTab } from './AnalysisTabContext'
 import { distanceLabel, type DistanceKey } from '@/lib/goals'
 
-const COLOR = '#34d399'
+const COLOR = '#d9ff36'
 
 const STRUCTURE_LABEL: Record<string, string> = {
   steady:      'Steady',
@@ -17,8 +17,8 @@ const STRUCTURE_LABEL: Record<string, string> = {
 }
 const STRUCTURE_COLOR: Record<string, string> = {
   steady:      '#6b7280',
-  progression: '#f97316',
-  fast_middle: '#60a5fa',
+  progression: '#ff1d6c',
+  fast_middle: '#5ad7ff',
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -42,19 +42,19 @@ function CustomTooltip({ active, payload }: any) {
       </div>
       <div className="text-[#9ca3af] mb-2">@ {Math.round(d.steadyHR)} bpm · {d.distanceKm.toFixed(1)} km</div>
       {d.driftReliable ? (
-        <div className={`mb-1 font-mono text-xs ${d.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
+        <div className={`mb-1 font-mono text-xs ${d.cardiacDrift > 3 ? 'text-[#ff7a1c]' : 'text-[#d9ff36]'}`}>
           Drift: {d.cardiacDrift.toFixed(1)}%
         </div>
       ) : (
         <div className="mb-1 text-[#4b5563] text-xs">Drift: — {d.driftReason && `(${d.driftReason})`}</div>
       )}
       {d.fastBlock && (
-        <div className="mt-1 mb-1 text-[#60a5fa] text-xs font-mono">
+        <div className="mt-1 mb-1 text-[#5ad7ff] text-xs font-mono">
           Fast block: {(d.fastBlock.durationSecs / 60).toFixed(0)} min @ {formatPace(d.fastBlock.avgPace)}/km
         </div>
       )}
       {d.residualElevation != null && (
-        <div className={`mb-1 text-xs font-mono ${d.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
+        <div className={`mb-1 text-xs font-mono ${d.residualElevation > 5 ? 'text-[#ff7a1c]' : 'text-[#d9ff36]'}`}>
           Residual HR: +{d.residualElevation.toFixed(1)}%
         </div>
       )}
@@ -124,7 +124,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
       <div className="flex flex-wrap items-start gap-6 mb-6 text-sm">
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Trend</div>
-          <div className={`font-mono font-bold ${improving ? 'text-emerald-400' : 'text-red-400'}`}>
+          <div className={`font-mono font-bold ${improving ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'}`}>
             {improving ? '▼' : '▲'} {Math.abs(weeklyChangeSec).toFixed(1)}s/km · week
           </div>
           <div className="text-[#4b5563] text-xs mt-0.5">{improving ? 'getting faster' : 'getting slower'}</div>
@@ -143,7 +143,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
           <div className="text-[#6b7280] text-xs mb-1">Cardiac drift</div>
           {latest.driftReliable ? (
             <>
-              <div className={`font-mono font-bold ${latest.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
+              <div className={`font-mono font-bold ${latest.cardiacDrift > 3 ? 'text-[#ff7a1c]' : 'text-[#d9ff36]'}`}>
                 {latest.cardiacDrift.toFixed(1)}%
               </div>
               <div className="text-[#4b5563] text-xs mt-0.5">{latest.cardiacDrift > 3 ? 'high fatigue' : 'low fatigue'}</div>
@@ -158,7 +158,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         {latest.residualElevation != null && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Residual HR</div>
-            <div className={`font-mono font-bold ${latest.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
+            <div className={`font-mono font-bold ${latest.residualElevation > 5 ? 'text-[#ff7a1c]' : 'text-[#d9ff36]'}`}>
               +{latest.residualElevation.toFixed(1)}%
             </div>
             <div className="text-[#4b5563] text-xs mt-0.5">post-effort easy HR</div>
@@ -167,7 +167,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         {latestFastEst ? (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Est. {distanceLabel(active as DistanceKey)}</div>
-            <div className="font-mono font-bold text-[#60a5fa]">{formatTime(latestFastEst.estimatedSecs)}</div>
+            <div className="font-mono font-bold text-[#5ad7ff]">{formatTime(latestFastEst.estimatedSecs)}</div>
             <div className="text-[#4b5563] text-xs mt-0.5">from long run fast block</div>
           </div>
         ) : latestSteadyEst ? (
@@ -180,7 +180,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         {data.length > 1 && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Total improvement</div>
-            <div className={`font-mono font-bold ${data[0].steadyPace > latest.steadyPace ? 'text-emerald-400' : 'text-red-400'}`}>
+            <div className={`font-mono font-bold ${data[0].steadyPace > latest.steadyPace ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'}`}>
               {data[0].steadyPace > latest.steadyPace ? '▼ ' : '▲ '}
               {Math.abs(data[0].steadyPace - latest.steadyPace).toFixed(1)}s/km
             </div>

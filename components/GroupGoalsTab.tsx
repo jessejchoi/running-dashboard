@@ -38,7 +38,7 @@ export default function GroupGoalsTab({ members, memberEstimates, myAthleteId }:
             <div className="flex items-center gap-2 mb-3">
               <Avatar name={member.name} pic={member.profile_pic} size={6} />
               <span className="font-bold text-sm">{member.name}</span>
-              {member.is_me && <span className="text-[10px] text-[#f97316] font-bold bg-[#f97316]/10 px-1.5 py-0.5 rounded">You</span>}
+              {member.is_me && <span className="text-[10px] text-[#ff1d6c] font-bold bg-[#ff1d6c]/10 px-1.5 py-0.5 rounded">You</span>}
             </div>
             {member.goals.length === 0 ? (
               <p className="text-[#4b5563] text-xs pl-8">No goals set yet</p>
@@ -51,20 +51,20 @@ export default function GroupGoalsTab({ members, memberEstimates, myAthleteId }:
                   const targetPace = goal.target_secs / km
 
                   const distColor = ({
-                    '5k': 'text-red-400', '10k': 'text-orange-400',
-                    'half_marathon': 'text-sky-400', 'hm': 'text-sky-400',
-                    'marathon': 'text-purple-400', 'fm': 'text-purple-400',
-                  } as Record<string, string>)[goal.distance_key] ?? 'text-[#f97316]'
+                    '5k': 'text-[#ff1d6c]', '10k': 'text-[#ff7a1c]',
+                    'half_marathon': 'text-[#5ad7ff]', 'hm': 'text-[#5ad7ff]',
+                    'marathon': 'text-[#5ad7ff]', 'fm': 'text-[#5ad7ff]',
+                  } as Record<string, string>)[goal.distance_key] ?? 'text-[#ff1d6c]'
                   const distBar = ({
-                    '5k': 'bg-red-400', '10k': 'bg-orange-400',
-                    'half_marathon': 'bg-sky-400', 'hm': 'bg-sky-400',
-                    'marathon': 'bg-purple-400', 'fm': 'bg-purple-400',
-                  } as Record<string, string>)[goal.distance_key] ?? 'bg-[#f97316]'
+                    '5k': 'bg-[#ff1d6c]', '10k': 'bg-[#ff7a1c]',
+                    'half_marathon': 'bg-[#5ad7ff]', 'hm': 'bg-[#5ad7ff]',
+                    'marathon': 'bg-[#5ad7ff]', 'fm': 'bg-[#5ad7ff]',
+                  } as Record<string, string>)[goal.distance_key] ?? 'bg-[#ff1d6c]'
                   const distBg = ({
-                    '5k': 'bg-red-400/10', '10k': 'bg-orange-400/10',
-                    'half_marathon': 'bg-sky-400/10', 'hm': 'bg-sky-400/10',
-                    'marathon': 'bg-purple-400/10', 'fm': 'bg-purple-400/10',
-                  } as Record<string, string>)[goal.distance_key] ?? 'bg-[#f97316]/10'
+                    '5k': 'bg-[#ff1d6c]/10', '10k': 'bg-[#ff7a1c]/10',
+                    'half_marathon': 'bg-[#5ad7ff]/10', 'hm': 'bg-[#5ad7ff]/10',
+                    'marathon': 'bg-[#5ad7ff]/10', 'fm': 'bg-[#5ad7ff]/10',
+                  } as Record<string, string>)[goal.distance_key] ?? 'bg-[#ff1d6c]/10'
 
                   const estimateKey = ({ 'half_marathon': 'hm', 'marathon': 'fm' } as Record<string, string>)[goal.distance_key] ?? goal.distance_key
                   const analysisSecs = memberEstimates[member.athlete_id]?.[estimateKey] ?? null

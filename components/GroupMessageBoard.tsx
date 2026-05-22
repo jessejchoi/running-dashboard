@@ -178,7 +178,7 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
                   <button
                     onClick={() => { setToAthleteId(null); setShowToDropdown(false) }}
                     className="w-full text-left text-xs px-3 py-2 transition-colors hover:bg-white/5"
-                    style={{ color: toAthleteId === null ? '#f97316' : 'var(--text-1)' }}
+                    style={{ color: toAthleteId === null ? '#ff1d6c' : 'var(--text-1)' }}
                   >
                     Everyone
                   </button>
@@ -187,7 +187,7 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
                       key={m.athlete_id}
                       onClick={() => { setToAthleteId(m.athlete_id); setShowToDropdown(false) }}
                       className="w-full text-left text-xs px-3 py-2 flex items-center gap-2 transition-colors hover:bg-white/5"
-                      style={{ color: toAthleteId === m.athlete_id ? '#f97316' : 'var(--text-1)' }}
+                      style={{ color: toAthleteId === m.athlete_id ? '#ff1d6c' : 'var(--text-1)' }}
                     >
                       <Avatar name={m.name} pic={m.profile_pic} size={4} />
                       {m.name.split(' ')[0]}
@@ -228,7 +228,7 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
               maxHeight: 96,
               lineHeight: '1.5',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#f97316' }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#ff1d6c' }}
             onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
             onInput={e => {
               const el = e.currentTarget
@@ -243,7 +243,7 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
             style={{
               width: 38,
               height: 38,
-              background: content.trim() && !sending ? '#f97316' : 'var(--surface-2)',
+              background: content.trim() && !sending ? '#ff1d6c' : 'var(--surface-2)',
               color: content.trim() && !sending ? '#fff' : 'var(--text-muted)',
               border: '1px solid var(--border)',
             }}
@@ -283,7 +283,7 @@ function MessageRow({ msg, myRole, onDelete }: { msg: Message; myRole: string; o
           {msg.to_name && (
             <>
               <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>→</span>
-              <span className="text-xs font-semibold" style={{ color: '#f97316' }}>{msg.to_name.split(' ')[0]}</span>
+              <span className="text-xs font-semibold" style={{ color: '#ff1d6c' }}>{msg.to_name.split(' ')[0]}</span>
             </>
           )}
           <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{timestamp}</span>

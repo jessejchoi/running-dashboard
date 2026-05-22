@@ -28,17 +28,17 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   if (pic) return <img src={pic} alt={name} className="w-7 h-7 rounded-full object-cover shrink-0" />
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="w-7 h-7 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-[10px] shrink-0">
+    <div className="w-7 h-7 rounded-full bg-[#ff1d6c]/20 flex items-center justify-center text-[#ff1d6c] font-bold text-[10px] shrink-0">
       {initials}
     </div>
   )
 }
 
 const DISTANCE_CONFIG: Record<string, { label: string; short: string; color: string; bg: string; dot: string }> = {
-  '5k':            { label: '5K',            short: '5K',  color: 'text-red-400',    bg: 'bg-red-400/10',    dot: 'bg-red-400' },
-  '10k':           { label: '10K',           short: '10K', color: 'text-orange-400', bg: 'bg-orange-400/10', dot: 'bg-orange-400' },
-  'half_marathon': { label: 'Half Marathon', short: 'HM',  color: 'text-sky-400',    bg: 'bg-sky-400/10',    dot: 'bg-sky-400' },
-  'marathon':      { label: 'Marathon',      short: 'FM',  color: 'text-purple-400', bg: 'bg-purple-400/10', dot: 'bg-purple-400' },
+  '5k':            { label: '5K',            short: '5K',  color: 'text-[#ff1d6c]',    bg: 'bg-[#ff1d6c]/10',    dot: 'bg-[#ff1d6c]' },
+  '10k':           { label: '10K',           short: '10K', color: 'text-[#ff7a1c]', bg: 'bg-[#ff7a1c]/10', dot: 'bg-[#ff7a1c]' },
+  'half_marathon': { label: 'Half Marathon', short: 'HM',  color: 'text-[#5ad7ff]',    bg: 'bg-[#5ad7ff]/10',    dot: 'bg-[#5ad7ff]' },
+  'marathon':      { label: 'Marathon',      short: 'FM',  color: 'text-[#5ad7ff]', bg: 'bg-[#5ad7ff]/10', dot: 'bg-[#5ad7ff]' },
 }
 
 // ── Custom dropdown ────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ function FilterDropdown({ value, onChange, options, placeholder }: DropdownProps
           className="w-full text-left px-3 py-2 text-xs text-[#9ca3af] hover:bg-[#242424] flex items-center justify-between gap-2 transition-colors"
         >
           <span className={value === opt.value ? 'text-white font-medium' : ''}>{opt.label}</span>
-          {value === opt.value && <Check size={10} className="text-[#f97316]" />}
+          {value === opt.value && <Check size={10} className="text-[#ff1d6c]" />}
         </button>
       ))}
     </div>,

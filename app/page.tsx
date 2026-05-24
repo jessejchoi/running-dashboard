@@ -181,7 +181,7 @@ export default async function DashboardPage() {
           <DashboardRaceSection athleteId={Number(athleteId)} unit={unit} hasMaxHr={hasMaxHr} />
         </Suspense>
 
-        <RecentRunsCard runs={activities.slice(0, 7) as any} unit={unit} />
+        <RecentRunsCard runs={activities.slice(0, 3) as any} unit={unit} />
 
       </main>
     </>

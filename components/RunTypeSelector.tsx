@@ -10,9 +10,17 @@ interface Props {
   current?: string | null
   isManual?: boolean
   onUpdate?: (newType: RunType | null) => void
+  compact?: boolean
 }
 
-export default function RunTypeSelector({ activityId, current, isManual, onUpdate }: Props) {
+function compactTypeLabel(label: string) {
+  return label
+    .replace('Easy + Strides', 'Strides')
+    .replace('Long Run with Speed', 'Long Speed')
+    .replace('Long Run — ', 'Long ')
+}
+
+export default function RunTypeSelector({ activityId, current, isManual, onUpdate, compact = false }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string | null>(current ?? null)
@@ -107,7 +115,7 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
     >
       <button
         onClick={() => handleSelect(null)}
-        className="w-full text-left px-3 py-2 text-xs text-[#6A6A6A] hover:bg-[#232323] flex items-center justify-between uppercase tracking-[0.16em] font-mono"
+        className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.16em] text-[#6A6A6A] hover:bg-[#232323]"
       >
         <span>Clear</span>
         {!selected && <Check size={10} />}
@@ -120,7 +128,7 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
             <button
               key={key}
               onClick={() => handleSelect(key)}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-[#232323] flex items-center justify-between gap-2 transition-colors font-mono uppercase tracking-[0.12em]"
+              className="flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.12em] transition-colors hover:bg-[#232323]"
             >
               <span className={`flex items-center gap-2 ${color}`}>
                 <span className={`w-1.5 h-1.5 ${bg} inline-block`} />
@@ -141,7 +149,9 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
         ref={btnRef}
         onClick={() => setOpen(!open)}
         disabled={saving}
-        className={`flex min-h-[32px] items-center gap-2 px-3 py-1.5 border text-[10.5px] font-bold uppercase tracking-[0.16em] transition-all ${
+        className={`flex min-h-[44px] max-w-full items-center gap-2 border font-mono font-bold uppercase tracking-[0.16em] transition-all ${
+          compact ? 'px-2.5 py-1 text-[10px]' : 'px-3 py-1.5 text-[10.5px]'
+        } ${
           currentConfig
             ? `${currentConfig.color} ${currentConfig.bg} border-current`
             : 'text-[#6A6A6A] bg-[#232323] border-[rgba(255,255,255,0.10)] hover:border-[rgba(255,255,255,0.22)]'
@@ -151,10 +161,12 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
           <>
             {currentConfig ? (
               <>
-                {currentConfig.label}
+                <span className={compact ? 'max-w-[98px] truncate' : undefined}>
+                  {compact ? compactTypeLabel(currentConfig.label) : currentConfig.label}
+                </span>
                 {!manual && <span className="opacity-50 font-normal tracking-[0.12em] ml-1">/ Auto</span>}
               </>
-            ) : 'Set type'}
+            ) : compact ? 'Type' : 'Set type'}
             <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
           </>
         )}

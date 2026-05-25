@@ -5,7 +5,6 @@ import Nav from '@/components/Nav'
 import GroupPageClient from '@/components/GroupPageClient'
 import { format } from 'date-fns'
 import { calculateTrainingLoad } from '@/lib/strava'
-import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 import { getGroupLatestEstimates } from '@/lib/latestEstimates'
 import type { BriefingContent } from '@/lib/coachOutputs'
 
@@ -72,7 +71,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   // Batch 2: fetch all member-dependent data and group names in parallel
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
-  const fourWeeksAgo = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   // Today in Jakarta time (UTC+7) for plans date range
   const jakartaNow = new Date(Date.now() + 7 * 60 * 60 * 1000)
   const todayStr = jakartaNow.toISOString().slice(0, 10)
@@ -86,7 +84,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     { data: recentRuns },
     { data: leaderboardRuns },
     { data: briefingRow },
-    { data: awardsRaw },
     { data: plansRaw },
   ] = await Promise.all([
     allGroupIds.length > 0
@@ -124,12 +121,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .select('content_json, generated_at')
       .eq('group_id', params.id)
       .maybeSingle(),
-    supabaseAdmin
-      .from('group_member_awards')
-      .select('id, athlete_id, award_key, award_label, week_start, caption')
-      .eq('group_id', params.id)
-      .gte('week_start', fourWeeksAgo)
-      .order('week_start', { ascending: false }),
     supabaseAdmin
       .from('user_plans')
       .select('id, athlete_id, plan_date, session_index, session_type, description, target_distance_meters')
@@ -189,22 +180,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://running-dashboard-three.vercel.app'}/join/${group.invite_code}`
 
-  // Build token map for awards (reuse already-fetched tokens)
-  const tokenMap: Record<number, { name: string; profile_pic: string | null }> = Object.fromEntries(
-    (tokens ?? []).map(t => [t.athlete_id, { name: t.athlete_name, profile_pic: t.athlete_profile ?? null }])
-  )
-  const initialAwards = (awardsRaw ?? []).map(a => ({
-    id: a.id as string,
-    athlete_id: a.athlete_id as number,
-    athlete_name: tokenMap[a.athlete_id]?.name ?? `Athlete ${a.athlete_id}`,
-    athlete_profile: tokenMap[a.athlete_id]?.profile_pic ?? null,
-    award_key: a.award_key as string,
-    award_label: a.award_label as string,
-    emoji: isValidAwardKey(a.award_key as string) ? AWARD_CATEGORIES[a.award_key as string].emoji : '🏆',
-    week_start: a.week_start as string,
-    caption: (a.caption as string | null) ?? null,
-  }))
-
   const initialBriefing = briefingRow ? (briefingRow.content_json as BriefingContent) : null
   const initialBriefingMeta = briefingRow
     ? { cached: true, generated_at: briefingRow.generated_at as string }
@@ -226,7 +201,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         allGroups={allGroups}
         initialBriefing={initialBriefing}
         initialBriefingMeta={initialBriefingMeta}
-        initialAwards={initialAwards}
         initialPlans={plansRaw ?? []}
         memberEstimates={memberEstimates}
       />

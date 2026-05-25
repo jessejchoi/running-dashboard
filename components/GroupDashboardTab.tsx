@@ -12,18 +12,6 @@ import GroupMessageBoard from '@/components/GroupMessageBoard'
 import { GroupBetsDashboardCard } from '@/components/GroupBets'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 
-interface Award {
-  id: string
-  athlete_id: number
-  athlete_name: string
-  athlete_profile: string | null
-  award_key: string
-  award_label: string
-  emoji: string
-  week_start: string
-  caption: string | null
-}
-
 interface BriefingMeta {
   cached: boolean
   generated_at: string
@@ -41,7 +29,6 @@ interface Props {
   onUpdateMemberRole: (athleteId: number, role: 'admin' | 'member') => Promise<void>
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: BriefingMeta | null
-  initialAwards?: Award[]
 }
 
 // ── Leaderboard helpers ──────────────────────────────────────────────────────
@@ -323,7 +310,7 @@ function summarizePastChallenge(
 
 export default function GroupDashboardTab({
   group, leaderboardRuns, members, memberTrainingLoads, myRole, myAthleteId, initialChallenges,
-  onKickMember, onUpdateMemberRole, initialBriefing, initialBriefingMeta, initialAwards,
+  onKickMember, onUpdateMemberRole, initialBriefing, initialBriefingMeta,
 }: Props) {
   const { unit } = useUnit()
   const label = distanceUnitLabel(unit)
@@ -855,7 +842,7 @@ export default function GroupDashboardTab({
       {/* RDCoach */}
       <div className="col-span-12">
         <h2 className="mb-4 font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">RDCoach</h2>
-        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
+        <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} />
       </div>
 
       {/* Leaderboard */}

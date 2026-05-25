@@ -11,18 +11,6 @@ interface Member {
   profile_pic: string | null
 }
 
-interface Award {
-  id: string
-  athlete_id: number
-  athlete_name: string
-  athlete_profile: string | null
-  award_key: string
-  award_label: string
-  emoji: string
-  week_start: string
-  caption: string | null
-}
-
 interface BriefingMeta {
   cached: boolean
   generated_at: string
@@ -32,11 +20,10 @@ interface Props {
   groupId: string
   myRole: string
   members: Member[]
-  /** When true, hides Ask Coach and Trophy Case (used on the home page) */
+  /** When true, hides Ask Coach (used on the home page) */
   minimal?: boolean
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: BriefingMeta | null
-  initialAwards?: Award[]
 }
 
 
@@ -95,7 +82,7 @@ const COACH_CHIPS = [
   "What should we focus on?",
 ]
 
-export default function GroupCoachTab({ groupId, myRole, members, minimal = false, initialBriefing, initialBriefingMeta, initialAwards }: Props) {
+export default function GroupCoachTab({ groupId, myRole, members, minimal = false, initialBriefing, initialBriefingMeta }: Props) {
   const [briefing, setBriefing] = useState<BriefingContent | null>(initialBriefing ?? null)
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
@@ -103,7 +90,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   const [answer, setAnswer] = useState('')
   const [answerStreaming, setAnswerStreaming] = useState(false)
   const [activeChip, setActiveChip] = useState<string | null>(null)
-  const [awards, setAwards] = useState<Award[]>(initialAwards ?? [])
   const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
@@ -126,21 +112,8 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
     }
   }
 
-  async function fetchAwards() {
-    if (minimal) return
-    try {
-      const res = await fetch(`/api/groups/${groupId}/awards?weeks=4`)
-      if (!res.ok) return
-      const data = await res.json()
-      setAwards(data.awards ?? [])
-    } catch {
-      // silent — Trophy Case is non-critical
-    }
-  }
-
   useEffect(() => {
     if (!initialBriefing) fetchBriefing()
-    if (!initialAwards?.length && !minimal) fetchAwards()
   }, [])
 
   async function askCoach(chipText: string) {
@@ -179,7 +152,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
           <div className="h-24 animate-pulse border border-[#303037] bg-[#111]" />
         </div>
         {!minimal && <div className="h-16 animate-pulse border border-[#303037] bg-[#111]" />}
-        {!minimal && <div className="h-20 animate-pulse border border-[#303037] bg-[#111]" />}
       </div>
     )
   }
@@ -200,23 +172,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
 
   if (!briefing) return null
 
-  // Current week start (Monday) in local time — exclude from Trophy Case since it's shown above
-  const todayStr = new Date().toISOString().split('T')[0]
-  const todayDate = new Date(todayStr + 'T12:00:00')
-  const dayOfWeek = todayDate.getDay() // 0=Sun
-  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-  const currentWeekStart = new Date(todayDate)
-  currentWeekStart.setDate(todayDate.getDate() - daysToMonday)
-  const currentWeekStr = currentWeekStart.toISOString().split('T')[0]
-
-  // Group awards by week for Trophy Case (past weeks only)
-  const awardWeeks = awards.reduce<Record<string, Award[]>>((acc, a) => {
-    if (a.week_start >= currentWeekStr) return acc // skip current week
-    acc[a.week_start] = acc[a.week_start] ?? []
-    acc[a.week_start].push(a)
-    return acc
-  }, {})
-  const sortedWeeks = Object.keys(awardWeeks).sort((a, b) => b.localeCompare(a))
   const coachChips = briefing.ask_prompts?.length ? briefing.ask_prompts : COACH_CHIPS
 
   return (
@@ -289,48 +244,6 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
               {answerStreaming && (
                 <span className="inline-block w-2 h-3.5 bg-[#e84d85] animate-pulse ml-0.5 align-middle" />
               )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Trophy Case — past weeks (group page only) */}
-      {!minimal && (
-        <div>
-          <h3 className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Trophy Case</h3>
-          {sortedWeeks.length === 0 ? (
-            <p className="text-[10px] text-[#4b5563] font-mono">
-              Awards will appear here after the next briefing refresh.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {sortedWeeks.map(week => (
-                <div key={week}>
-                  <p className="text-[10px] font-mono text-[#4b5563] mb-2">
-                    Week of {new Date(week + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
-                  <div className="grid sm:grid-cols-2 gap-2">
-                    {awardWeeks[week].map(a => (
-                      <div key={a.id} className="flex items-center gap-3 border border-[#1c1c1c] bg-[#151517] px-3 py-2.5">
-                        <div className="relative shrink-0">
-                          {a.athlete_profile ? (
-                            <img src={a.athlete_profile} alt={a.athlete_name} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#e84d85]/20 flex items-center justify-center text-[#e84d85] font-bold text-[10px]">
-                              {a.athlete_name.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <span className="absolute -bottom-0.5 -right-1 text-sm leading-none">{a.emoji}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-white truncate">{a.athlete_name.split(' ')[0]}</div>
-                          <div className="text-[10px] text-[#6b7280] truncate">{a.award_label}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </div>

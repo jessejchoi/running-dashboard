@@ -10,18 +10,6 @@ import GroupPageHeader from '@/components/GroupPageHeader'
 import { GroupBetsTab } from '@/components/GroupBets'
 import type { BriefingContent } from '@/lib/coachOutputs'
 
-interface Award {
-  id: string
-  athlete_id: number
-  athlete_name: string
-  athlete_profile: string | null
-  award_key: string
-  award_label: string
-  emoji: string
-  week_start: string
-  caption: string | null
-}
-
 interface UserPlan {
   id: string
   athlete_id: number
@@ -45,14 +33,13 @@ interface Props {
   allGroups: { id: string; name: string }[]
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: { cached: boolean; generated_at: string } | null
-  initialAwards?: Award[]
   initialPlans?: UserPlan[]
   memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, initialAwards, initialPlans, memberEstimates: initialMemberEstimates = {},
+  initialBriefing, initialBriefingMeta, initialPlans, memberEstimates: initialMemberEstimates = {},
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans' | 'bets'>('dashboard')
@@ -194,7 +181,6 @@ export default function GroupPageClient({
           onUpdateMemberRole={updateMemberRole}
           initialBriefing={initialBriefing}
           initialBriefingMeta={initialBriefingMeta}
-          initialAwards={initialAwards}
         />
       </div>
 

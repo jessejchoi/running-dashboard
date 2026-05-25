@@ -111,24 +111,24 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
     <div
       ref={dropRef}
       style={{ top: dropdownPos.top, left: dropdownPos.left }}
-      className="fixed z-[9999] bg-[#111111] border border-[rgba(255,255,255,0.22)] shadow-2xl py-1 min-w-[220px]"
+      className="fixed z-[9999] bg-[#151517] border border-[rgba(241,237,232,0.18)] shadow-2xl py-1 min-w-[220px]"
     >
       <button
         onClick={() => handleSelect(null)}
-        className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.16em] text-[#6A6A6A] hover:bg-[#232323]"
+        className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.16em] text-[#8B837C] hover:bg-[#29292f]"
       >
         <span>Clear</span>
         {!selected && <Check size={10} />}
       </button>
-      <div className="border-t border-[rgba(255,255,255,0.10)] my-1" />
+      <div className="border-t border-[rgba(241,237,232,0.10)] my-1" />
       {Object.entries(groups).map(([group, types]) => (
         <div key={group}>
-          <div className="px-3 py-1 text-[10px] font-bold text-[#424242] uppercase tracking-widest font-mono">/ {group}</div>
+          <div className="px-3 py-1 text-[10px] font-bold text-[#5d5651] uppercase tracking-widest font-mono">/ {group}</div>
           {types.map(({ key, label, color, bg }) => (
             <button
               key={key}
               onClick={() => handleSelect(key)}
-              className="flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.12em] transition-colors hover:bg-[#232323]"
+              className="flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.12em] transition-colors hover:bg-[#29292f]"
             >
               <span className={`flex items-center gap-2 ${color}`}>
                 <span className={`w-1.5 h-1.5 ${bg} inline-block`} />
@@ -154,7 +154,7 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
         } ${
           currentConfig
             ? `${currentConfig.color} ${currentConfig.bg} border-current`
-            : 'text-[#6A6A6A] bg-[#232323] border-[rgba(255,255,255,0.10)] hover:border-[rgba(255,255,255,0.22)]'
+            : 'text-[#8B837C] bg-[#29292f] border-[rgba(241,237,232,0.10)] hover:border-[rgba(241,237,232,0.18)]'
         } ${saving ? 'opacity-50' : ''}`}
       >
         {saving ? <span className="animate-pulse">Saving</span> : (

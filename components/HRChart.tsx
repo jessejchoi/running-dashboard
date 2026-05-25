@@ -21,9 +21,9 @@ function CustomTooltip({ active, payload }: any) {
   const mins = Math.floor(d.time / 60)
   const secs = (d.time % 60).toString().padStart(2, '0')
   return (
-    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs">
+    <div className="bg-[#1c1c1c] border border-[#303037] rounded-lg px-3 py-2 text-xs">
       <div className="text-[#6b7280]">{mins}:{secs}</div>
-      <div className="font-mono font-bold text-[#ff1d6c]">{payload[0].value} bpm</div>
+      <div className="font-mono font-bold text-[#e84d85]">{payload[0].value} bpm</div>
     </div>
   )
 }
@@ -91,7 +91,7 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
         {maxHR && (
           <div>
             <div className="text-[#6b7280] text-xs mb-0.5">Max HR</div>
-            <div className="font-mono font-bold text-[#ff1d6c] text-lg">
+            <div className="font-mono font-bold text-[#e84d85] text-lg">
               {Math.round(maxHR)} <span className="text-[#6b7280] text-xs font-normal">bpm</span>
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function HRChart({ streams, avgHR, maxHR, lapSegments }: Props) {
               }}
             />
             {avgHR && (
-              <ReferenceLine y={avgHR} stroke="#ff1d6c" strokeDasharray="4 4" strokeOpacity={0.4} strokeWidth={1} />
+              <ReferenceLine y={avgHR} stroke="#e84d85" strokeDasharray="4 4" strokeOpacity={0.4} strokeWidth={1} />
             )}
             <Line
               type="monotone"

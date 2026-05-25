@@ -175,7 +175,7 @@ export default function CoachNoteCard({ runId, athleteId }: Props) {
               maxLength={500}
               className="w-full text-sm rounded-lg px-3 py-2 outline-none resize-none"
               style={{
-                background: 'var(--surface-0, #0f0f0f)',
+                background: 'var(--surface-0, #151517)',
                 border: '1px solid var(--border)',
                 color: 'var(--text-1)',
               }}

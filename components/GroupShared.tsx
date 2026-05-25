@@ -105,7 +105,7 @@ export function Avatar({ name, pic, size = 8 }: { name: string; pic: string | nu
   }
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div style={{ width: px, height: px }} className="rounded-full bg-[#ff1d6c]/20 flex items-center justify-center text-[#ff1d6c] font-bold text-xs shrink-0">
+    <div style={{ width: px, height: px }} className="rounded-full bg-[#e84d85]/20 flex items-center justify-center text-[#e84d85] font-bold text-xs shrink-0">
       {initials}
     </div>
   )
@@ -134,18 +134,18 @@ export function StatusTag({ tag }: { tag: string }) {
 
 export function RunTypeDot({ type }: { type: string | null }) {
   const colors: Record<string, string> = {
-    intervals: 'bg-[#ff1d6c]',
-    interval_5k: 'bg-[#ff1d6c]',
-    tempo: 'bg-[#d9ff36]',
-    threshold: 'bg-[#ff7a1c]',
-    long_easy: 'bg-[#5ad7ff]',
-    long_steady: 'bg-[#5ad7ff]',
-    long_progressive: 'bg-[#5ad7ff]',
-    easy: 'bg-[#d9ff36]',
-    easy_strides: 'bg-[#d9ff36]',
+    intervals: 'bg-[#e84d85]',
+    interval_5k: 'bg-[#e84d85]',
+    tempo: 'bg-[#b8d957]',
+    threshold: 'bg-[#dc8b3a]',
+    long_easy: 'bg-[#6bbfdf]',
+    long_steady: 'bg-[#6bbfdf]',
+    long_progressive: 'bg-[#6bbfdf]',
+    easy: 'bg-[#b8d957]',
+    easy_strides: 'bg-[#b8d957]',
     recovery: 'bg-green-400',
   }
   return (
-    <span className={`inline-block w-2 h-2 rounded-full ${colors[type ?? ''] ?? 'bg-[#1a1a1a]'}`} />
+    <span className={`inline-block w-2 h-2 rounded-full ${colors[type ?? ''] ?? 'bg-[#202024]'}`} />
   )
 }

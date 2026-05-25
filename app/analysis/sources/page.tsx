@@ -21,7 +21,7 @@ export default async function SourcesPage() {
   })
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="min-h-screen bg-[#0d0d0f] text-white">
       <Nav />
       <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
         <div className="flex items-center gap-3 mb-6">

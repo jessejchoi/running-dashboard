@@ -17,7 +17,7 @@ export default function CollapsibleRuns({ count, color, children }: Props) {
     <div>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-[#2a2a2a] bg-[#111] hover:bg-[#161616] transition-colors text-sm"
+        className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-[#303037] bg-[#111] hover:bg-[#161616] transition-colors text-sm"
       >
         <span className="text-[#6b7280]">
           {open ? 'Hide' : 'See all'} <span style={{ color }}>{count} sessions</span>

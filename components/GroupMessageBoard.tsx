@@ -118,7 +118,8 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
   const displayMessages = [...messages].reverse()
 
   return (
-    <div className="card" style={{ padding: '1.25rem' }}>
+    <div className="card pulse-bar" style={{ padding: '1.25rem' }}>
+      <span className="pulse-idx">[01]</span>
       {/* Message feed */}
       <div
         ref={scrollContainerRef}
@@ -152,11 +153,11 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowToDropdown(v => !v)}
-                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md transition-colors"
+                className="flex min-h-[44px] items-center gap-1.5 border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition-colors"
                 style={{
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--border)',
-                  color: selectedTo ? 'var(--text-1)' : 'var(--text-muted)',
+                  background: 'var(--ink-2)',
+                  borderColor: 'var(--hair-2)',
+                  color: selectedTo ? 'var(--fg-1)' : 'var(--fg-3)',
                 }}
               >
                 {selectedTo ? (
@@ -172,13 +173,13 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
 
               {showToDropdown && (
                 <div
-                  className="absolute left-0 top-full mt-1 z-50 rounded-lg overflow-hidden min-w-[140px]"
-                  style={{ background: '#1a1a1a', border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                  className="absolute left-0 top-full z-50 mt-1 min-w-[150px] overflow-hidden border"
+                  style={{ background: '#202024', borderColor: 'var(--hair-2)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
                 >
                   <button
                     onClick={() => { setToAthleteId(null); setShowToDropdown(false) }}
                     className="w-full text-left text-xs px-3 py-2 transition-colors hover:bg-white/5"
-                    style={{ color: toAthleteId === null ? '#ff1d6c' : 'var(--text-1)' }}
+                    style={{ color: toAthleteId === null ? '#e84d85' : 'var(--text-1)' }}
                   >
                     Everyone
                   </button>
@@ -187,7 +188,7 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
                       key={m.athlete_id}
                       onClick={() => { setToAthleteId(m.athlete_id); setShowToDropdown(false) }}
                       className="w-full text-left text-xs px-3 py-2 flex items-center gap-2 transition-colors hover:bg-white/5"
-                      style={{ color: toAthleteId === m.athlete_id ? '#ff1d6c' : 'var(--text-1)' }}
+                      style={{ color: toAthleteId === m.athlete_id ? '#e84d85' : 'var(--text-1)' }}
                     >
                       <Avatar name={m.name} pic={m.profile_pic} size={4} />
                       {m.name.split(' ')[0]}
@@ -219,16 +220,16 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
             rows={1}
             maxLength={500}
             placeholder={selectedTo ? `Message to ${selectedTo.name.split(' ')[0]}…` : 'Say something to the group…'}
-            className="flex-1 text-sm resize-none rounded-lg px-3 py-2 outline-none transition-colors"
+            className="min-h-[44px] flex-1 resize-none px-3 py-2 text-sm outline-none transition-colors"
             style={{
-              background: '#0f0f0f',
-              border: '1px solid var(--border)',
-              color: 'var(--text-1)',
-              minHeight: 38,
+              background: 'var(--ink-3)',
+              border: '1px solid var(--hair-2)',
+              color: 'var(--fg-1)',
+              minHeight: 44,
               maxHeight: 96,
               lineHeight: '1.5',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#ff1d6c' }}
+            onFocus={e => { e.currentTarget.style.borderColor = '#e84d85' }}
             onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
             onInput={e => {
               const el = e.currentTarget
@@ -239,13 +240,13 @@ export default function GroupMessageBoard({ groupId, members, myRole = 'member' 
           <button
             onClick={handleSend}
             disabled={!content.trim() || sending}
-            className="flex items-center justify-center rounded-lg transition-colors shrink-0"
+            className="flex shrink-0 items-center justify-center border transition-colors"
             style={{
-              width: 38,
-              height: 38,
-              background: content.trim() && !sending ? '#ff1d6c' : 'var(--surface-2)',
-              color: content.trim() && !sending ? '#fff' : 'var(--text-muted)',
-              border: '1px solid var(--border)',
+              width: 44,
+              height: 44,
+              background: content.trim() && !sending ? '#e84d85' : 'var(--surface-2)',
+              color: content.trim() && !sending ? 'var(--ink)' : 'var(--text-muted)',
+              borderColor: content.trim() && !sending ? '#e84d85' : 'var(--border)',
             }}
           >
             <Send size={15} />
@@ -283,7 +284,7 @@ function MessageRow({ msg, myRole, onDelete }: { msg: Message; myRole: string; o
           {msg.to_name && (
             <>
               <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>→</span>
-              <span className="text-xs font-semibold" style={{ color: '#ff1d6c' }}>{msg.to_name.split(' ')[0]}</span>
+              <span className="text-xs font-semibold" style={{ color: '#e84d85' }}>{msg.to_name.split(' ')[0]}</span>
             </>
           )}
           <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{timestamp}</span>

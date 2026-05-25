@@ -8,17 +8,17 @@ interface Activity { start_date: string; distance: number }
 interface Props { activities: Activity[]; weeks?: number }
 
 // ── PULSE tokens ──────────────────────────────────────────────────────
-const MAGENTA = '#ff1d6c'
-const INK_2   = '#2a2a2a'  // bar default
-const INK_3   = '#1e1e1e'  // bar quiet (below avg)
-const FG_3    = '#6a6a6a'
+const MAGENTA = '#e84d85'
+const INK_2   = '#303037'  // bar default
+const INK_3   = '#26262b'  // bar quiet (below avg)
+const FG_3    = '#8b837c'
 
 function CustomTooltip({ active, payload, label, unitLabel }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="px-3 py-2 text-xs" style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.22)' }}>
+    <div className="px-3 py-2 text-xs" style={{ background: '#151517', border: '1px solid rgba(241,237,232,0.18)' }}>
       <div className="font-mono uppercase tracking-[0.16em] text-[10px] mb-1" style={{ color: FG_3 }}>{label}</div>
-      <div className="font-mono font-bold" style={{ color: '#f4f4f4' }}>{payload[0].value.toFixed(1)} <span style={{ color: FG_3 }}>{unitLabel}</span></div>
+      <div className="font-mono font-bold" style={{ color: '#f1ede8' }}>{payload[0].value.toFixed(1)} <span style={{ color: FG_3 }}>{unitLabel}</span></div>
     </div>
   )
 }
@@ -63,7 +63,7 @@ export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} cursor={{ fill: 'rgba(255,29,108,0.06)' }} />
+          <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} cursor={{ fill: 'rgba(232,77,133,0.05)' }} />
           <ReferenceLine y={avg} stroke={MAGENTA} strokeDasharray="3 3" strokeOpacity={0.45} strokeWidth={1} />
           <Bar dataKey="km">
             {data.map((entry, i) => (

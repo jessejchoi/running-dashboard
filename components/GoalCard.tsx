@@ -10,12 +10,12 @@ import GoalSetupModal from './GoalSetupModal'
 // 5K → magenta (peak, short and hard) · 10K → acid (the work zone) ·
 // HM → ice (steady, informational) · FM → magenta (back to peak — the big one)
 const DIST_COLORS: Record<string, { color: string; bg: string; short: string }> = {
-  '5k':            { color: '#ff1d6c', bg: 'rgba(255,29,108,0.12)', short: '5K' },
-  '10k':           { color: '#d9ff36', bg: 'rgba(217,255,54,0.10)', short: '10K' },
-  'half_marathon': { color: '#5ad7ff', bg: 'rgba(90,215,255,0.10)', short: 'HM' },
-  'hm':            { color: '#5ad7ff', bg: 'rgba(90,215,255,0.10)', short: 'HM' },
-  'marathon':      { color: '#ff1d6c', bg: 'rgba(255,29,108,0.12)', short: 'FM' },
-  'fm':            { color: '#ff1d6c', bg: 'rgba(255,29,108,0.12)', short: 'FM' },
+  '5k':            { color: '#e84d85', bg: 'rgba(232,77,133,0.08)', short: '5K' },
+  '10k':           { color: '#b8d957', bg: 'rgba(184,217,87,0.07)', short: '10K' },
+  'half_marathon': { color: '#6bbfdf', bg: 'rgba(107,191,223,0.07)', short: 'HM' },
+  'hm':            { color: '#6bbfdf', bg: 'rgba(107,191,223,0.07)', short: 'HM' },
+  'marathon':      { color: '#e84d85', bg: 'rgba(232,77,133,0.08)', short: 'FM' },
+  'fm':            { color: '#e84d85', bg: 'rgba(232,77,133,0.08)', short: 'FM' },
 }
 
 interface Props {
@@ -42,7 +42,7 @@ function paceStr(secs: number) {
 export default function GoalCard({ goal, currentEstimateSecs, confidence, sourceCounts, onUpdate, onDelete, unit = 'km' }: Props) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const dist = DIST_COLORS[goal.distance_key] ?? { color: '#ff1d6c', bg: 'rgba(255,29,108,0.12)', short: goal.distance_key.toUpperCase() }
+  const dist = DIST_COLORS[goal.distance_key] ?? { color: '#e84d85', bg: 'rgba(232,77,133,0.08)', short: goal.distance_key.toUpperCase() }
 
   const today    = new Date()
   const raceDate = new Date(goal.race_date)

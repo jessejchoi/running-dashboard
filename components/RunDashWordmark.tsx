@@ -22,7 +22,7 @@ export default function RunDashWordmark({
         <path
           d="M6 5 L18 16 L6 27"
           fill="none"
-          stroke="#ff1d6c"
+          stroke="#e84d85"
           strokeWidth="4"
           strokeLinecap="square"
           strokeLinejoin="miter"
@@ -30,7 +30,7 @@ export default function RunDashWordmark({
         <path
           d="M14 5 L26 16 L14 27"
           fill="none"
-          stroke="#6a6a6a"
+          stroke="#8b837c"
           strokeWidth="4"
           strokeLinecap="square"
           strokeLinejoin="miter"

@@ -38,30 +38,31 @@ function CreateGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate
 
   return (
     <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-[#111] border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md z-[9999] shadow-2xl"
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="relative z-[9999] w-full border bg-[#151517] shadow-2xl sm:max-w-md"
+        style={{ borderColor: 'var(--hair-2)' }}
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c1c1c]">
-          <h2 className="font-display font-bold text-lg">Create Group</h2>
-          <button onClick={onClose} className="text-[#6b7280] hover:text-white"><X size={18} /></button>
+        <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--hair-2)' }}>
+          <h2 className="font-display text-[28px] font-bold uppercase leading-none">Create Group</h2>
+          <button onClick={onClose} className="flex min-h-[44px] min-w-[44px] items-center justify-center border text-[#8B837C] transition-colors hover:text-white" style={{ borderColor: 'var(--hair-2)' }}><X size={18} /></button>
         </div>
         <div className="px-5 py-5 space-y-4">
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-[#6b7280] mb-1.5 block">Group Name</label>
+            <label className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#8B837C]">/ Group Name</label>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
               placeholder="e.g. Saturday Crew"
               autoFocus
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2.5 text-white text-sm outline-none transition-colors"
+              className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-[#e84d85]"
             />
           </div>
-          {error && <p className="text-[#ff1d6c] text-xs">{error}</p>}
+          {error && <p className="text-[#e84d85] text-xs">{error}</p>}
           <button
             onClick={handleCreate}
             disabled={saving}
-            className="w-full bg-[#ff1d6c] hover:bg-[#d4185a] disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
+            className="min-h-[44px] w-full bg-[#e84d85] py-3 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#c23b6b] disabled:opacity-50"
           >
             {saving ? 'Creating…' : 'Create Group'}
           </button>
@@ -88,14 +89,15 @@ function ConfirmModal({
 }) {
   return (
     <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center" onClick={onCancel}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative bg-[#111] border border-[#2a2a2a] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm z-[9999] shadow-2xl"
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="relative z-[9999] w-full border bg-[#151517] shadow-2xl sm:max-w-sm"
+        style={{ borderColor: 'var(--hair-2)' }}
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c1c1c]">
-          <h2 className="font-display font-bold text-lg">
+        <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: 'var(--hair-2)' }}>
+          <h2 className="font-display text-[28px] font-bold uppercase leading-none">
             {type === 'leave' ? 'Leave group?' : 'Delete group?'}
           </h2>
-          <button onClick={onCancel} className="text-[#6b7280] hover:text-white"><X size={18} /></button>
+          <button onClick={onCancel} className="flex min-h-[44px] min-w-[44px] items-center justify-center border text-[#8B837C] transition-colors hover:text-white" style={{ borderColor: 'var(--hair-2)' }}><X size={18} /></button>
         </div>
         <div className="px-5 py-5 space-y-4">
           <p className="text-[#9ca3af] text-sm">
@@ -104,18 +106,18 @@ function ConfirmModal({
               : <>This will permanently delete <span className="text-white font-medium">{group.name}</span> and remove all members.</>
             }
           </p>
-          {error && <p className="text-[#ff1d6c] text-xs">{error}</p>}
+          {error && <p className="text-[#e84d85] text-xs">{error}</p>}
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="flex-1 bg-[#1a1a1a] hover:bg-[#222] text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
+              className="min-h-[44px] flex-1 border border-[#303037] bg-[#202024] py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-white transition-colors hover:border-[#e84d85]"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
               disabled={loading}
-              className={`flex-1 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-colors text-sm ${type === 'delete' ? 'bg-[#ff1d6c] hover:bg-[#ff1d6c]' : 'bg-[#ff1d6c] hover:bg-[#d4185a]'}`}
+              className={`min-h-[44px] flex-1 py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black transition-colors disabled:opacity-50 ${type === 'delete' ? 'bg-[#e84d85] hover:bg-[#e84d85]' : 'bg-[#e84d85] hover:bg-[#c23b6b]'}`}
             >
               {loading ? '…' : type === 'leave' ? 'Leave' : 'Delete'}
             </button>
@@ -195,57 +197,75 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 pt-8 sm:pt-20 pb-16">
-      <div className="flex items-center justify-between mb-6 fade-up">
-        <div>
-          <h1 className="font-display font-extrabold text-4xl">Groups</h1>
-          <p className="text-[#6b7280] text-sm mt-1">Train with friends and stay accountable.</p>
+    <main className="standalone-main mx-auto max-w-6xl px-3 pt-8 pb-24 sm:px-6 sm:pt-20 sm:pb-16">
+      <div
+        className="mb-6 grid gap-5 pb-6 fade-up sm:mb-8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+        style={{ borderBottom: '2px solid var(--fg-1)' }}
+      >
+        <div className="min-w-0">
+          <h1
+            className="font-display font-bold uppercase"
+            style={{
+              fontSize: 'clamp(56px, 8vw, 96px)',
+              letterSpacing: '-0.04em',
+              lineHeight: 0.88,
+            }}
+          >
+            Groups<span style={{ color: 'var(--magenta)' }}>.</span>
+          </h1>
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] sm:text-xs" style={{ color: 'var(--fg-3)' }}>
+            / Group system · {groups.length} active · 3 max
+          </p>
         </div>
         {!atLimit && (
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 bg-[#ff1d6c] hover:bg-[#d4185a] text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors whitespace-nowrap"
+            className="flex min-h-[44px] items-center gap-2 border border-[#e84d85] bg-[#e84d85] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#c23b6b] sm:justify-self-end"
           >
             <Plus size={14} /> New Group
           </button>
         )}
       </div>
       {atLimit && (
-        <p className="text-[#6b7280] text-xs mb-4">You&apos;ve reached the 3-group limit. Leave a group to join or create a new one.</p>
+        <p className="mb-4 border border-[#303037] bg-[#151517] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8B837C]">
+          You&apos;ve reached the 3-group limit. Leave a group to join or create a new one.
+        </p>
       )}
 
       {groups.length === 0 ? (
-        <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center text-center gap-4 fade-up" style={{ paddingTop: 56, paddingBottom: 56 }}>
-          <div className="w-14 h-14 rounded-full bg-[#ff1d6c]/10 flex items-center justify-center">
-            <Users size={22} className="text-[#ff1d6c]" />
+        <div className="card pulse-bar flex flex-col items-center justify-center gap-4 border-dashed text-center fade-up" style={{ paddingTop: 56, paddingBottom: 56 }}>
+          <span className="pulse-idx">[01]</span>
+          <div className="flex h-14 w-14 items-center justify-center border border-[#e84d85] bg-[#e84d85]/10">
+            <Users size={22} className="text-[#e84d85]" />
           </div>
           <div>
-            <p className="font-bold text-white mb-1">No groups yet</p>
+            <p className="mb-1 font-display text-[28px] font-bold uppercase leading-none text-white">No Groups Yet</p>
             <p className="text-[#6b7280] text-sm max-w-xs">
               Create a group and invite your training partners to run together.
             </p>
           </div>
           <button
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 bg-[#ff1d6c] hover:bg-[#d4185a] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm"
+            className="flex min-h-[44px] items-center gap-2 border border-[#e84d85] bg-[#e84d85] px-5 py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#c23b6b]"
           >
             <Plus size={14} /> Create your first group
           </button>
         </div>
       ) : (
-        <div className="space-y-3 fade-up">
+        <div className="grid gap-3 fade-up sm:grid-cols-2">
           {groups.map((g, i) => (
             <div
               key={g.id}
-              className="card flex items-center gap-3"
+              className={`card pulse-bar flex items-center gap-3 ${i % 3 === 1 ? 'acid' : i % 3 === 2 ? 'ice' : ''}`}
             >
+              <span className="pulse-idx">[{String(i + 1).padStart(2, '0')}]</span>
               {/* Reorder arrows */}
               {groups.length > 1 && (
                 <div className="flex flex-col gap-0.5 shrink-0">
                   <button
                     onClick={() => moveGroup(i, 'up')}
                     disabled={i === 0}
-                    className="text-[#4b5563] hover:text-white disabled:opacity-20 disabled:cursor-not-allowed p-0.5 transition-colors"
+                    className="flex min-h-[24px] min-w-[32px] items-center justify-center border border-[#303037] text-[#4b5563] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-20"
                     title="Move up"
                   >
                     <ChevronUp size={14} />
@@ -253,7 +273,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
                   <button
                     onClick={() => moveGroup(i, 'down')}
                     disabled={i === groups.length - 1}
-                    className="text-[#4b5563] hover:text-white disabled:opacity-20 disabled:cursor-not-allowed p-0.5 transition-colors"
+                    className="flex min-h-[24px] min-w-[32px] items-center justify-center border border-[#303037] text-[#4b5563] transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-20"
                     title="Move down"
                   >
                     <ChevronDown size={14} />
@@ -262,8 +282,8 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
               )}
 
               {/* Icon */}
-              <div className="w-10 h-10 rounded-full bg-[#ff1d6c]/15 flex items-center justify-center shrink-0">
-                <Users size={16} className="text-[#ff1d6c]" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#e84d85] bg-[#e84d85]/15">
+                <Users size={16} className="text-[#e84d85]" />
               </div>
 
               {/* Info — clicking navigates to group */}
@@ -271,7 +291,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
                 <div className="flex items-center gap-2">
                   <span className="font-bold truncate">{g.name}</span>
                   {g.my_role === 'admin' && (
-                    <span className="text-[10px] text-[#d9ff36] font-bold bg-[#d9ff36]/10 px-1.5 py-0.5 rounded shrink-0">Admin</span>
+                    <span className="shrink-0 bg-[#b8d957]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#b8d957]">Admin</span>
                   )}
                 </div>
                 <p className="text-[#6b7280] text-xs mt-0.5">
@@ -284,14 +304,14 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => { setActionError(''); setConfirm({ group: g, type: 'leave' }) }}
-                    className="p-2 rounded-lg transition-colors text-[#4b5563] hover:text-[#6b7280] hover:bg-[#1a1a1a]"
+                    className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#303037] text-[#4b5563] transition-colors hover:bg-[#202024] hover:text-[#6b7280]"
                     title="Leave group"
                   >
                     <LogOut size={15} />
                   </button>
                   <button
                     onClick={() => { setActionError(''); setConfirm({ group: g, type: 'delete' }) }}
-                    className="p-2 rounded-lg transition-colors text-[#ff1d6c]/60 hover:text-[#ff1d6c] hover:bg-[#ff1d6c]/10"
+                    className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#303037] text-[#e84d85]/60 transition-colors hover:bg-[#e84d85]/10 hover:text-[#e84d85]"
                     title="Delete group"
                   >
                     <Trash2 size={15} />
@@ -300,7 +320,7 @@ export default function GroupsPageClient({ initialGroups }: { initialGroups: Gro
               ) : (
                 <button
                   onClick={() => { setActionError(''); setConfirm({ group: g, type: 'leave' }) }}
-                  className="shrink-0 p-2 rounded-lg transition-colors text-[#4b5563] hover:text-[#6b7280] hover:bg-[#1a1a1a]"
+                  className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center border border-[#303037] text-[#4b5563] transition-colors hover:bg-[#202024] hover:text-[#6b7280]"
                   title="Leave group"
                 >
                   <LogOut size={15} />

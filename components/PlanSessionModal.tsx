@@ -256,7 +256,7 @@ export function summarizeParts(config: SessionConfig, unit: DistanceUnit = 'km')
         effort = `${b.durationMin}min`
       }
       const paceStr = b.targetPace ? ` @ ${b.targetPace}${paceUnitLabel(unit)}` : ''
-      parts.push({ text: `${effort}${b.label ? ` ${b.label}` : ''}${paceStr}`, color: 'text-[#ff1d6c]' })
+      parts.push({ text: `${effort}${b.label ? ` ${b.label}` : ''}${paceStr}`, color: 'text-[#e84d85]' })
     }
   }
   const cooldownMode = config.cooldownMode ?? 'time'
@@ -264,7 +264,7 @@ export function summarizeParts(config: SessionConfig, unit: DistanceUnit = 'km')
     const cdLabel = cooldownMode === 'distance'
       ? (unit === 'miles' ? `${metersToMiles(config.cooldownM ?? 0).toFixed(2)}${unitLabel}` : `${((config.cooldownM ?? 0) / 1000).toFixed(2)}${unitLabel}`)
       : `${config.cooldownMin}min`
-    parts.push({ text: `${cdLabel} CD`, color: 'text-[#5ad7ff]' })
+    parts.push({ text: `${cdLabel} CD`, color: 'text-[#6bbfdf]' })
   }
   return parts
 }
@@ -333,7 +333,7 @@ function Tog({ active, onClick, children }: { active: boolean; onClick: () => vo
       onClick={onClick}
       className="px-2 py-1 text-[10px] rounded font-medium transition-colors"
       style={active
-        ? { background: 'var(--orange)', color: '#fff' }
+        ? { background: 'var(--orange)', color: 'var(--ink)' }
         : { background: 'var(--surface-2)', color: 'var(--text-muted)' }
       }
     >
@@ -473,7 +473,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             <div className="text-xs mb-0.5 font-mono uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{displayDate}</div>
             <h2 className="font-display font-bold text-lg text-white leading-tight">
               {config.sessionType === 'rest'
-                ? <span className="text-[#5ad7ff]">Rest Day</span>
+                ? <span className="text-[#6bbfdf]">Rest Day</span>
                 : (config.name || <span className="text-[#4b5563]">Untitled run</span>)
               }
             </h2>
@@ -482,7 +482,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             {isExisting && onDelete && !confirmDelete && !confirmClose && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="hover:text-[#ff1d6c] transition-colors p-1" style={{ color: 'var(--text-muted)' }}
+                className="hover:text-[#e84d85] transition-colors p-1" style={{ color: 'var(--text-muted)' }}
               >
                 <Trash2 size={16} />
               </button>
@@ -490,14 +490,14 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             {confirmDelete && (
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Delete?</span>
-                <button onClick={() => onDelete?.()} className="text-xs text-[#ff1d6c] hover:text-[#ff1d6c] font-medium">Yes</button>
+                <button onClick={() => onDelete?.()} className="text-xs text-[#e84d85] hover:text-[#e84d85] font-medium">Yes</button>
                 <button onClick={() => setConfirmDelete(false)} className="text-xs hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>No</button>
               </div>
             )}
             {confirmClose && (
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Discard changes?</span>
-                <button onClick={onClose} className="text-xs text-[#ff1d6c] hover:text-[#ff1d6c] font-medium">Yes</button>
+                <button onClick={onClose} className="text-xs text-[#e84d85] hover:text-[#e84d85] font-medium">Yes</button>
                 <button onClick={() => setConfirmClose(false)} className="text-xs hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>No</button>
               </div>
             )}
@@ -519,7 +519,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
 
           {/* Session name */}
           <div className="space-y-2">
-            <SectionLabel color="text-[#ff1d6c]">Session Name</SectionLabel>
+            <SectionLabel color="text-[#e84d85]">Session Name</SectionLabel>
             <input
               type="text"
               value={config.name}
@@ -558,7 +558,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             <div className="flex items-center justify-between">
               <SectionLabel color="text-white">Training Blocks</SectionLabel>
               <div className="flex gap-2">
-                <button onClick={addContinuous} className="flex items-center gap-1 text-[10px] text-[#ff1d6c] hover:text-white border border-[#ff1d6c]/30 hover:border-[#ff1d6c] rounded px-2 py-1 transition-colors">
+                <button onClick={addContinuous} className="flex items-center gap-1 text-[10px] text-[#e84d85] hover:text-white border border-[#e84d85]/30 hover:border-[#e84d85] rounded px-2 py-1 transition-colors">
                   <Plus size={9} /> Continuous
                 </button>
                 <button onClick={addInterval} className="flex items-center gap-1 text-[10px] text-[#dc2626] hover:text-white border border-[#dc2626]/30 hover:border-[#dc2626] rounded px-2 py-1 transition-colors">
@@ -572,15 +572,15 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
             )}
 
             {config.blocks.map((b, bi) => (
-              <div key={b.id} className={`border rounded-xl p-3 space-y-3 ${b.kind === 'continuous' ? 'bg-[#161a13] border-[#ff1d6c]/20' : 'bg-[#1a1313] border-[#dc2626]/20'}`}>
+              <div key={b.id} className={`border rounded-xl p-3 space-y-3 ${b.kind === 'continuous' ? 'bg-[#161a13] border-[#e84d85]/20' : 'bg-[#1a1313] border-[#dc2626]/20'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest ${b.kind === 'continuous' ? 'text-[#ff1d6c]' : 'text-[#dc2626]'}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${b.kind === 'continuous' ? 'text-[#e84d85]' : 'text-[#dc2626]'}`}>
                       {b.kind === 'continuous' ? '⟶ Continuous' : '↺ Intervals'}
                     </span>
                     <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>Block {bi + 1}</span>
                   </div>
-                  <button onClick={() => removeBlock(b.id)} className="text-[#4b5563] hover:text-[#ff1d6c] transition-colors"><Trash2 size={12} /></button>
+                  <button onClick={() => removeBlock(b.id)} className="text-[#4b5563] hover:text-[#e84d85] transition-colors"><Trash2 size={12} /></button>
                 </div>
 
                 {b.kind === 'continuous' ? (
@@ -621,7 +621,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
                       <span className="text-[#6b7280] text-xs">{paceLabel}</span>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap border-t border-[#222] pt-2">
-                      <span className="text-[10px] text-[#5ad7ff] font-medium uppercase tracking-wide">Recovery</span>
+                      <span className="text-[10px] text-[#6bbfdf] font-medium uppercase tracking-wide">Recovery</span>
                       <div className="flex gap-1">
                         <Tog active={b.recoveryMode === 'time'} onClick={() => updateBlock(b.id, { recoveryMode: 'time' })}>Time</Tog>
                         <Tog active={b.recoveryMode === 'distance'} onClick={() => updateBlock(b.id, { recoveryMode: 'distance' })}>Dist</Tog>
@@ -644,7 +644,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
 
           {/* Cooldown */}
           <div className="space-y-2">
-            <SectionLabel color="text-[#5ad7ff]">Cooldown</SectionLabel>
+            <SectionLabel color="text-[#6bbfdf]">Cooldown</SectionLabel>
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex gap-1">
                 <Tog active={(config.cooldownMode ?? 'time') === 'time'} onClick={() => update({ ...config, cooldownMode: 'time' })}>Time</Tog>
@@ -667,7 +667,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }}>
             <span className="text-xs font-mono uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Estimated</span>
             <div className="flex items-center gap-3">
-              <span className="font-display font-bold text-[#ff1d6c] text-2xl">{estDist}</span>
+              <span className="font-display font-bold text-[#e84d85] text-2xl">{estDist}</span>
               <span className="text-[#6b7280] text-sm">·</span>
               <span className="font-mono text-white text-sm">{formatSessionTime(totalSecs)}</span>
             </div>
@@ -679,11 +679,11 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
 
         {/* Footer */}
         <div className="sticky bottom-0 px-5 py-3 flex items-center justify-between gap-3" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-          <span className="text-xs text-[#ff1d6c] min-h-[1rem]">{validationError ?? ''}</span>
+          <span className="text-xs text-[#e84d85] min-h-[1rem]">{validationError ?? ''}</span>
           <button
             onClick={handleSave}
             className="text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors shrink-0"
-            style={{ background: 'var(--orange)' }}
+            style={{ background: 'var(--orange)', color: 'var(--ink)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--orange-dim)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'var(--orange)')}
           >

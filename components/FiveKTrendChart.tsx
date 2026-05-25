@@ -30,10 +30,10 @@ interface Props {
   color?: string
 }
 
-const ACID  = '#d9ff36'
-const FG_3  = '#6a6a6a'
-const FG_4  = '#424242'
-const INK_1 = '#111111'
+const ACID  = '#b8d957'
+const FG_3  = '#8b837c'
+const FG_4  = '#5d5651'
+const INK_1 = '#151517'
 
 function buildTooltip(color: string, dk: DistanceKey) {
   const km = DISTANCE_KM[dk]
@@ -43,12 +43,12 @@ function buildTooltip(color: string, dk: DistanceKey) {
     if (!d) return null
     const secs = d.displaySecs ?? d.estimatedSecs
     return (
-      <div className="px-4 py-3 text-xs max-w-[220px]" style={{ background: INK_1, border: '1px solid rgba(255,255,255,0.22)' }}>
+      <div className="px-4 py-3 text-xs max-w-[220px]" style={{ background: INK_1, border: '1px solid rgba(241,237,232,0.18)' }}>
         <div className="font-mono uppercase tracking-[0.16em] text-[10px] mb-2" style={{ color: FG_3 }}>{format(new Date(d.date + 'T12:00:00'), 'MMM d, yyyy')}</div>
         <div className="font-display font-bold text-xl uppercase mb-0.5" style={{ color, letterSpacing: '-0.02em' }}>{formatTime(secs)}</div>
-        <div className="font-mono mb-2" style={{ color: '#b4b4b4' }}>{formatPace(secs / km)}/km</div>
+        <div className="font-mono mb-2" style={{ color: '#c9c2ba' }}>{formatPace(secs / km)}/km</div>
         {dk === '5k' && d.vdot != null && !isNaN(d.vdot) && (
-          <div className="font-mono text-xs mb-2" style={{ color: '#5ad7ff' }}>VDOT {d.vdot.toFixed(1)}</div>
+          <div className="font-mono text-xs mb-2" style={{ color: '#6bbfdf' }}>VDOT {d.vdot.toFixed(1)}</div>
         )}
         <div className="font-mono truncate" style={{ color: FG_3 }}>{d.activityName}</div>
         {d.effortsUsed && (
@@ -59,7 +59,7 @@ function buildTooltip(color: string, dk: DistanceKey) {
   }
 }
 
-export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTargetSecs, color = '#ff1d6c' }: Props) {
+export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTargetSecs, color = '#e84d85' }: Props) {
   const { active } = useAnalysisTab()
   const km = DISTANCE_KM[active]
   const targetSecs = targetSecsMap[active] ?? defaultTargetSecs
@@ -106,7 +106,7 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
   const CustomTooltip = buildTooltip(color, active)
   const label = distanceLabel(active)
 
-  const trendColor = improving ? ACID : '#ff1d6c'
+  const trendColor = improving ? ACID : '#e84d85'
 
   return (
     <div>
@@ -120,13 +120,13 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
         </div>
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.18em] mb-1" style={{ color: FG_3 }}>LATEST</div>
-          <div className="font-mono font-bold" style={{ color: '#f4f4f4' }}>{formatTime(latest.displaySecs)}</div>
+          <div className="font-mono font-bold" style={{ color: '#f1ede8' }}>{formatTime(latest.displaySecs)}</div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] mt-0.5" style={{ color: FG_4 }}>est. {label} time</div>
         </div>
         {active === '5k' && (
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] mb-1" style={{ color: FG_3 }}>VDOT</div>
-            <div className="font-mono font-bold" style={{ color: '#f4f4f4' }}>
+            <div className="font-mono font-bold" style={{ color: '#f1ede8' }}>
               {latest.vdot && !isNaN(latest.vdot) ? latest.vdot.toFixed(1) : '—'}
             </div>
           </div>
@@ -145,7 +145,7 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
         {data.length > 1 && (
           <div>
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] mb-1" style={{ color: FG_3 }}>TOTAL IMPROVEMENT</div>
-            <div className="font-mono font-bold" style={{ color: data[0].displaySecs > latest.displaySecs ? ACID : '#ff1d6c' }}>
+            <div className="font-mono font-bold" style={{ color: data[0].displaySecs > latest.displaySecs ? ACID : '#e84d85' }}>
               {data[0].displaySecs > latest.displaySecs ? '▼ ' : '▲ '}
               {formatTime(Math.abs(data[0].displaySecs - latest.displaySecs))}
             </div>
@@ -178,14 +178,14 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
             strokeWidth={1.5}
             label={{ value: `Goal ${formatTime(targetSecs)}`, position: 'insideTopRight', fill: color, fontSize: 9, fontFamily: 'var(--font-mono)' }}
           />
-          <Line type="monotone" dataKey="trend" stroke="rgba(255,255,255,0.22)" strokeWidth={2} dot={false} strokeDasharray="4 3" />
+          <Line type="monotone" dataKey="trend" stroke="rgba(241,237,232,0.18)" strokeWidth={2} dot={false} strokeDasharray="4 3" />
           <Line
             type="monotone"
             dataKey="displaySecs"
             stroke={color}
             strokeWidth={2.5}
-            dot={{ fill: color, r: 5, strokeWidth: 2, stroke: '#0a0a0a' }}
-            activeDot={{ r: 7, fill: color, strokeWidth: 2, stroke: '#0a0a0a' }}
+            dot={{ fill: color, r: 5, strokeWidth: 2, stroke: '#0d0d0f' }}
+            activeDot={{ r: 7, fill: color, strokeWidth: 2, stroke: '#0d0d0f' }}
           />
         </ComposedChart>
       </ResponsiveContainer>

@@ -35,7 +35,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
 
   function MetricCell({ label, value, tone = 'var(--fg-1)' }: { label: string; value: string; tone?: string }) {
     return (
-      <div className="min-w-0 border border-[rgba(255,255,255,0.10)] bg-[#1A1A1A] px-2 py-2">
+      <div className="min-w-0 border border-[rgba(241,237,232,0.10)] bg-[#202024] px-2 py-2">
         <span className="block font-mono text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--fg-4)' }}>
           / {label}
         </span>
@@ -49,7 +49,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
   return (
     <section className="mt-8 mb-[14px]">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-[28px] text-[#F4F4F4] uppercase leading-none">Recent Runs</h2>
+        <h2 className="font-display font-bold text-[28px] text-[#F1EDE8] uppercase leading-none">Recent Runs</h2>
         <Link href="/runs" prefetch={true} className="pulse-link">
           View all
         </Link>

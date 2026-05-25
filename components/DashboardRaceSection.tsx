@@ -104,7 +104,7 @@ export default async function DashboardRaceSection({
       {hasEstimates && (
         <section className="mt-8 mb-[14px]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-[28px] text-[#F4F4F4] uppercase leading-none">Race Estimates</h2>
+            <h2 className="font-display font-bold text-[28px] text-[#F1EDE8] uppercase leading-none">Race Estimates</h2>
             <Link href="/analysis" prefetch={true} className="pulse-link">
               Full analysis
             </Link>
@@ -120,7 +120,7 @@ export default async function DashboardRaceSection({
               return (
                 <div key={key} style={{ background: 'var(--ink-2)', border: '1px solid var(--hair-1)', borderRadius: 0, padding: '14px' }}>
                   <p className="metric-label mb-2">/ {label}</p>
-                  <p className="stat-num text-[32px] font-bold leading-none" style={{ color: estimates[key] ? '#F4F4F4' : 'var(--fg-3)' }}>
+                  <p className="stat-num text-[32px] font-bold leading-none" style={{ color: estimates[key] ? '#F1EDE8' : 'var(--fg-3)' }}>
                     {estimates[key] ? formatDuration(estimates[key]!) : '—'}
                   </p>
                   {delta != null && (

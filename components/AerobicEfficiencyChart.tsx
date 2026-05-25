@@ -8,7 +8,7 @@ import { formatPace } from '@/lib/analysis'
 import type { EasyRunEfficiency } from '@/lib/analysis'
 import { vdotFrom5K } from '@/lib/utils'
 
-const COLOR = '#5ad7ff'
+const COLOR = '#6bbfdf'
 const REF_HR = 150
 
 function CustomTooltip({ active, payload }: any) {
@@ -17,7 +17,7 @@ function CustomTooltip({ active, payload }: any) {
   if (!d) return null
   const isLong = (d as any).runKind === 'long_steady'
   return (
-    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[220px]">
+    <div className="bg-[#1c1c1c] border border-[#303037] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[220px]">
       <div className="text-[#6b7280] mb-2">{format(parseISO(d.date), 'MMM d, yyyy')}</div>
       <div className="flex items-center gap-2 mb-1">
         <div className="font-display font-bold text-lg" style={{ color: COLOR }}>
@@ -91,7 +91,7 @@ export default function AerobicEfficiencyChart({ runs }: Props) {
       <div className="flex flex-wrap items-start gap-6 mb-6 text-sm">
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Trend</div>
-          <div className={`font-mono font-bold ${improving ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'}`}>
+          <div className={`font-mono font-bold ${improving ? 'text-[#b8d957]' : 'text-[#e84d85]'}`}>
             {improving ? '▼' : '▲'} {Math.abs(weeklyChangeSec).toFixed(1)}s/km · week
           </div>
           <div className="text-[#4b5563] text-xs mt-0.5">{improving ? 'getting faster' : 'getting slower'}</div>
@@ -108,7 +108,7 @@ export default function AerobicEfficiencyChart({ runs }: Props) {
         {data.length > 1 && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Total improvement</div>
-            <div className={`font-mono font-bold ${data[0].normalizedPaceSec > latest.normalizedPaceSec ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'}`}>
+            <div className={`font-mono font-bold ${data[0].normalizedPaceSec > latest.normalizedPaceSec ? 'text-[#b8d957]' : 'text-[#e84d85]'}`}>
               {data[0].normalizedPaceSec > latest.normalizedPaceSec ? '▼ ' : '▲ '}
               {Math.abs(data[0].normalizedPaceSec - latest.normalizedPaceSec).toFixed(1)}s/km
             </div>
@@ -119,7 +119,7 @@ export default function AerobicEfficiencyChart({ runs }: Props) {
 
       <ResponsiveContainer width="100%" height={260}>
         <ComposedChart data={trendData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-          <CartesianGrid stroke="#1a1a1a" vertical={false} />
+          <CartesianGrid stroke="#202024" vertical={false} />
           <XAxis
             dataKey="label"
             tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
@@ -134,13 +134,13 @@ export default function AerobicEfficiencyChart({ runs }: Props) {
             width={46}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Line type="monotone" dataKey="trend" stroke="#2a2a2a" strokeWidth={2} dot={false} strokeDasharray="4 3" />
+          <Line type="monotone" dataKey="trend" stroke="#303037" strokeWidth={2} dot={false} strokeDasharray="4 3" />
           <Line
             type="monotone"
             dataKey="normalizedPaceSec"
             stroke={COLOR}
             strokeWidth={2.5}
-            dot={{ fill: COLOR, r: 5, strokeWidth: 2, stroke: '#0a0a0a' }}
+            dot={{ fill: COLOR, r: 5, strokeWidth: 2, stroke: '#0d0d0f' }}
             activeDot={{ r: 7, fill: COLOR, strokeWidth: 2, stroke: '#1c1c1c' }}
           />
         </ComposedChart>

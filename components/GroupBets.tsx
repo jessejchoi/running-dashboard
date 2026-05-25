@@ -130,11 +130,11 @@ interface Props {
 }
 
 const STATUS_STYLE: Record<GroupBet['status'], string> = {
-  open: 'text-[#ff1d6c] bg-[#ff1d6c]/10 border-[#ff1d6c]/20',
-  locked: 'text-[#5ad7ff] bg-[#5ad7ff]/10 border-[#5ad7ff]/20',
-  won: 'text-[#d9ff36] bg-[#d9ff36]/10 border-[#d9ff36]/20',
-  lost: 'text-[#ff1d6c] bg-[#ff1d6c]/10 border-[#ff1d6c]/20',
-  void: 'text-[#9ca3af] bg-[#1a1a1a] border-[#2a2a2a]',
+  open: 'text-[#e84d85] bg-[#e84d85]/10 border-[#e84d85]/20',
+  locked: 'text-[#6bbfdf] bg-[#6bbfdf]/10 border-[#6bbfdf]/20',
+  won: 'text-[#b8d957] bg-[#b8d957]/10 border-[#b8d957]/20',
+  lost: 'text-[#e84d85] bg-[#e84d85]/10 border-[#e84d85]/20',
+  void: 'text-[#9ca3af] bg-[#202024] border-[#303037]',
 }
 
 function money(cents: number) {
@@ -174,7 +174,7 @@ function valueLabel(bet: GroupBet, value: number) {
 
 function BetStatusChip({ status }: { status: GroupBet['status'] }) {
   return (
-    <span className={`inline-flex items-center border px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${STATUS_STYLE[status]}`}>
+    <span className={`inline-flex items-center border px-1.5 py-0.5 text-[10px] font-mono uppercase ${STATUS_STYLE[status]}`}>
       {status}
     </span>
   )
@@ -282,7 +282,7 @@ function BetCard({
   const winningPositions = bet.positions.filter(p => p.side === (bet.winning_side ?? bet.live_result.winningSide))
 
   return (
-    <div className="bg-[#111111] border border-[#2a2a2a] rounded-xl p-4 transition-colors hover:border-[#383838]">
+    <div className="border border-[#303037] bg-[#151517] p-4 transition-colors hover:border-[#383838]">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -293,7 +293,7 @@ function BetCard({
           <div className="flex items-center gap-2 mb-2">
             <Avatar name={bet.target_name} pic={bet.target_profile} size={6} />
             <p className="text-sm font-bold text-white leading-snug">
-              <span className="text-[#ff1d6c]">{bet.target_name.split(' ')[0]}</span> to hit {targetLabel}
+              <span className="text-[#e84d85]">{bet.target_name.split(' ')[0]}</span> to hit {targetLabel}
             </p>
           </div>
           <p className="text-xs text-[#6b7280]">
@@ -309,16 +309,16 @@ function BetCard({
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs text-[#6b7280]">{bet.live_result.evidenceLabel}</span>
-          <span className="text-xs font-mono text-[#ff1d6c]">{Math.round(progress)}%</span>
+          <span className="text-xs font-mono text-[#e84d85]">{Math.round(progress)}%</span>
         </div>
-        <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
-          <div className="h-full bg-[#ff1d6c] rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+        <div className="h-2 overflow-hidden bg-[#1c1c1c]">
+          <div className="h-full bg-[#e84d85] transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       {!compact && (
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-2">
+          <div className="border border-[#1c1c1c] bg-[#151517] p-2">
             <div className="text-[10px] text-[#6b7280] uppercase font-mono mb-1">They will</div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm font-mono font-bold text-white">{forCount}</span>
@@ -327,7 +327,7 @@ function BetCard({
               ))}
             </div>
           </div>
-          <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-2">
+          <div className="border border-[#1c1c1c] bg-[#151517] p-2">
             <div className="text-[10px] text-[#6b7280] uppercase font-mono mb-1">They will not</div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm font-mono font-bold text-white">{againstCount}</span>
@@ -342,17 +342,17 @@ function BetCard({
       {bet.status === 'won' || bet.status === 'lost' ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-[#a1a1aa]">
-            <Check size={13} className={bet.winning_side === 'for' ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'} />
+            <Check size={13} className={bet.winning_side === 'for' ? 'text-[#b8d957]' : 'text-[#e84d85]'} />
             Winning side: {sideCopy(bet.winning_side ?? bet.live_result.winningSide)}
           </div>
           {!compact && (
-            <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-2.5 space-y-2">
+            <div className="space-y-2 border border-[#1c1c1c] bg-[#151517] p-2.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[10px] font-mono uppercase text-[#6b7280]">Final evidence</span>
                 <span className="text-xs font-mono text-white">{valueLabel(bet, Number(bet.resolution?.current_value ?? bet.live_result.currentValue))}</span>
               </div>
               {bet.best_activity_id && (
-                <a href={`/runs/${bet.best_activity_id}?from=group/${groupId}`} className="inline-flex items-center gap-1 text-xs text-[#ff1d6c] hover:text-[#ff7a9d] transition-colors">
+                <a href={`/runs/${bet.best_activity_id}?from=group/${groupId}`} className="inline-flex items-center gap-1 text-xs text-[#e84d85] hover:text-[#ff7a9d] transition-colors">
                   Decisive run <ExternalLink size={11} />
                 </a>
               )}
@@ -362,7 +362,7 @@ function BetCard({
                     <a
                       key={attempt.activityId}
                       href={`/runs/${attempt.activityId}?from=group/${groupId}`}
-                      className={`flex items-center justify-between gap-2 text-xs rounded px-2 py-1 ${attempt.isBest ? 'bg-[#ff1d6c]/10 text-[#ff1d6c]' : 'text-[#9ca3af] hover:text-white'}`}
+                      className={`flex items-center justify-between gap-2 px-2 py-1 text-xs ${attempt.isBest ? 'bg-[#e84d85]/10 text-[#e84d85]' : 'text-[#9ca3af] hover:text-white'}`}
                     >
                       <span>{attempt.label}</span>
                       {attempt.isBest && <span className="font-mono">best</span>}
@@ -373,7 +373,7 @@ function BetCard({
               {attempts.length === 0 && contributing.length > 0 && (
                 <div className="space-y-1">
                   {contributing.slice(0, 3).map(activity => (
-                    <a key={activity.activityId} href={`/runs/${activity.activityId}?from=group/${groupId}`} className="flex items-center justify-between gap-2 text-xs text-[#9ca3af] hover:text-white rounded px-2 py-1">
+                    <a key={activity.activityId} href={`/runs/${activity.activityId}?from=group/${groupId}`} className="flex items-center justify-between gap-2 px-2 py-1 text-xs text-[#9ca3af] hover:text-white">
                       <span className="truncate">{activity.label}</span>
                       <span className="font-mono shrink-0">{valueLabel(bet, activity.value)}</span>
                     </a>
@@ -398,7 +398,7 @@ function BetCard({
         </div>
       ) : bet.my_position ? (
         <div className="flex items-center gap-2 text-xs text-[#a1a1aa]">
-          <Check size={13} className="text-[#ff1d6c]" />
+          <Check size={13} className="text-[#e84d85]" />
           You are on: <span className="text-white">{sideCopy(bet.my_position.side)}</span>
         </div>
       ) : (
@@ -408,14 +408,14 @@ function BetCard({
               <button
                 onClick={() => mutate('join', { side: 'for' })}
                 disabled={busy !== null}
-                className="min-h-[36px] px-3 py-2 bg-[#ff1d6c] hover:bg-[#d4185a] text-black rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                className="min-h-[44px] bg-[#e84d85] px-3 py-2 text-xs font-bold text-black transition-colors hover:bg-[#c23b6b] disabled:opacity-50"
               >
                 Join: will
               </button>
               <button
                 onClick={() => mutate('join', { side: 'against' })}
                 disabled={busy !== null}
-                className="min-h-[36px] px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#ff1d6c] text-[#d1d5db] hover:text-white rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                className="min-h-[44px] border border-[#303037] bg-[#202024] px-3 py-2 text-xs font-bold text-[#d1d5db] transition-colors hover:border-[#e84d85] hover:text-white disabled:opacity-50"
               >
                 Join: will not
               </button>
@@ -426,14 +426,14 @@ function BetCard({
               <button
                 onClick={() => mutate('accept')}
                 disabled={busy !== null}
-                className="min-h-[36px] px-3 py-2 bg-[#ff1d6c] hover:bg-[#d4185a] text-black rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                className="min-h-[44px] bg-[#e84d85] px-3 py-2 text-xs font-bold text-black transition-colors hover:bg-[#c23b6b] disabled:opacity-50"
               >
                 Accept
               </button>
               <button
                 onClick={() => mutate('decline')}
                 disabled={busy !== null}
-                className="min-h-[36px] px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#ff1d6c] text-[#d1d5db] hover:text-[#ff1d6c] rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+                className="min-h-[44px] border border-[#303037] bg-[#202024] px-3 py-2 text-xs font-bold text-[#d1d5db] transition-colors hover:border-[#e84d85] hover:text-[#e84d85] disabled:opacity-50"
               >
                 Decline
               </button>
@@ -448,7 +448,7 @@ function BetCard({
           <button
             onClick={deleteBet}
             disabled={busy !== null}
-            className="min-h-[32px] px-2 text-[#4b5563] hover:text-[#ff1d6c] transition-colors disabled:opacity-50"
+            className="min-h-[32px] px-2 text-[#4b5563] hover:text-[#e84d85] transition-colors disabled:opacity-50"
             title="Delete bet"
           >
             <Trash2 size={14} />
@@ -472,7 +472,7 @@ function BetCard({
                       <span className="font-bold text-[#d1d5db]">{c.is_mine ? 'You' : c.author_name.split(' ')[0]}</span>
                       <span className="font-mono text-[10px] text-[#4b5563]">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</span>
                       {(c.is_mine || myRole === 'admin') && (
-                        <button onClick={() => deleteComment(c.id)} className="text-[#4b5563] hover:text-[#ff1d6c] transition-colors">
+                        <button onClick={() => deleteComment(c.id)} className="text-[#4b5563] hover:text-[#e84d85] transition-colors">
                           <X size={10} />
                         </button>
                       )}
@@ -489,12 +489,12 @@ function BetCard({
               onChange={e => setComment(e.target.value)}
               maxLength={280}
               placeholder="Add a comment..."
-              className="flex-1 min-h-[36px] bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-md px-3 text-xs outline-none"
+              className="min-h-[44px] flex-1 border border-[#303037] bg-[#151517] px-3 text-xs outline-none focus:border-[#e84d85]"
             />
             <button
               onClick={sendComment}
               disabled={!comment.trim() || busy !== null}
-              className="min-h-[36px] px-3 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#ff1d6c] text-[#d1d5db] hover:text-white rounded-md text-xs font-bold transition-colors disabled:opacity-50"
+              className="min-h-[44px] border border-[#303037] bg-[#202024] px-3 text-xs font-bold text-[#d1d5db] transition-colors hover:border-[#e84d85] hover:text-white disabled:opacity-50"
             >
               Send
             </button>
@@ -628,7 +628,7 @@ function CreateBetModal({
                   <button
                     key={opt.key}
                     onClick={() => setMetricType(opt.key)}
-                    className={`min-h-[44px] rounded-md px-2 text-xs font-bold border transition-colors ${metricType === opt.key ? 'bg-[#ff1d6c] border-[#ff1d6c] text-black' : 'bg-[#0f0f0f] border-[#2a2a2a] text-[#a1a1aa] hover:text-white'}`}
+                    className={`min-h-[44px] rounded-md px-2 text-xs font-bold border transition-colors ${metricType === opt.key ? 'bg-[#e84d85] border-[#e84d85] text-black' : 'bg-[#151517] border-[#303037] text-[#a1a1aa] hover:text-white'}`}
                   >
                     {opt.label}
                   </button>
@@ -647,7 +647,7 @@ function CreateBetModal({
                 <button
                   key={opt.key}
                   onClick={() => setMode(opt.key)}
-                  className={`min-h-[44px] rounded-md text-xs font-bold border transition-colors ${mode === opt.key ? 'bg-[#ff1d6c] border-[#ff1d6c] text-black' : 'bg-[#0f0f0f] border-[#2a2a2a] text-[#a1a1aa] hover:text-white'}`}
+                  className={`min-h-[44px] rounded-md text-xs font-bold border transition-colors ${mode === opt.key ? 'bg-[#e84d85] border-[#e84d85] text-black' : 'bg-[#151517] border-[#303037] text-[#a1a1aa] hover:text-white'}`}
                 >
                   {opt.label}
                 </button>
@@ -660,7 +660,7 @@ function CreateBetModal({
             <select
               value={targetAthleteId}
               onChange={e => setTargetAthleteId(Number(e.target.value))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
+              className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
             >
               {members.filter(m => mode === 'pool' || !m.is_me).map(m => (
                 <option key={m.athlete_id} value={m.athlete_id}>{m.is_me ? 'You' : m.name}</option>
@@ -682,7 +682,7 @@ function CreateBetModal({
                 <button
                   key={opt.key}
                   onClick={() => setMetricType(opt.key)}
-                  className={`min-h-[44px] rounded-md px-2 text-xs font-bold border transition-colors ${metricType === opt.key ? 'bg-[#ff1d6c] border-[#ff1d6c] text-black' : 'bg-[#0f0f0f] border-[#2a2a2a] text-[#a1a1aa] hover:text-white'}`}
+                  className={`min-h-[44px] rounded-md px-2 text-xs font-bold border transition-colors ${metricType === opt.key ? 'bg-[#e84d85] border-[#e84d85] text-black' : 'bg-[#151517] border-[#303037] text-[#a1a1aa] hover:text-white'}`}
                 >
                   {opt.label}
                 </button>
@@ -697,7 +697,7 @@ function CreateBetModal({
                 <select
                   value={distanceKey}
                   onChange={e => setDistanceKey(e.target.value as typeof distanceKey)}
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
+                  className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
                 >
                   {DISTANCE_OPTIONS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
                 </select>
@@ -708,7 +708,7 @@ function CreateBetModal({
                   value={targetTime}
                   onChange={e => setTargetTime(e.target.value)}
                   placeholder="45:00"
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
+                  className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
                 />
               </div>
             </div>
@@ -722,7 +722,7 @@ function CreateBetModal({
                 min="1"
                 value={targetValue}
                 onChange={e => setTargetValue(e.target.value)}
-                className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
+                className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
               />
             </div>
           )}
@@ -735,7 +735,7 @@ function CreateBetModal({
                 value={windowStart}
                 onChange={e => setWindowStart(e.target.value)}
                 disabled={metricType === 'weekly_distance'}
-                className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px] disabled:opacity-60"
+                className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px] disabled:opacity-60"
               />
             </div>
             <div>
@@ -745,7 +745,7 @@ function CreateBetModal({
                 value={windowEnd}
                 onChange={e => setWindowEnd(e.target.value)}
                 disabled={metricType === 'weekly_distance'}
-                className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px] disabled:opacity-60"
+                className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px] disabled:opacity-60"
               />
             </div>
           </div>
@@ -756,7 +756,7 @@ function CreateBetModal({
               <select
                 value={creatorSide}
                 onChange={e => setCreatorSide(e.target.value as BetSide)}
-                className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
+                className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
               >
                 <option value="for">They will</option>
                 <option value="against">They will not</option>
@@ -769,24 +769,24 @@ function CreateBetModal({
                 min="1"
                 value={pledgeAmount}
                 onChange={e => setPledgeAmount(e.target.value)}
-                className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
+                className="w-full bg-[#151517] border border-[#303037] focus:border-[#e84d85] rounded-lg px-3 py-2 text-sm outline-none min-h-[44px]"
               />
             </div>
           </div>
 
-          <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-3 flex items-start gap-2">
-            <Banknote size={15} className="text-[#ff1d6c] mt-0.5 shrink-0" />
+          <div className="bg-[#151517] border border-[#1c1c1c] rounded-lg p-3 flex items-start gap-2">
+            <Banknote size={15} className="text-[#e84d85] mt-0.5 shrink-0" />
             <p className="text-xs text-[#6b7280] leading-relaxed">
               Pledge only. RunDash tracks the bet, but any money is settled outside the app.
             </p>
           </div>
 
-          {error && <p className="text-[#ff1d6c] text-xs">{error}</p>}
+          {error && <p className="text-[#e84d85] text-xs">{error}</p>}
 
           <button
             onClick={createBet}
             disabled={saving}
-            className="w-full min-h-[44px] py-2.5 bg-[#ff1d6c] hover:bg-[#d4185a] disabled:opacity-50 text-black font-bold text-sm rounded-md transition-colors"
+            className="w-full min-h-[44px] py-2.5 bg-[#e84d85] hover:bg-[#c23b6b] disabled:opacity-50 text-black font-bold text-sm rounded-md transition-colors"
           >
             {saving ? 'Creating...' : 'Create Bet'}
           </button>
@@ -809,7 +809,7 @@ function ScoreboardPanel({ scoreboard }: { scoreboard: BetScoreboard | null }) {
   }
 
   const stat = (label: string, value: string) => (
-    <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-3">
+    <div className="bg-[#151517] border border-[#1c1c1c] rounded-lg p-3">
       <div className="text-[10px] font-mono uppercase text-[#6b7280] mb-1">{label}</div>
       <div className="font-mono font-bold text-white">{value}</div>
     </div>
@@ -838,7 +838,7 @@ function ScoreboardPanel({ scoreboard }: { scoreboard: BetScoreboard | null }) {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs font-mono text-[#ff1d6c]">{Math.round(member.winRate * 100)}%</div>
+              <div className="text-xs font-mono text-[#e84d85]">{Math.round(member.winRate * 100)}%</div>
               <div className="text-[10px] text-[#6b7280]">{money(member.openExposureCents)} open</div>
             </div>
           </div>
@@ -859,17 +859,17 @@ function CoachPicks({
   return (
     <div className="card">
       <div className="flex items-center gap-2 mb-3">
-        <Sparkles size={15} className="text-[#ff1d6c]" />
+        <Sparkles size={15} className="text-[#e84d85]" />
         <h3 className="font-display font-bold text-sm text-white">Coach Picks</h3>
       </div>
       <div className="grid sm:grid-cols-2 gap-2">
         {suggestions.slice(0, 4).map(suggestion => (
-          <div key={suggestion.id} className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-3">
+          <div key={suggestion.id} className="bg-[#151517] border border-[#1c1c1c] rounded-lg p-3">
             <div className="text-sm font-bold text-white mb-1">{suggestion.title}</div>
             <p className="text-xs text-[#6b7280] leading-relaxed mb-3">{suggestion.reason}</p>
             <button
               onClick={() => onUse(suggestion.template)}
-              className="min-h-[36px] px-3 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#ff1d6c] text-[#d1d5db] hover:text-white rounded-md text-xs font-bold transition-colors"
+              className="min-h-[36px] px-3 bg-[#202024] border border-[#303037] hover:border-[#e84d85] text-[#d1d5db] hover:text-white rounded-md text-xs font-bold transition-colors"
             >
               Use template
             </button>
@@ -885,12 +885,12 @@ function BetEventFeed({ events }: { events: BetEvent[] }) {
   return (
     <div className="card">
       <div className="flex items-center gap-2 mb-3">
-        <Clock size={15} className="text-[#ff1d6c]" />
+        <Clock size={15} className="text-[#e84d85]" />
         <h3 className="font-display font-bold text-sm text-white">Bet Feed</h3>
       </div>
       <div className="space-y-2">
         {events.slice(0, 8).map(event => (
-          <div key={event.id} className="flex items-center gap-3 border-l-2 border-[#ff1d6c]/40 pl-3 py-1.5">
+          <div key={event.id} className="flex items-center gap-3 border-l-2 border-[#e84d85]/40 pl-3 py-1.5">
             {event.actor_name && <Avatar name={event.actor_name} pic={event.actor_profile} size={5} />}
             <div className="flex-1 min-w-0">
               <p className="text-xs text-[#d1d5db]">{eventCopy(event)}</p>
@@ -967,7 +967,7 @@ export function GroupBetsTab({ groupId, members, myRole }: Props) {
             <button
               key={opt.key}
               onClick={() => setFilter(opt.key)}
-              className={`min-h-[36px] px-3 rounded-full text-xs font-bold transition-colors ${filter === opt.key ? 'bg-[#ff1d6c] text-black' : 'bg-[#1a1a1a] text-[#6b7280] hover:text-white'}`}
+              className={`min-h-[36px] px-3 rounded-full text-xs font-bold transition-colors ${filter === opt.key ? 'bg-[#e84d85] text-black' : 'bg-[#202024] text-[#6b7280] hover:text-white'}`}
             >
               {opt.label}
             </button>
@@ -975,7 +975,7 @@ export function GroupBetsTab({ groupId, members, myRole }: Props) {
         </div>
         <button
           onClick={() => { setCreateTemplate(null); setShowCreate(true) }}
-          className="min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 bg-[#ff1d6c] hover:bg-[#d4185a] text-black rounded-md text-xs font-bold transition-colors"
+          className="min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 bg-[#e84d85] hover:bg-[#c23b6b] text-black rounded-md text-xs font-bold transition-colors"
         >
           <Plus size={14} />
           New Bet
@@ -989,7 +989,7 @@ export function GroupBetsTab({ groupId, members, myRole }: Props) {
         </div>
       ) : visible.length === 0 ? (
         <div className="card text-center py-10">
-          <Clock size={24} className="text-[#2a2a2a] mx-auto mb-2" />
+          <Clock size={24} className="text-[#303037] mx-auto mb-2" />
           <p className="text-[#6b7280] text-sm">No bets in this lane.</p>
           <p className="text-[#4b5563] text-xs mt-1">Create one and make the weekly mileage suddenly very personal.</p>
         </div>
@@ -1043,23 +1043,24 @@ export function GroupBetsDashboardCard({ groupId, members, myRole }: Props) {
 
   return (
     <div>
-      <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">Active Bets</h2>
-      <div className="card" style={{ padding: '1.25rem' }}>
+      <h2 className="mb-4 font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">Active Bets</h2>
+      <div className="card pulse-bar acid" style={{ padding: '1.25rem' }}>
+        <span className="pulse-idx">[02]</span>
         {loading ? (
           <div className="animate-pulse space-y-3">
-            <div className="h-4 bg-[#1c1c1c] rounded w-1/3" />
-            <div className="h-20 bg-[#1c1c1c] rounded" />
+            <div className="h-4 w-1/3 bg-[#1c1c1c]" />
+            <div className="h-20 bg-[#1c1c1c]" />
           </div>
         ) : active.length === 0 ? (
           <div className="text-center py-6">
-            <Banknote size={22} className="text-[#2a2a2a] mx-auto mb-2" />
+            <Banknote size={22} className="text-[#303037] mx-auto mb-2" />
             <p className="text-[#6b7280] text-sm">No active bets yet.</p>
             <p className="text-[#4b5563] text-xs mt-1">The group is behaving suspiciously responsibly.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {scoreboard?.bestPredictor && (
-              <div className="bg-[#0f0f0f] border border-[#1c1c1c] rounded-lg p-2.5 flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 border border-[#1c1c1c] bg-[#151517] p-2.5">
                 <span className="text-[10px] font-mono uppercase text-[#6b7280]">Best predictor</span>
                 <span className="text-xs font-bold text-white">
                   {scoreboard.bestPredictor.athlete_name.split(' ')[0]} · {scoreboard.bestPredictor.wins}W

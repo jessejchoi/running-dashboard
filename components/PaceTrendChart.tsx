@@ -26,7 +26,7 @@ function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs max-w-[160px]">
+    <div className="bg-[#1c1c1c] border border-[#303037] rounded-lg px-3 py-2 text-xs max-w-[160px]">
       <div className="text-[#6b7280] mb-1 truncate">{d.name}</div>
       <div className="font-mono text-white font-bold">{paceLabel(d.pace)}/km</div>
       <div className="text-[#6b7280] mt-0.5">{d.dist} km · {d.date}</div>
@@ -73,14 +73,14 @@ export default function PaceTrendChart({ activities, targetPaceSeconds = 270 }: 
         <Tooltip content={<CustomTooltip />} />
         <ReferenceLine
           y={targetPaceSeconds}
-          stroke="#ff1d6c"
+          stroke="#e84d85"
           strokeDasharray="4 4"
           strokeOpacity={0.6}
           strokeWidth={1.5}
           label={{
             value: `Goal ${paceLabel(targetPaceSeconds)}`,
             position: 'insideTopRight',
-            fill: '#ff1d6c',
+            fill: '#e84d85',
             fontSize: 9,
             fontFamily: 'var(--font-mono)',
           }}
@@ -88,10 +88,10 @@ export default function PaceTrendChart({ activities, targetPaceSeconds = 270 }: 
         <Line
           type="monotone"
           dataKey="pace"
-          stroke="#ff1d6c"
+          stroke="#e84d85"
           strokeWidth={1.5}
           dot={false}
-          activeDot={{ r: 4, fill: '#ff1d6c', strokeWidth: 0 }}
+          activeDot={{ r: 4, fill: '#e84d85', strokeWidth: 0 }}
         />
       </LineChart>
     </ResponsiveContainer>

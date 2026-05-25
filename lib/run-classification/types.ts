@@ -49,23 +49,23 @@ export interface ActivityLike {
 // ── PULSE palette mapping ───────────────────────────────────────────────
 // Each intensity bucket maps to one Pulse signal:
 //   Easy / Recovery → neutral bone (fg-2) — quiet, "no signal"
-//   Tempo / Threshold → acid lime — the work zone
+//   Tempo / Threshold → muted acid — the work zone
 //   Intervals → magenta — peak / hard
 //   Long → ice blue — steady / informational
 //   Race → magenta inverted (filled background) — race day stands apart
 //   Treadmill → fg-3 muted
 export const RUN_TYPES = {
-  recovery:         { label: 'Recovery',            color: 'text-[#6a6a6a]', bg: 'bg-white/[0.04]', group: 'Easy' },
-  easy:             { label: 'Easy',                color: 'text-[#b4b4b4]', bg: 'bg-white/[0.06]', group: 'Easy' },
-  easy_strides:     { label: 'Easy + Strides',      color: 'text-[#b4b4b4]', bg: 'bg-white/[0.06]', group: 'Easy' },
-  tempo:            { label: 'Tempo',               color: 'text-[#d9ff36]', bg: 'bg-[#d9ff36]/[0.10]', group: 'Hard' },
-  threshold:        { label: 'Threshold',           color: 'text-[#d9ff36]', bg: 'bg-[#d9ff36]/[0.10]', group: 'Hard' },
-  long_easy:        { label: 'Long Run — Easy',     color: 'text-[#5ad7ff]', bg: 'bg-[#5ad7ff]/[0.10]', group: 'Long' },
-  long_steady:      { label: 'Long Run — Steady',   color: 'text-[#5ad7ff]', bg: 'bg-[#5ad7ff]/[0.10]', group: 'Long' },
-  long_progressive: { label: 'Long Run with Speed', color: 'text-[#5ad7ff]', bg: 'bg-[#5ad7ff]/[0.10]', group: 'Long' },
-  intervals:        { label: 'Intervals',           color: 'text-[#ff1d6c]', bg: 'bg-[#ff1d6c]/[0.12]', group: 'Interval' },
-  treadmill:        { label: 'Treadmill',           color: 'text-[#6a6a6a]', bg: 'bg-white/[0.04]', group: 'Other' },
-  race:             { label: 'Race',                color: 'text-[#0a0a0a]', bg: 'bg-[#ff1d6c]',    group: 'Other' },
+  recovery:         { label: 'Recovery',            color: 'text-[#8b837c]', bg: 'bg-white/[0.04]', group: 'Easy' },
+  easy:             { label: 'Easy',                color: 'text-[#c9c2ba]', bg: 'bg-white/[0.06]', group: 'Easy' },
+  easy_strides:     { label: 'Easy + Strides',      color: 'text-[#c9c2ba]', bg: 'bg-white/[0.06]', group: 'Easy' },
+  tempo:            { label: 'Tempo',               color: 'text-[#b8d957]', bg: 'bg-[#b8d957]/[0.10]', group: 'Hard' },
+  threshold:        { label: 'Threshold',           color: 'text-[#b8d957]', bg: 'bg-[#b8d957]/[0.10]', group: 'Hard' },
+  long_easy:        { label: 'Long Run — Easy',     color: 'text-[#6bbfdf]', bg: 'bg-[#6bbfdf]/[0.10]', group: 'Long' },
+  long_steady:      { label: 'Long Run — Steady',   color: 'text-[#6bbfdf]', bg: 'bg-[#6bbfdf]/[0.10]', group: 'Long' },
+  long_progressive: { label: 'Long Run with Speed', color: 'text-[#6bbfdf]', bg: 'bg-[#6bbfdf]/[0.10]', group: 'Long' },
+  intervals:        { label: 'Intervals',           color: 'text-[#e84d85]', bg: 'bg-[#e84d85]/[0.12]', group: 'Interval' },
+  treadmill:        { label: 'Treadmill',           color: 'text-[#8b837c]', bg: 'bg-white/[0.04]', group: 'Other' },
+  race:             { label: 'Race',                color: 'text-[#0d0d0f]', bg: 'bg-[#e84d85]',    group: 'Other' },
 } as const
 
 export type RunType = keyof typeof RUN_TYPES

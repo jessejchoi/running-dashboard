@@ -536,19 +536,19 @@ export default function GroupDashboardTab({
     const cType = c.challenge_type ?? 'group_distance'
 
     return (
-      <div className={`${status === 'active' ? 'bg-[#ff1d6c]/[0.06] rounded-xl p-3 -mx-3' : ''}`}>
+      <div className={`${status === 'active' ? '-mx-3 border border-[#303037] bg-[#e84d85]/[0.06] p-3' : ''}`}>
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
               <span className="font-bold">{c.name}</span>
               {c.created_by_coach && (
-                <span className="text-[10px] text-[#ff1d6c] font-bold bg-[#ff1d6c]/10 border border-[#ff1d6c]/20 px-1.5 py-0.5 rounded">✦ Coach</span>
+                <span className="border border-[#e84d85]/20 bg-[#e84d85]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#e84d85]">✦ Coach</span>
               )}
               {status === 'active' && (
-                <span className="text-[10px] text-[#d9ff36] font-bold bg-[#d9ff36]/10 px-1.5 py-0.5 rounded">Active</span>
+                <span className="bg-[#b8d957]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#b8d957]">Active</span>
               )}
               {isUpcoming && (
-                <span className="text-[10px] text-[#5ad7ff] font-bold bg-[#5ad7ff]/10 px-1.5 py-0.5 rounded">Upcoming</span>
+                <span className="bg-[#6bbfdf]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#6bbfdf]">Upcoming</span>
               )}
             </div>
             <p className="text-[#6b7280] text-xs">
@@ -561,14 +561,14 @@ export default function GroupDashboardTab({
             <div className="flex items-center gap-1.5 ml-2 shrink-0">
               <button
                 onClick={() => openEdit(c)}
-                className="text-[#4b5563] hover:text-[#ff1d6c] transition-colors"
+                className="text-[#4b5563] hover:text-[#e84d85] transition-colors"
                 title="Edit challenge"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
               <button
                 onClick={() => deleteChallenge(c.id)}
-                className="text-[#4b5563] hover:text-[#ff1d6c] transition-colors"
+                className="text-[#4b5563] hover:text-[#e84d85] transition-colors"
                 title="Delete challenge"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -592,16 +592,16 @@ export default function GroupDashboardTab({
                   <span className="text-xs text-[#6b7280]">
                     {toDisplay(totalMeters).toFixed(1)} / {toDisplay(c.target_meters ?? 0).toFixed(0)} {label}
                   </span>
-                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-[#d9ff36]' : 'text-[#9ca3af]') : 'text-[#ff1d6c]'}`}>
+                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-[#b8d957]' : 'text-[#9ca3af]') : 'text-[#e84d85]'}`}>
                     {pct.toFixed(0)}%
                   </span>
                 </div>
-                <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
+                <div className="h-2 overflow-hidden bg-[#1c1c1c]">
                   <div
-                    className="h-full rounded-full transition-all duration-700"
+                    className="h-full transition-all duration-700"
                     style={{
                       width: `${pct}%`,
-                      background: isPast ? (pct >= 100 ? '#d9ff36' : '#3a3a3a') : '#ff1d6c',
+                      background: isPast ? (pct >= 100 ? '#b8d957' : '#44413d') : '#e84d85',
                     }}
                   />
                 </div>
@@ -616,13 +616,13 @@ export default function GroupDashboardTab({
                         <span className={`text-xs w-16 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
                           {m.is_me ? 'You' : m.name.split(' ')[0]}
                         </span>
-                        <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
+                        <div className="h-1 flex-1 overflow-hidden bg-[#1c1c1c]">
                           <div
-                            className="h-full rounded-full"
-                            style={{ width: `${memberPct}%`, background: m.is_me ? '#ff1d6c' : '#3a3a3a' }}
+                            className="h-full"
+                            style={{ width: `${memberPct}%`, background: m.is_me ? '#e84d85' : '#44413d' }}
                           />
                         </div>
-                        <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#ff1d6c]' : 'text-[#6b7280]'}`}>
+                        <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#e84d85]' : 'text-[#6b7280]'}`}>
                           {toDisplay(m.meters).toFixed(1)} {label}
                         </span>
                       </div>
@@ -667,16 +667,16 @@ export default function GroupDashboardTab({
                                 title={`Week of ${format(ws, 'MMM d')}`}
                                 className={`w-4 h-4 rounded-full border text-[9px] flex items-center justify-center shrink-0 ${
                                   isFuture
-                                    ? 'border-[#2a2a2a] bg-transparent'
+                                    ? 'border-[#303037] bg-transparent'
                                     : hit
-                                    ? 'bg-[#d9ff36] border-[#d9ff36] text-black'
-                                    : 'bg-[#ff1d6c]/20 border-[#ff1d6c]/40'
+                                    ? 'bg-[#b8d957] border-[#b8d957] text-black'
+                                    : 'bg-[#e84d85]/20 border-[#e84d85]/40'
                                 }`}
                               />
                             )
                           })}
                         </div>
-                        <span className={`text-xs font-mono shrink-0 ${m.is_me ? 'text-[#ff1d6c]' : 'text-[#6b7280]'}`}>
+                        <span className={`text-xs font-mono shrink-0 ${m.is_me ? 'text-[#e84d85]' : 'text-[#6b7280]'}`}>
                           {hitCount}/{totalWeeks}
                         </span>
                       </div>
@@ -720,7 +720,7 @@ export default function GroupDashboardTab({
                       {m.bestEffort !== null ? (
                         <Link
                           href={`/runs/${m.bestEffort.activityId}?from=group/${group.id}`}
-                          className={`text-xs font-mono shrink-0 underline underline-offset-2 hover:opacity-80 ${m.is_me ? 'text-[#ff1d6c]' : 'text-white'}`}
+                          className={`text-xs font-mono shrink-0 underline underline-offset-2 hover:opacity-80 ${m.is_me ? 'text-[#e84d85]' : 'text-white'}`}
                         >
                           {`${speedToPace(m.bestEffort.averageSpeed, unit)}${paceUnitLabel(unit)}`}
                         </Link>
@@ -747,14 +747,14 @@ export default function GroupDashboardTab({
                   <span className="text-xs text-[#6b7280]">
                     {Math.round(totalElevation)}m / {Math.round(target)}m elevation
                   </span>
-                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-[#d9ff36]' : 'text-[#9ca3af]') : 'text-[#ff1d6c]'}`}>
+                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-[#b8d957]' : 'text-[#9ca3af]') : 'text-[#e84d85]'}`}>
                     {pct.toFixed(0)}%
                   </span>
                 </div>
-                <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
+                <div className="h-2 overflow-hidden bg-[#1c1c1c]">
                   <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${pct}%`, background: isPast ? (pct >= 100 ? '#d9ff36' : '#3a3a3a') : '#ff1d6c' }}
+                    className="h-full transition-all duration-700"
+                    style={{ width: `${pct}%`, background: isPast ? (pct >= 100 ? '#b8d957' : '#44413d') : '#e84d85' }}
                   />
                 </div>
               </div>
@@ -768,10 +768,10 @@ export default function GroupDashboardTab({
                         <span className={`text-xs w-16 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
                           {m.is_me ? 'You' : m.name.split(' ')[0]}
                         </span>
-                        <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${mPct}%`, background: m.is_me ? '#ff1d6c' : '#3a3a3a' }} />
+                        <div className="h-1 flex-1 overflow-hidden bg-[#1c1c1c]">
+                          <div className="h-full" style={{ width: `${mPct}%`, background: m.is_me ? '#e84d85' : '#44413d' }} />
                         </div>
-                        <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#ff1d6c]' : 'text-[#6b7280]'}`}>
+                        <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#e84d85]' : 'text-[#6b7280]'}`}>
                           {Math.round(m.elevation)}m
                         </span>
                       </div>
@@ -795,14 +795,14 @@ export default function GroupDashboardTab({
                   <span className="text-xs text-[#6b7280]">
                     {totalCount} / {target} runs
                   </span>
-                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-[#d9ff36]' : 'text-[#9ca3af]') : 'text-[#ff1d6c]'}`}>
+                  <span className={`text-sm font-mono font-bold ${isPast ? (pct >= 100 ? 'text-[#b8d957]' : 'text-[#9ca3af]') : 'text-[#e84d85]'}`}>
                     {pct.toFixed(0)}%
                   </span>
                 </div>
-                <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden">
+                <div className="h-2 overflow-hidden bg-[#1c1c1c]">
                   <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${pct}%`, background: isPast ? (pct >= 100 ? '#d9ff36' : '#3a3a3a') : '#ff1d6c' }}
+                    className="h-full transition-all duration-700"
+                    style={{ width: `${pct}%`, background: isPast ? (pct >= 100 ? '#b8d957' : '#44413d') : '#e84d85' }}
                   />
                 </div>
               </div>
@@ -817,7 +817,7 @@ export default function GroupDashboardTab({
                       <span className={`text-xs flex-1 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
                         {m.is_me ? 'You' : m.name.split(' ')[0]}
                       </span>
-                      <span className={`text-xs font-mono ${m.is_me ? 'text-[#ff1d6c]' : 'text-[#6b7280]'}`}>
+                      <span className={`text-xs font-mono ${m.is_me ? 'text-[#e84d85]' : 'text-[#6b7280]'}`}>
                         {m.count} run{m.count !== 1 ? 's' : ''}
                       </span>
                     </div>
@@ -832,11 +832,11 @@ export default function GroupDashboardTab({
   }
 
   return (
-    <div className="fade-up space-y-8">
+    <div className="grid grid-cols-12 gap-3 fade-up sm:gap-[14px]">
 
       {/* Group Chat */}
-      <div>
-        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">Group Chat</h2>
+      <div className="col-span-12 lg:col-span-7">
+        <h2 className="mb-4 font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">Group Chat</h2>
         <GroupMessageBoard
           groupId={group.id}
           members={members.map(m => ({ athlete_id: m.athlete_id, name: m.name, profile_pic: m.profile_pic, is_me: m.is_me }))}
@@ -844,31 +844,33 @@ export default function GroupDashboardTab({
         />
       </div>
 
-      <GroupBetsDashboardCard
-        groupId={group.id}
-        members={members}
-        myRole={myRole}
-      />
+      <div className="col-span-12 lg:col-span-5">
+        <GroupBetsDashboardCard
+          groupId={group.id}
+          members={members}
+          myRole={myRole}
+        />
+      </div>
 
       {/* RDCoach */}
-      <div>
-        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">RDCoach</h2>
+      <div className="col-span-12">
+        <h2 className="mb-4 font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">RDCoach</h2>
         <GroupCoachTab groupId={group.id} myRole={myRole} members={members} initialBriefing={initialBriefing} initialBriefingMeta={initialBriefingMeta} initialAwards={initialAwards} />
       </div>
 
       {/* Leaderboard */}
-      <div>
+      <div className="col-span-12 lg:col-span-5">
         <div className="mb-4">
-          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-3">Leaderboard</h2>
+          <h2 className="mb-3 font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">Leaderboard</h2>
           <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
             {ranges.map(r => (
               <button
                 key={r.key}
                 onClick={() => setLeaderRange(r.key)}
-                className={`px-2.5 py-1 rounded-full text-xs font-bold transition-colors shrink-0 ${
+                className={`min-h-[44px] shrink-0 border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
                   leaderRange === r.key
-                    ? 'bg-[#ff1d6c] text-black'
-                    : 'bg-[#1a1a1a] text-[#6b7280] hover:text-white'
+                    ? 'border-[#e84d85] bg-[#e84d85] text-black'
+                    : 'border-[#303037] bg-[#202024] text-[#8B837C] hover:border-[#e84d85] hover:text-white'
                 }`}
               >
                 {r.label}
@@ -876,7 +878,8 @@ export default function GroupDashboardTab({
             ))}
           </div>
         </div>
-        <div className="card" style={{ padding: '1.25rem' }}>
+        <div className="card pulse-bar" style={{ padding: '1.25rem' }}>
+        <span className="pulse-idx">[04]</span>
         {board.every(e => e.distance === 0) ? (
           <p className="text-[#6b7280] text-sm text-center py-4">No runs recorded in this period.</p>
         ) : (
@@ -899,7 +902,7 @@ export default function GroupDashboardTab({
                           {entry.is_me ? 'You' : entry.name.split(' ')[0]}
                         </span>
                         {entry.streak >= 2 && (
-                          <span className="flex items-center gap-0.5 text-[#ff7a1c] text-[10px] font-bold shrink-0">
+                          <span className="flex items-center gap-0.5 text-[#dc8b3a] text-[10px] font-bold shrink-0">
                             <Flame size={10} />{entry.streak}w
                           </span>
                         )}
@@ -907,14 +910,14 @@ export default function GroupDashboardTab({
                           {entry.count} run{entry.count !== 1 ? 's' : ''}
                         </span>
                       </div>
-                      <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${entry.is_me ? 'text-[#ff1d6c]' : 'text-[#9ca3af]'}`}>
+                      <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${entry.is_me ? 'text-[#e84d85]' : 'text-[#9ca3af]'}`}>
                         {dist.toFixed(1)} {label}
                       </span>
                     </div>
-                    <div className="h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
+                    <div className="h-1 overflow-hidden bg-[#1c1c1c]">
                       <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, background: entry.is_me ? '#ff1d6c' : '#3a3a3a' }}
+                        className="h-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: entry.is_me ? '#e84d85' : '#44413d' }}
                       />
                     </div>
                   </div>
@@ -927,15 +930,15 @@ export default function GroupDashboardTab({
       </div>
 
       {/* Challenges */}
-      <div>
+      <div className="col-span-12 lg:col-span-7">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Challenges</h2>
+          <h2 className="font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">Challenges</h2>
           <div className="flex items-center gap-2">
             {myRole === 'admin' && (
               <button
                 onClick={generateChallenge}
                 disabled={generating}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#ff1d6c] text-[#9ca3af] hover:text-[#ff1d6c] rounded-lg transition-colors disabled:opacity-50"
+                className="flex min-h-[44px] items-center gap-1 border border-[#303037] bg-[#202024] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#8B837C] transition-colors hover:border-[#e84d85] hover:text-[#e84d85] disabled:opacity-50"
                 title="Generate a coach challenge for this month"
               >
                 ✦ {generating ? 'Generating…' : 'Coach'}
@@ -943,17 +946,18 @@ export default function GroupDashboardTab({
             )}
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold bg-[#ff1d6c] hover:bg-[#d4185a] text-black rounded-lg transition-colors"
+              className="flex min-h-[44px] items-center gap-1 border border-[#e84d85] bg-[#e84d85] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-black transition-colors hover:bg-[#c23b6b]"
             >
               <Plus size={12} />
               New
             </button>
           </div>
         </div>
-        <div className="card" style={{ padding: '1.25rem' }}>
+        <div className="card pulse-bar acid" style={{ padding: '1.25rem' }}>
+        <span className="pulse-idx">[05]</span>
         {challenges.length === 0 ? (
           <div className="text-center py-6">
-            <Trophy size={24} className="text-[#2a2a2a] mx-auto mb-2" />
+            <Trophy size={24} className="text-[#303037] mx-auto mb-2" />
             <p className="text-[#6b7280] text-sm">No challenges yet.</p>
             <p className="text-[#4b5563] text-xs mt-1">Create one to motivate the group!</p>
           </div>
@@ -974,26 +978,26 @@ export default function GroupDashboardTab({
             {lastMonthChallenge && lastMonthSummary && (
               <div className={(active.length > 0 || upcoming.length > 0) ? 'mt-5 pt-5 border-t border-[#1c1c1c]' : ''}>
                 <p className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-3)' }}>Last Month</p>
-                <div className="bg-[#0f0f0f] rounded-xl p-3">
+                <div className="border border-[#1c1c1c] bg-[#151517] p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-sm font-bold text-white truncate">{lastMonthChallenge.name}</span>
                         {lastMonthChallenge.created_by_coach && (
-                          <span className="text-[10px] text-[#ff1d6c] font-bold bg-[#ff1d6c]/10 border border-[#ff1d6c]/20 px-1.5 py-0.5 rounded">✦ Coach</span>
+                          <span className="border border-[#e84d85]/20 bg-[#e84d85]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#e84d85]">✦ Coach</span>
                         )}
                       </div>
                       <p className="text-[10px] text-[#4b5563] font-mono">
                         {format(new Date(lastMonthChallenge.start_date), 'MMM d')} – {format(new Date(lastMonthChallenge.end_date), 'MMM d, yyyy')}
                       </p>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded shrink-0 ${lastMonthSummary.achieved ? 'text-[#d9ff36] bg-[#d9ff36]/10' : 'text-[#9ca3af] bg-[#1a1a1a]'}`}>
+                    <span className={`shrink-0 px-2 py-1 text-[10px] font-bold ${lastMonthSummary.achieved ? 'text-[#b8d957] bg-[#b8d957]/10' : 'text-[#9ca3af] bg-[#202024]'}`}>
                       {lastMonthSummary.achieved ? 'Completed' : 'Not Completed'}
                     </span>
                   </div>
                   <div className="mt-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className={`text-sm font-mono font-bold ${lastMonthSummary.achieved ? 'text-[#d9ff36]' : 'text-[#d1d5db]'}`}>
+                      <p className={`text-sm font-mono font-bold ${lastMonthSummary.achieved ? 'text-[#b8d957]' : 'text-[#d1d5db]'}`}>
                         {lastMonthSummary.resultStr}
                       </p>
                       {lastMonthSummary.winnerLabel && (
@@ -1021,14 +1025,14 @@ export default function GroupDashboardTab({
                       return (
                         <div key={c.id} className="flex items-center justify-between py-2.5 gap-3">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-sm shrink-0 ${achieved ? 'text-[#d9ff36]' : 'text-[#4b5563]'}`}>
+                            <span className={`text-sm shrink-0 ${achieved ? 'text-[#b8d957]' : 'text-[#4b5563]'}`}>
                               {achieved ? '✓' : '○'}
                             </span>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-xs font-bold text-white truncate">{c.name}</span>
                                 {c.created_by_coach && (
-                                  <span className="text-[10px] text-[#ff1d6c] font-bold">✦</span>
+                                  <span className="text-[10px] text-[#e84d85] font-bold">✦</span>
                                 )}
                               </div>
                               <p className="text-[10px] text-[#4b5563] font-mono">
@@ -1037,9 +1041,9 @@ export default function GroupDashboardTab({
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className={`text-xs font-mono ${achieved ? 'text-[#d9ff36]' : 'text-[#6b7280]'}`}>{resultStr}</span>
+                            <span className={`text-xs font-mono ${achieved ? 'text-[#b8d957]' : 'text-[#6b7280]'}`}>{resultStr}</span>
                             {myRole === 'admin' && (
-                              <button onClick={() => deleteChallenge(c.id)} className="text-[#2a2a2a] hover:text-[#ff1d6c] transition-colors">
+                              <button onClick={() => deleteChallenge(c.id)} className="text-[#303037] hover:text-[#e84d85] transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                               </button>
                             )}
@@ -1057,17 +1061,18 @@ export default function GroupDashboardTab({
       </div>{/* end challenges section */}
 
       {/* Training Load */}
-      <div>
-        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">Training Load</h2>
-        <div className="card" style={{ padding: '1.25rem' }}>
+      <div className="col-span-12 lg:col-span-7">
+        <h2 className="mb-4 font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">Training Load</h2>
+        <div className="card pulse-bar ice" style={{ padding: '1.25rem' }}>
+        <span className="pulse-idx">[06]</span>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {members.map(m => {
             const load = memberTrainingLoads[m.athlete_id] ?? { ctl: 0, atl: 0, tsb: 0 }
-            const tsbColor = load.tsb > 5 ? 'text-[#d9ff36]' : load.tsb >= -10 ? 'text-[#d9ff36]' : 'text-[#ff1d6c]'
+            const tsbColor = load.tsb > 5 ? 'text-[#b8d957]' : load.tsb >= -10 ? 'text-[#b8d957]' : 'text-[#e84d85]'
             const formLabel = load.tsb > 5 ? 'Fresh' : load.tsb >= -10 ? 'Tired' : 'Very Tired'
             const hasData = load.ctl > 0 || load.atl > 0
             return (
-              <div key={m.athlete_id} className="bg-[#0f0f0f] rounded-xl p-3">
+              <div key={m.athlete_id} className="border border-[#1c1c1c] bg-[#151517] p-3">
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <Avatar name={m.name} pic={m.profile_pic} size={5} />
                   <span className={`text-xs font-bold truncate ${m.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
@@ -1081,11 +1086,11 @@ export default function GroupDashboardTab({
                   <div className="flex justify-between">
                     <div>
                       <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Fit</p>
-                      <p className="text-base font-mono font-bold text-[#5ad7ff]">{load.ctl.toFixed(1)}</p>
+                      <p className="text-base font-mono font-bold text-[#6bbfdf]">{load.ctl.toFixed(1)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Fat</p>
-                      <p className="text-base font-mono font-bold text-[#ff7a1c]">{load.atl.toFixed(1)}</p>
+                      <p className="text-base font-mono font-bold text-[#dc8b3a]">{load.atl.toFixed(1)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-[#6b7280] uppercase tracking-wide leading-none mb-1">Form</p>
@@ -1103,9 +1108,10 @@ export default function GroupDashboardTab({
       </div>{/* end training load section */}
 
       {/* Members */}
-      <div>
-        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest mb-4">Members</h2>
-        <div className="card" style={{ padding: '1.25rem' }}>
+      <div className="col-span-12 lg:col-span-5">
+        <h2 className="mb-4 font-display text-[28px] font-bold uppercase leading-none text-[#F1EDE8]">Members</h2>
+        <div className="card pulse-bar" style={{ padding: '1.25rem' }}>
+        <span className="pulse-idx">[07]</span>
         <div className="divide-y divide-[#1c1c1c]">
           {members.map(m => (
             <div key={m.athlete_id} className="flex items-center gap-2.5 py-3 first:pt-0 last:pb-0">
@@ -1113,8 +1119,8 @@ export default function GroupDashboardTab({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-sm">{m.name}</span>
-                  {m.is_me && <span className="text-[10px] text-[#ff1d6c] font-bold bg-[#ff1d6c]/10 px-1.5 py-0.5 rounded">You</span>}
-                  {m.role === 'admin' && <span className="text-[10px] text-[#d9ff36] font-bold bg-[#d9ff36]/10 px-1.5 py-0.5 rounded">Admin</span>}
+                  {m.is_me && <span className="bg-[#e84d85]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#e84d85]">You</span>}
+                  {m.role === 'admin' && <span className="bg-[#b8d957]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#b8d957]">Admin</span>}
                   {m.gender && <span className="text-[10px] text-[#4b5563] font-mono">{m.gender === 'M' ? '♂' : '♀'}</span>}
                 </div>
                 <p className="text-[#6b7280] text-xs mt-0.5">
@@ -1127,7 +1133,7 @@ export default function GroupDashboardTab({
                   {m.role === 'admin' ? (
                     <button
                       onClick={() => onUpdateMemberRole(m.athlete_id, 'member')}
-                      className="p-1.5 rounded-lg text-[#d9ff36]/60 hover:text-[#d9ff36] hover:bg-[#d9ff36]/10 transition-colors"
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#303037] text-[#b8d957]/60 transition-colors hover:bg-[#b8d957]/10 hover:text-[#b8d957]"
                       title="Remove admin"
                     >
                       <ShieldOff size={14} />
@@ -1135,7 +1141,7 @@ export default function GroupDashboardTab({
                   ) : (
                     <button
                       onClick={() => onUpdateMemberRole(m.athlete_id, 'admin')}
-                      className="p-1.5 rounded-lg text-[#4b5563] hover:text-[#d9ff36] hover:bg-[#d9ff36]/10 transition-colors"
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#303037] text-[#4b5563] transition-colors hover:bg-[#b8d957]/10 hover:text-[#b8d957]"
                       title="Make admin"
                     >
                       <Shield size={14} />
@@ -1143,7 +1149,7 @@ export default function GroupDashboardTab({
                   )}
                   <button
                     onClick={() => onKickMember(m.athlete_id)}
-                    className="p-1.5 rounded-lg text-[#4b5563] hover:text-[#ff1d6c] hover:bg-[#ff1d6c]/10 transition-colors"
+                    className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#303037] text-[#4b5563] transition-colors hover:bg-[#e84d85]/10 hover:text-[#e84d85]"
                     title="Remove from group"
                   >
                     <UserMinus size={14} />
@@ -1158,11 +1164,11 @@ export default function GroupDashboardTab({
 
       {/* Edit challenge modal */}
       {editingChallenge && (
-        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-md p-6 z-[9999]">
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70 p-4">
+          <div className="z-[9999] w-full max-w-md border border-[#303037] bg-[#151517] p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-display font-bold text-lg">Edit Challenge</h2>
-              <button onClick={() => setEditingChallenge(null)} className="text-[#6b7280] hover:text-white">
+              <h2 className="font-display text-[28px] font-bold uppercase leading-none">Edit Challenge</h2>
+              <button onClick={() => setEditingChallenge(null)} className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#303037] text-[#6b7280] hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -1170,7 +1176,7 @@ export default function GroupDashboardTab({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Type</label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                   {([
                     { key: 'group_distance', label: 'Distance' },
                     { key: 'weekly_quota',   label: 'Weekly' },
@@ -1182,10 +1188,10 @@ export default function GroupDashboardTab({
                       key={key}
                       type="button"
                       onClick={() => setEditType(key)}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
+                      className={`min-h-[44px] flex-1 border px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
                         editType === key
-                          ? 'bg-[#ff1d6c] border-[#ff1d6c] text-black'
-                          : 'bg-transparent border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#4b5563]'
+                          ? 'bg-[#e84d85] border-[#e84d85] text-black'
+                          : 'bg-transparent border-[#303037] text-[#6b7280] hover:text-white hover:border-[#4b5563]'
                       }`}
                     >
                       {optLabel}
@@ -1200,7 +1206,7 @@ export default function GroupDashboardTab({
                   type="text"
                   value={editForm.name}
                   onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                  className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                 />
               </div>
 
@@ -1211,7 +1217,7 @@ export default function GroupDashboardTab({
                   value={editForm.description}
                   onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Optional note for the group"
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                  className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                 />
               </div>
 
@@ -1228,7 +1234,7 @@ export default function GroupDashboardTab({
                     min="1"
                     value={editForm.targetDist}
                     onChange={e => setEditForm(f => ({ ...f, targetDist: e.target.value }))}
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                    className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                   />
                 </div>
               )}
@@ -1246,7 +1252,7 @@ export default function GroupDashboardTab({
                     type="date"
                     value={editForm.startDate}
                     onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))}
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                    className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                   />
                 </div>
                 <div>
@@ -1255,19 +1261,19 @@ export default function GroupDashboardTab({
                     type="date"
                     value={editForm.endDate}
                     onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))}
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                    className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                   />
                 </div>
               </div>
 
               {editError && (
-                <p className="text-[#ff1d6c] text-xs">{editError}</p>
+                <p className="text-[#e84d85] text-xs">{editError}</p>
               )}
 
               <button
                 onClick={saveEdit}
                 disabled={editSaving}
-                className="w-full py-2.5 bg-[#ff1d6c] hover:bg-[#d4185a] disabled:opacity-50 text-black font-bold text-sm rounded-lg transition-colors"
+                className="min-h-[44px] w-full bg-[#e84d85] py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#c23b6b] disabled:opacity-50"
               >
                 {editSaving ? 'Saving…' : 'Save Changes'}
               </button>
@@ -1278,11 +1284,11 @@ export default function GroupDashboardTab({
 
       {/* Create challenge modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-md p-6 z-[9999]">
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70 p-4">
+          <div className="z-[9999] w-full max-w-md border border-[#303037] bg-[#151517] p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-display font-bold text-lg">New Challenge</h2>
-              <button onClick={() => setShowCreate(false)} className="text-[#6b7280] hover:text-white">
+              <h2 className="font-display text-[28px] font-bold uppercase leading-none">New Challenge</h2>
+              <button onClick={() => setShowCreate(false)} className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#303037] text-[#6b7280] hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -1291,7 +1297,7 @@ export default function GroupDashboardTab({
               {/* Type selector */}
               <div>
                 <label className="block text-xs font-bold text-[#6b7280] mb-1.5">Type</label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                   {([
                     { key: 'group_distance', label: 'Distance' },
                     { key: 'weekly_quota',   label: 'Weekly' },
@@ -1303,10 +1309,10 @@ export default function GroupDashboardTab({
                       key={key}
                       type="button"
                       onClick={() => setChallengeType(key)}
-                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
+                      className={`min-h-[44px] flex-1 border px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
                         challengeType === key
-                          ? 'bg-[#ff1d6c] border-[#ff1d6c] text-black'
-                          : 'bg-transparent border-[#2a2a2a] text-[#6b7280] hover:text-white hover:border-[#4b5563]'
+                          ? 'bg-[#e84d85] border-[#e84d85] text-black'
+                          : 'bg-transparent border-[#303037] text-[#6b7280] hover:text-white hover:border-[#4b5563]'
                       }`}
                     >
                       {optLabel}
@@ -1326,7 +1332,7 @@ export default function GroupDashboardTab({
                     challengeType === 'weekly_quota'   ? 'e.g. Weekly 30km Club' :
                     'e.g. Speed King'
                   }
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                  className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                 />
               </div>
 
@@ -1337,7 +1343,7 @@ export default function GroupDashboardTab({
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Optional note for the group"
-                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                  className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                 />
               </div>
 
@@ -1361,7 +1367,7 @@ export default function GroupDashboardTab({
                         : challengeType === 'elevation' ? '5000'
                         : '50'
                     }
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                    className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                   />
                 </div>
               )}
@@ -1379,7 +1385,7 @@ export default function GroupDashboardTab({
                     type="date"
                     value={form.startDate}
                     onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                    className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                   />
                 </div>
                 <div>
@@ -1388,19 +1394,19 @@ export default function GroupDashboardTab({
                     type="date"
                     value={form.endDate}
                     onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
-                    className="w-full bg-[#0f0f0f] border border-[#2a2a2a] focus:border-[#ff1d6c] rounded-lg px-3 py-2 text-sm outline-none"
+                    className="min-h-[44px] w-full border border-[#303037] bg-[#202024] px-3 py-2 text-sm outline-none focus:border-[#e84d85]"
                   />
                 </div>
               </div>
 
               {formError && (
-                <p className="text-[#ff1d6c] text-xs">{formError}</p>
+                <p className="text-[#e84d85] text-xs">{formError}</p>
               )}
 
               <button
                 onClick={createChallenge}
                 disabled={formSaving}
-                className="w-full py-2.5 bg-[#ff1d6c] hover:bg-[#d4185a] disabled:opacity-50 text-black font-bold text-sm rounded-lg transition-colors"
+                className="min-h-[44px] w-full bg-[#e84d85] py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#c23b6b] disabled:opacity-50"
               >
                 {formSaving ? 'Creating…' : 'Create Challenge'}
               </button>

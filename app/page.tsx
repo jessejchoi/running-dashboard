@@ -133,7 +133,7 @@ export default async function DashboardPage() {
             <p className="pulse-label" style={{ display: 'block', marginBottom: '0.5rem' }}>WEEKLY DISTANCE</p>
             <div
               className="stat-num font-display font-bold leading-none stat-stamp"
-              style={{ fontSize: 'clamp(48px, 6vw, 80px)', textShadow: '4px 4px 0 var(--magenta)' }}
+              style={{ fontSize: 'clamp(48px, 6vw, 80px)', textShadow: '2px 2px 0 var(--magenta-shadow)' }}
             >
               {formatDistanceShort(weekDist, unit).split(' ')[0]}
               <span className="font-bold ml-2" style={{ fontSize: '0.32em', color: 'var(--magenta)', textShadow: 'none', letterSpacing: '0.04em' }}>{unitLabel.toUpperCase()}</span>

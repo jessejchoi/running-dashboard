@@ -11,7 +11,7 @@ interface Props {
 
 // ── Pulse run row ──────────────────────────────────────────────────────
 // Hairline top borders, magenta hover stripe, mono everywhere, fast paces
-// flip to acid lime. Display-cased run titles when present in `name`.
+// flip to muted acid. Display-cased run titles when present in `name`.
 export default function RunRow({ run, unit }: Props) {
   const paceSeconds = run.average_speed ? 1000 / run.average_speed : 999
   const isFast = paceSeconds <= 270

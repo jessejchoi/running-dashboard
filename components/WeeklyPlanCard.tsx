@@ -77,7 +77,7 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
   return (
     <section className="mt-8 mb-[14px]">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-[28px] text-[#F4F4F4] uppercase leading-none">Plan This Week</h2>
+        <h2 className="font-display font-bold text-[28px] text-[#F1EDE8] uppercase leading-none">Plan This Week</h2>
         <Link href="/plan" prefetch={true} className="pulse-link">
           Full plan
         </Link>
@@ -88,7 +88,7 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
       {!loaded ? (
         <div className="animate-pulse flex flex-col gap-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-8 bg-[#232323]" />
+            <div key={i} className="h-8 bg-[#29292f]" />
           ))}
         </div>
       ) : !hasSessions ? (

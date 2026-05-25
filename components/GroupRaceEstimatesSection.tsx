@@ -10,10 +10,10 @@ interface Props {
 }
 
 const DISTANCES = [
-  { key: '5k',  label: '5K',            km: 5,       color: 'text-[#ff1d6c]',    border: 'border-[#ff1d6c]/20' },
-  { key: '10k', label: '10K',           km: 10,      color: 'text-[#ff7a1c]', border: 'border-[#ff7a1c]/20' },
-  { key: 'hm',  label: 'Half Marathon', km: 21.0975, color: 'text-[#5ad7ff]',    border: 'border-sky-400/20' },
-  { key: 'fm',  label: 'Marathon',      km: 42.195,  color: 'text-[#5ad7ff]', border: 'border-[#5ad7ff]/20' },
+  { key: '5k',  label: '5K',            km: 5,       color: 'text-[#e84d85]',    border: 'border-[#e84d85]/20' },
+  { key: '10k', label: '10K',           km: 10,      color: 'text-[#dc8b3a]', border: 'border-[#dc8b3a]/20' },
+  { key: 'hm',  label: 'Half Marathon', km: 21.0975, color: 'text-[#6bbfdf]',    border: 'border-sky-400/20' },
+  { key: 'fm',  label: 'Marathon',      km: 42.195,  color: 'text-[#6bbfdf]', border: 'border-[#6bbfdf]/20' },
 ]
 
 function paceStr(secs: number, km: number, unit: 'km' | 'miles') {
@@ -31,9 +31,9 @@ function MemberRow({ member, secs, km, unit, isMe }: {
   isMe: boolean
 }) {
   return (
-    <div className={`flex items-center gap-2.5 py-2 border-b border-[#1a1a1a] last:border-0 ${isMe ? 'opacity-100' : 'opacity-90'}`}>
+    <div className={`flex items-center gap-2.5 py-2 border-b border-[#202024] last:border-0 ${isMe ? 'opacity-100' : 'opacity-90'}`}>
       <Avatar name={member.name} pic={member.profile_pic} size={6} />
-      <span className={`flex-1 text-xs font-bold truncate ${isMe ? 'text-[#ff1d6c]' : 'text-white'}`}>
+      <span className={`flex-1 text-xs font-bold truncate ${isMe ? 'text-[#e84d85]' : 'text-white'}`}>
         {member.name.split(' ')[0]}
       </span>
       <div className="text-right shrink-0">
@@ -75,7 +75,7 @@ export default function GroupRaceEstimatesSection({ members, initialEstimates, m
                 {dist.label}
               </div>
               {entries.length === 0 ? (
-                <p className="text-[#3a3a3a] text-[10px]">No estimates yet</p>
+                <p className="text-[#44413d] text-[10px]">No estimates yet</p>
               ) : (
                 <div>
                   {entries.map(({ member, secs }) => (

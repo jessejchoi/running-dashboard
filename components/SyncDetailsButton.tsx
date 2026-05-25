@@ -28,12 +28,12 @@ export default function SyncDetailsButton({ unsynced }: { unsynced: number }) {
         </p>
       )}
       {status === 'done' && (
-        <p className="text-xs text-[#d9ff36]">✓ Synced {synced} runs</p>
+        <p className="text-xs text-[#b8d957]">✓ Synced {synced} runs</p>
       )}
       <button
         onClick={handleSync}
         disabled={status === 'syncing'}
-        className="flex items-center gap-2 px-4 py-2 text-xs font-medium bg-[#1c1c1c] hover:bg-[#242424] border border-[#2a2a2a] text-white rounded-lg transition-all disabled:opacity-50"
+        className="flex items-center gap-2 px-4 py-2 text-xs font-medium bg-[#1c1c1c] hover:bg-[#242424] border border-[#303037] text-white rounded-lg transition-all disabled:opacity-50"
       >
         <Download size={12} className={status === 'syncing' ? 'animate-bounce' : ''} />
         {status === 'syncing' ? 'Syncing…' : `Sync lap data (${unsynced} runs)`}

@@ -154,7 +154,7 @@ export default async function DashboardGroupSection({
         <Link
           href="/groups"
           className="flex items-center gap-2 text-white font-bold px-5 py-2.5 rounded-lg transition-colors text-sm"
-          style={{ background: 'var(--orange)' }}
+          style={{ background: 'var(--orange)', color: 'var(--ink)' }}
           prefetch
         >
           Create a group

@@ -14,13 +14,13 @@ module.exports = {
       },
       colors: {
         // ── Pulse signal palette ─────────────────────────────────────
-        ink:     { DEFAULT: '#0a0a0a', 1: '#111111', 2: '#1a1a1a', 3: '#232323' },
-        magenta: { DEFAULT: '#ff1d6c', dark: '#d4185a' },
-        acid:    { DEFAULT: '#d9ff36', dark: '#b3d324' },
-        ice:     { DEFAULT: '#5ad7ff' },
-        bone:    { DEFAULT: '#f4f4f4' },
+        ink:     { DEFAULT: '#0d0d0f', 1: '#151517', 2: '#202024', 3: '#29292f' },
+        magenta: { DEFAULT: '#e84d85', dark: '#c23b6b' },
+        acid:    { DEFAULT: '#b8d957', dark: '#8faa3f' },
+        ice:     { DEFAULT: '#6bbfdf' },
+        bone:    { DEFAULT: '#f1ede8' },
         // ── Legacy alias (was orange) ────────────────────────────────
-        brand:   { 500: '#ff1d6c', 600: '#d4185a' },
+        brand:   { 500: '#e84d85', 600: '#c23b6b' },
         // ── Surfaces ─────────────────────────────────────────────────
         surface: {
           DEFAULT: 'var(--surface)',

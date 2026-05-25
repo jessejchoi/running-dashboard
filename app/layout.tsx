@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     apple: '/rundash-icon.png',
     shortcut: '/rundash-icon.png',
   },
-  themeColor: '#0a0a0a',
+  themeColor: '#0d0d0f',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
-      <body className="bg-[#0a0a0a] text-white antialiased min-h-screen" style={{ fontFamily: 'var(--font-body)' }}>
+      <body className="antialiased min-h-screen" style={{ fontFamily: 'var(--font-body)' }}>
         <script dangerouslySetInnerHTML={{__html: `(function(){try{if(navigator.standalone===true){document.documentElement.classList.add('standalone')}}catch(e){}})()`}} />
         <StandaloneDetector />
         <UnitProvider unit={unit}>

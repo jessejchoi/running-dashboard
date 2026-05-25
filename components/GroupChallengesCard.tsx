@@ -38,7 +38,7 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   }
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="w-5 h-5 rounded-full bg-[#ff1d6c]/20 flex items-center justify-center text-[#ff1d6c] font-bold text-[8px] shrink-0">
+    <div className="w-5 h-5 rounded-full bg-[#e84d85]/20 flex items-center justify-center text-[#e84d85] font-bold text-[8px] shrink-0">
       {initials}
     </div>
   )
@@ -87,7 +87,7 @@ export default function GroupChallengesCard({ groupId }: Props) {
 
       {active.length === 0 && upcoming.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-6 gap-2">
-          <Trophy size={20} className="text-[#2a2a2a]" />
+          <Trophy size={20} className="text-[#303037]" />
           <p className="text-[#4b5563] text-xs text-center">No active challenges.<br />Head to the group page to create one.</p>
         </div>
       ) : (
@@ -106,12 +106,12 @@ export default function GroupChallengesCard({ groupId }: Props) {
                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                       <span className="font-bold text-sm text-white">{c.name}</span>
                       {c.created_by_coach && (
-                        <span className="text-[10px] text-[#ff1d6c] font-bold bg-[#ff1d6c]/10 border border-[#ff1d6c]/20 px-1.5 py-0.5 rounded">✦ Coach</span>
+                        <span className="text-[10px] text-[#e84d85] font-bold bg-[#e84d85]/10 border border-[#e84d85]/20 px-1.5 py-0.5 rounded">✦ Coach</span>
                       )}
                       {isUpcoming ? (
-                        <span className="text-[10px] text-[#5ad7ff] font-bold bg-[#5ad7ff]/10 px-1.5 py-0.5 rounded">Upcoming</span>
+                        <span className="text-[10px] text-[#6bbfdf] font-bold bg-[#6bbfdf]/10 px-1.5 py-0.5 rounded">Upcoming</span>
                       ) : (
-                        <span className="text-[10px] text-[#d9ff36] font-bold bg-[#d9ff36]/10 px-1.5 py-0.5 rounded">Active</span>
+                        <span className="text-[10px] text-[#b8d957] font-bold bg-[#b8d957]/10 px-1.5 py-0.5 rounded">Active</span>
                       )}
                     </div>
                     <p className="text-[10px] text-[#4b5563]">
@@ -121,7 +121,7 @@ export default function GroupChallengesCard({ groupId }: Props) {
                     </p>
                   </div>
                   {cType === 'group_distance' && c.target_meters && (
-                    <span className="text-sm font-mono font-bold text-[#ff1d6c] shrink-0">{c.pct}%</span>
+                    <span className="text-sm font-mono font-bold text-[#e84d85] shrink-0">{c.pct}%</span>
                   )}
                 </div>
 
@@ -135,7 +135,7 @@ export default function GroupChallengesCard({ groupId }: Props) {
                     </div>
                     <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden mb-3">
                       <div
-                        className="h-full rounded-full transition-all duration-700 bg-[#ff1d6c]"
+                        className="h-full rounded-full transition-all duration-700 bg-[#e84d85]"
                         style={{ width: `${c.pct}%` }}
                       />
                     </div>
@@ -152,10 +152,10 @@ export default function GroupChallengesCard({ groupId }: Props) {
                               <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
                                 <div
                                   className="h-full rounded-full"
-                                  style={{ width: `${memberPct}%`, background: m.is_me ? '#ff1d6c' : '#3a3a3a' }}
+                                  style={{ width: `${memberPct}%`, background: m.is_me ? '#e84d85' : '#44413d' }}
                                 />
                               </div>
-                              <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#ff1d6c]' : 'text-[#6b7280]'}`}>
+                              <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#e84d85]' : 'text-[#6b7280]'}`}>
                                 {toDisplay(m.meters).toFixed(1)} {label}
                               </span>
                             </div>
@@ -173,10 +173,10 @@ export default function GroupChallengesCard({ groupId }: Props) {
                       <span className="text-[10px] text-[#6b7280]">
                         {Math.round(c.total_meters)}m / {Math.round(c.target_meters)}m elevation
                       </span>
-                      <span className="text-sm font-mono font-bold text-[#ff1d6c] shrink-0">{c.pct}%</span>
+                      <span className="text-sm font-mono font-bold text-[#e84d85] shrink-0">{c.pct}%</span>
                     </div>
                     <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden mb-3">
-                      <div className="h-full rounded-full transition-all duration-700 bg-[#ff1d6c]" style={{ width: `${c.pct}%` }} />
+                      <div className="h-full rounded-full transition-all duration-700 bg-[#e84d85]" style={{ width: `${c.pct}%` }} />
                     </div>
                     {!isUpcoming && c.by_member.length > 0 && (
                       <div className="space-y-1.5">
@@ -189,9 +189,9 @@ export default function GroupChallengesCard({ groupId }: Props) {
                                 {m.is_me ? 'You' : m.name.split(' ')[0]}
                               </span>
                               <div className="flex-1 h-1 bg-[#1c1c1c] rounded-full overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${memberPct}%`, background: m.is_me ? '#ff1d6c' : '#3a3a3a' }} />
+                                <div className="h-full rounded-full" style={{ width: `${memberPct}%`, background: m.is_me ? '#e84d85' : '#44413d' }} />
                               </div>
-                              <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#ff1d6c]' : 'text-[#6b7280]'}`}>
+                              <span className={`text-xs font-mono w-14 text-right ${m.is_me ? 'text-[#e84d85]' : 'text-[#6b7280]'}`}>
                                 {Math.round(m.meters)}m
                               </span>
                             </div>
@@ -209,10 +209,10 @@ export default function GroupChallengesCard({ groupId }: Props) {
                       <span className="text-[10px] text-[#6b7280]">
                         {c.total_meters} / {Math.round(c.target_meters)} runs
                       </span>
-                      <span className="text-sm font-mono font-bold text-[#ff1d6c] shrink-0">{c.pct}%</span>
+                      <span className="text-sm font-mono font-bold text-[#e84d85] shrink-0">{c.pct}%</span>
                     </div>
                     <div className="h-2 bg-[#1c1c1c] rounded-full overflow-hidden mb-3">
-                      <div className="h-full rounded-full transition-all duration-700 bg-[#ff1d6c]" style={{ width: `${c.pct}%` }} />
+                      <div className="h-full rounded-full transition-all duration-700 bg-[#e84d85]" style={{ width: `${c.pct}%` }} />
                     </div>
                     {!isUpcoming && c.by_member.length > 0 && (
                       <div className="space-y-1.5">
@@ -225,7 +225,7 @@ export default function GroupChallengesCard({ groupId }: Props) {
                             <span className={`text-xs flex-1 truncate ${m.is_me ? 'text-white font-medium' : 'text-[#9ca3af]'}`}>
                               {m.is_me ? 'You' : m.name.split(' ')[0]}
                             </span>
-                            <span className={`text-xs font-mono ${m.is_me ? 'text-[#ff1d6c]' : 'text-[#6b7280]'}`}>
+                            <span className={`text-xs font-mono ${m.is_me ? 'text-[#e84d85]' : 'text-[#6b7280]'}`}>
                               {m.meters} run{m.meters !== 1 ? 's' : ''}
                             </span>
                           </div>

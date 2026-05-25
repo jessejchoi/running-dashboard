@@ -16,9 +16,9 @@ export default function ToggleAnalysisButton({ activityId, excluded: initialExcl
     return (
       <span
         title={autoExcludedReason}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium border bg-[#1c1c1c] border-[#2a2a2a] text-[#4b5563] cursor-default"
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium border bg-[#1c1c1c] border-[#303037] text-[#4b5563] cursor-default"
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[#3a3a3a]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#44413d]" />
         Auto-excluded
       </span>
     )
@@ -46,11 +46,11 @@ export default function ToggleAnalysisButton({ activityId, excluded: initialExcl
       title={excluded ? 'Excluded from analysis — click to include' : 'Included in analysis — click to exclude'}
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium border transition-all disabled:opacity-50 ${
         excluded
-          ? 'bg-[#1c1c1c] border-[#2a2a2a] text-[#4b5563] hover:border-[#3a3a3a] hover:text-[#6b7280]'
-          : 'bg-[#d9ff36]/10 border-[#d9ff36]/20 text-[#d9ff36] hover:bg-[#d9ff36]/20'
+          ? 'bg-[#1c1c1c] border-[#303037] text-[#4b5563] hover:border-[#44413d] hover:text-[#6b7280]'
+          : 'bg-[#b8d957]/10 border-[#b8d957]/20 text-[#b8d957] hover:bg-[#b8d957]/20'
       }`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${excluded ? 'bg-[#3a3a3a]' : 'bg-[#d9ff36]'}`} />
+      <span className={`w-1.5 h-1.5 rounded-full ${excluded ? 'bg-[#44413d]' : 'bg-[#b8d957]'}`} />
       {saving ? 'Saving…' : excluded ? 'Excluded' : 'In analysis'}
     </button>
   )

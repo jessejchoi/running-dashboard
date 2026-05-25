@@ -50,7 +50,7 @@ export default function PatternInsightCard() {
         <button
           onClick={() => fetchInsight(true)}
           disabled={state === 'loading'}
-          className="text-[#4b5563] hover:text-[#ff1d6c] transition-colors disabled:opacity-40"
+          className="text-[#4b5563] hover:text-[#e84d85] transition-colors disabled:opacity-40"
           title="Refresh insight"
         >
           <RefreshCw size={13} className={state === 'loading' ? 'animate-spin' : ''} />

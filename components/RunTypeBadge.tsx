@@ -4,7 +4,7 @@ import { RUN_TYPES, type RunType } from '@/lib/runtypes'
 // Square, mono, 1px border in the type's hue. Tempo/Intervals/Long get a
 // subtle background wash; Race is the only filled chip.
 export default function RunTypeBadge({ type }: { type?: string | null }) {
-  if (!type) return <span className="text-[#424242] text-xs">—</span>
+  if (!type) return <span className="text-[#5d5651] text-xs">—</span>
   const c = RUN_TYPES[type as RunType] ?? RUN_TYPES.easy
   return (
     <span

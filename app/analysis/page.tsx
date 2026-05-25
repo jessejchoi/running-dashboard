@@ -23,10 +23,10 @@ import { getAthleteAnalysis } from '@/lib/analysis/service'
 export const revalidate = 60
 
 // ── Pulse accent colors per source ─────────────────────────────────────
-const C_INTERVAL = '#ff1d6c'   // magenta — peak / intervals
-const C_THRESHOLD = '#d9ff36'  // acid — work zone / threshold
-const C_AEROBIC = '#5ad7ff'    // ice — informational / steady
-const C_RACE = '#ff1d6c'       // magenta — race day stands apart
+const C_INTERVAL = '#e84d85'   // magenta — peak / intervals
+const C_THRESHOLD = '#b8d957'  // acid — work zone / threshold
+const C_AEROBIC = '#6bbfdf'    // ice — informational / steady
+const C_RACE = '#e84d85'       // magenta — race day stands apart
 
 export default async function AnalysisPage() {
   const cookieStore = cookies()

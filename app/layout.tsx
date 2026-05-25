@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import StandaloneDetector from '@/components/StandaloneDetector'
 import { Archivo_Narrow, Archivo, JetBrains_Mono } from 'next/font/google'
 import { cookies } from 'next/headers'
@@ -32,10 +32,11 @@ const monoFont = JetBrains_Mono({
   weight: ['400', '500', '700'],
 })
 
-export const viewport = {
+export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover' as const,
+  themeColor: '#0D0D0F',
 }
 
 export const metadata: Metadata = {
@@ -46,7 +47,6 @@ export const metadata: Metadata = {
     apple: '/rundash-icon.png',
     shortcut: '/rundash-icon.png',
   },
-  themeColor: '#0d0d0f',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

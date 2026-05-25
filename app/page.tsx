@@ -90,6 +90,22 @@ export default async function DashboardPage() {
   const unitLabel = distanceUnitLabel(unit)
   const firstName = (displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]
 
+  const yearRuns = activities.filter((a: any) => new Date(a.start_date) >= yearStart).length
+  const currentYear = new Date().getFullYear()
+
+  const miniStats: Array<{
+    idx: string
+    label: string
+    value: string
+    unit?: string
+    stripe: '' | 'ice'
+  }> = [
+    { idx: '02', label: `RUNS · WEEK`,   value: `${weekActivities.length}`,                              stripe: ''    },
+    { idx: '03', label: `TIME · WEEK`,   value: weekTime > 0 ? formatDuration(weekTime) : '—',          stripe: ''    },
+    { idx: '04', label: `DIST · ${currentYear}`, value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel.toUpperCase(), stripe: 'ice' },
+    { idx: '05', label: `RUNS · ${currentYear}`, value: `${yearRuns}`,                                  stripe: 'ice' },
+  ]
+
   return (
     <>
       <Nav />
@@ -97,82 +113,122 @@ export default async function DashboardPage() {
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
 
         {/* ── PAGE HERO ─────────────────────────────────────────────── */}
-        <div
-          className="mb-8 fade-up grid gap-6 items-end pb-6"
-          style={{ borderBottom: '2px solid var(--fg-1)', gridTemplateColumns: 'minmax(0,1fr) auto' }}
-        >
-          <div>
-            <h1
-              className="font-display font-bold uppercase"
+        <header className="mb-10 sm:mb-14 fade-up pb-6 sm:pb-8" style={{ borderBottom: '2px solid var(--fg-1)' }}>
+          <h1
+            className="font-display font-bold uppercase"
+            style={{
+              fontSize: 'clamp(48px, 8vw, 96px)',
+              letterSpacing: '-0.035em',
+              lineHeight: 0.9,
+            }}
+          >
+            {firstName}
+            <span
               style={{
-                fontSize: 'clamp(48px, 8vw, 96px)',
-                letterSpacing: '-0.04em',
-                lineHeight: 0.88,
+                color: 'var(--magenta)',
+                textShadow: '2px 2px 0 var(--magenta-shadow)',
               }}
             >
-              {firstName}
-              <span style={{ color: 'var(--magenta)' }}>.</span>
-            </h1>
-            <p className="font-mono text-[10px] sm:text-xs mt-3 uppercase tracking-[0.18em]" style={{ color: 'var(--fg-3)' }}>
-              {format(new Date(), 'EEE, MMM d').toUpperCase()} · {activities.length} RUNS TRACKED
-            </p>
-          </div>
-          <div className="hidden sm:block text-right">
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--fg-3)' }}>
-              SESSION · #{String(activities.length).padStart(5, '0')}
-            </div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] mt-1" style={{ color: 'var(--acid)' }}>
-              SIGNAL UP
-            </div>
-          </div>
+              .
+            </span>
+          </h1>
+          <p className="font-mono text-[10px] sm:text-[11px] mt-4 uppercase tracking-[0.18em]" style={{ color: 'var(--fg-3)' }}>
+            <span style={{ color: 'var(--magenta)' }}>/ </span>
+            {format(new Date(), 'EEE · MMM d · yyyy').toUpperCase()}
+            <span className="mx-2" style={{ color: 'var(--fg-4)' }}>·</span>
+            {activities.length} RUNS TRACKED
+          </p>
+        </header>
+
+        {/* ── SECTION · THIS WEEK ───────────────────────────────────── */}
+        <div className="mb-4 flex items-baseline justify-between">
+          <h2 className="pulse-label">THIS WEEK</h2>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--fg-4)' }}>
+            WK {isoWeek(new Date())}
+          </span>
         </div>
 
-        {/* ── BENTO ROW 1: Weekly hero + 2×2 mini stats ─────────────── */}
-        <div className="grid grid-cols-12 gap-3 mb-3">
-          <div className="col-span-12 md:col-span-7 card pulse-bar fade-up" style={{ padding: '1.25rem' }}>
-            <p className="pulse-label" style={{ display: 'block', marginBottom: '0.5rem' }}>WEEKLY DISTANCE</p>
-            <div
-              className="stat-num font-display font-bold leading-none stat-stamp"
-              style={{ fontSize: 'clamp(48px, 6vw, 80px)', textShadow: '2px 2px 0 var(--magenta-shadow)' }}
-            >
-              {formatDistanceShort(weekDist, unit).split(' ')[0]}
-              <span className="font-bold ml-2" style={{ fontSize: '0.32em', color: 'var(--magenta)', textShadow: 'none', letterSpacing: '0.04em' }}>{unitLabel.toUpperCase()}</span>
+        <div className="grid grid-cols-12 gap-[14px] mb-8 sm:mb-10">
+          {/* Hero weekly distance */}
+          <div className="col-span-12 md:col-span-7 card pulse-bar fade-up">
+            <span className="card-index">[01]</span>
+            <p className="pulse-label" style={{ display: 'block' }}>WEEKLY DISTANCE</p>
+            <div className="mt-4 sm:mt-5 flex items-end gap-3">
+              <div
+                className="stat-num font-display font-bold stat-stamp"
+                style={{
+                  fontSize: 'clamp(56px, 7vw, 80px)',
+                  letterSpacing: '-0.035em',
+                  lineHeight: 0.9,
+                }}
+              >
+                {formatDistanceShort(weekDist, unit).split(' ')[0]}
+              </div>
+              <span
+                className="pb-2 font-mono uppercase tracking-[0.18em] text-[11px]"
+                style={{ color: 'var(--fg-3)' }}
+              >
+                {unitLabel}
+              </span>
             </div>
             <div style={{ height: 140, marginTop: '1.5rem' }}>
               <WeeklyMileageChart activities={activities} />
             </div>
           </div>
 
-          <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
-            {[
-              { label: 'WEEK RUNS',  value: `${weekActivities.length}`, unit: 'RUNS', bar: 'acid' as const, tone: 'var(--acid)' },
-              { label: 'WEEK TIME',  value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '', bar: 'magenta' as const, tone: 'var(--fg-1)' },
-              { label: 'THIS YEAR',  value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel.toUpperCase(), bar: 'ice' as const, tone: 'var(--ice)' },
-              { label: 'ACTIVITIES', value: `${activities.filter((a: any) => new Date(a.start_date) >= yearStart).length}`, unit: 'THIS YR', bar: 'magenta' as const, tone: 'var(--fg-1)' },
-            ].map((s, i) => (
+          {/* 2×2 mini stats */}
+          <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-[14px]">
+            {miniStats.map((s, i) => (
               <div
-                key={i}
-                className={`card pulse-bar ${s.bar === 'acid' ? 'acid' : s.bar === 'ice' ? 'ice' : ''} fade-up`}
-                style={{ animationDelay: `${60 + i * 50}ms`, padding: '1rem' }}
+                key={s.idx}
+                className={`card pulse-bar ${s.stripe} fade-up`}
+                style={{ animationDelay: `${60 + i * 50}ms` }}
               >
-                <p className="pulse-label" style={{ display: 'block', marginBottom: '0.625rem' }}>{s.label}</p>
-                <div className="stat-num font-display font-bold leading-none" style={{ fontSize: 36, color: s.tone }}>
-                  {s.value}
-                  {s.unit && <span className="font-bold ml-1" style={{ fontSize: '0.4em', color: 'var(--fg-3)' }}>{s.unit}</span>}
+                <span className="card-index">[{s.idx}]</span>
+                <p className="pulse-label" style={{ display: 'block' }}>{s.label}</p>
+                <div className="mt-4 flex items-baseline gap-1.5">
+                  <div
+                    className="stat-num font-display font-bold"
+                    style={{
+                      fontSize: 'clamp(32px, 4.2vw, 40px)',
+                      letterSpacing: '-0.025em',
+                      lineHeight: 0.95,
+                      color: 'var(--fg-1)',
+                    }}
+                  >
+                    {s.value}
+                  </div>
+                  {s.unit && (
+                    <span
+                      className="font-mono uppercase tracking-[0.16em] text-[10px]"
+                      style={{ color: 'var(--fg-3)' }}
+                    >
+                      {s.unit}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── Training load ──────────────────────────────────────────── */}
+        {/* ── SECTION · TRAINING ────────────────────────────────────── */}
         {trainingLoad.length > 0 && (
-          <div className="card pulse-bar ice fade-up mb-3" style={{ padding: '1.25rem' }}>
-            <p className="pulse-label" style={{ marginBottom: '0.75rem' }}>TRAINING LOAD · 90 DAYS</p>
-            <div style={{ height: 160 }}>
-              <TrainingLoadChart data={trainingLoad} days={90} />
+          <>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="pulse-label">TRAINING</h2>
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--fg-4)' }}>
+                90 DAYS
+              </span>
             </div>
-          </div>
+            <div className="card pulse-bar ice fade-up mb-8 sm:mb-10">
+              <span className="card-index">[06]</span>
+              <p className="pulse-label" style={{ display: 'block' }}>TRAINING LOAD</p>
+              <div style={{ height: 160, marginTop: '1.25rem' }}>
+                <TrainingLoadChart data={trainingLoad} days={90} />
+              </div>
+            </div>
+          </>
         )}
 
         <WeeklyPlanCard unit={unit} />

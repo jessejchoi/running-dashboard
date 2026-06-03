@@ -26,7 +26,7 @@ export default function DistanceTabs({ children, defaultTab = '5k' }: Props) {
             onClick={() => setActive(tab.key)}
             className={`px-5 py-1.5 rounded-lg text-sm font-bold transition-all ${
               active === tab.key
-                ? 'bg-[#e84d85] text-white shadow-lg'
+                ? 'bg-[#f97316] text-white shadow-lg'
                 : 'text-[#6b7280] hover:text-white hover:bg-[#1c1c1c]'
             }`}
           >

@@ -5,14 +5,14 @@ export interface PlanSessionType {
 }
 
 export const PLAN_SESSION_TYPES: PlanSessionType[] = [
-  { key: 'easy',         label: 'Easy',           color: 'bg-[#b8d957]' },
-  { key: 'long_easy',    label: 'Long Easy',      color: 'bg-[#6bbfdf]' },
-  { key: 'threshold',    label: 'Threshold',      color: 'bg-[#dc8b3a]' },
-  { key: 'interval_5k',  label: 'Intervals',      color: 'bg-[#e84d85]' },
-  { key: 'easy_strides', label: 'Easy + Strides', color: 'bg-[#b8d957]' },
+  { key: 'easy',         label: 'Easy',           color: 'bg-emerald-500' },
+  { key: 'long_easy',    label: 'Long Easy',      color: 'bg-sky-500' },
+  { key: 'threshold',    label: 'Threshold',      color: 'bg-orange-500' },
+  { key: 'interval_5k',  label: 'Intervals',      color: 'bg-red-500' },
+  { key: 'easy_strides', label: 'Easy + Strides', color: 'bg-teal-500' },
   { key: 'recovery',     label: 'Recovery',       color: 'bg-green-400' },
-  { key: 'race',         label: 'Race',           color: 'bg-[#e84d85]' },
-  { key: 'rest',         label: 'Rest',           color: 'bg-[#202024]' },
+  { key: 'race',         label: 'Race',           color: 'bg-pink-500' },
+  { key: 'rest',         label: 'Rest',           color: 'bg-zinc-600' },
 ]
 
 // All types except 'rest' — used in run editors where rest is a separate action

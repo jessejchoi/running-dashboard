@@ -2,330 +2,184 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ════════════════════════════════════════════════════════════════════════
-   RunDash · PULSE — global tokens
-   ── Two tiers of vars:
-      1. NEW Pulse tokens (canonical) — --ink, --magenta, --acid, --ice, ...
-      2. LEGACY aliases — --bg, --surface, --orange, --success, --text-1, ...
-         These point at the new tokens so unmodified components re-skin
-         automatically. Prefer the new tokens in any new code.
-   ──────────────────────────────────────────────────────────────────────── */
-
 :root {
-  /* ── Pulse · canonical ─────────────────────────────────────────────── */
-
   /* Surfaces */
-  --ink:        #0d0d0f;
-  --ink-1:      #151517;
-  --ink-2:      #202024;
-  --ink-3:      #29292f;
+  --bg:          #080808;
+  --surface:     #111111;
+  --surface-2:   #161616;
+  --surface-3:   #0f0f0f;
 
-  /* Hairlines */
-  --hair-1:     rgba(241,237,232,0.10);
-  --hair-2:     rgba(241,237,232,0.18);
-  --hair-3:     rgba(241,237,232,0.30);
+  /* Borders */
+  --border:      #2a2a2a;
+  --border-hover:#383838;
 
-  /* Signals */
-  --magenta:    #e84d85;
-  --magenta-d:  #c23b6b;
-  --magenta-s:  rgba(232,77,133,0.08);
-  --magenta-shadow: rgba(232,77,133,0.58);
-  --acid:       #b8d957;
-  --acid-d:     #8faa3f;
-  --acid-s:     rgba(184,217,87,0.07);
-  --acid-shadow: rgba(184,217,87,0.50);
-  --ice:        #6bbfdf;
-  --ice-s:      rgba(107,191,223,0.07);
-  --ice-shadow: rgba(107,191,223,0.50);
-  --pulse-orange: #dc8b3a;  /* tempo / warn */
-  --pulse-orange-s: rgba(220,139,58,0.08);
+  /* Accent */
+  --orange:      #f97316;
+  --orange-dim:  #ea580c;
+  --accent-muted:rgba(249, 115, 22, 0.10);
+  --accent-glow: rgba(249, 115, 22, 0.08);
 
   /* Text */
-  --fg-1:       #f1ede8;
-  --fg-2:       #c9c2ba;
-  --fg-3:       #8b837c;
-  --fg-4:       #5d5651;
+  --text-1:      #f0f0f0;
+  --text-2:      #a1a1aa;
+  --text-muted:  #6b7280;
+  --text-3:      #4b5563;
+
+  /* Semantic */
+  --success:     #22c55e;
+  --warning:     #eab308;
+  --error:       #ef4444;
+  --info:        #3b82f6;
+  --success-bg:  rgba(34, 197, 94, 0.08);
+  --warning-bg:  rgba(234, 179, 8, 0.08);
+  --error-bg:    rgba(239, 68, 68, 0.08);
+  --info-bg:     rgba(59, 130, 246, 0.08);
 
   /* Motion */
-  --dur-micro:  60ms;
-  --dur-short:  180ms;
-  --dur-medium: 240ms;
-  --ease-out:   cubic-bezier(0.2, 0.9, 0.25, 1);
+  --dur-micro:  50ms;
+  --dur-short:  150ms;
+  --dur-medium: 300ms;
+  --ease-out:   cubic-bezier(0.0, 0.0, 0.2, 1);
   --ease-in:    cubic-bezier(0.4, 0.0, 1.0, 1.0);
-
-  /* ── Legacy aliases (back-compat) ──────────────────────────────────── */
-  /* Existing components use var(--surface), var(--orange), var(--text-1)
-     etc. We remap them to Pulse so they restyle automatically. */
-  --bg:           var(--ink);
-  --surface:      var(--ink-1);
-  --surface-2:    var(--ink-2);
-  --surface-3:    var(--ink-3);
-  --border:       var(--hair-2);
-  --border-hover: var(--hair-3);
-
-  --orange:       var(--magenta);
-  --orange-dim:   var(--magenta-d);
-  --accent:       var(--magenta);
-  --accent-dim:   var(--magenta-d);
-  --accent-muted: var(--magenta-s);
-  --accent-glow:  rgba(232,77,133,0.08);
-
-  --text-1:       var(--fg-1);
-  --text-2:       var(--fg-2);
-  --text-3:       var(--fg-3);
-  --text-muted:   var(--fg-3);
-
-  --success:      var(--acid);
-  --warning:      var(--pulse-orange);
-  --error:        var(--magenta);
-  --info:         var(--ice);
-  --success-bg:   var(--acid-s);
-  --warning-bg:   var(--pulse-orange-s);
-  --error-bg:     var(--magenta-s);
-  --info-bg:      var(--ice-s);
 }
 
-* { box-sizing: border-box; }
-
-body {
-  background: var(--ink);
-  color: var(--fg-1);
-  font-family: var(--font-body, 'Archivo', system-ui, sans-serif);
-  -webkit-font-smoothing: antialiased;
-  /* Subtle scanlines for character, kept quiet for long-session legibility. */
-  background-image: repeating-linear-gradient(
-    180deg,
-    transparent 0,
-    transparent 3px,
-    rgba(241,237,232,0.006) 3px,
-    rgba(241,237,232,0.006) 4px
-  );
-}
-
-::selection { background: var(--magenta); color: var(--ink); }
-
-@layer utilities {
-  .text-white {
-    color: var(--fg-1) !important;
-  }
-
-  [class*="bg-[#e84d85]"].text-white,
-  [class*="bg-[#E84D85]"].text-white {
-    color: var(--ink) !important;
-  }
+* {
+  box-sizing: border-box;
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--hair-2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-/* ════════════════════════════════════════════════════════════════════════
-   Type primitives
-   ──────────────────────────────────────────────────────────────────────── */
-
-/* Tabular figures for any mono number */
-.stat-num,
-.font-mono,
-.tabular-nums {
+/* Stat number style */
+.stat-num {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum';
 }
 
-/* Display headings (h1.font-display + similar) */
-h1.font-display,
-h2.font-display,
-h3.font-display,
-.font-display {
-  font-family: var(--font-display, 'Archivo Narrow', system-ui, sans-serif);
+/* Card base */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: border-color var(--dur-short) var(--ease-out);
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+}
+
+/* Glow effect for key metrics */
+.glow-orange {
+  box-shadow: 0 0 40px var(--accent-glow);
+}
+
+/* Glass treatment — nav, modals, overlays only */
+.glass {
+  background: rgba(17, 17, 17, 0.75);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Run type chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.08em;
+  padding: 3px 7px;
+  border-radius: 4px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  animation: fadeUp var(--dur-medium) var(--ease-out) both;
 }
 
 h1.font-display {
   font-size: 1.875rem;
-  line-height: 0.92;
-}
-
-/* ════════════════════════════════════════════════════════════════════════
-   Pulse components — global utility classes
-   ──────────────────────────────────────────────────────────────────────── */
-
-/* ── Card · the workhorse ────────────────────────────────────────────── */
-.card {
-  background: var(--ink-1);
-  border: 1px solid var(--hair-2);
-  border-radius: 0;                /* hard corners */
-  padding: 1.5rem;
-  position: relative;
-  transition: border-color var(--dur-short) var(--ease-out);
-}
-.card:hover { border-color: var(--hair-3); }
-
-/* ── Magenta top-stripe + index helpers (opt-in via .pulse-bar) ──────── */
-.pulse-bar { position: relative; }
-.pulse-bar::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0;
-  height: 3px; background: var(--magenta);
-}
-.pulse-bar.acid::before { background: var(--acid); }
-.pulse-bar.ice::before  { background: var(--ice); }
-.top-stripe-magenta::before,
-.top-stripe-acid::before,
-.top-stripe-ice::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0;
-  height: 3px; background: var(--magenta);
-}
-.top-stripe-acid::before { background: var(--acid); }
-.top-stripe-ice::before { background: var(--ice); }
-.pulse-idx {
-  position: absolute; top: 12px; right: 14px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: var(--fg-4);
-}
-.card-index {
-  position: absolute; top: 12px; right: 14px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: var(--fg-4);
-}
-
-/* ── Mono labels with leading slash ──────────────────────────────────── */
-.pulse-label {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  line-height: 1.1;
   text-transform: uppercase;
-  color: var(--fg-3);
-}
-.pulse-label::before { content: "/ "; color: var(--magenta); }
-
-.metric-label {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  line-height: 1.2;
-  text-transform: uppercase;
-  color: var(--fg-3);
 }
 
-.pulse-link {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--hair-2);
-  color: var(--magenta);
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  transition: color var(--dur-short) var(--ease-out),
-    border-color var(--dur-short) var(--ease-out),
-    transform var(--dur-short) var(--ease-out),
-    box-shadow var(--dur-short) var(--ease-out);
-}
-.pulse-link:hover,
-.pulse-link:focus-visible {
-  color: var(--fg-1);
-  border-color: var(--magenta);
-  transform: translate(-1px, -1px);
-  box-shadow: 2px 2px 0 var(--magenta-shadow);
-  outline: none;
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); opacity: 0.7; }
+  70%  { transform: scale(1.05); opacity: 0.2; }
+  100% { transform: scale(0.95); opacity: 0.7; }
 }
 
-/* ── Glow-orange (legacy) — now a magenta border accent ──────────────── */
-.glow-orange {
-  border-color: var(--hair-3);
-  position: relative;
-}
-.glow-orange::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0;
-  height: 3px; background: var(--magenta);
-}
-
-/* ── Chip — square, mono, no rounded ─────────────────────────────────── */
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  padding: 4px 8px;
-  border-radius: 0;
-  border: 1px solid currentColor;
-}
-
-/* ── Glass (kept as alias for legacy nav/modals) ─────────────────────── */
-.glass {
-  background: var(--ink-1);
-  border: 1px solid var(--hair-2);
-  border-radius: 0;
-  /* No backdrop-filter — Pulse is opaque */
-}
-
-/* ── Stat number utility ─────────────────────────────────────────────── */
-.stat-num {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Stamped stat — used on hero stats. Softer offset preserves Pulse without
-   vibrating against the dark background. */
-.stat-stamp { text-shadow: 2px 2px 0 var(--magenta-shadow); }
-.stat-stamp.acid { text-shadow: 2px 2px 0 var(--acid-shadow); }
-.stat-stamp.ice  { text-shadow: 2px 2px 0 var(--ice-shadow); }
-
-/* ── Card mount animation ────────────────────────────────────────────── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.fade-up { animation: fadeUp var(--dur-medium) var(--ease-out) both; }
-
-/* ── Pulse / live keyframes ──────────────────────────────────────────── */
-@keyframes blink { 50% { opacity: 0.2; } }
-.pulse-blink { animation: blink 1.4s steps(2) infinite; }
-
-/* ── Mobile padding ──────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .card { padding: 1rem; }
+  .card {
+    padding: 1rem;
+  }
 }
 
-/* ════════════════════════════════════════════════════════════════════════
-   Standalone web app — preserves the original PWA behaviour
-   ──────────────────────────────────────────────────────────────────────── */
+/* ── Standalone web app ──────────────────────────────────────────────────
+   viewport-fit=cover is set globally in layout.tsx so env() vars are always
+   available. All env() usage that affects layout is gated behind html.standalone
+   to prevent env() values from bloating the Safari browser layout.
 
-.mobile-nav { min-height: 48px; max-height: 48px; overflow: hidden; }
-.mobile-nav-spacer { height: 48px; }
+   SAFARI:  navigator.standalone=false → no .standalone class
+            pill sits at 0.625rem from bottom (close to address bar)
+            nav = exactly 48px tall, content clips to fit
+   WEBAPP:  navigator.standalone=true  → .standalone class on <html> set by
+            blocking script before first paint (no CLS on first load)
+            pill clears home indicator via env(safe-area-inset-bottom)
+            header padding accounts for status bar via safe-area-inset-top  */
 
+/* Safari: nav is exactly the height of its content, capped at 48px */
+.mobile-nav {
+  min-height: 42px;
+  max-height: 42px;
+  overflow: hidden;
+}
+.mobile-nav-spacer {
+  height: 42px;
+}
+
+/* Safari browser (non-standalone): content must clear the 48px mobile top bar.
+   The pt-8 Tailwind class (32px) isn't enough — add a base rule here so all
+   pages clear the header without editing each page file. The standalone rule
+   below overrides this with safe-area-inset-top on top. */
 @media (max-width: 639px) {
-  .standalone-main { padding-top: 60px; }
+  .standalone-main {
+    padding-top: 60px;
+  }
 }
 
-/* Bottom nav pill — square now, not rounded */
-.nav-pill { bottom: 0.625rem; }
+/* ── Floating nav pill position ──────────────────────────────────────────
+   bottom is set here (not inline) so html.standalone can override it.
+   Safari browser: small fixed offset, close to the address bar.
+   Standalone webapp: clears the home indicator via env(safe-area-inset-bottom). */
+.nav-pill {
+  bottom: 0.625rem; /* 10px — close to browser address bar */
+}
 html.standalone .nav-pill {
   bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* Standalone overrides
+   html.standalone .class has specificity 0,2,1 which beats Tailwind's 0,1,0
+   No @layer or !important needed */
 html.standalone .standalone-main {
   padding-top: calc(48px + env(safe-area-inset-top, 0px));
 }
 html.standalone .mobile-nav {
-  max-height: none; overflow: visible;
-  min-height: 54px;
+  max-height: none;
+  overflow: visible;
+  min-height: 48px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 html.standalone .mobile-nav-spacer {
-  height: calc(48px + env(safe-area-inset-bottom, 0px));
+  height: calc(42px + env(safe-area-inset-bottom, 0px));
 }

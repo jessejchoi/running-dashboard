@@ -36,27 +36,27 @@ export default function GoalsSection({ initialGoals, estimates, confidence, sour
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-[28px] text-[#F1EDE8] uppercase leading-none">My Race Goals</h2>
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">My Race Goals</h2>
         <button onClick={() => setAdding(true)}
-          className="flex min-h-[44px] items-center gap-1.5 text-[11px] font-mono font-bold uppercase tracking-[0.18em] text-[#E84D85] hover:text-white border border-[rgba(241,237,232,0.18)] hover:border-[#E84D85] px-3 py-2 transition-colors">
+          className="flex items-center gap-1.5 text-xs font-bold text-[#f97316] hover:text-white border border-[#f97316]/30 hover:border-[#f97316] px-3 py-2 rounded transition-colors">
           <Plus size={12} /> Add Goal
         </button>
       </div>
 
       {goals.length === 0 ? (
         /* ── Empty state ─────────────────────────────────────────────────── */
-        <div className="card top-stripe-magenta border-dashed border-[rgba(241,237,232,0.18)] flex flex-col items-center justify-center py-10 text-center gap-4">
-          <div className="w-12 h-12 bg-[rgba(232,77,133,0.08)] border border-[#E84D85] flex items-center justify-center">
-            <Plus size={22} color="#E84D85" />
+        <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center py-10 text-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-[#f97316]/10 flex items-center justify-center">
+            <span className="text-2xl">🎯</span>
           </div>
           <div>
-            <p className="font-display font-bold uppercase text-white mb-1">No race goals yet</p>
-            <p className="text-[#8B837C] text-sm max-w-xs">
+            <p className="font-bold text-white mb-1">No race goals yet</p>
+            <p className="text-[#6b7280] text-sm max-w-xs">
               Add a goal to track your progress and get tailored analysis for your target race.
             </p>
           </div>
           <button onClick={() => setAdding(true)}
-            className="flex min-h-[44px] items-center gap-2 bg-[#E84D85] hover:bg-[#C23B6B] text-[#0D0D0F] font-mono font-bold uppercase tracking-[0.18em] px-5 py-2.5 transition-colors text-[11px]">
+            className="flex items-center gap-2 bg-[#f97316] hover:bg-[#ea580c] text-white font-bold px-5 py-2.5 rounded-xl transition-colors text-sm">
             <Plus size={14} /> Add your first goal
           </button>
         </div>

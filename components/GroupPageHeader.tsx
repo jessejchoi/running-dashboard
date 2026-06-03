@@ -54,13 +54,10 @@ export default function GroupPageHeader({
 }: Props) {
   return (
     <>
-      <div
-        className="mb-6 grid gap-5 pb-6 fade-up sm:mb-8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
-        style={{ borderBottom: '2px solid var(--fg-1)' }}
-      >
-        <div className="min-w-0">
+      <div className="flex items-start justify-between mb-3 sm:mb-6 fade-up">
+        <div>
           {renamingGroup ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
               <input
                 value={renameValue}
                 onChange={e => onRenameChange(e.target.value)}
@@ -69,52 +66,27 @@ export default function GroupPageHeader({
                   if (e.key === 'Escape') setRenamingGroup(false)
                 }}
                 autoFocus
-                className="w-full bg-transparent font-display font-bold uppercase outline-none"
-                style={{
-                  borderBottom: '2px solid var(--magenta)',
-                  color: 'var(--fg-1)',
-                  fontSize: 'clamp(48px, 8vw, 96px)',
-                  letterSpacing: '-0.04em',
-                  lineHeight: 0.88,
-                }}
+                className="font-display font-extrabold uppercase bg-transparent border-b-2 border-[#f97316] outline-none text-white w-full"
+                style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}
               />
-              <div className="flex gap-2">
-                <button
-                  onClick={onSaveGroupName}
-                  disabled={renameLoading}
-                  className="min-h-[44px] border px-4 font-mono text-[11px] font-bold uppercase tracking-[0.18em] disabled:opacity-50"
-                  style={{ borderColor: 'var(--magenta)', color: 'var(--magenta)' }}
-                >
-                  {renameLoading ? 'Saving' : 'Save'}
-                </button>
-                <button
-                  onClick={() => setRenamingGroup(false)}
-                  className="flex min-h-[44px] min-w-[44px] items-center justify-center border transition-colors"
-                  style={{ borderColor: 'var(--hair-2)', color: 'var(--fg-3)' }}
-                  title="Cancel rename"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+              <button
+                onClick={onSaveGroupName}
+                disabled={renameLoading}
+                className="text-xs font-bold text-[#f97316] hover:text-[#ea580c] disabled:opacity-50 shrink-0"
+              >
+                {renameLoading ? '…' : 'Save'}
+              </button>
+              <button onClick={() => setRenamingGroup(false)} className="text-[#4b5563] hover:text-white shrink-0">
+                <X size={16} />
+              </button>
             </div>
           ) : (
-            <div className="flex min-w-0 items-start gap-3">
-              <h1
-                className="min-w-0 break-words font-display font-bold uppercase"
-                style={{
-                  fontSize: 'clamp(48px, 8vw, 96px)',
-                  letterSpacing: '-0.04em',
-                  lineHeight: 0.88,
-                }}
-              >
-                {groupName}
-                <span style={{ color: 'var(--magenta)' }}>.</span>
-              </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>{groupName}</h1>
               {myRole === 'admin' && (
                 <button
                   onClick={() => { setRenameValue(groupName); setRenamingGroup(true) }}
-                  className="mt-1 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center border transition-colors hover:text-[var(--magenta)]"
-                  style={{ borderColor: 'var(--hair-2)', color: 'var(--fg-3)' }}
+                  className="text-[#4b5563] hover:text-white mt-1"
                   title="Rename group"
                 >
                   <Pencil size={15} />
@@ -122,34 +94,33 @@ export default function GroupPageHeader({
               )}
             </div>
           )}
-          <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] sm:text-xs" style={{ color: 'var(--fg-3)' }}>
-            {localMemberCount} member{localMemberCount !== 1 ? 's' : ''} tracked · since {format(new Date(groupCreatedAt), 'MMM d, yyyy')}
+          <p className="text-[#6b7280] text-sm mt-1">
+            {localMemberCount} member{localMemberCount !== 1 ? 's' : ''} · Created {format(new Date(groupCreatedAt), 'MMM d, yyyy')}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <div className="flex items-center gap-2">
           {allGroups.length > 1 && (
             <div className="relative" ref={switcherRef}>
               <button
                 onClick={() => setSwitcherOpen((open) => !open)}
-                className="flex min-h-[44px] items-center gap-2 border px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.16em] transition-colors hover:text-[var(--fg-1)]"
-                style={{ borderColor: 'var(--hair-2)', color: 'var(--fg-3)' }}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#3a3a3a] text-[#6b7280] hover:text-white rounded-lg transition-colors"
               >
                 <Users size={12} />
                 Switch
               </button>
               {switcherOpen && (
-                <div
-                  className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden border py-1 shadow-2xl"
-                  style={{ background: 'var(--ink-1)', borderColor: 'var(--hair-2)' }}
-                >
+                <div className="absolute right-0 top-full mt-1.5 w-48 bg-[#141414] border border-[#2a2a2a] rounded-xl shadow-2xl z-50 py-1 overflow-hidden">
                   {allGroups.map((group) => (
                     <a
                       key={group.id}
                       href={`/group/${group.id}`}
-                      className="flex min-h-[44px] items-center gap-2.5 px-3 py-2.5 text-sm no-underline transition-colors hover:bg-[var(--ink-2)]"
-                      style={{ color: group.id === groupId ? 'var(--magenta)' : 'var(--fg-2)' }}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors no-underline ${
+                        group.id === groupId
+                          ? 'text-[#f97316] bg-[#f97316]/10'
+                          : 'text-[#9ca3af] hover:text-white hover:bg-[#1c1c1c]'
+                      }`}
                     >
-                      <div className="h-1.5 w-1.5 shrink-0" style={{ background: group.id === groupId ? 'var(--magenta)' : 'var(--fg-4)' }} />
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${group.id === groupId ? 'bg-[#f97316]' : 'bg-[#3a3a3a]'}`} />
                       <span className="truncate">{group.name}</span>
                     </a>
                   ))}
@@ -159,28 +130,26 @@ export default function GroupPageHeader({
           )}
           <button
             onClick={copyInvite}
-            className="flex min-h-[44px] items-center gap-2 border px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.16em] transition-colors hover:border-[var(--magenta)] hover:text-[var(--magenta)]"
-            style={{ borderColor: 'var(--hair-2)', color: 'var(--fg-3)' }}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-bold border border-[#2a2a2a] hover:border-[#f97316] text-[#6b7280] hover:text-[#f97316] rounded-lg transition-colors"
           >
-            {copied ? <Check size={12} className="text-[#b8d957]" /> : <Copy size={12} />}
+            {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
             {copied ? 'Copied!' : 'Invite link'}
           </button>
         </div>
       </div>
 
       {localMemberCount < 2 && (
-        <div className="card pulse-bar ice mb-6 border-dashed fade-up p-[18px] sm:p-6">
-          <span className="pulse-idx">[00]</span>
+        <div className="card border-dashed border-[#2a2a2a] mb-6 fade-up">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center border" style={{ borderColor: 'var(--ice)', color: 'var(--ice)', background: 'var(--ice-s)' }}>
-              <Users size={14} />
+            <div className="w-8 h-8 rounded-full bg-[#f97316]/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Users size={14} className="text-[#f97316]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="mb-1 font-display text-[18px] font-bold uppercase leading-none">Invite your training partners</p>
-              <p className="mb-3 text-xs" style={{ color: 'var(--fg-3)' }}>Share this link so they can join the group.</p>
-              <div className="flex items-center gap-2 border px-3 py-2" style={{ background: 'var(--ink-3)', borderColor: 'var(--hair-1)' }}>
-                <span className="flex-1 truncate font-mono text-xs" style={{ color: 'var(--fg-3)' }}>{inviteUrl}</span>
-                <button onClick={copyInvite} className="min-h-[44px] shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--magenta)' }}>
+              <p className="font-bold text-sm mb-1">Invite your training partners</p>
+              <p className="text-[#6b7280] text-xs mb-3">Share this link so they can join the group.</p>
+              <div className="flex items-center gap-2 bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2">
+                <span className="text-[#6b7280] text-xs font-mono truncate flex-1">{inviteUrl}</span>
+                <button onClick={copyInvite} className="text-[#f97316] text-xs font-bold shrink-0 hover:underline">
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
               </div>

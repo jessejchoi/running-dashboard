@@ -134,37 +134,27 @@ export default function GroupPageClient({
       />
 
       {/* Tab bar */}
-      <div
-        className="mb-6 overflow-x-auto border-b-2 pb-0 fade-up scrollbar-none sm:mb-8"
-        style={{ borderColor: 'var(--fg-1)' }}
-      >
-        <div className="flex min-w-max gap-2">
-          {([
-            { key: 'dashboard', label: 'Home',  icon: BarChart2, idx: '01' },
-            { key: 'goals',     label: 'Goals', icon: Target, idx: '02' },
-            { key: 'bets',      label: 'Bets',  icon: Banknote, idx: '03' },
-            { key: 'feed',      label: 'Runs',  icon: Activity, idx: '04' },
-            { key: 'plans',     label: 'Plans', icon: CalendarDays, idx: '05' },
-          ] as const).map(({ key, label: tabLabel, icon: Icon, idx }) => {
-            const active = tab === key
-            return (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className="flex min-h-[44px] items-center gap-2 border px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.16em] transition-colors"
-                style={{
-                  background: active ? 'var(--magenta)' : 'var(--ink-1)',
-                  borderColor: active ? 'var(--magenta)' : 'var(--hair-2)',
-                  color: active ? 'var(--ink)' : 'var(--fg-3)',
-                }}
-              >
-                <Icon size={13} />
-                <span style={{ color: active ? 'var(--ink)' : 'var(--fg-4)' }}>[{idx}]</span>
-                {tabLabel}
-              </button>
-            )
-          })}
-        </div>
+      <div className="flex gap-0 mb-6 border-b border-[#1c1c1c] fade-up">
+        {([
+          { key: 'dashboard', label: 'Home',  icon: BarChart2 },
+          { key: 'goals',     label: 'Goals', icon: Target },
+          { key: 'bets',      label: 'Bets',  icon: Banknote },
+          { key: 'feed',      label: 'Runs',  icon: Activity },
+          { key: 'plans',     label: 'Plans',     icon: CalendarDays },
+        ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center gap-1 px-2.5 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === key
+                ? 'border-[#f97316] text-white'
+                : 'border-transparent text-[#6b7280] hover:text-white'
+            }`}
+          >
+            <Icon size={13} />
+            {tabLabel}
+          </button>
+        ))}
       </div>
 
       {/* ── Dashboard tab ─────────────────────────────────────────────────── */}

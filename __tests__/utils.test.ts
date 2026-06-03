@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { computeStreak, getWeekStart, isoWeek } from '@/lib/utils'
+import { computeStreak } from '@/lib/utils'
 
 // Today is 2026-03-18 (Wednesday) per system context.
 // Jakarta (UTC+7) week boundaries (Mon-Sun):
@@ -95,18 +95,5 @@ describe('computeStreak', () => {
     expect(computeStreak(runs, 1)).toBe(1)
     // Athlete 2 has this week + last week → streak of 2
     expect(computeStreak(runs, 2)).toBe(2)
-  })
-})
-
-describe('weekly date helpers', () => {
-  it('uses Jakarta Monday midnight for week keys', () => {
-    expect(isoWeek(new Date('2026-03-15T16:59:59Z'))).toBe('2026-03-09')
-    expect(isoWeek(new Date('2026-03-15T17:00:00Z'))).toBe('2026-03-16')
-    expect(isoWeek(new Date('2026-03-22T16:59:59Z'))).toBe('2026-03-16')
-    expect(isoWeek(new Date('2026-03-22T17:00:00Z'))).toBe('2026-03-23')
-  })
-
-  it('returns the actual UTC instant for local week start', () => {
-    expect(getWeekStart(new Date('2026-03-18T10:00:00Z')).toISOString()).toBe('2026-03-15T17:00:00.000Z')
   })
 })

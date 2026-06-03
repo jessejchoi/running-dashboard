@@ -28,17 +28,17 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   if (pic) return <img src={pic} alt={name} className="w-7 h-7 rounded-full object-cover shrink-0" />
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="w-7 h-7 rounded-full bg-[#e84d85]/20 flex items-center justify-center text-[#e84d85] font-bold text-[10px] shrink-0">
+    <div className="w-7 h-7 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-[10px] shrink-0">
       {initials}
     </div>
   )
 }
 
 const DISTANCE_CONFIG: Record<string, { label: string; short: string; color: string; bg: string; dot: string }> = {
-  '5k':            { label: '5K',            short: '5K',  color: 'text-[#e84d85]',    bg: 'bg-[#e84d85]/10',    dot: 'bg-[#e84d85]' },
-  '10k':           { label: '10K',           short: '10K', color: 'text-[#dc8b3a]', bg: 'bg-[#dc8b3a]/10', dot: 'bg-[#dc8b3a]' },
-  'half_marathon': { label: 'Half Marathon', short: 'HM',  color: 'text-[#6bbfdf]',    bg: 'bg-[#6bbfdf]/10',    dot: 'bg-[#6bbfdf]' },
-  'marathon':      { label: 'Marathon',      short: 'FM',  color: 'text-[#6bbfdf]', bg: 'bg-[#6bbfdf]/10', dot: 'bg-[#6bbfdf]' },
+  '5k':            { label: '5K',            short: '5K',  color: 'text-red-400',    bg: 'bg-red-400/10',    dot: 'bg-red-400' },
+  '10k':           { label: '10K',           short: '10K', color: 'text-orange-400', bg: 'bg-orange-400/10', dot: 'bg-orange-400' },
+  'half_marathon': { label: 'Half Marathon', short: 'HM',  color: 'text-sky-400',    bg: 'bg-sky-400/10',    dot: 'bg-sky-400' },
+  'marathon':      { label: 'Marathon',      short: 'FM',  color: 'text-purple-400', bg: 'bg-purple-400/10', dot: 'bg-purple-400' },
 }
 
 // ── Custom dropdown ────────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ function FilterDropdown({ value, onChange, options, placeholder }: DropdownProps
     <div
       ref={dropRef}
       style={{ top: pos.top, left: pos.left }}
-      className="fixed z-[9999] bg-[#1c1c1c] border border-[#303037] rounded-xl shadow-2xl py-1 min-w-[160px]"
+      className="fixed z-[9999] bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 min-w-[160px]"
     >
       {options.map(opt => (
         <button
@@ -99,7 +99,7 @@ function FilterDropdown({ value, onChange, options, placeholder }: DropdownProps
           className="w-full text-left px-3 py-2 text-xs text-[#9ca3af] hover:bg-[#242424] flex items-center justify-between gap-2 transition-colors"
         >
           <span className={value === opt.value ? 'text-white font-medium' : ''}>{opt.label}</span>
-          {value === opt.value && <Check size={10} className="text-[#e84d85]" />}
+          {value === opt.value && <Check size={10} className="text-[#f97316]" />}
         </button>
       ))}
     </div>,
@@ -111,7 +111,7 @@ function FilterDropdown({ value, onChange, options, placeholder }: DropdownProps
       <button
         ref={btnRef}
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-3 min-h-[44px] rounded bg-[#1c1c1c] border border-[#303037] hover:border-[#44413d] text-xs text-[#9ca3af] transition-all"
+        className="flex items-center gap-1.5 px-3 min-h-[44px] rounded bg-[#1c1c1c] border border-[#2a2a2a] hover:border-[#3a3a3a] text-xs text-[#9ca3af] transition-all"
       >
         <span className={selected?.value !== 'all' ? 'text-white font-medium' : ''}>
           {selected?.label ?? placeholder}
@@ -141,7 +141,7 @@ function GoalRow({ goal, unit }: { goal: MemberGoal; unit: DistanceUnit }) {
     : 'text-[#6b7280]'
 
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-[#202024] last:border-0 group">
+    <div className="flex items-center gap-3 py-3 border-b border-[#1a1a1a] last:border-0 group">
       {/* Avatar */}
       <Avatar name={goal.athlete_name} pic={goal.athlete_profile} />
 
@@ -182,7 +182,7 @@ function GoalRow({ goal, unit }: { goal: MemberGoal; unit: DistanceUnit }) {
         <div className={`text-xs font-mono font-bold ${urgencyColor}`}>
           {isPast ? 'Done' : `${daysLeft}d`}
         </div>
-        <div className="text-[10px] text-[#44413d]">
+        <div className="text-[10px] text-[#3a3a3a]">
           {format(new Date(goal.race_date), 'MMM d')}
         </div>
       </div>
@@ -198,7 +198,7 @@ export default function GroupGoalsSection({ memberGoals, groupName }: Props) {
 
   if (memberGoals.length === 0) {
     return (
-      <div className="card border-dashed border-[#303037] flex flex-col items-center justify-center py-8 text-center gap-2 fade-up">
+      <div className="card border-dashed border-[#2a2a2a] flex flex-col items-center justify-center py-8 text-center gap-2 fade-up">
         <p className="text-[#4b5563] text-sm">No group members have set race goals yet.</p>
       </div>
     )

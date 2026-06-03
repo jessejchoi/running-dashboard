@@ -1,284 +1,219 @@
-# Design System — RunDash · PULSE
+# Design System — RunDash
 
 ## Product Context
 - **What this is:** Personal running performance dashboard connected to Strava
-- **Who it's for:** Jesse — training for 3 races in 2026 (5K, 10K, Half Marathon) + close friends in shared training groups
+- **Who it's for:** Jesse — training for 3 races in 2026 (5K, 10K, Half Marathon)
 - **Space/industry:** Sports performance, personal analytics
 - **Project type:** Data-dense web app + PWA (installed to home screen)
 
 ---
 
 ## Aesthetic Direction
-- **Direction:** **Pulse** — brutalist club poster meets running app, tuned for low-glare daily use
-- **Decoration level:** Loud in structure, restrained in emission — every visual choice is signal, but signal color is rationed. Hard edges, no rounded corners on cards or buttons, ever. Type does the heavy lifting; neon is an accent, not a floodlight.
-- **Mood:** A running app with track-club confidence, not arcade glare. Less Strava, more late-night training board. Numbers should feel like signage, but the screen must stay readable in long sessions.
-- **What this is not:** wellness, hygge, soft pastels, friendly emoji, motivational poster energy.
+- **Direction:** Industrial / Retro-Futuristic
+- **Decoration level:** Intentional — dark surfaces and orange accent carry the atmosphere; subtle grain or razor-thin dividers only; no gradients, no rounded blobs
+- **Mood:** Feels like a timing-chip readout or a track coach's analytics terminal. Precise, focused, high-energy. A performance tool — not a wellness app.
 
 ---
 
 ## Layout
-- **Approach:** Bento grid — asymmetric, size = importance — unchanged from previous direction
-- **Desktop grid:** 12-column, **gap 14px** (slightly larger to feel less crammed against hard edges), max content width 1280px
-- **Mobile grid:** 2-column (key stats `span 12`, small stats `span 6`), gap 10px, page padding 16px
-- **Card placement examples:** Weekly mileage → large (7 col); 2×2 stat grid (5 col); race estimates → full width (12 col); goals + group → equal halves (6 col each)
-- **Card chrome:** Every metric card has a **3px top stripe** in its semantic accent — magenta (primary), acid (positive), ice (informational). The stripe replaces glow as the way "this matters" is communicated.
-- **Card index numbers:** Top-right of every metric card carries a mono index in brackets — `[01]`, `[02]` — like spec sheet entries.
-- **Glass:** **Removed.** Pulse is opaque. Top bar uses solid `--ink-1` with a 3px magenta top stripe and 2px white-bone bottom border.
+- **Approach:** Bento grid — asymmetric grid where card size signals importance
+- **Desktop grid:** 12-column, gap 12px, max content width 1100px
+- **Mobile grid:** 2-column (key stats full-width `span 12`, small stats `span 6`), gap 8px, horizontal page padding 12px
+- **Card placement examples:** Weekly mileage → large (7 col); race estimates → medium (5 col); pace/load/goals → equal thirds (4 col each)
+- **Glass treatment:** Reserved for elements that float above scrolling content only:
+  - Desktop nav bar
+  - Mobile bottom nav
+  - Modals and overlays
+  - **NOT** used on regular dashboard cards (solid dark surface only — glass needs content behind it to show)
 
 ---
 
 ## Color
-- **Approach:** Low-glare carbon ink + 3 softened signal hues. No tinted page backgrounds; signal is either purposeful or absent.
+- **Approach:** Restrained — one accent, full semantic set
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--ink` | `#0D0D0F` | Page background |
-| `--ink-1` | `#151517` | Cards (default) |
-| `--ink-2` | `#202024` | Raised / hovered cells |
-| `--ink-3` | `#29292f` | Inputs, well backgrounds, empty progress tracks |
-| `--hair-1` | `rgba(241,237,232,0.10)` | Default hairline borders |
-| `--hair-2` | `rgba(241,237,232,0.18)` | Card borders |
-| `--hair-3` | `rgba(241,237,232,0.30)` | Strong dividers / focus |
-| `--magenta` | `#E84D85` | Primary signal — active, peak, PRs, hot delta |
-| `--magenta-d` | `#C23B6B` | Magenta hover |
-| `--magenta-s` | `rgba(232,77,133,0.08)` | Magenta wash (chip backgrounds only) |
-| `--magenta-shadow` | `rgba(232,77,133,0.58)` | Soft stat offset shadow |
-| `--acid` | `#B8D957` | Positive signal — on-target, live, confirmation |
-| `--acid-s` | `rgba(184,217,87,0.07)` | Acid wash |
-| `--acid-shadow` | `rgba(184,217,87,0.50)` | Soft positive stat offset shadow |
-| `--ice` | `#6BBFDF` | Informational signal — long runs, zone 2, secondary stat |
-| `--ice-s` | `rgba(107,191,223,0.07)` | Ice wash |
-| `--ice-shadow` | `rgba(107,191,223,0.50)` | Soft informational stat offset shadow |
-| `--orange` | `#DC8B3A` | Tempo / warn (sparingly — replaces yellow) |
-| `--fg-1` | `#F1EDE8` | Primary text |
-| `--fg-2` | `#C9C2BA` | Secondary text |
-| `--fg-3` | `#8B837C` | Muted text / labels / meta |
-| `--fg-4` | `#5D5651` | Disabled / inline ornaments |
+| `--bg` | `#080808` | Page background |
+| `--surface-1` | `#111111` | Cards (default) |
+| `--surface-2` | `#161616` | Elevated / nested cards, est. items |
+| `--surface-3` | `#0f0f0f` | Inputs, inner containers |
+| `--border` | `#2a2a2a` | Default borders |
+| `--border-hover` | `#383838` | Hovered borders |
+| `--accent` | `#f97316` | Brand orange — primary interactive |
+| `--accent-dim` | `#ea580c` | Accent hover state |
+| `--accent-muted` | `rgba(249,115,22,0.10)` | Active nav bg, focus rings |
+| `--accent-glow` | `rgba(249,115,22,0.08)` | Key metric card glow |
+| `--text-1` | `#f0f0f0` | Primary text |
+| `--text-2` | `#a1a1aa` | Secondary text |
+| `--text-3` | `#6b7280` | Muted / labels / meta |
+| `--success` | `#22c55e` | Easy runs, positive deltas |
+| `--warning` | `#eab308` | Tempo/threshold runs, fatigue warnings |
+| `--error` | `#ef4444` | Errors, negative deltas |
+| `--info` | `#3b82f6` | Long runs, informational |
+| `--success-bg` | `rgba(34,197,94,0.08)` | Alert / chip backgrounds |
+| `--warning-bg` | `rgba(234,179,8,0.08)` | |
+| `--error-bg` | `rgba(239,68,68,0.08)` | |
+| `--info-bg` | `rgba(59,130,246,0.08)` | |
 
-**Run type → color mapping (kept semantically aligned with the previous system):**
-- Easy → `--fg-2` neutral
-- Tempo / threshold → `--acid` (was warning yellow)
-- Intervals → `--magenta` (was accent orange)
-- Long → `--ice` (was info blue)
-- Race → `--magenta` inverted (chip fills magenta with ink text — race day stands apart)
-- Recovery → `--fg-3` muted
+**Run type → color mapping:**
+- Easy / recovery → success green
+- Interval → accent orange
+- Long run → info blue
+- Tempo / threshold → warning yellow
 
-**Removed semantic tokens:** `--success`, `--warning`, `--info`, `--error` are folded into `--acid`, `--orange`, `--ice`, `--magenta` respectively. Backgrounds (`--success-bg` etc.) are also gone — Pulse doesn't tint backgrounds.
-
-**No-glass rule:** removed entirely. If something needs to feel "above" — increase border weight, not opacity.
+**Glass layer (nav + modals only):**
+```css
+background: rgba(17, 17, 17, 0.65);
+backdrop-filter: blur(16px) saturate(180%);
+border: 1px solid rgba(255, 255, 255, 0.06);
+box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+```
 
 ---
 
 ## Typography
-- **Display:** Archivo Narrow 700 — **UPPERCASE** for headings, with a 2px softened signal offset shadow on hero stat numbers
-- **Block body / labels:** Archivo 500/700 — for paragraph copy and Big Stats that aren't display
-- **Mono / Data / Tables:** JetBrains Mono 400/500/700, `font-variant-numeric: tabular-nums`
-- **Loading:** Google Fonts CDN — replace Syne, DM Sans, Space Mono in `app/layout.tsx` with Archivo Narrow + Archivo + JetBrains Mono
+- **Display / H1:** Syne 700–800, uppercase, `letter-spacing: -0.02em`, `line-height: 0.95`
+- **Body:** DM Sans 400/500/600
+- **Data / Tables / Stats:** Space Mono 400/700, `font-variant-numeric: tabular-nums`
+- **Loading:** Google Fonts CDN — already configured in `app/layout.tsx`
 
 **Scale:**
 
 | Step | Size | Font | Weight | Usage |
 |---|---|---|---|---|
-| `hero` | `clamp(56px, 8vw, 96px)` | Archivo Narrow | 700 | Page title (`h1.font-display`) |
-| `disp` | `48px` | Archivo Narrow | 700 | Section open |
-| `h2` | `28px` | Archivo Narrow | 700 | Card heading |
-| `h3` | `18px` | Archivo Narrow | 700 | Sub-card title |
-| `stat-xl` | `80px` (desktop) / `56px` (mobile) | Archivo Narrow | 700 | Hero stat — **with 2px softened signal text-shadow** |
-| `stat-md` | `40px` | Archivo Narrow | 700 | Secondary stat — no shadow |
-| `stat-sm` | `22px` | Archivo Narrow | 700 | Inline data values |
-| `body-lg` | `15px` | Archivo | 500 | Default body |
-| `body-sm` | `13px` | Archivo | 500 | Secondary body |
-| `tele` | `13–16px` | JetBrains Mono | 500 | Telemetry / table cells |
-| `label` | `11px` | JetBrains Mono | 500 | UPPERCASE labels, +0.18em tracking, `/` prefix |
+| `display` | `clamp(32px, 8vw, 88px)` | Syne | 800 | Hero headings |
+| `h1` | `32px` | Syne | 800 | Page titles |
+| `h2` | `24px` | Syne | 700 | Section headings |
+| `h3` | `18px` | Syne | 700 | Card headings |
+| `body-lg` | `15px` | DM Sans | 400/500 | Default body |
+| `body-sm` | `13px` | DM Sans | 400/500 | Secondary body, card content |
+| `label` | `11px` | Space Mono | 400 | Eyebrows, meta, uppercase labels |
+| `stat-xl` | `42px` (desktop) / `32px` (mobile) | Space Mono | 700 | Big stat numbers |
+| `stat-md` | `22px` | Space Mono | 700 | Secondary stats |
+| `stat-sm` | `13px` | Space Mono | 700 | Inline data values |
 
-**Casing:** All display-level type is **UPPERCASE**. Body copy stays sentence case. Mono labels are uppercase with `letter-spacing: 0.18em` and a leading `/ ` prefix (the signature mark).
-
-**Tracking & line-height:** Hero `letter-spacing: -0.035em` / `line-height: 0.9`. Body `1.55`. Mono `1.6`. No exceptions.
-
-**Stat shadow:** `text-shadow: 2px 2px 0 var(--magenta-shadow)`. Reserved for the **largest stat per card** and the page title period (`Jesse.`). Variants: `.acid` shadow for positive metrics, `.ice` shadow for informational. Never combined. Do not use fully saturated solid shadows.
-
-**Mobile type scaling:** Stat numbers `80px → 56px`. Hero `96px → 56px`. Body untouched.
+**Mobile type scaling:**
+- Stat numbers: `42px → 32px`
+- Display headings: `clamp(22px, 6vw, 32px)`
+- Body stays at `13–15px`
 
 ---
 
 ## Spacing
 - **Base unit:** 4px
-- **Density:** Comfortable — Pulse's loudness needs breathing room
+- **Density:** Comfortable
 
 | Token | Value | Usage |
 |---|---|---|
-| `xs` | 4px | Icon gaps, chip internals |
-| `sm` | 8px | Internal card gaps |
-| `md` | 14px | Card internal sections (was 16) |
+| `xs` | 4px | Icon gaps, tight inline spacing |
+| `sm` | 8px | Internal card gaps, chip padding |
+| `md` | 16px | Card internal sections |
 | `lg` | 24px | Card padding (desktop) |
-| `xl` | 32px | Between sections within a screen |
-| `2xl` | 56px | Page-level vertical rhythm |
-| `3xl` | 96px | Major section breaks (system doc only) |
+| `xl` | 32px | Between sections |
+| `2xl` | 48px | Page-level vertical rhythm |
+| `3xl` | 64px | Major section breaks |
 
 **Card padding:**
 - Desktop: `24px`
-- Mobile: `18px`
+- Mobile: `14px`
 
 **Bento gap:**
-- Desktop: `14px`
-- Mobile: `10px`
+- Desktop: `12px`
+- Mobile: `8px`
 
 ---
 
 ## Border Radius
-**Brutal flat.** Almost everything is square. Radius is reserved for the very few elements where a circle is the natural shape (avatars, dots, gauge rings).
+Hierarchical — not uniform. Smaller elements are sharper; larger containers are softer.
 
 | Element | Radius |
 |---|---|
-| Cards | `0` |
-| Buttons | `0` |
-| Inputs | `0` |
-| Chips / pills | `0` (was rounded — now square) |
-| Modals | `0` |
-| Avatars | `50%` |
-| Status / gauge dots | `50%` |
+| Chips / badges | `4px` |
+| Buttons | `6px` |
+| Inputs | `8px` |
+| Cards | `12px` |
+| Modals / glass | `16px` |
 
 ---
 
 ## Motion
-- **Approach:** Three primitives. Punch, sweep, blink. **Nothing eases gently — it hits.**
+- **Approach:** Minimal-functional — only transitions that aid comprehension
 
 | Name | Duration | Easing | Usage |
 |---|---|---|---|
-| punch | 180ms | `cubic-bezier(0.2, 0.9, 0.25, 1)` | Button hover — offset −1px/−1px with 2px softened magenta shadow |
-| sweep | 700ms | same | Progress bar / gauge fill / bar chart bars entering |
-| blink | 1.4s steps(2) | — | Live-status indicators only (sync, recording) |
-| fade-up | 240ms | ease-out | Card mount (kept, shortened from 300ms) |
-
-**Removed motion:** the previous `long 500ms ease-in-out` chart animation is gone — charts use `sweep` instead. No spring, no overshoot, no bounce.
+| micro | 50ms | ease-out | Icon swaps, active dot states |
+| short | 150ms | ease-out | Hover effects, tab switches, border color |
+| medium | 300ms | ease-out | Card entrances (fadeUp), modal open |
+| long | 500ms | ease-in-out | Chart animations |
 
 **Easing:**
-- Default: `cubic-bezier(0.2, 0.9, 0.25, 1)` (strong front-loaded)
+- Enter: `cubic-bezier(0.0, 0.0, 0.2, 1)` (ease-out — fast in, slow settle)
+- Exit: `cubic-bezier(0.4, 0.0, 1, 1)` (ease-in — slow out, fast away)
 
-**Punch keyframe (button hover):**
+**fadeUp keyframe (card entrance):**
 ```css
-.btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 2px 2px 0 var(--magenta-shadow);
-  border-color: var(--magenta);
-  color: var(--magenta);
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-```
-
-**Blink keyframe (status):**
-```css
-@keyframes blink { 50% { opacity: 0.2; } }
-.status::before { animation: blink 1.4s steps(2) infinite; }
+/* duration: 300ms (was 400ms — tighter feels snappier) */
 ```
 
 ---
 
 ## Mobile & PWA
 
-**Top bar:**
-- Solid `--ink-1` with **3px magenta top stripe** + 2px `--fg-1` bottom border
-- No backdrop-filter
-
-**Bottom nav (mobile):**
-- Solid `--ink` with 2px `--fg-1` top border
-- Active item: `--ink` text on `--magenta` background pill (square corners, padding 8px 14px)
-- No glass, no opacity
+**Bottom nav:**
+- Glass treatment: `backdrop-filter: blur(16px) saturate(160%)`
+- Border: `1px solid rgba(255,255,255,0.05)` top only
+- Active item: orange icon + text + `background: rgba(249,115,22,0.10)` pill
 
 **Touch targets:**
-- Minimum 44×44px — unchanged
-- Padding to reach target without affecting visual
+- Minimum 44×44px for all interactive elements
+- Use padding to reach target size without affecting visual appearance
 
 **Safe area insets:**
 ```css
+/* Regular Safari: no env() — nav is exactly content height */
 /* PWA standalone (html.standalone): */
 padding-bottom: calc(8px + env(safe-area-inset-bottom));
-padding-top:    calc(14px + env(safe-area-inset-top));
+padding-top: calc(14px + env(safe-area-inset-top));
 ```
 
-**Theme color:** `#0D0D0F` (set in `<meta name="theme-color">`)
+**Theme color:** `#080808` (set in `<meta name="theme-color">`)
 
 ---
 
 ## Component Conventions
 
-**Hero stat card (key metric):**
+**Stat card (key metric):**
 ```
-3px top stripe in semantic accent — magenta (default) / acid / ice
-[NN] index — top-right, JetBrains Mono 10px, color: --fg-4
-label — JetBrains Mono 11px UPPERCASE, +0.18em, leading "/" prefix
-big number — Archivo Narrow 80px (mobile 56), 2px softened signal text-shadow
-delta chip — flat acid background, ink text, 3×7 padding, no border
-chart — bars in --ink-2 (#303037), current week in magenta, average line at magenta 45% opacity
-```
-
-**Run type chip:**
-```
-font-family: JetBrains Mono, 10.5px, 700, UPPERCASE, +0.16em
-padding: 4px 9px, border: 1px solid currentColor (square)
-dot: 6×6 currentColor square (not circle)
-easy   → fg-2 / hair-2 border
-tempo  → acid / acid border / acid-s bg
-intv   → magenta / magenta border / magenta-s bg
-long   → ice / ice border / ice-s bg
-race   → ink / magenta bg / magenta border (inverted)
-recov  → fg-3 / hair-1 border
+eyebrow    — Space Mono 10px uppercase, text-3
+big number — Space Mono 42px/32px, text-1, tabular-nums
+delta chip — Space Mono 11px, success/error bg, border-radius 4px
+chart      — bars or sparkline, accent for current week
+box-shadow — 0 0 40px var(--accent-glow)  ← glow-orange class
 ```
 
-**Button:**
+**Run type badge:**
 ```
-font-family: JetBrains Mono, 11px, 700, UPPERCASE, +0.18em
-padding: 12×18, square, border 1px hair-2, bg ink
-hover: translate(-1px, -1px), shadow 2px 2px 0 magenta-shadow, color/border magenta
-primary: bg magenta, color ink
-acid:    bg acid, color ink
-ghost:   border hair-1, color fg-2
-icon:    padding 12, no text
-```
-
-**Status pill (live indicator):**
-```
-font-family: JetBrains Mono, 10.5px, 500, UPPERCASE, +0.16em
-border 1px solid currentColor, padding 6×10, square
-leading 6×6 square dot, blink keyframe
-live → acid · warn → orange · peak → magenta
+font-family: Space Mono, 10px, 700, uppercase, letter-spacing 0.08em
+padding: 4px 8px, border-radius 4px
+easy       → success-bg / success text
+interval   → accent-muted / accent text
+long       → info-bg / info text
+tempo      → warning-bg / warning text
+recovery   → rgba(161,161,170,0.10) / text-2
 ```
 
-**Tabs:**
+**Glass modal:**
 ```
-border-bottom: 2px solid fg-1 (white-bone)
-tab padding 14×18, JetBrains Mono 11px 700 UPPERCASE +0.2em
-tab-id span: fg-4 (color), shown before label
-active: bg magenta, color ink (solid block, no underline)
-inactive: color fg-3, hover fg-1
+bg: rgba(17,17,17,0.65), backdrop-filter: blur(20px) saturate(180%)
+border: 1px solid rgba(255,255,255,0.06)
+border-radius: 16px
+box-shadow: 0 8px 48px rgba(0,0,0,0.6)
+inner stats: surface-2 bg, rgba(255,255,255,0.05) border
 ```
-
-**Telemetry row:**
-```
-grid: 38px (idx) · 1fr (name+meta) · auto (chip) · auto (num) · auto (num)
-padding 14×14, top border hair-1
-hover: bg ink-2 with left 3px magenta stripe
-idx: JetBrains Mono 10px, fg-4
-name: Archivo Narrow 16px 700 UPPERCASE
-meta: JetBrains Mono 10px UPPERCASE +0.14em, fg-3
-num: JetBrains Mono 13px tnum, fg-1
-num.mag → magenta · num.acid → acid · num.dim → fg-3
-```
-
-**Modal:**
-```
-bg: --ink-1, border: 1px solid --hair-2 (square)
-3px magenta top stripe
-no backdrop blur, backdrop = rgba(0,0,0,0.8) solid scrim
-inner stats: --ink-3 bg, no border
-```
-
----
-
-## Iconography
-- **Style:** Wireframe, **1.8px stroke**, **square line caps & joins** (`stroke-linecap="square"`, `stroke-linejoin="miter"`)
-- **Size:** 24×24 default, 14×14 in buttons
-- **Color:** inherits from text — never coloured by default. Magenta only on hover or in active states.
-- **No filled icons.** No emoji.
 
 ---
 
@@ -286,14 +221,9 @@ inner stats: --ink-3 bg, no border
 
 | Date | Decision | Rationale |
 |---|---|---|
-| 2026-05-22 | Pulse direction adopted | Existing "industrial / retro-futuristic" was directionally right but too quiet. Pulse pushes the same instinct further — louder, more confident, distinct from any other running app. |
-| 2026-05-22 | Magenta replaces orange as primary signal | Orange reads "athletic" but everyone uses it (Strava, Nike, ASICS). Magenta is unclaimed in the category, distinctive, and harder to use poorly — it forces restraint. |
-| 2026-05-22 | All corners square | Round corners read as "consumer/wellness." Square reads as "tool / poster / signage." The radius hierarchy in the old system added complexity without adding meaning. |
-| 2026-05-22 | Archivo Narrow + Archivo + JetBrains Mono | Syne is good but generic-display. Archivo Narrow at 700 has track-club poster energy and pairs sharply with mono. DM Sans → Archivo for slightly stronger letterforms in body. Space Mono → JetBrains Mono for crisper tabular figures. |
-| 2026-05-24 | Low-glare Pulse tuning | The first neon pass reduced legibility. Signals are now softer, neutral text is brighter, `text-white` resolves to bone, and stat shadows use translucent 2px offsets. |
-| 2026-05-22 | 4px magenta text-shadow on hero stats | Superseded by the 2026-05-24 low-glare tuning. The signature move remains, but with a softer 2px offset. |
-| 2026-05-22 | Removed glass entirely | Glass was reserved for nav + modals before, but Pulse's flat-opaque aesthetic does the same job with less complexity. A 3px magenta stripe communicates "above" better than blur. |
-| 2026-05-22 | Run-type semantic mapping preserved | Easy/tempo/intervals/long/race conventions are load-bearing across the app — only the colours change. easy→fg-2, tempo→acid, intervals→magenta, long→ice, race→inverted magenta. |
-| 2026-05-22 | Card index `[NN]` brackets | Borrowed from technical drawings & spec sheets. Cheap, distinctive, makes screens scannable by reference. |
-| 2026-05-22 | Three motion primitives only | The old four-tier system (micro/short/medium/long) over-specified motion for a tool. Punch/sweep/blink covers every real case. |
-| 2026-05-22 | Removed `--success` / `--warning` / `--info` / `--error` semantic tokens | Pulse has 3 signals — acid (positive), orange (warn), magenta (peak/error). Mapping 4 semantic states onto 3 hues forces clarity. |
+| 2026-03-17 | Bento grid layout | Size = importance; modern, futuristic, works for data-dense dashboard |
+| 2026-03-17 | Glass on nav + modals only | Solid dark bg (#080808) has nothing to blur through — glass only where content scrolls behind it |
+| 2026-03-17 | Keep Syne + DM Sans + Space Mono | Already loaded, work well together — Syne for energy, DM Sans for readability, Space Mono for data terminal feel |
+| 2026-03-17 | 4px base unit | Finer control for data-dense layouts without going to 8px rigidity |
+| 2026-03-17 | Single orange accent | Restrained palette — orange is high-energy, athletic, distinctive; second accent would dilute it |
+| 2026-03-17 | fadeUp 300ms (from 400ms) | Tighter animation feels snappier in a performance context |

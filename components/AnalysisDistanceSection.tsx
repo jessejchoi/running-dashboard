@@ -37,7 +37,7 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap, allDe
             onClick={() => setActive(tab.key)}
             className={`px-5 py-1.5 rounded-lg text-sm font-bold transition-all ${
               active === tab.key
-                ? 'bg-[#e84d85] text-white shadow-lg'
+                ? 'bg-[#f97316] text-white shadow-lg'
                 : 'text-[#6b7280] hover:text-white hover:bg-[#1c1c1c]'
             }`}
           >
@@ -50,7 +50,7 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap, allDe
         <CombinedEstimateCard distanceKey={active} combined={c} targetSecs={targetSecs} deltas={deltas} />
 
         {sourceCount > 0 && (
-          <Link href="/analysis/sources" className="inline-flex items-center min-h-[44px] text-[#e84d85] text-sm hover:underline">
+          <Link href="/analysis/sources" className="inline-flex items-center min-h-[44px] text-[#f97316] text-sm hover:underline">
             View sources →
           </Link>
         )}

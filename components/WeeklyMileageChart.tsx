@@ -4,21 +4,22 @@ import { metersToKm, metersToMiles, distanceUnitLabel, isoWeek } from '@/lib/uti
 import { useUnit } from '@/lib/unit-context'
 import { format, parseISO } from 'date-fns'
 
-interface Activity { start_date: string; distance: number }
-interface Props { activities: Activity[]; weeks?: number }
+interface Activity {
+  start_date: string
+  distance: number
+}
 
-// ── PULSE tokens ──────────────────────────────────────────────────────
-const MAGENTA = '#e84d85'
-const INK_2   = '#303037'  // bar default
-const INK_3   = '#26262b'  // bar quiet (below avg)
-const FG_3    = '#8b837c'
+interface Props {
+  activities: Activity[]
+  weeks?: number
+}
 
 function CustomTooltip({ active, payload, label, unitLabel }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="px-3 py-2 text-xs" style={{ background: '#151517', border: '1px solid rgba(241,237,232,0.18)' }}>
-      <div className="font-mono uppercase tracking-[0.16em] text-[10px] mb-1" style={{ color: FG_3 }}>{label}</div>
-      <div className="font-mono font-bold" style={{ color: '#f1ede8' }}>{payload[0].value.toFixed(1)} <span style={{ color: FG_3 }}>{unitLabel}</span></div>
+    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs">
+      <div className="text-[#6b7280] mb-1">{label}</div>
+      <div className="font-mono text-white font-bold">{payload[0].value.toFixed(1)} {unitLabel}</div>
     </div>
   )
 }
@@ -48,26 +49,27 @@ export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
   const avg = data.reduce((s, d) => s + d.km, 0) / (data.filter(d => d.km > 0).length || 1)
 
   return (
+    // Explicit pixel height on a plain div — Recharts recommended pattern
     <div style={{ width: '100%', height: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} barSize={14} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
           <XAxis
             dataKey="week"
-            tick={{ fill: FG_3, fontSize: 10, fontFamily: 'var(--font-mono)' }}
+            tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             axisLine={false}
             tickLine={false}
             interval={3}
           />
           <YAxis
-            tick={{ fill: FG_3, fontSize: 10, fontFamily: 'var(--font-mono)' }}
+            tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} cursor={{ fill: 'rgba(232,77,133,0.05)' }} />
-          <ReferenceLine y={avg} stroke={MAGENTA} strokeDasharray="3 3" strokeOpacity={0.45} strokeWidth={1} />
-          <Bar dataKey="km">
+          <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <ReferenceLine y={avg} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.5} strokeWidth={1} />
+          <Bar dataKey="km" radius={[3, 3, 0, 0]}>
             {data.map((entry, i) => (
-              <Cell key={i} fill={entry.isCurrentWeek ? MAGENTA : entry.km > avg ? INK_2 : INK_3} />
+              <Cell key={i} fill={entry.isCurrentWeek ? '#f97316' : entry.km > avg ? '#3a3a3a' : '#242424'} />
             ))}
           </Bar>
         </BarChart>

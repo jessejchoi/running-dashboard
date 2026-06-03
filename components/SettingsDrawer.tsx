@@ -228,7 +228,7 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                       className="px-2.5 py-1.5 rounded-md text-xs font-bold transition-colors"
                       style={
                         profile.status_tag === tag
-                          ? { background: 'var(--orange)', border: '1px solid var(--orange)', color: 'var(--ink)' }
+                          ? { background: 'var(--orange)', border: '1px solid var(--orange)', color: '#fff' }
                           : { background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-muted)' }
                       }
                     >
@@ -291,7 +291,7 @@ export default function SettingsDrawer({ open, onClose }: Props) {
                           className="flex-1 py-2 rounded-md text-sm font-bold transition-colors"
                           style={
                             profile.unit === u || (!profile.unit && u === 'km')
-                              ? { background: 'var(--orange)', border: '1px solid var(--orange)', color: 'var(--ink)' }
+                              ? { background: 'var(--orange)', border: '1px solid var(--orange)', color: '#fff' }
                               : { background: 'var(--surface-3)', border: '1px solid var(--border)', color: 'var(--text-muted)' }
                           }
                         >
@@ -313,7 +313,7 @@ export default function SettingsDrawer({ open, onClose }: Props) {
             onClick={handleSave}
             disabled={saving || loading}
             className="w-full flex items-center justify-center gap-2 disabled:opacity-50 text-white font-bold py-2.5 rounded-lg transition-colors text-sm"
-            style={{ background: 'var(--orange)', color: 'var(--ink)' }}
+            style={{ background: 'var(--orange)' }}
           >
             <Save size={14} />
             {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Settings'}

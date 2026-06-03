@@ -105,7 +105,7 @@ export function Avatar({ name, pic, size = 8 }: { name: string; pic: string | nu
   }
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div style={{ width: px, height: px }} className="rounded-full bg-[#e84d85]/20 flex items-center justify-center text-[#e84d85] font-bold text-xs shrink-0">
+    <div style={{ width: px, height: px }} className="rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs shrink-0">
       {initials}
     </div>
   )
@@ -115,7 +115,7 @@ const STATUS_TAG_COLORS: Record<string, { bg: string; text: string }> = {
   'Injured':        { bg: '#7f1d1d', text: '#fca5a5' },
   'Taking it easy': { bg: '#1c1917', text: '#a8a29e' },
   'Milemaxxing':    { bg: '#14532d', text: '#86efac' },
-  'Peak week':      { bg: '#7c2d12', text: '#ff7a9d' },
+  'Peak week':      { bg: '#7c2d12', text: '#fdba74' },
   'Tapering':       { bg: '#1e1b4b', text: '#a5b4fc' },
   'Base building':  { bg: '#164e63', text: '#67e8f9' },
 }
@@ -134,18 +134,18 @@ export function StatusTag({ tag }: { tag: string }) {
 
 export function RunTypeDot({ type }: { type: string | null }) {
   const colors: Record<string, string> = {
-    intervals: 'bg-[#e84d85]',
-    interval_5k: 'bg-[#e84d85]',
-    tempo: 'bg-[#b8d957]',
-    threshold: 'bg-[#dc8b3a]',
-    long_easy: 'bg-[#6bbfdf]',
-    long_steady: 'bg-[#6bbfdf]',
-    long_progressive: 'bg-[#6bbfdf]',
-    easy: 'bg-[#b8d957]',
-    easy_strides: 'bg-[#b8d957]',
+    intervals: 'bg-red-500',
+    interval_5k: 'bg-red-500',
+    tempo: 'bg-rose-500',
+    threshold: 'bg-orange-500',
+    long_easy: 'bg-sky-500',
+    long_steady: 'bg-cyan-500',
+    long_progressive: 'bg-blue-500',
+    easy: 'bg-emerald-500',
+    easy_strides: 'bg-teal-500',
     recovery: 'bg-green-400',
   }
   return (
-    <span className={`inline-block w-2 h-2 rounded-full ${colors[type ?? ''] ?? 'bg-[#202024]'}`} />
+    <span className={`inline-block w-2 h-2 rounded-full ${colors[type ?? ''] ?? 'bg-zinc-500'}`} />
   )
 }

@@ -26,7 +26,7 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   if (pic) return <img src={pic} alt={name} className="w-7 h-7 rounded-full object-cover shrink-0" />
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="w-7 h-7 rounded-full bg-[#e84d85]/20 flex items-center justify-center text-[#e84d85] font-bold text-[10px] shrink-0">
+    <div className="w-7 h-7 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-[10px] shrink-0">
       {initials}
     </div>
   )
@@ -50,7 +50,7 @@ export default function GroupLeaderboard({ members, groupId, groupName, unit = '
         </div>
         <Link
           href={`/group/${groupId}`}
-          className="flex items-center gap-1 text-xs text-[#e84d85] hover:underline min-h-[44px]"
+          className="flex items-center gap-1 text-xs text-[#f97316] hover:underline min-h-[44px]"
           prefetch
         >
           Group <ChevronRight size={12} />
@@ -74,7 +74,7 @@ export default function GroupLeaderboard({ members, groupId, groupName, unit = '
                     {m.is_me ? 'You' : m.name.split(' ')[0]}
                   </span>
                   {m.streak >= 3 && (
-                    <span className="flex items-center gap-0.5 text-[#dc8b3a] text-[10px] font-bold shrink-0">
+                    <span className="flex items-center gap-0.5 text-orange-400 text-[10px] font-bold shrink-0">
                       <Flame size={10} />{m.streak}
                     </span>
                   )}
@@ -85,7 +85,7 @@ export default function GroupLeaderboard({ members, groupId, groupName, unit = '
                   )}
                   {m.status_tag && <StatusTag tag={m.status_tag} />}
                 </div>
-                <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${m.is_me ? 'text-[#e84d85]' : 'text-[#9ca3af]'}`}>
+                <span className={`text-xs font-mono font-bold shrink-0 ml-2 ${m.is_me ? 'text-[#f97316]' : 'text-[#9ca3af]'}`}>
                   {toDisplayDist(m.weekKm).toFixed(1)} {label}
                 </span>
               </div>
@@ -94,7 +94,7 @@ export default function GroupLeaderboard({ members, groupId, groupName, unit = '
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${(toDisplayDist(m.weekKm) / maxDist) * 100}%`,
-                    background: m.is_me ? '#e84d85' : '#44413d',
+                    background: m.is_me ? '#f97316' : '#3a3a3a',
                   }}
                 />
               </div>

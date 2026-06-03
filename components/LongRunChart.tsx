@@ -8,7 +8,7 @@ import { formatPace, formatTime, type LongRunAnalysis } from '@/lib/analysis'
 import { useAnalysisTab } from './AnalysisTabContext'
 import { distanceLabel, type DistanceKey } from '@/lib/goals'
 
-const COLOR = '#b8d957'
+const COLOR = '#34d399'
 
 const STRUCTURE_LABEL: Record<string, string> = {
   steady:      'Steady',
@@ -17,8 +17,8 @@ const STRUCTURE_LABEL: Record<string, string> = {
 }
 const STRUCTURE_COLOR: Record<string, string> = {
   steady:      '#6b7280',
-  progression: '#e84d85',
-  fast_middle: '#6bbfdf',
+  progression: '#f97316',
+  fast_middle: '#60a5fa',
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -30,7 +30,7 @@ function CustomTooltip({ active, payload }: any) {
   const fmEst = d.raceEstimates?.find(r => r.distanceKey === 'fm')
   const structColor = STRUCTURE_COLOR[d.runStructure] ?? '#6b7280'
   return (
-    <div className="bg-[#1c1c1c] border border-[#303037] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[250px]">
+    <div className="bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl px-4 py-3 text-xs shadow-2xl max-w-[250px]">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[#6b7280]">{format(new Date(d.date + 'T12:00:00'), 'MMM d, yyyy')}</span>
         <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: structColor, background: `${structColor}20` }}>
@@ -42,19 +42,19 @@ function CustomTooltip({ active, payload }: any) {
       </div>
       <div className="text-[#9ca3af] mb-2">@ {Math.round(d.steadyHR)} bpm · {d.distanceKm.toFixed(1)} km</div>
       {d.driftReliable ? (
-        <div className={`mb-1 font-mono text-xs ${d.cardiacDrift > 3 ? 'text-[#dc8b3a]' : 'text-[#b8d957]'}`}>
+        <div className={`mb-1 font-mono text-xs ${d.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
           Drift: {d.cardiacDrift.toFixed(1)}%
         </div>
       ) : (
         <div className="mb-1 text-[#4b5563] text-xs">Drift: — {d.driftReason && `(${d.driftReason})`}</div>
       )}
       {d.fastBlock && (
-        <div className="mt-1 mb-1 text-[#6bbfdf] text-xs font-mono">
+        <div className="mt-1 mb-1 text-[#60a5fa] text-xs font-mono">
           Fast block: {(d.fastBlock.durationSecs / 60).toFixed(0)} min @ {formatPace(d.fastBlock.avgPace)}/km
         </div>
       )}
       {d.residualElevation != null && (
-        <div className={`mb-1 text-xs font-mono ${d.residualElevation > 5 ? 'text-[#dc8b3a]' : 'text-[#b8d957]'}`}>
+        <div className={`mb-1 text-xs font-mono ${d.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
           Residual HR: +{d.residualElevation.toFixed(1)}%
         </div>
       )}
@@ -116,7 +116,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
   const renderDot = (props: any) => {
     const { cx, cy, payload } = props
     const c = STRUCTURE_COLOR[payload.runStructure] ?? COLOR
-    return <circle key={payload.activityId} cx={cx} cy={cy} r={5} fill={c} stroke="#0d0d0f" strokeWidth={2} />
+    return <circle key={payload.activityId} cx={cx} cy={cy} r={5} fill={c} stroke="#0a0a0a" strokeWidth={2} />
   }
 
   return (
@@ -124,7 +124,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
       <div className="flex flex-wrap items-start gap-6 mb-6 text-sm">
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Trend</div>
-          <div className={`font-mono font-bold ${improving ? 'text-[#b8d957]' : 'text-[#e84d85]'}`}>
+          <div className={`font-mono font-bold ${improving ? 'text-emerald-400' : 'text-red-400'}`}>
             {improving ? '▼' : '▲'} {Math.abs(weeklyChangeSec).toFixed(1)}s/km · week
           </div>
           <div className="text-[#4b5563] text-xs mt-0.5">{improving ? 'getting faster' : 'getting slower'}</div>
@@ -143,7 +143,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
           <div className="text-[#6b7280] text-xs mb-1">Cardiac drift</div>
           {latest.driftReliable ? (
             <>
-              <div className={`font-mono font-bold ${latest.cardiacDrift > 3 ? 'text-[#dc8b3a]' : 'text-[#b8d957]'}`}>
+              <div className={`font-mono font-bold ${latest.cardiacDrift > 3 ? 'text-orange-400' : 'text-emerald-400'}`}>
                 {latest.cardiacDrift.toFixed(1)}%
               </div>
               <div className="text-[#4b5563] text-xs mt-0.5">{latest.cardiacDrift > 3 ? 'high fatigue' : 'low fatigue'}</div>
@@ -158,7 +158,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         {latest.residualElevation != null && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Residual HR</div>
-            <div className={`font-mono font-bold ${latest.residualElevation > 5 ? 'text-[#dc8b3a]' : 'text-[#b8d957]'}`}>
+            <div className={`font-mono font-bold ${latest.residualElevation > 5 ? 'text-orange-400' : 'text-emerald-400'}`}>
               +{latest.residualElevation.toFixed(1)}%
             </div>
             <div className="text-[#4b5563] text-xs mt-0.5">post-effort easy HR</div>
@@ -167,7 +167,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         {latestFastEst ? (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Est. {distanceLabel(active as DistanceKey)}</div>
-            <div className="font-mono font-bold text-[#6bbfdf]">{formatTime(latestFastEst.estimatedSecs)}</div>
+            <div className="font-mono font-bold text-[#60a5fa]">{formatTime(latestFastEst.estimatedSecs)}</div>
             <div className="text-[#4b5563] text-xs mt-0.5">from long run fast block</div>
           </div>
         ) : latestSteadyEst ? (
@@ -180,7 +180,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
         {data.length > 1 && (
           <div>
             <div className="text-[#6b7280] text-xs mb-1">Total improvement</div>
-            <div className={`font-mono font-bold ${data[0].steadyPace > latest.steadyPace ? 'text-[#b8d957]' : 'text-[#e84d85]'}`}>
+            <div className={`font-mono font-bold ${data[0].steadyPace > latest.steadyPace ? 'text-emerald-400' : 'text-red-400'}`}>
               {data[0].steadyPace > latest.steadyPace ? '▼ ' : '▲ '}
               {Math.abs(data[0].steadyPace - latest.steadyPace).toFixed(1)}s/km
             </div>
@@ -191,7 +191,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
 
       <ResponsiveContainer width="100%" height={260}>
         <ComposedChart data={trendData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-          <CartesianGrid stroke="#202024" vertical={false} />
+          <CartesianGrid stroke="#1a1a1a" vertical={false} />
           <XAxis
             dataKey="label"
             tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
@@ -206,7 +206,7 @@ export default function LongRunChart({ runs }: { runs: LongRunAnalysis[] }) {
             width={46}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Line type="monotone" dataKey="trend" stroke="#303037" strokeWidth={2} dot={false} strokeDasharray="4 3" />
+          <Line type="monotone" dataKey="trend" stroke="#2a2a2a" strokeWidth={2} dot={false} strokeDasharray="4 3" />
           <Line
             type="monotone"
             dataKey="steadyPace"

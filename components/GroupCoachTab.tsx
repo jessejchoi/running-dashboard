@@ -33,7 +33,7 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   }
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div className="w-8 h-8 rounded-full bg-[#e84d85]/20 flex items-center justify-center text-[#e84d85] font-bold text-xs">
+    <div className="w-8 h-8 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs">
       {initials}
     </div>
   )
@@ -41,13 +41,13 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
 
 function MomentumBadge({ momentum }: { momentum: 'rising' | 'steady' | 'dipping' }) {
   const config = {
-    rising:  { label: 'Rising',  color: 'text-[#b8d957] bg-[#b8d957]/10 border-[#b8d957]/20' },
-    steady:  { label: 'Steady',  color: 'text-[#6bbfdf] bg-[#6bbfdf]/10 border-sky-400/20' },
-    dipping: { label: 'Dipping', color: 'text-[#dc8b3a] bg-[#dc8b3a]/10 border-amber-400/20' },
+    rising:  { label: 'Rising',  color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
+    steady:  { label: 'Steady',  color: 'text-sky-400 bg-sky-400/10 border-sky-400/20' },
+    dipping: { label: 'Dipping', color: 'text-amber-400 bg-amber-400/10 border-amber-400/20' },
   }
   const c = config[momentum]
   return (
-    <span className={`border px-2 py-0.5 text-[10px] font-bold ${c.color}`}>
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${c.color}`}>
       {c.label}
     </span>
   )
@@ -58,7 +58,7 @@ function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shouto
   const member = members.find(m => m.name.split(' ')[0].toLowerCase() === firstName.toLowerCase())
   const emoji = isValidAwardKey(shoutout.award_key) ? AWARD_CATEGORIES[shoutout.award_key].emoji : '🏆'
   return (
-    <div className="border border-[#303037] bg-[#151517] p-4">
+    <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
       <div className="flex items-center gap-3 mb-2">
         <div className="relative">
           {member && <Avatar name={member.name} pic={member.profile_pic} />}
@@ -66,7 +66,7 @@ function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shouto
         </div>
         <div>
           <div className="font-bold text-sm text-white">{shoutout.athlete_name}</div>
-          <div className="text-[10px] font-bold text-[#e84d85] uppercase tracking-wide">{shoutout.award_label}</div>
+          <div className="text-[10px] font-bold text-[#f97316] uppercase tracking-wide">{shoutout.award_label}</div>
         </div>
       </div>
       <p className="text-[#9ca3af] text-xs leading-relaxed">{shoutout.caption}</p>
@@ -146,12 +146,12 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   if (briefingLoading) {
     return (
       <div className="space-y-4 fade-up">
-        <div className="h-32 animate-pulse border border-[#303037] bg-[#111]" />
+        <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-2xl h-32" />
         <div className="grid sm:grid-cols-2 gap-3">
-          <div className="h-24 animate-pulse border border-[#303037] bg-[#111]" />
-          <div className="h-24 animate-pulse border border-[#303037] bg-[#111]" />
+          <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-24" />
+          <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-24" />
         </div>
-        {!minimal && <div className="h-16 animate-pulse border border-[#303037] bg-[#111]" />}
+        {!minimal && <div className="animate-pulse bg-[#111] border border-[#2a2a2a] rounded-xl h-16" />}
       </div>
     )
   }
@@ -162,7 +162,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
         <p className="text-[#6b7280] text-sm">RDCoach is taking a rest day.</p>
         <button
           onClick={() => fetchBriefing()}
-          className="flex min-h-[44px] items-center gap-2 border border-[#303037] bg-[#202024] px-4 py-2 text-sm font-bold transition-colors hover:border-[#e84d85]"
+          className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#f97316] text-sm font-medium rounded-lg transition-colors"
         >
           <RefreshCw size={14} /> Retry
         </button>
@@ -178,8 +178,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
     <div className="space-y-4 fade-up">
 
       {/* Coach Briefing */}
-      <div className="card pulse-bar ice overflow-visible p-5">
-        <span className="pulse-idx">[03]</span>
+      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5 overflow-visible">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-display font-bold text-sm text-white">Coach Briefing</span>
@@ -194,7 +193,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             )}
             <button
               onClick={() => fetchBriefing(true)}
-              className="text-[#6b7280] hover:text-[#e84d85] transition-colors"
+              className="text-[#6b7280] hover:text-[#f97316] transition-colors"
               title="Refresh briefing"
             >
               <RefreshCw size={13} />
@@ -220,7 +219,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
 
       {/* Ask Coach — chip buttons (group page only) */}
       {!minimal && (
-        <div className="border border-[#303037] bg-[#111] p-5">
+        <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5">
           <h3 className="font-display font-bold text-sm text-white mb-3">Ask Coach</h3>
           <div className="flex flex-wrap gap-2 mb-3">
             {coachChips.map(chip => (
@@ -228,10 +227,10 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
                 key={chip}
                 onClick={() => askCoach(chip)}
                 disabled={answerStreaming}
-                className={`min-h-[44px] border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition-colors disabled:opacity-50 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
                   activeChip === chip
-                    ? 'bg-[#e84d85] border-[#e84d85] text-black'
-                    : 'bg-[#202024] border-[#303037] text-[#9ca3af] hover:text-white hover:border-[#44413d]'
+                    ? 'bg-[#f97316] border-[#f97316] text-black'
+                    : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#9ca3af] hover:text-white hover:border-[#3a3a3a]'
                 }`}
               >
                 {chip}
@@ -239,10 +238,10 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             ))}
           </div>
           {(answer || answerStreaming) && (
-            <div ref={answerRef} className="border border-[#303037] bg-[#151517] p-4 text-sm leading-relaxed text-[#d1d5db]">
+            <div ref={answerRef} className="text-sm text-[#d1d5db] leading-relaxed bg-[#0f0f0f] rounded-xl p-4 border border-[#2a2a2a]">
               {answer}
               {answerStreaming && (
-                <span className="inline-block w-2 h-3.5 bg-[#e84d85] animate-pulse ml-0.5 align-middle" />
+                <span className="inline-block w-2 h-3.5 bg-[#f97316] animate-pulse ml-0.5 align-middle" />
               )}
             </div>
           )}

@@ -10,17 +10,9 @@ interface Props {
   current?: string | null
   isManual?: boolean
   onUpdate?: (newType: RunType | null) => void
-  compact?: boolean
 }
 
-function compactTypeLabel(label: string) {
-  return label
-    .replace('Easy + Strides', 'Strides')
-    .replace('Long Run with Speed', 'Long Speed')
-    .replace('Long Run — ', 'Long ')
-}
-
-export default function RunTypeSelector({ activityId, current, isManual, onUpdate, compact = false }: Props) {
+export default function RunTypeSelector({ activityId, current, isManual, onUpdate }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string | null>(current ?? null)
@@ -111,27 +103,27 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
     <div
       ref={dropRef}
       style={{ top: dropdownPos.top, left: dropdownPos.left }}
-      className="fixed z-[9999] bg-[#151517] border border-[rgba(241,237,232,0.18)] shadow-2xl py-1 min-w-[220px]"
+      className="fixed z-[9999] bg-[#1c1c1c] border border-[#2a2a2a] rounded-xl shadow-2xl py-1 min-w-[200px]"
     >
       <button
         onClick={() => handleSelect(null)}
-        className="flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.16em] text-[#8B837C] hover:bg-[#29292f]"
+        className="w-full text-left px-3 py-2 text-xs text-[#6b7280] hover:bg-[#242424] flex items-center justify-between"
       >
         <span>Clear</span>
         {!selected && <Check size={10} />}
       </button>
-      <div className="border-t border-[rgba(241,237,232,0.10)] my-1" />
+      <div className="border-t border-[#2a2a2a] my-1" />
       {Object.entries(groups).map(([group, types]) => (
         <div key={group}>
-          <div className="px-3 py-1 text-[10px] font-bold text-[#5d5651] uppercase tracking-widest font-mono">/ {group}</div>
+          <div className="px-3 py-1 text-[10px] font-bold text-[#4b5563] uppercase tracking-widest">{group}</div>
           {types.map(({ key, label, color, bg }) => (
             <button
               key={key}
               onClick={() => handleSelect(key)}
-              className="flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left font-mono text-xs uppercase tracking-[0.12em] transition-colors hover:bg-[#29292f]"
+              className="w-full text-left px-3 py-2 text-xs hover:bg-[#242424] flex items-center justify-between gap-2 transition-colors"
             >
               <span className={`flex items-center gap-2 ${color}`}>
-                <span className={`w-1.5 h-1.5 ${bg} inline-block`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${bg.replace('/10', '')} inline-block`} />
                 {label}
               </span>
               {selected === key && <Check size={10} className={color} />}
@@ -149,24 +141,20 @@ export default function RunTypeSelector({ activityId, current, isManual, onUpdat
         ref={btnRef}
         onClick={() => setOpen(!open)}
         disabled={saving}
-        className={`flex min-h-[44px] max-w-full items-center gap-2 border font-mono font-bold uppercase tracking-[0.16em] transition-all ${
-          compact ? 'px-2.5 py-1 text-[10px]' : 'px-3 py-1.5 text-[10.5px]'
-        } ${
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
           currentConfig
-            ? `${currentConfig.color} ${currentConfig.bg} border-current`
-            : 'text-[#8B837C] bg-[#29292f] border-[rgba(241,237,232,0.10)] hover:border-[rgba(241,237,232,0.18)]'
+            ? `${currentConfig.color} ${currentConfig.bg} border-transparent`
+            : 'text-[#6b7280] bg-[#1c1c1c] border-[#2a2a2a] hover:border-[#3a3a3a]'
         } ${saving ? 'opacity-50' : ''}`}
       >
-        {saving ? <span className="animate-pulse">Saving</span> : (
+        {saving ? <span className="animate-pulse">Saving…</span> : (
           <>
             {currentConfig ? (
               <>
-                <span className={compact ? 'max-w-[98px] truncate' : undefined}>
-                  {compact ? compactTypeLabel(currentConfig.label) : currentConfig.label}
-                </span>
-                {!manual && <span className="opacity-50 font-normal tracking-[0.12em] ml-1">/ Auto</span>}
+                {currentConfig.label}
+                {!manual && <span className="opacity-50 font-normal normal-case tracking-normal ml-1">· auto-detect</span>}
               </>
-            ) : compact ? 'Type' : 'Set type'}
+            ) : 'Set type'}
             <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
           </>
         )}

@@ -3,42 +3,50 @@ type RunDashWordmarkProps = {
   textClassName?: string
 }
 
-// ── Pulse wordmark ─────────────────────────────────────────────────────
-// Two square-capped chevrons forming a stride. The leading chevron is
-// magenta (the runner — primary signal); the trailing one is muted (the
-// trail). The slash between RUN and DASH echoes the mark.
 export default function RunDashWordmark({
-  markClassName = 'h-6 w-auto',
+  markClassName = 'h-7 w-auto',
   textClassName = 'text-xl',
 }: RunDashWordmarkProps) {
   return (
-    <span className={`font-display font-bold uppercase tracking-tight inline-flex items-center ${textClassName}`} style={{ letterSpacing: '-0.02em' }}>
+    <span className={`font-display font-bold uppercase tracking-tight inline-flex items-center ${textClassName}`}>
       <svg
-        viewBox="0 0 32 32"
+        viewBox="52 58 78 64"
         aria-hidden="true"
-        className={`mr-2 shrink-0 ${markClassName}`}
+        className={`mr-2 shrink-0 overflow-visible ${markClassName}`}
         xmlns="http://www.w3.org/2000/svg"
       >
+        <defs>
+          <filter id="rundash-wordmark-glow" x="-24" y="-24" width="228" height="228" filterUnits="userSpaceOnUse">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
         <path
-          d="M6 5 L18 16 L6 27"
+          d="M60 66 L98.8 89.2 L98.8 90.8 L60 114"
           fill="none"
-          stroke="#e84d85"
-          strokeWidth="4"
-          strokeLinecap="square"
+          stroke="#f97316"
+          strokeWidth="8"
+          strokeLinecap="butt"
           strokeLinejoin="miter"
+          strokeMiterlimit="10"
+          filter="url(#rundash-wordmark-glow)"
         />
         <path
-          d="M14 5 L26 16 L14 27"
+          d="M80 66 L120.8 89.2 L120.8 90.8 L80 114"
           fill="none"
-          stroke="#8b837c"
-          strokeWidth="4"
-          strokeLinecap="square"
+          stroke="#a3a3a3"
+          strokeWidth="8"
+          strokeLinecap="butt"
           strokeLinejoin="miter"
+          strokeMiterlimit="10"
+          filter="url(#rundash-wordmark-glow)"
         />
       </svg>
-      <span>RUN</span>
-      <span style={{ color: 'var(--magenta)' }}>/</span>
-      <span style={{ color: 'var(--fg-2)' }}>DASH</span>
+      <span style={{ color: 'var(--orange)' }}>RUN</span>
+      <span className="text-white/50">DASH</span>
     </span>
   )
 }

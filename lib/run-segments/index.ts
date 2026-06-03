@@ -78,7 +78,7 @@ export const RUN_SEGMENT_STYLE: Record<RunSegmentType, { color: string; bandColo
     label: 'threshold',
   },
   interval: {
-    color: '#e84d85',
+    color: '#f97316',
     bandColor: 'rgba(249,115,22,0.16)',
     label: 'interval',
   },

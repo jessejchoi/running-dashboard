@@ -64,7 +64,7 @@ export default function SplitsChart({
         <div className="flex items-center gap-2">
           <div className="text-[#6b7280] text-xs font-mono w-5 shrink-0 text-right">L1</div>
           <div className="flex-1 flex items-center overflow-hidden" style={{ height: 22 }}>
-            <div className="rounded-sm" style={{ width: '50%', height: 16, backgroundColor: '#e84d85', opacity: 0.8 }} />
+            <div className="rounded-sm" style={{ width: '50%', height: 16, backgroundColor: '#f97316', opacity: 0.8 }} />
           </div>
           <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace, unit)}</div>
           {showDistance && <div className="text-xs font-mono text-[#9ca3af] w-8 shrink-0 text-right">{unit === 'miles' ? (d.distKm * 0.621371).toFixed(2) : d.distKm.toFixed(2)}</div>}
@@ -80,7 +80,7 @@ export default function SplitsChart({
   const usedTypes = lapTypes ? (Array.from(new Set(lapTypes)) as LapType[]) : []
 
   const legend = colorMode === 'lap-type' && usedTypes.length > 1 ? (
-    <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 mt-1 border-t border-[#303037]">
+    <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2 mt-1 border-t border-[#2a2a2a]">
       {usedTypes.map(t => (
         <span key={t} className="flex items-center gap-1.5 text-[11px] font-medium text-[#9ca3af]">
           <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ backgroundColor: RUN_SEGMENT_STYLE[t].color }} />
@@ -117,7 +117,7 @@ export default function SplitsChart({
                     : `${d.index}`}
                 </div>
                 <div className="flex-1 flex items-center" style={{ height: 22 }}>
-                  <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: 16, backgroundColor: '#e84d85', opacity: 0.8 }} />
+                  <div className="rounded-sm" style={{ width: `${barWidth(d.pace)}%`, height: 16, backgroundColor: '#f97316', opacity: 0.8 }} />
                 </div>
                 <div className="text-xs font-mono font-bold text-white w-8 shrink-0 text-right">{paceStr(d.pace, unit)}</div>
                 <div className="text-xs font-mono text-[#6b7280] w-8 shrink-0 text-right">{d.hr ?? '—'}</div>
@@ -160,7 +160,7 @@ export default function SplitsChart({
       <div>
         <div className="flex flex-col" style={{ gap: 2 }}>
           {data.map((d, i) => {
-            const color = lapTypes ? RUN_SEGMENT_STYLE[lapTypes[i]].color : '#e84d85'
+            const color = lapTypes ? RUN_SEGMENT_STYLE[lapTypes[i]].color : '#f97316'
             const barH = lapHeights[i]
             const fs = Math.max(8, Math.min(11, Math.floor(barH / 2.2)))
 

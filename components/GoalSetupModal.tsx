@@ -107,7 +107,7 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
                   className="py-2 rounded-lg text-xs font-bold transition-colors"
                   style={
                     distKey === d.key
-                      ? { background: 'var(--orange)', color: 'var(--ink)', border: '1px solid var(--orange)' }
+                      ? { background: 'var(--orange)', color: '#fff', border: '1px solid var(--orange)' }
                       : { background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }
                   }
                 >
@@ -173,7 +173,7 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
             onClick={handleSave}
             disabled={saving}
             className="w-full disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
-            style={{ background: 'var(--orange)', color: 'var(--ink)' }}
+            style={{ background: 'var(--orange)' }}
             onMouseEnter={e => !saving && (e.currentTarget.style.background = 'var(--orange-dim)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'var(--orange)')}
           >

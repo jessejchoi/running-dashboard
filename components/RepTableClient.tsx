@@ -38,7 +38,7 @@ export default function RepTableClient({ efforts, targetSecsMap, defaultTargetSe
               ? rep.correctedSecs
               : riegelProject(rep.correctedSecs, 5, km)
             return (
-              <tr key={i} className="border-b border-[#202024]">
+              <tr key={i} className="border-b border-[#1a1a1a]">
                 <td className="px-2 py-2 text-[#6b7280] font-mono">{rep.lapIndex}</td>
                 <td className="px-2 py-2 font-mono text-white whitespace-nowrap">
                   {rep.distanceM >= 1000 ? formatDistanceShort(rep.distanceM, unit) : `${Math.round(rep.distanceM)}m`}
@@ -46,7 +46,7 @@ export default function RepTableClient({ efforts, targetSecsMap, defaultTargetSe
                 <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{speedToPace(1000/rep.paceSecPerKm, unit)}{paceUnitLabel(unit)}</td>
                 <td className="px-2 py-2 font-mono text-[#9ca3af] whitespace-nowrap">{formatDuration(rep.durationSecs)}</td>
                 <td className="px-2 py-2 font-mono text-[#9ca3af]">{rep.avgHR ? Math.round(rep.avgHR) : '—'}</td>
-                <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${projectedSecs <= targetSecs ? 'text-[#b8d957]' : 'text-white'}`}>
+                <td className={`px-2 py-2 font-mono font-bold whitespace-nowrap ${projectedSecs <= targetSecs ? 'text-emerald-400' : 'text-white'}`}>
                   {formatTime(projectedSecs)}
                 </td>
               </tr>

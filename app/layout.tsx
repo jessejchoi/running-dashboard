@@ -1,42 +1,33 @@
-import type { Metadata, Viewport } from 'next'
+import type { Metadata } from 'next'
 import StandaloneDetector from '@/components/StandaloneDetector'
-import { Archivo_Narrow, Archivo, JetBrains_Mono } from 'next/font/google'
+import { Syne, Space_Mono, DM_Sans } from 'next/font/google'
 import { cookies } from 'next/headers'
 import { UnitProvider } from '@/lib/unit-context'
 import type { DistanceUnit } from '@/lib/utils'
 import './globals.css'
 
-// ── PULSE typography ─────────────────────────────────────────────────────
-//   display: Archivo Narrow — UPPERCASE, tight letterspacing, 700
-//   body:    Archivo (the wider sibling) — readable paragraph text
-//   mono:    JetBrains Mono — tabular numerals for every data field
-//
-// All three variables are exposed to CSS as --font-display / --font-body /
-// --font-mono so globals.css and Tailwind both pick them up.
-
-const displayFont = Archivo_Narrow({
+const displayFont = Syne({
   subsets: ['latin'],
   variable: '--font-display',
-  weight: ['500', '600', '700'],
+  weight: ['700', '800'],
 })
 
-const bodyFont = Archivo({
+const bodyFont = DM_Sans({
   subsets: ['latin'],
   variable: '--font-body',
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600'],
 })
 
-const monoFont = JetBrains_Mono({
+const monoFont = Space_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
-  weight: ['400', '500', '700'],
+  weight: ['400', '700'],
 })
 
-export const viewport: Viewport = {
+export const viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover' as const,
-  themeColor: '#0D0D0F',
 }
 
 export const metadata: Metadata = {
@@ -47,6 +38,7 @@ export const metadata: Metadata = {
     apple: '/rundash-icon.png',
     shortcut: '/rundash-icon.png',
   },
+  themeColor: '#0a0a0a',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -55,7 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en" className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
-      <body className="antialiased min-h-screen" style={{ fontFamily: 'var(--font-body)' }}>
+      <body className="bg-[#0a0a0a] text-white font-sans antialiased min-h-screen">
+        {/* Blocking script: sets html.standalone before first paint so CSS
+            env(safe-area-inset-*) rules apply from the initial render,
+            preventing the pill position jump on first webapp load. */}
         <script dangerouslySetInnerHTML={{__html: `(function(){try{if(navigator.standalone===true){document.documentElement.classList.add('standalone')}}catch(e){}})()`}} />
         <StandaloneDetector />
         <UnitProvider unit={unit}>

@@ -75,26 +75,25 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
   const hasSessions = days.some(d => d.sessions.length > 0)
 
   return (
-    <section className="mt-8 mb-[14px]">
+    <section className="mt-6 mb-3">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-[28px] text-[#F1EDE8] uppercase leading-none">Plan This Week</h2>
-        <Link href="/plan" prefetch={true} className="pulse-link">
-          Full plan
+        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Plan This Week</h2>
+        <Link href="/plan" prefetch={true} className="font-mono text-xs text-[#f97316] hover:text-orange-400 transition-colors">
+          Full plan →
         </Link>
       </div>
-    <div className="card pulse-bar acid fade-up p-[18px] sm:p-6">
-      <span className="pulse-idx">[07]</span>
+    <div className="card fade-up" style={{ padding: '1.25rem' }}>
 
       {!loaded ? (
         <div className="animate-pulse flex flex-col gap-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-8 bg-[#29292f]" />
+            <div key={i} className="h-8 rounded-lg bg-[#1c1c1c]" />
           ))}
         </div>
       ) : !hasSessions ? (
-        <p className="font-mono text-xs uppercase tracking-[0.16em]" style={{ color: 'var(--fg-3)' }}>
-          No sessions planned /{' '}
-          <Link href="/plan" style={{ color: 'var(--magenta)' }}>Add to plan</Link>
+        <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+          No sessions planned —{' '}
+          <Link href="/plan" style={{ color: 'var(--orange)' }}>Add to plan →</Link>
         </p>
       ) : (
         <div className="flex flex-col gap-2">
@@ -112,64 +111,33 @@ export default function WeeklyPlanCard({ unit }: { unit: DistanceUnit }) {
                   const durDisplay = durSecs > 0 ? formatSessionDuration(durSecs) : null
 
                   return (
-                    <div key={idx} className="py-[14px]" style={{ borderBottom: '1px solid var(--hair-1)' }}>
-                      <div className="grid gap-3 sm:hidden">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <span className="font-mono text-xs font-bold uppercase text-white">{day.dayAbbr}</span>
-                            <span className="block font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--fg-3)' }}>{day.dateLabel}</span>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            {distDisplay && (
-                              <span className="block font-mono text-sm font-bold text-white">{distDisplay}</span>
-                            )}
-                            {durDisplay && (
-                              <span className="block font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--fg-3)' }}>{durDisplay}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="min-w-0">
-                          <span className="block truncate font-display text-[17px] font-bold uppercase leading-none text-white">
-                            {session.name || typeConfig?.label || 'Run'}
-                          </span>
-                        </div>
-
-                        {typeConfig && (
-                          <span className={`chip w-fit max-w-full truncate border ${typeConfig.color}`}>
-                            {typeConfig.label}
-                          </span>
-                        )}
+                    <div key={idx} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                      {/* Day label */}
+                      <div className="shrink-0 w-20">
+                        <span className="font-mono text-xs font-bold text-white">{day.dayAbbr}</span>
+                        <span className="font-mono text-xs ml-1.5" style={{ color: 'var(--text-muted)' }}>{day.dateLabel}</span>
                       </div>
 
-                      <div className="hidden grid-cols-[72px_auto_1fr_auto] items-center gap-3 sm:grid">
-                        {/* Day label */}
-                        <div className="shrink-0">
-                          <span className="font-mono text-xs font-bold text-white uppercase">{day.dayAbbr}</span>
-                          <span className="font-mono text-[10px] block uppercase tracking-[0.14em]" style={{ color: 'var(--fg-3)' }}>{day.dateLabel}</span>
-                        </div>
-
-                        {/* Type badge */}
-                        {typeConfig && (
-                          <span className={`chip shrink-0 border ${typeConfig.color}`}>
-                            {typeConfig.label}
-                          </span>
-                        )}
-
-                        {/* Session name */}
-                        <span className="font-display text-[16px] font-bold uppercase text-white truncate min-w-0">
-                          {session.name || typeConfig?.label || 'Run'}
+                      {/* Type badge */}
+                      {typeConfig && (
+                        <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${typeConfig.color}`}>
+                          {typeConfig.label}
                         </span>
+                      )}
 
-                        {/* Distance / duration */}
-                        <div className="shrink-0 flex items-center gap-2 ml-auto">
-                          {distDisplay && (
-                            <span className="font-mono text-sm font-bold text-white">{distDisplay}</span>
-                          )}
-                          {durDisplay && (
-                            <span className="font-mono text-xs" style={{ color: 'var(--fg-3)' }}>{durDisplay}</span>
-                          )}
-                        </div>
+                      {/* Session name */}
+                      <span className="text-sm text-white truncate flex-1 min-w-0">
+                        {session.name || typeConfig?.label || 'Run'}
+                      </span>
+
+                      {/* Distance / duration */}
+                      <div className="shrink-0 flex items-center gap-2 ml-auto">
+                        {distDisplay && (
+                          <span className="stat-num text-sm font-bold text-white">{distDisplay}</span>
+                        )}
+                        {durDisplay && (
+                          <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{durDisplay}</span>
+                        )}
                       </div>
                     </div>
                   )

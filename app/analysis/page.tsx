@@ -170,6 +170,14 @@ export default async function AnalysisPage() {
           combined={combinedJson}
           targetSecsMap={targetSecsMap}
           allDeltas={allDeltas}
+          extrasMap={snapshotExtras ? Object.fromEntries(
+            Object.entries(snapshotExtras).map(([dk, e]) => [dk, {
+              idealSecs: e.idealSecs ?? null,
+              todaySecs: e.todaySecs ?? null,
+              p80LowSecs: e.p80LowSecs ?? null,
+              p80HighSecs: e.p80HighSecs ?? null,
+            }])
+          ) : null}
         />
 
         {/* Detailed session breakdowns below */}

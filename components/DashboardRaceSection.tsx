@@ -4,7 +4,7 @@
  * Streams into the dashboard independently of the group section.
  */
 import { supabaseAdmin } from '@/lib/supabase'
-import { saveSnapshot, fetchSnapshotsByDate, buildAllDeltas, todayDate } from '@/lib/estimateSnapshots'
+import { saveSnapshot, fetchSnapshotsByDate, fetchTodaysExtras, buildAllDeltas, todayDate, type TodaysExtras } from '@/lib/estimateSnapshots'
 import GoalsSection from '@/components/GoalsSection'
 import { formatDuration, type DistanceUnit } from '@/lib/utils'
 import Link from 'next/link'
@@ -19,7 +19,7 @@ async function getRaceData(athleteId: number) {
   // Single snapshot query serves dual purpose:
   // 1. Today's cache check (skip re-running analysis if already computed today)
   // 2. Historical byDate map for delta arrows
-  const [goalsData, byDate] = await Promise.all([
+  const [goalsData, byDate, extrasFromSnapshot] = await Promise.all([
     supabaseAdmin
       .from('user_goals')
       .select('*')
@@ -27,6 +27,7 @@ async function getRaceData(athleteId: number) {
       .order('race_date', { ascending: true })
       .then(r => (r.data ?? []) as UserGoal[]),
     fetchSnapshotsByDate(athleteId),
+    fetchTodaysExtras(athleteId),
   ])
 
   const today = todayDate()
@@ -36,6 +37,7 @@ async function getRaceData(athleteId: number) {
   let estimates: Record<string, number | null>
   let confidence: Record<string, number> = {}
   let sourceCounts: Record<string, Record<string, number>> = {}
+  let extras: Record<string, TodaysExtras> = extrasFromSnapshot
 
   if (cachedKeys.length >= 2) {
     // Use today's cached estimates — skip the heavy analysis engine
@@ -66,11 +68,24 @@ async function getRaceData(athleteId: number) {
     byDate[today] = Object.fromEntries(
       Object.entries(estimates).filter(([, v]) => v != null) as [string, number][]
     )
+    // Surface the freshly computed extras to the render path immediately —
+    // the snapshot row we just wrote isn't reflected in `extrasFromSnapshot`.
+    if (analysis.snapshotExtras) {
+      extras = {}
+      for (const [dk, e] of Object.entries(analysis.snapshotExtras)) {
+        extras[dk] = {
+          idealSecs:    e.idealSecs    ?? null,
+          todaySecs:    e.todaySecs    ?? null,
+          p80LowSecs:   e.p80LowSecs   ?? null,
+          p80HighSecs:  e.p80HighSecs  ?? null,
+        }
+      }
+    }
   }
 
   const deltas = buildAllDeltas(estimates, byDate)
 
-  return { estimates, confidence, sourceCounts, goals: goalsData, deltas }
+  return { estimates, confidence, sourceCounts, goals: goalsData, deltas, extras }
 }
 
 export default async function DashboardRaceSection({
@@ -82,7 +97,7 @@ export default async function DashboardRaceSection({
   unit: DistanceUnit
   hasMaxHr: boolean
 }) {
-  const { estimates, confidence, sourceCounts, goals, deltas } = await getRaceData(athleteId)
+  const { estimates, confidence, sourceCounts, goals, deltas, extras } = await getRaceData(athleteId)
 
   const hasEstimates = Object.values(estimates).some(v => v != null)
   if (!hasEstimates && goals.length === 0) return null
@@ -116,12 +131,24 @@ export default async function DashboardRaceSection({
               const delta = deltas[key]?.month ?? null
               const improved = delta != null && delta < 0
               const regressed = delta != null && delta > 0
+              const idealSecs = extras[key]?.idealSecs ?? null
+              const todaySecs = extras[key]?.todaySecs ?? null
+              // Only show the ideal line when (a) we have both numbers and
+              // (b) they differ by more than 5s — same number with rounding noise
+              // would just be visual clutter.
+              const showIdeal = idealSecs != null && todaySecs != null && Math.abs(todaySecs - idealSecs) > 5
               return (
                 <div key={key} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.875rem' }}>
                   <p className="font-mono text-xs uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
                   <p className="stat-num text-xl font-bold leading-none" style={{ color: estimates[key] ? '#f0f0f0' : 'var(--text-muted)' }}>
                     {estimates[key] ? formatDuration(estimates[key]!) : '—'}
                   </p>
+                  {showIdeal && (
+                    <p className="font-mono text-[10px] mt-1.5 leading-none" style={{ color: 'var(--text-muted)' }}>
+                      <span style={{ color: 'var(--text-3, #6b7280)' }}>ideal</span>{' '}
+                      <span style={{ color: '#a1a1aa' }}>{formatDuration(idealSecs)}</span>
+                    </p>
+                  )}
                   {delta != null && (
                     <p className="font-mono text-[10px] mt-1.5 leading-none" style={{ color: improved ? '#10b981' : regressed ? '#ef4444' : '#6b7280' }}>
                       {improved ? `▼ ${formatDuration(Math.abs(delta))}` : regressed ? `▲ ${formatDuration(Math.abs(delta))}` : '—'}{' '}

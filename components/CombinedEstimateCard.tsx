@@ -10,6 +10,14 @@ interface Props {
   combined: CombinedEstimate | null
   targetSecs?: number | null
   deltas?: EstimateDelta | null
+  /** New CP-engine extras. When present, renders an "ideal conditions"
+   *  sub-line and a p80 range row. Absent = legacy mode, no extras shown. */
+  extras?: {
+    idealSecs: number | null
+    todaySecs: number | null
+    p80LowSecs: number | null
+    p80HighSecs: number | null
+  } | null
 }
 
 function DeltaChip({ label, delta }: { label: string; delta: number | null }) {
@@ -45,7 +53,7 @@ const SOURCE_LABELS: Record<string, string> = {
   race_result: 'Races',
 }
 
-export default function CombinedEstimateCard({ distanceKey, combined, targetSecs, deltas }: Props) {
+export default function CombinedEstimateCard({ distanceKey, combined, targetSecs, deltas, extras }: Props) {
   if (!combined) {
     return (
       <div className="card flex items-center justify-center py-10 text-[#6b7280] text-sm">
@@ -108,8 +116,33 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
         </div>
       </div>
 
+      {/* CP-engine extras: ideal conditions + p80 band */}
+      {extras && (extras.idealSecs != null || extras.p80LowSecs != null) && (
+        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 pt-3 border-t border-[#1c1c1c]">
+          {extras.idealSecs != null && extras.todaySecs != null && Math.abs(extras.todaySecs - extras.idealSecs) > 5 && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#4b5563]">Ideal conditions</span>
+              <span className="font-mono text-sm font-bold text-white">{formatTime(extras.idealSecs)}</span>
+              <span className="font-mono text-[10px] text-[#6b7280]">
+                {extras.todaySecs > extras.idealSecs
+                  ? `heat costs ${formatTime(extras.todaySecs - extras.idealSecs)}`
+                  : `${formatTime(extras.idealSecs - extras.todaySecs)} ahead of today`}
+              </span>
+            </div>
+          )}
+          {extras.p80LowSecs != null && extras.p80HighSecs != null && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#4b5563]">Range</span>
+              <span className="font-mono text-sm font-bold text-[#a1a1aa]">
+                {formatTime(extras.p80LowSecs)} – {formatTime(extras.p80HighSecs)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Progress deltas */}
-      <div className="flex items-center gap-4 pt-3 border-t border-[#1c1c1c]">
+      <div className="flex items-center gap-4 pt-3 mt-3 border-t border-[#1c1c1c]">
         <span className="text-[10px] font-mono uppercase tracking-widest text-[#4b5563] mr-1">Progress</span>
         <DeltaChip label="1w" delta={deltas?.week ?? null} />
         <DeltaChip label="1m" delta={deltas?.month ?? null} />

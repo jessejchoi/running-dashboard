@@ -178,6 +178,45 @@ export async function saveSnapshot(
   }
 }
 
+export interface TodaysExtras {
+  idealSecs: number | null
+  todaySecs: number | null
+  p80LowSecs: number | null
+  p80HighSecs: number | null
+}
+
+/**
+ * Fetch the four new CP-engine columns from today's snapshot row.
+ * Returns an empty map when the engine isn't running or the row hasn't been
+ * written yet — callers should treat null fields as "show only the legacy
+ * single number".
+ */
+export async function fetchTodaysExtras(
+  athleteId: number,
+): Promise<Record<string, TodaysExtras>> {
+  try {
+    const today = todayDate()
+    const { data } = await supabaseAdmin
+      .from('estimate_snapshots')
+      .select('distance_key, ideal_secs, today_secs, p80_low_secs, p80_high_secs')
+      .eq('athlete_id', athleteId)
+      .eq('snapshotted_at', today)
+
+    const result: Record<string, TodaysExtras> = {}
+    for (const row of data ?? []) {
+      result[String(row.distance_key)] = {
+        idealSecs:    row.ideal_secs    ?? null,
+        todaySecs:    row.today_secs    ?? null,
+        p80LowSecs:   row.p80_low_secs  ?? null,
+        p80HighSecs:  row.p80_high_secs ?? null,
+      }
+    }
+    return result
+  } catch {
+    return {}
+  }
+}
+
 /** Combined helper: fetch snapshot window + build deltas. */
 export async function fetchDeltas(
   athleteId: number,

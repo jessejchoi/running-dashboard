@@ -18,6 +18,8 @@ import Link from 'next/link'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
 import AnalysisDistanceSection from '@/components/AnalysisDistanceSection'
+import AthleteFeaturesSection from '@/components/AthleteFeaturesSection'
+import SessionDetailsDisclosure from '@/components/SessionDetailsDisclosure'
 import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
 import SourceEstimateBadge from '@/components/SourceEstimateBadge'
 import RunEstimateBadge from '@/components/RunEstimateBadge'
@@ -40,6 +42,7 @@ export default async function AnalysisPage() {
     currentEstimates,
     targetSecsMap,
     snapshotExtras,
+    projection,
   } = await getAthleteAnalysis(Number(athleteId), {
     easyLookbackMonths: 3,
     longLimit: 15,
@@ -155,7 +158,9 @@ export default async function AnalysisPage() {
         <div className="mb-8 fade-up">
           <h1 className="font-display font-extrabold text-4xl mb-1">Race Analysis</h1>
           <p className="text-[#6b7280] text-sm max-w-3xl">
-            Multi-distance estimates from intervals, tempo, long runs, easy trends, and race results — combined with confidence and recency weighting.
+            {projection
+              ? 'Critical-pace fit across your best efforts, plus aerobic, endurance, and form features — projected to today and ideal conditions with a confidence band.'
+              : 'Multi-distance estimates from intervals, tempo, long runs, easy trends, and race results — combined with confidence and recency weighting.'}
           </p>
           {!hasMaxHr && (
             <div className="flex items-center gap-2 bg-[#1a1a0a] border border-[#f97316]/30 rounded-xl px-4 py-3 mt-4 text-sm max-w-xl">
@@ -180,9 +185,15 @@ export default async function AnalysisPage() {
           ) : null}
         />
 
-        {/* Detailed session breakdowns below */}
-        <div className="mt-12">
-          <h2 className="font-display font-bold text-xl mb-6">Session Details</h2>
+        {/* New: feature-based fitness profile (Speed / Aerobic / Endurance / Form).
+            Only renders when the CP engine has produced a projection — legacy mode
+            falls back to surfacing only the per-source detail below. */}
+        {projection && <AthleteFeaturesSection projection={projection} />}
+
+        {/* Per-session breakdowns — kept for power-user inspection, collapsed by default. */}
+        <SessionDetailsDisclosure
+          count={(intervalRuns?.length ?? 0) + (thresholdRuns?.length ?? 0) + (longRuns?.length ?? 0) + (easyRuns?.length ?? 0)}
+        >
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 
             {/* COL 1: Intervals */}
@@ -630,7 +641,7 @@ export default async function AnalysisPage() {
             </div>
 
           </div>
-        </div>
+        </SessionDetailsDisclosure>
 
         {/* Race Results — below the grid */}
         {raceAnalyses.length > 0 && (

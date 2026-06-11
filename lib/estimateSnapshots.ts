@@ -128,23 +128,44 @@ function buildDelta(current: number, historical: number | null): number | null {
   return historical != null ? current - historical : null
 }
 
+/** Optional structured payload from the new CP engine, written alongside the
+ *  legacy `estimated_secs` column. Existing callers can omit `extras`. */
+export interface SnapshotExtras {
+  idealSecs?: number | null
+  todaySecs?: number | null
+  p80LowSecs?: number | null
+  p80HighSecs?: number | null
+}
+
 /**
  * Fire-and-forget: upsert today's estimates as a snapshot row.
  * Does not block the page render.
+ *
+ * `extras` is a per-distance map of CP-engine output. When provided, the
+ * `ideal_secs` / `today_secs` / `p80_*` columns are populated; otherwise
+ * those columns stay null on the upserted row.
  */
 export async function saveSnapshot(
   athleteId: number,
   estimates: Record<string, number | null>,
+  extras?: Record<string, SnapshotExtras | undefined>,
 ): Promise<void> {
   const today = todayDate()
   const rows = (Object.entries(estimates) as [string, number | null][])
     .filter(([, v]) => v != null)
-    .map(([dk, secs]) => ({
-      athlete_id: athleteId,
-      distance_key: dk,
-      estimated_secs: Math.round(secs as number),
-      snapshotted_at: today,
-    }))
+    .map(([dk, secs]) => {
+      const e = extras?.[dk]
+      return {
+        athlete_id: athleteId,
+        distance_key: dk,
+        estimated_secs: Math.round(secs as number),
+        snapshotted_at: today,
+        ideal_secs:    e?.idealSecs    != null ? Math.round(e.idealSecs)    : null,
+        today_secs:    e?.todaySecs    != null ? Math.round(e.todaySecs)    : null,
+        p80_low_secs:  e?.p80LowSecs   != null ? Math.round(e.p80LowSecs)   : null,
+        p80_high_secs: e?.p80HighSecs  != null ? Math.round(e.p80HighSecs)  : null,
+      }
+    })
 
   if (rows.length === 0) return
 

@@ -61,7 +61,7 @@ async function getRaceData(athleteId: number) {
     confidence = confidenceByDistance(analysis.result)
     sourceCounts = sourceCountsByDistance(analysis.result)
 
-    await saveSnapshot(athleteId, estimates)
+    await saveSnapshot(athleteId, estimates, analysis.snapshotExtras ?? undefined)
     // Merge today's new estimates into byDate so delta computation is up-to-date
     byDate[today] = Object.fromEntries(
       Object.entries(estimates).filter(([, v]) => v != null) as [string, number][]

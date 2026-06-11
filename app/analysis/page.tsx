@@ -39,6 +39,7 @@ export default async function AnalysisPage() {
     combinedJson,
     currentEstimates,
     targetSecsMap,
+    snapshotExtras,
   } = await getAthleteAnalysis(Number(athleteId), {
     easyLookbackMonths: 3,
     longLimit: 15,
@@ -57,7 +58,7 @@ export default async function AnalysisPage() {
   }))
 
   // Fetch historical deltas (cheap indexed query) + save today's snapshot (non-blocking)
-  await saveSnapshot(Number(athleteId), currentEstimates)
+  await saveSnapshot(Number(athleteId), currentEstimates, snapshotExtras ?? undefined)
   const allDeltas: AllDeltas = await fetchDeltas(Number(athleteId), currentEstimates)
 
   // Default 5K target

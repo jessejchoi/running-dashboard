@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { type DistanceKey } from '@/lib/goals'
 import { analyzeAllAndCombine, type CombinedEstimate } from '@/lib/analysis'
 import { ANALYSIS_ACTIVITY_COLUMNS, ANALYSIS_RUN_TYPES, DISTANCE_KEYS } from './constants'
+import { isCPEngineEnabled, projectAthleteRaceTimes, type ProjectAthleteResult } from './projector-service'
+import type { SnapshotExtras } from '@/lib/estimateSnapshots'
 
 export type AnalysisResult = ReturnType<typeof analyzeAllAndCombine>
 
@@ -35,6 +37,10 @@ export interface AthleteAnalysis {
   currentEstimates: Record<string, number | null>
   combinedJson: Record<DistanceKey, CombinedEstimate | null>
   targetSecsMap: Record<string, number>
+  /** Output of the new CP engine when USE_CP_ENGINE is on; null otherwise. */
+  projection: ProjectAthleteResult | null
+  /** Per-distance snapshot extras derived from `projection`. Pass to saveSnapshot. */
+  snapshotExtras: Record<string, SnapshotExtras> | null
 }
 
 export function emptyAnalysisResult(): AnalysisResult {
@@ -157,7 +163,37 @@ export async function getAthleteAnalysis(
 ): Promise<AthleteAnalysis> {
   const inputs = await fetchAthleteAnalysisInputs(athleteId, options)
   const result = analyzeInputs(inputs)
-  const currentEstimates = currentEstimatesFromResult(result)
+  let currentEstimates = currentEstimatesFromResult(result)
+
+  // The old per-source engine always runs — its `combined` output still feeds
+  // the existing UI's source breakdown. The new CP engine, when enabled, takes
+  // over the primary `currentEstimates` and produces structured snapshot extras.
+  let projection: ProjectAthleteResult | null = null
+  let snapshotExtras: Record<string, SnapshotExtras> | null = null
+  if (isCPEngineEnabled()) {
+    try {
+      projection = await projectAthleteRaceTimes(athleteId)
+    } catch (err) {
+      console.error('CP engine failed; falling back to legacy estimates:', err)
+    }
+    if (projection) {
+      currentEstimates = {
+        '5k':  projection.projections.find(p => p.distanceKey === '5k')?.todaySecs  ?? null,
+        '10k': projection.projections.find(p => p.distanceKey === '10k')?.todaySecs ?? null,
+        'hm':  projection.projections.find(p => p.distanceKey === 'hm')?.todaySecs  ?? null,
+        'fm':  projection.projections.find(p => p.distanceKey === 'fm')?.todaySecs  ?? null,
+      }
+      snapshotExtras = {}
+      for (const p of projection.projections) {
+        snapshotExtras[p.distanceKey] = {
+          idealSecs:   p.idealSecs,
+          todaySecs:   p.todaySecs,
+          p80LowSecs:  p.p80SecsLow,
+          p80HighSecs: p.p80SecsHigh,
+        }
+      }
+    }
+  }
 
   return {
     inputs,
@@ -165,6 +201,8 @@ export async function getAthleteAnalysis(
     currentEstimates,
     combinedJson: JSON.parse(JSON.stringify(result.combined)) as Record<DistanceKey, CombinedEstimate | null>,
     targetSecsMap: inputs.targetSecsMap,
+    projection,
+    snapshotExtras,
   }
 }
 

@@ -7,6 +7,7 @@ import {
   type PaceZones,
 } from './run-classification'
 import { buildTrainingPaceZones, type PaceProfileActivity } from './pace-profile'
+import { ingestActivityFeatures } from './analysis/ingest'
 
 const STRAVA_API = 'https://www.strava.com/api/v3'
 
@@ -72,9 +73,18 @@ export async function fetchActivityDetail(token: string, activityId: number) {
   return res.json()
 }
 
+// Streams used by the analysis engine:
+//   time, distance       — required for best-efforts (max-mean pace curve)
+//   heartrate            — HR during best-effort windows + aerobic efficiency
+//   velocity_smooth      — cross-check for pace; future fast-segment detection
+//   latlng, altitude,
+//   grade_smooth         — future course/elevation adjustments
+//   temp                 — device-recorded temp, used as conditions fallback
+const STREAM_KEYS = 'time,distance,heartrate,velocity_smooth,latlng,altitude,grade_smooth,temp'
+
 export async function fetchActivityStreams(token: string, activityId: number) {
   const res = await fetch(
-    `${STRAVA_API}/activities/${activityId}/streams?keys=heartrate,time&key_by_type=true`,
+    `${STRAVA_API}/activities/${activityId}/streams?keys=${STREAM_KEYS}&key_by_type=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (!res.ok) return null
@@ -281,6 +291,18 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
           detail_synced: true,
         })
         .eq('id', act.id)
+
+      await ingestActivityFeatures({
+        athleteId,
+        activityId: act.id,
+        startDateISO: detail.start_date,
+        durationSecs: detail.moving_time,
+        startLatLng: Array.isArray(detail.start_latlng) && detail.start_latlng.length === 2
+          ? [detail.start_latlng[0], detail.start_latlng[1]]
+          : null,
+        stravaAverageTempC: typeof detail.average_temp === 'number' ? detail.average_temp : null,
+        streams,
+      })
 
       if (!isManual) {
         await supabaseAdmin

@@ -69,7 +69,15 @@ export async function fetchActivityDetail(token: string, activityId: number) {
   const res = await fetch(`${STRAVA_API}/activities/${activityId}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!res.ok) throw new Error(`Failed to fetch activity ${activityId}`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    const hint =
+      res.status === 401 ? ' — token rejected (revoked or expired refresh)' :
+      res.status === 404 ? ' — activity not found (deleted on Strava)' :
+      res.status === 429 ? ' — rate limited' :
+      res.status === 403 ? ' — forbidden' : ''
+    throw new Error(`Strava ${res.status} fetching activity ${activityId}${hint}${body ? `: ${body.slice(0, 200)}` : ''}`)
+  }
   return res.json()
 }
 

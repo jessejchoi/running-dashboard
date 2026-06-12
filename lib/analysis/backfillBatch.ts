@@ -72,9 +72,26 @@ export async function runBackfillBatch(
 
   let refetched = 0
   let computed = 0
+  let tokenRevoked = false   // tripped on first Strava 401; skips remaining batch
   const failures: { id: number; step: string; error: string }[] = []
 
   for (const a of batch) {
+    // Once we've seen a 401 for this athlete, the token is dead — no point
+    // burning Strava quota on the rest of the batch. Just mark as attempted
+    // so the queue drains; the activity stays unprocessed until the athlete
+    // reconnects and we clear the breadcrumb.
+    if (tokenRevoked) {
+      await supabaseAdmin.from('activity_conditions').upsert({
+        activity_id: a.id,
+        athlete_id: athleteId,
+        source: 'unknown',
+        fetched_at: new Date().toISOString(),
+        fetch_error: 'skipped: athlete Strava token revoked',
+      }, { onConflict: 'activity_id' })
+      failures.push({ id: a.id, step: 'refetch', error: 'skipped: athlete Strava token revoked' })
+      continue
+    }
+
     let streams: any = a.streams
     let detail: any = null
     const streamsComplete = streams && streams.distance != null
@@ -103,6 +120,7 @@ export async function runBackfillBatch(
           fetched_at: new Date().toISOString(),
           fetch_error: `refetch failed: ${errMsg}`,
         }, { onConflict: 'activity_id' })
+        if (errMsg.includes('Strava 401')) tokenRevoked = true
         continue
       }
     }

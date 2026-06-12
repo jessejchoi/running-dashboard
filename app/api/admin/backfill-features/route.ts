@@ -40,26 +40,32 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   const limit = Math.min(Math.max(0, body.limit ?? DEFAULT_LIMIT), MAX_LIMIT)
 
-  const [{ data: candidates }, { data: cached }] = await Promise.all([
+  const [{ data: candidates }, { data: attempted }] = await Promise.all([
     supabaseAdmin
       .from('activities')
       .select('id, start_date, moving_time, streams, raw')
       .eq('athlete_id', id)
       .eq('type', 'Run')
       .order('start_date', { ascending: false }),
+    // activity_conditions gets a row on every attempt — even when Open-Meteo
+    // fails or there's no GPS we write source='unknown'. So a row's presence
+    // is a reliable "we've tried this activity" signal. activity_best_efforts
+    // would skip the row entirely when streams don't yield efforts (treadmill,
+    // no GPS, very short runs), trapping those activities in the queue.
     supabaseAdmin
-      .from('activity_best_efforts')
+      .from('activity_conditions')
       .select('activity_id')
       .eq('athlete_id', id),
   ])
 
-  const cachedIds = new Set((cached ?? []).map((c: any) => c.activity_id))
+  const attemptedIds = new Set((attempted ?? []).map((c: any) => Number(c.activity_id)))
 
-  // Queue = run isn't fully cached, or its streams lack the new keys.
+  // Queue = either we've never attempted this activity, or its streams are
+  // missing the new keys (re-fetch needed).
   const queue = (candidates ?? []).filter((a: any) => {
-    const hasCache = cachedIds.has(a.id)
+    const wasAttempted = attemptedIds.has(Number(a.id))
     const streamsComplete = a.streams && a.streams.distance != null
-    return !hasCache || !streamsComplete
+    return !wasAttempted || !streamsComplete
   })
 
   const batch = queue.slice(0, limit)

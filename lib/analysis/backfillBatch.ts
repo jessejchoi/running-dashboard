@@ -90,7 +90,19 @@ export async function runBackfillBatch(
         refetched++
         await sleep(1100)
       } catch (e: any) {
-        failures.push({ id: a.id, step: 'refetch', error: e?.message ?? String(e) })
+        const errMsg = e?.message ?? String(e)
+        failures.push({ id: a.id, step: 'refetch', error: errMsg })
+        // Record the failed attempt so this activity leaves the queue. Without
+        // this, a 401/404/410 from Strava would put us in an infinite retry
+        // loop — every batch fetches the same activities, fails the same way,
+        // and queue length never shrinks.
+        await supabaseAdmin.from('activity_conditions').upsert({
+          activity_id: a.id,
+          athlete_id: athleteId,
+          source: 'unknown',
+          fetched_at: new Date().toISOString(),
+          fetch_error: `refetch failed: ${errMsg}`,
+        }, { onConflict: 'activity_id' })
         continue
       }
     }

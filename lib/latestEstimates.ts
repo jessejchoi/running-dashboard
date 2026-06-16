@@ -52,19 +52,52 @@ export async function getGroupLatestEstimates(
 ): Promise<Record<number, Record<string, number>>> {
   if (athleteIds.length === 0) return {}
 
-  const { data } = await supabaseAdmin
-    .from('user_latest_estimates')
-    .select('athlete_id, secs_5k, secs_10k, secs_hm, secs_fm')
-    .in('athlete_id', athleteIds)
+  const since = new Date(Date.now() - 95 * 86_400_000).toISOString().slice(0, 10)
+
+  const [{ data: latestRows }, { data: snapshotRows }] = await Promise.all([
+    supabaseAdmin
+      .from('user_latest_estimates')
+      .select('athlete_id, secs_5k, secs_10k, secs_hm, secs_fm, updated_at')
+      .in('athlete_id', athleteIds),
+    supabaseAdmin
+      .from('estimate_snapshots')
+      .select('athlete_id, distance_key, estimated_secs, snapshotted_at')
+      .in('athlete_id', athleteIds)
+      .gte('snapshotted_at', since)
+      .order('snapshotted_at', { ascending: false }),
+  ])
 
   const result: Record<number, Record<string, number>> = {}
-  for (const row of data ?? []) {
-    const m: Record<string, number> = {}
-    if (row.secs_5k)  m['5k']  = row.secs_5k
-    if (row.secs_10k) m['10k'] = row.secs_10k
-    if (row.secs_hm)  m['hm']  = row.secs_hm
-    if (row.secs_fm)  m['fm']  = row.secs_fm
-    result[row.athlete_id as number] = m
+  const dates: Record<number, Record<string, string>> = {}
+
+  function setEstimate(athleteId: number, key: string, secs: number | null, date: string | null) {
+    if (secs == null) return
+    const day = (date ?? '').split('T')[0]
+    result[athleteId] ??= {}
+    dates[athleteId] ??= {}
+    if (!dates[athleteId][key] || day >= dates[athleteId][key]) {
+      result[athleteId][key] = secs
+      dates[athleteId][key] = day
+    }
   }
+
+  for (const row of latestRows ?? []) {
+    const athleteId = row.athlete_id as number
+    const updatedAt = row.updated_at as string | null
+    setEstimate(athleteId, '5k', row.secs_5k, updatedAt)
+    setEstimate(athleteId, '10k', row.secs_10k, updatedAt)
+    setEstimate(athleteId, 'hm', row.secs_hm, updatedAt)
+    setEstimate(athleteId, 'fm', row.secs_fm, updatedAt)
+  }
+
+  for (const row of snapshotRows ?? []) {
+    setEstimate(
+      row.athlete_id as number,
+      row.distance_key as string,
+      row.estimated_secs as number | null,
+      row.snapshotted_at as string | null,
+    )
+  }
+
   return result
 }

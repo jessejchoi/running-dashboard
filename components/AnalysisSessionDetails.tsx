@@ -6,13 +6,14 @@ import {
   type FiveKEstimate,
 } from '@/lib/analysis'
 import { speedToPace, formatDuration, toJakartaDate, paceUnitLabel, formatDistanceShort, type DistanceUnit } from '@/lib/utils'
-import { distanceLabel, type DistanceKey } from '@/lib/goals'
+import { distanceShortLabel, type DistanceKey } from '@/lib/goals'
 import { format, parseISO } from 'date-fns'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
 import CollapsibleRuns from '@/components/CollapsibleRuns'
 import SourceEstimateBadge from '@/components/SourceEstimateBadge'
 import RunEstimateBadge from '@/components/RunEstimateBadge'
 import RepTableClient from '@/components/RepTableClient'
+import LongRunFastBlockTable from '@/components/LongRunFastBlockTable'
 import type { AnalysisInputs, AnalysisResult } from '@/lib/analysis/service'
 
 interface Props {
@@ -269,38 +270,12 @@ function ContinuousRunTable({ run }: { run: any }) {
                         <RunEstimateBadge raceEstimates={est.raceEstimates} fallbackSecs={est.estimatedSecs} color="#60a5fa" />
                       </div>
                       {blocks.length > 0 && (
-                        <div className="bg-[#111] rounded-lg overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b border-[#1c1c1c]">
-                                {['Block', 'Pace', 'Duration', 'HR', 'Est HM'].map(h => (
-                                  <th key={h} className="text-left px-3 py-2 text-[#4b5563] font-medium">{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {blocks.map((block, i) => {
-                                const isPrimary = block.startSec === lr?.fastBlock?.startSec
-                                const hmEst = isPrimary ? lr?.fastBlockEstimates?.find(e => e.distanceKey === 'hm') : undefined
-                                return (
-                                  <tr key={i} className="border-b border-[#1a1a1a]">
-                                    <td className="px-3 py-2 font-mono text-[#6b7280]">
-                                      min {Math.round(block.startSec/60)}–{Math.round(block.endSec/60)}
-                                      {isPrimary && blocks.length > 1 && <span className="ml-1 text-[10px] text-blue-400">★</span>}
-                                    </td>
-                                    <td className="px-3 py-2 font-mono font-bold text-[#60a5fa]">{formatPace(block.avgPace)}/km</td>
-                                    <td className="px-3 py-2 font-mono text-white">{formatDuration(block.durationSecs)}</td>
-                                    <td className="px-3 py-2 font-mono text-[#9ca3af]">{block.avgHR > 0 ? `${Math.round(block.avgHR)} bpm` : '—'}</td>
-                                    <td className="px-3 py-2 font-mono text-white">{hmEst ? formatTime(hmEst.estimatedSecs) : '—'}</td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                          {lr?.fatigueCredit != null && lr.fatigueCredit > 0 && (
-                            <div className="px-3 py-2 text-[10px] text-[#4b5563]">★ = primary block used for estimates · Est HM uses +{lr.fatigueCredit.toFixed(1)}s/km fatigue credit</div>
-                          )}
-                        </div>
+                        <LongRunFastBlockTable
+                          blocks={blocks}
+                          primaryStartSec={lr?.fastBlock?.startSec}
+                          estimates={lr?.fastBlockEstimates}
+                          fatigueCredit={lr?.fatigueCredit}
+                        />
                       )}
                     </div>
                   )
@@ -584,7 +559,7 @@ function ContinuousRunTable({ run }: { run: any }) {
                     <span className="text-[#6b7280] font-mono">{race.date}</span>
                   </div>
                   <div className="flex gap-4">
-                    <span className="text-white font-bold">{distanceLabel(race.matchedDistanceKey)}</span>
+                    <span className="text-white font-bold">{distanceShortLabel(race.matchedDistanceKey)}</span>
                     <span className="text-[#f472b6] font-mono font-bold">{formatTime(race.raceTimeSecs)}</span>
                     <span className="text-emerald-400 font-mono text-[10px]">0.98 conf.</span>
                   </div>

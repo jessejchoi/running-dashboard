@@ -176,6 +176,17 @@ export async function saveSnapshot(
   if (error) {
     throw error
   }
+
+  await supabaseAdmin
+    .from('user_latest_estimates')
+    .upsert({
+      athlete_id: athleteId,
+      secs_5k:  estimates['5k']  != null ? Math.round(estimates['5k']!)  : null,
+      secs_10k: estimates['10k'] != null ? Math.round(estimates['10k']!) : null,
+      secs_hm:  estimates['hm']  != null ? Math.round(estimates['hm']!)  : null,
+      secs_fm:  estimates['fm']  != null ? Math.round(estimates['fm']!)  : null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'athlete_id' })
 }
 
 export interface TodaysExtras {

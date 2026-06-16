@@ -4,12 +4,19 @@ import {
   ResponsiveContainer, ReferenceLine, CartesianGrid
 } from 'recharts'
 import { format } from 'date-fns'
-import { formatTime, formatPace } from '@/lib/analysis'
+import { formatTime, formatPace, riegelProject } from '@/lib/analysis'
 import { useAnalysisTab } from './AnalysisTabContext'
-import { distanceLabel, type DistanceKey } from '@/lib/goals'
+import { distanceShortLabel, type DistanceKey } from '@/lib/goals'
 
 const DISTANCE_KM: Record<DistanceKey, number> = {
   '5k': 5, '10k': 10, 'hm': 21.097, 'fm': 42.195,
+}
+
+const DEFAULT_TARGET_SECS: Record<DistanceKey, number> = {
+  '5k': 22 * 60 + 30,
+  '10k': 45 * 60,
+  'hm': 1 * 3600 + 45 * 60,
+  'fm': 3 * 3600 + 30 * 60,
 }
 
 export interface TrendPoint {
@@ -57,14 +64,14 @@ function buildTooltip(color: string, dk: DistanceKey) {
 export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTargetSecs, color = '#f97316' }: Props) {
   const { active } = useAnalysisTab()
   const km = DISTANCE_KM[active]
-  const targetSecs = targetSecsMap[active] ?? defaultTargetSecs
+  const targetSecs = targetSecsMap[active] ?? DEFAULT_TARGET_SECS[active] ?? defaultTargetSecs
 
-  // Map each estimate to the selected distance's time
+  // Map each estimate to the selected distance's time.
   const data = [...estimates]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(e => {
       const raceEst = e.raceEstimates?.find(r => r.distanceKey === active)
-      const displaySecs = raceEst?.estimatedSecs ?? e.estimatedSecs
+      const displaySecs = raceEst?.estimatedSecs ?? (active === '5k' ? e.estimatedSecs : riegelProject(e.estimatedSecs, 5, km))
       return { ...e, displaySecs, label: format(new Date(e.date + 'T12:00:00'), 'MMM d') }
     })
 
@@ -76,9 +83,12 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
     )
   }
 
-  const allSecs = data.map(d => d.displaySecs)
-  const minSecs = Math.min(...allSecs, targetSecs) - 45
-  const maxSecs = Math.max(...allSecs) + 60
+  const allSecs = [...data.map(d => d.displaySecs), targetSecs]
+  const rawMinSecs = Math.min(...allSecs)
+  const rawMaxSecs = Math.max(...allSecs)
+  const paddingSecs = Math.max(60, (rawMaxSecs - rawMinSecs) * 0.12, targetSecs * 0.015)
+  const minSecs = Math.max(0, rawMinSecs - paddingSecs)
+  const maxSecs = rawMaxSecs + paddingSecs
 
   const n = data.length
   const xs = data.map((_, i) => i)
@@ -100,7 +110,8 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
   const latest = data[data.length - 1]
   const gapSecs = latest.displaySecs - targetSecs
   const CustomTooltip = buildTooltip(color, active)
-  const label = distanceLabel(active)
+  const label = distanceShortLabel(active)
+  const yAxisWidth = active === 'fm' ? 66 : active === 'hm' ? 58 : 48
 
   return (
     <div>
@@ -162,7 +173,7 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
             tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             tickFormatter={formatTime}
             axisLine={false} tickLine={false}
-            width={46}
+            width={yAxisWidth}
           />
           <Tooltip content={<CustomTooltip />} />
           <ReferenceLine
@@ -170,7 +181,7 @@ export default function FiveKTrendChart({ estimates, targetSecsMap, defaultTarge
             stroke="#f97316"
             strokeDasharray="5 4"
             strokeWidth={1.5}
-            label={{ value: `Goal ${formatTime(targetSecs)}`, position: 'insideTopRight', fill: '#f97316', fontSize: 9, fontFamily: 'var(--font-mono)' }}
+            label={{ value: `Goal ${formatTime(targetSecs)}`, position: 'insideRight', fill: '#f97316', fontSize: 9, fontFamily: 'var(--font-mono)' }}
           />
           <Line type="monotone" dataKey="trend" stroke="#2a2a2a" strokeWidth={2} dot={false} strokeDasharray="4 3" />
           <Line

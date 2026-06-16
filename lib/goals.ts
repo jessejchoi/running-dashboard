@@ -27,6 +27,12 @@ export function distanceLabel(key: DistanceKey): string {
   return DISTANCE_OPTIONS.find(d => d.key === key)!.label
 }
 
+export function distanceShortLabel(key: DistanceKey): string {
+  if (key === 'hm') return 'HM'
+  if (key === 'fm') return 'FM'
+  return distanceLabel(key)
+}
+
 // Parse "mm:ss" or "h:mm:ss" → total seconds
 export function parseTime(t: string): number {
   const parts = t.trim().split(':').map(Number)

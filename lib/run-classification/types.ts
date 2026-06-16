@@ -73,6 +73,7 @@ export const RUN_TYPE_GROUPS = ['Easy', 'Hard', 'Long', 'Interval', 'Other'] as 
 export function getTypesByGroup() {
   const groups: Record<string, { key: RunType; label: string; color: string; bg: string }[]> = {}
   for (const [key, val] of Object.entries(RUN_TYPES)) {
+    if (key === 'treadmill') continue
     if (!groups[val.group]) groups[val.group] = []
     groups[val.group].push({ key: key as RunType, ...val })
   }

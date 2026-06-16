@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categorizeRun, detectRace, type PaceZones } from '@/lib/run-classification'
+import { categorizeRun, detectRace, getTypesByGroup, isManualRunType, resolvePersistedRunType, type PaceZones } from '@/lib/run-classification'
 
 const zones: PaceZones = {
   intervalMaxPace: 250,
@@ -148,5 +148,17 @@ describe('categorizeRun', () => {
     })
     expect(detection.isRace).toBe(true)
     expect(detection.matchedDistanceKey).toBe('10k')
+  })
+
+  it('keeps treadmill as an environment label instead of a manual workout type', () => {
+    const persisted = resolvePersistedRunType({
+      automaticRunType: 'easy',
+      isTreadmill: true,
+      raceDetection: { isRace: false, matchedDistanceKey: null, matchedDistanceKm: null },
+    })
+
+    expect(persisted).toBe('easy')
+    expect(isManualRunType('treadmill')).toBe(false)
+    expect(Object.values(getTypesByGroup()).flat().some(type => type.key === 'treadmill')).toBe(false)
   })
 })

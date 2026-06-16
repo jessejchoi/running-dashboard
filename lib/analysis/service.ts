@@ -5,6 +5,7 @@ import { analyzeAllAndCombine, type CombinedEstimate } from '@/lib/analysis'
 import { ANALYSIS_ACTIVITY_COLUMNS, ANALYSIS_RUN_TYPES, DISTANCE_KEYS } from './constants'
 import { isCPEngineEnabled, projectAthleteRaceTimes, type ProjectAthleteResult } from './projector-service'
 import type { SnapshotExtras } from '@/lib/estimateSnapshots'
+import { categorizeRun, type PaceZones } from '@/lib/run-classification'
 
 export type AnalysisResult = ReturnType<typeof analyzeAllAndCombine>
 
@@ -77,6 +78,57 @@ function applyLimit<T>(query: T, limit?: number): T {
   return typeof limit === 'number' ? (query as any).limit(limit) : query
 }
 
+function analysisRunTypeForActivity(activity: any, zones: PaceZones | null, maxHr?: number): string | null {
+  if (activity.run_type !== 'treadmill') return activity.run_type ?? null
+  if (!activity.average_speed || !activity.distance) return null
+
+  return categorizeRun({
+    distance: activity.distance,
+    average_speed: activity.average_speed,
+    average_heartrate: activity.average_heartrate ?? undefined,
+    suffer_score: activity.suffer_score ?? undefined,
+    laps: activity.laps ?? [],
+    splits: activity.splits ?? [],
+  }, zones ?? undefined, maxHr)
+}
+
+function appendLegacyTreadmillRuns(
+  buckets: Pick<AnalysisInputs, 'intervalRuns' | 'thresholdRuns' | 'longRuns' | 'easyRuns'>,
+  activities: any[],
+  zones: PaceZones | null,
+  maxHr?: number,
+  easyCutoffISO?: string,
+) {
+  for (const activity of activities) {
+    if (activity.is_race || activity.excluded_from_analysis) continue
+    const runType = analysisRunTypeForActivity(activity, zones, maxHr)
+    if (!runType) continue
+
+    const syntheticActivity = {
+      ...activity,
+      run_type: runType,
+      trainer: true,
+      raw: { ...(activity.raw ?? {}), trainer: true },
+    }
+    if ((ANALYSIS_RUN_TYPES.intervals as readonly string[]).includes(runType)) {
+      buckets.intervalRuns.push(syntheticActivity)
+    } else if ((ANALYSIS_RUN_TYPES.threshold as readonly string[]).includes(runType)) {
+      buckets.thresholdRuns.push(syntheticActivity)
+    } else if ((ANALYSIS_RUN_TYPES.long as readonly string[]).includes(runType)) {
+      buckets.longRuns.push(syntheticActivity)
+    } else if ((ANALYSIS_RUN_TYPES.easy as readonly string[]).includes(runType)) {
+      if (!easyCutoffISO || String(activity.start_date) >= easyCutoffISO) {
+        buckets.easyRuns.push(syntheticActivity)
+      }
+    }
+  }
+}
+
+function finalizeRuns<T extends { start_date?: string | null }>(runs: T[], limit?: number): T[] {
+  const sorted = [...runs].sort((a, b) => String(b.start_date ?? '').localeCompare(String(a.start_date ?? '')))
+  return typeof limit === 'number' ? sorted.slice(0, limit) : sorted
+}
+
 export async function fetchAthleteAnalysisInputs(
   athleteId: number,
   options: AthleteAnalysisOptions = {},
@@ -85,7 +137,7 @@ export async function fetchAthleteAnalysisInputs(
 
   const [{ data: goalRows }, { data: userProfile }] = await Promise.all([
     supabaseAdmin.from('user_goals').select('distance_key, target_secs').eq('athlete_id', athleteId),
-    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
+    supabaseAdmin.from('user_profiles').select('max_hr, pace_zones').eq('athlete_id', athleteId).maybeSingle(),
   ])
 
   const targetSecsMap: Record<string, number> = {}
@@ -97,10 +149,13 @@ export async function fetchAthleteAnalysisInputs(
   let thresholdQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).in('run_type', ANALYSIS_RUN_TYPES.threshold).order('start_date', { ascending: false })
   let longQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).in('run_type', ANALYSIS_RUN_TYPES.long).order('start_date', { ascending: false })
   let easyQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).in('run_type', ANALYSIS_RUN_TYPES.easy).order('start_date', { ascending: false })
+  let legacyTreadmillQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).eq('type', 'Run').eq('run_type', 'treadmill').order('start_date', { ascending: false })
   let allActivitiesQuery = supabaseAdmin.from('activities').select('start_date, run_type, distance').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false })
 
+  let easyCutoffISO: string | undefined
   if (options.easyLookbackMonths) {
-    easyQuery = easyQuery.gte('start_date', subMonths(new Date(), options.easyLookbackMonths).toISOString())
+    easyCutoffISO = subMonths(new Date(), options.easyLookbackMonths).toISOString()
+    easyQuery = easyQuery.gte('start_date', easyCutoffISO)
   }
 
   intervalQuery = applyLimit(intervalQuery, options.intervalLimit)
@@ -109,13 +164,35 @@ export async function fetchAthleteAnalysisInputs(
   easyQuery = applyLimit(easyQuery, options.easyLimit)
   allActivitiesQuery = applyLimit(allActivitiesQuery, options.allActivitiesLimit)
 
-  const [{ data: intervalRuns }, { data: thresholdRuns }, { data: longRuns }, { data: easyRuns }, { data: allActivities }] = await Promise.all([
+  const [
+    { data: intervalRuns },
+    { data: thresholdRuns },
+    { data: longRuns },
+    { data: easyRuns },
+    { data: allActivities },
+    { data: legacyTreadmillRuns },
+  ] = await Promise.all([
     intervalQuery,
     thresholdQuery,
     longQuery,
     easyQuery,
     allActivitiesQuery,
+    legacyTreadmillQuery,
   ])
+
+  const buckets = {
+    intervalRuns: [...((intervalRuns ?? []) as any[])],
+    thresholdRuns: [...((thresholdRuns ?? []) as any[])],
+    longRuns: [...((longRuns ?? []) as any[])],
+    easyRuns: [...((easyRuns ?? []) as any[])],
+  }
+  appendLegacyTreadmillRuns(
+    buckets,
+    legacyTreadmillRuns ?? [],
+    (userProfile?.pace_zones ?? null) as PaceZones | null,
+    userProfile?.max_hr ?? undefined,
+    easyCutoffISO,
+  )
 
   let raceRuns: any[] = []
   try {
@@ -128,10 +205,10 @@ export async function fetchAthleteAnalysisInputs(
   }
 
   return {
-    intervalRuns: intervalRuns ?? [],
-    thresholdRuns: thresholdRuns ?? [],
-    longRuns: longRuns ?? [],
-    easyRuns: easyRuns ?? [],
+    intervalRuns: finalizeRuns(buckets.intervalRuns, options.intervalLimit),
+    thresholdRuns: finalizeRuns(buckets.thresholdRuns, options.thresholdLimit),
+    longRuns: finalizeRuns(buckets.longRuns, options.longLimit),
+    easyRuns: finalizeRuns(buckets.easyRuns, options.easyLimit),
     raceRuns,
     allActivities: allActivities ?? [],
     maxHr: userProfile?.max_hr ?? 195,

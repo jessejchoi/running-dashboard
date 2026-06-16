@@ -21,6 +21,7 @@ export interface BestEffortPoint {
   paceSecPerKm: number
   date: string         // YYYY-MM-DD
   activityId: number
+  weight?: number
 }
 
 export interface CPFitResult {
@@ -68,6 +69,13 @@ function linspace(min: number, max: number, n: number): number[] {
 }
 
 /**
+ * Best-effort rows are an observed upper envelope, not proof that the athlete
+ * could not have gone faster for that duration. Missing race-like long efforts
+ * should not drag CP down as hard as actual faster efforts constrain it.
+ */
+const SUBMAXIMAL_EFFORT_PENALTY = 0.25
+
+/**
  * Fit the 3-param critical-pace model to a set of best efforts.
  *
  * Returns null if input is too sparse. For each distinct duration we keep the
@@ -90,15 +98,17 @@ export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
 
   const data = Array.from(bestByDuration.values())
     .sort((a, b) => a.durationSecs - b.durationSecs)
-    .map(p => ({ t: p.durationSecs, v: 1000 / p.paceSecPerKm }))
+    .map(p => ({ t: p.durationSecs, v: 1000 / p.paceSecPerKm, weight: p.weight ?? 1 }))
 
-  const residual = (cv: number, dPrime: number, vmax: number): number => {
+  const residual = (cv: number, dPrime: number, vmax: number, envelopeLoss = true): number => {
     if (vmax <= cv || cv <= 0 || dPrime <= 0) return Infinity
     const k = dPrime / (vmax - cv)
     let sse = 0
-    for (const { t, v } of data) {
+    for (const { t, v, weight } of data) {
       const vHat = cv + dPrime / (t + k)
-      sse += (v - vHat) ** 2
+      const diff = v - vHat
+      const asymmetry = envelopeLoss && diff < 0 ? SUBMAXIMAL_EFFORT_PENALTY : 1
+      sse += diff ** 2 * weight * asymmetry
     }
     return sse
   }
@@ -143,7 +153,8 @@ export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
     }
   }
 
-  const rmse = Math.sqrt(bestSSE / data.length)
+  const weightSum = data.reduce((sum, point) => sum + point.weight, 0)
+  const rmse = Math.sqrt(residual(bestCV, bestD, bestV, false) / Math.max(weightSum, 1))
   const tMin = data[0].t
   const tMax = data[data.length - 1].t
 

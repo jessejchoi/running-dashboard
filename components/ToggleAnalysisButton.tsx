@@ -4,7 +4,7 @@ import { useState } from 'react'
 interface Props {
   activityId: number
   excluded: boolean
-  autoExcludedReason?: string  // set when run is automatically filtered (treadmill, too short, etc.)
+  autoExcludedReason?: string  // set when run is automatically filtered (too short, missing data, etc.)
 }
 
 export default function ToggleAnalysisButton({ activityId, excluded: initialExcluded, autoExcludedReason }: Props) {

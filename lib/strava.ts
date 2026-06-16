@@ -178,7 +178,7 @@ async function recategorizeRecentAutomaticRuns(athleteId: number, zones: PaceZon
 
   for (const activity of activities) {
     if (activity.run_type_manual === true) continue
-    if (activity.is_race || activity.run_type === 'race' || activity.run_type === 'treadmill') continue
+    if (activity.is_race || activity.run_type === 'race') continue
     if (!activity.average_speed || !activity.distance) continue
 
     const nextType = categorizeRun({

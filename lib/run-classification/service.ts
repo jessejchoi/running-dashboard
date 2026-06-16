@@ -22,11 +22,10 @@ export function resolvePersistedRunType({
   automaticRunType,
   currentRunType,
   isManual,
-  isTreadmill,
   raceDetection,
 }: ResolveRunTypeInput): string | null {
   if (isManual) return currentRunType ?? null
-  if (isTreadmill) return 'treadmill'
+  // Treadmill is an environment label, not the primary workout type.
   if (raceDetection.isRace) return 'race'
   return automaticRunType
 }

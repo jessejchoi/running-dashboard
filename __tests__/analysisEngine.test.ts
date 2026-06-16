@@ -102,4 +102,36 @@ describe('analyzeAllAndCombine', () => {
     expect(ANALYSIS_RUN_TYPES.long).not.toContain('long_easy')
     expect(ANALYSIS_RUN_TYPES.easy).toContain('long_easy')
   })
+
+  it('includes treadmill runs with lower estimate weight', () => {
+    const treadmillEasyRun = {
+      id: 30,
+      name: 'Treadmill aerobic',
+      start_date: '2026-05-12T06:00:00Z',
+      run_type: 'easy',
+      distance: 8000,
+      moving_time: 3200,
+      average_speed: 1000 / 400,
+      average_heartrate: 142,
+      raw: { trainer: true },
+      laps: [lap(8000, 3200, 400, 142)],
+      splits: Array.from({ length: 8 }, (_, i) => lap(1000, 400, 398 + i, 138 + i)),
+    }
+
+    const result = analyzeAllAndCombine(
+      [],
+      [],
+      [],
+      [treadmillEasyRun],
+      [],
+      190,
+      [{ start_date: treadmillEasyRun.start_date, run_type: 'easy', distance: treadmillEasyRun.distance }],
+    )
+
+    expect(result.easyRunResults[0].excludedReason).toBeUndefined()
+    const treadmillEstimates = result.allRaceEstimates.filter(estimate => estimate.activityId === treadmillEasyRun.id)
+    expect(treadmillEstimates.length).toBeGreaterThan(0)
+    expect(treadmillEstimates.every(estimate => estimate.weightMultiplier === 0.5)).toBe(true)
+    expect(treadmillEstimates.every(estimate => estimate.method.includes('treadmill signal'))).toBe(true)
+  })
 })

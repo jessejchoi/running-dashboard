@@ -399,7 +399,7 @@ export default async function AnalysisPage() {
                 // Long run IDs that feed the aerobic chart
                 const longRunIds = new Set((longRunEfficiencyPoints ?? []).map(p => p.activityId))
                 const longRunsForAerobic = (longRuns ?? []).filter((r: any) => longRunIds.has(r.id))
-                const easyCards = easyRunResultsWithRuns.filter(({ result }) => result?.excludedReason !== 'Treadmill run — no GPS pace data')
+                const easyCards = easyRunResultsWithRuns
                 const totalAerobicCount = easyCards.length + longRunsForAerobic.length
                 return (
                   <CollapsibleRuns count={totalAerobicCount} color="#a78bfa">

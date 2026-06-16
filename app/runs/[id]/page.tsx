@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import RunTypeSelector from '@/components/RunTypeSelector'
+import RunSurfaceBadge from '@/components/RunSurfaceBadge'
 import SplitsChart from '@/components/SplitsChart'
 import { buildLapSegments } from '@/lib/lapUtils'
 import HRChart from '@/components/HRChart'
@@ -11,6 +12,7 @@ import { format } from 'date-fns'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { type PaceZones } from '@/lib/run-classification'
+import { isTreadmillRun } from '@/lib/run-classification/surface'
 
 export default async function RunDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { from?: string } }) {
   const cookieStore = cookies()
@@ -51,6 +53,8 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
   }
   const paceZones = (profile?.pace_zones ?? null) as PaceZones | null
   const maxHr = (profile?.max_hr ?? null) as number | null
+  const isTreadmill = isTreadmillRun(run)
+  const primaryRunType = run.run_type === 'treadmill' ? null : run.run_type
   // Build segments for any run with laps (including single-lap for HR overlay)
   const lapSegments = laps.length > 0
     ? buildLapSegments(laps, paceSeconds, run.run_type, { paceZones, maxHr })
@@ -72,12 +76,15 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="font-display font-extrabold uppercase mb-2" style={{ fontSize: 'clamp(22px, 5vw, 40px)', letterSpacing: '-0.02em' }}>{run.name}</h1>
-              <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy · h:mm a')}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                  {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy · h:mm a')}
+                </p>
+                {isTreadmill && <RunSurfaceBadge run={run} />}
+              </div>
             </div>
             <div className="relative z-[100]">
-              <RunTypeSelector activityId={run.id} current={run.run_type} isManual={run.run_type_manual ?? false} />
+              <RunTypeSelector activityId={run.id} current={primaryRunType} isManual={run.run_type_manual ?? false} />
             </div>
           </div>
         </div>

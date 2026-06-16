@@ -3,8 +3,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import RunTypeSelector from '@/components/RunTypeSelector'
+import RunSurfaceBadge from '@/components/RunSurfaceBadge'
 import { speedToPace, formatDuration, formatDistance, paceUnitLabel, toJakartaDate, type DistanceUnit } from '@/lib/utils'
 import { type RunType } from '@/lib/runtypes'
+import { isTreadmillRun } from '@/lib/run-classification/surface'
 
 interface Activity {
   id: number
@@ -18,6 +20,7 @@ interface Activity {
   total_elevation_gain?: number
   run_type: string | null
   run_type_manual: boolean
+  raw?: any
 }
 
 interface Props {
@@ -27,7 +30,7 @@ interface Props {
 
 export default function RecentRunsCard({ runs, unit }: Props) {
   const [runTypes, setRunTypes] = useState<Record<number, string | null>>(
-    Object.fromEntries(runs.map(r => [r.id, r.run_type]))
+    Object.fromEntries(runs.map(r => [r.id, r.run_type === 'treadmill' ? null : r.run_type]))
   )
   const [hoveredId, setHoveredId] = useState<number | null>(null)
 
@@ -47,7 +50,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
         {runs.map((run, i) => {
           const paceSeconds = run.average_speed ? 1000 / run.average_speed : 999
           const isFast = paceSeconds <= 270
-          const isTreadmill = runTypes[run.id] === 'treadmill'
+          const isTreadmill = isTreadmillRun(run)
           const isLast = i === runs.length - 1
 
           return (
@@ -57,7 +60,6 @@ export default function RecentRunsCard({ runs, unit }: Props) {
               style={{
                 background: hoveredId === run.id ? 'var(--surface-2)' : 'transparent',
                 borderBottom: isLast ? 'none' : '1px solid var(--border)',
-                opacity: isTreadmill ? 0.5 : 1,
                 margin: '0 -0.5rem',
                 padding: '0.625rem 0.5rem',
               }}
@@ -93,6 +95,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                 >
                   {run.name}
                 </Link>
+                {isTreadmill && <div className="shrink-0 hidden sm:block"><RunSurfaceBadge run={run} /></div>}
 
                 {/* Stats — right aligned */}
                 <div className="flex items-center gap-4 shrink-0 ml-auto">

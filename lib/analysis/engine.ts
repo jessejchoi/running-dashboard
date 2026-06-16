@@ -23,6 +23,7 @@ import {
   longRunSteadyEfficiencyPoints,
 } from './easyRuns'
 import { combineEstimates } from './combine'
+import { analysisWeightForActivity } from '@/lib/run-classification'
 
 export type {
   ActivityAnalysis,
@@ -55,6 +56,29 @@ export {
 export { analyzeLongRun } from './longRuns'
 export { detectAndAnalyzeRace } from './races'
 export { combineEstimates, getEffectiveWeights, getSourceWeight } from './combine'
+
+function buildActivityLookup(activityGroups: any[][]): Map<number, any> {
+  const byId = new Map<number, any>()
+  for (const group of activityGroups) {
+    for (const activity of group) {
+      if (typeof activity?.id === 'number') byId.set(activity.id, activity)
+    }
+  }
+  return byId
+}
+
+function applyActivityWeights(estimates: RaceEstimate[], activitiesById: Map<number, any>): RaceEstimate[] {
+  return estimates.map(estimate => {
+    const multiplier = analysisWeightForActivity(activitiesById.get(estimate.activityId))
+    if (multiplier >= 1) return estimate
+    return {
+      ...estimate,
+      confidence: estimate.confidence * multiplier,
+      weightMultiplier: (estimate.weightMultiplier ?? 1) * multiplier,
+      method: `${estimate.method} (treadmill signal, ${Math.round(multiplier * 100)}% weight)`,
+    }
+  })
+}
 
 /**
  * Run all analyzers and produce combined estimates for all distances.
@@ -136,12 +160,20 @@ export function analyzeAllAndCombine(
     .filter(r => !r.excludedReason)
     .flatMap(r => easyRunToRaceEstimates(r, maxHr))
 
-  const allRaceEstimates: RaceEstimate[] = [
+  const activitiesById = buildActivityLookup([
+    intervalActivities,
+    thresholdActivities,
+    longRunActivities,
+    easyActivities,
+    raceActivities,
+  ])
+
+  const allRaceEstimates: RaceEstimate[] = applyActivityWeights([
     ...intervalEstimates.flatMap(e => e.raceEstimates ?? []),
     ...thresholdEstimates.flatMap(e => e.raceEstimates ?? []),
     ...raceAnalyses.flatMap(e => e.raceEstimates),
     ...easyTrendEstimates,
-  ]
+  ], activitiesById)
 
   const runsSinceRace: Record<DistanceKey, number> = {
     '5k': Infinity,

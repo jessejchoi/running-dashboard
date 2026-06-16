@@ -6,6 +6,7 @@ import {
 } from './criticalPace'
 import { loadAthleteFeatures, type AthleteFeatures } from './features'
 import { project, type DistanceProjection, type AmbientHint } from './projector'
+import { analysisWeightForActivity } from '@/lib/run-classification'
 
 /**
  * Orchestrates the new race-time engine: CP fit + features + conditions →
@@ -34,11 +35,22 @@ export async function fitForAthlete(
     .eq('athlete_id', athleteId)
     .gte('activity_start_date', cutoffISO)
   if (!data?.length) return null
+
+  const activityIds = Array.from(new Set(data.map((d: any) => d.activity_id).filter((id: any) => typeof id === 'number')))
+  const { data: activities } = activityIds.length > 0
+    ? await supabaseAdmin
+      .from('activities')
+      .select('id, run_type, raw')
+      .in('id', activityIds)
+    : { data: [] as any[] }
+  const activitiesById = new Map((activities ?? []).map((activity: any) => [activity.id, activity]))
+
   const points: BestEffortPoint[] = data.map((d: any) => ({
     durationSecs: d.duration_secs,
     paceSecPerKm: d.best_pace_sec_per_km,
     date: String(d.activity_start_date).slice(0, 10),
     activityId: d.activity_id,
+    weight: analysisWeightForActivity(activitiesById.get(d.activity_id)),
   }))
   return fitCriticalPace(points)
 }

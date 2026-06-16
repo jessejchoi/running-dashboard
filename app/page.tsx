@@ -24,7 +24,7 @@ async function getFastData(athleteId: number) {
   ] = await Promise.all([
     supabaseAdmin
       .from('activities')
-      .select('id,start_date,distance,moving_time,suffer_score,run_type,run_type_manual,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain')
+      .select('id,start_date,distance,moving_time,suffer_score,run_type,run_type_manual,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain,raw')
       .eq('athlete_id', athleteId)
       .eq('type', 'Run')
       .order('start_date', { ascending: false })

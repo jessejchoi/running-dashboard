@@ -29,7 +29,6 @@ export function analyzeEasyRun(activity: {
   } as any)
 
   if (!activity.average_heartrate || !activity.average_speed) return stub('No HR or pace data recorded')
-  if (activity.run_type === 'treadmill' || activity.raw?.trainer) return stub('Treadmill run — no GPS pace data')
 
   const wholeRunAvgHR   = activity.average_heartrate
   const wholeRunAvgPace = 1000 / activity.average_speed

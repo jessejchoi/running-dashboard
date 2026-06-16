@@ -19,7 +19,7 @@ export function isManualRunType(value: unknown): value is RunType {
   return typeof value === 'string' && value in RUN_TYPE_LABEL_LOOKUP
 }
 
-const RUN_TYPE_LABEL_LOOKUP: Record<RunType, true> = {
+const RUN_TYPE_LABEL_LOOKUP: Partial<Record<RunType, true>> = {
   recovery: true,
   easy: true,
   easy_strides: true,
@@ -29,6 +29,5 @@ const RUN_TYPE_LABEL_LOOKUP: Record<RunType, true> = {
   long_steady: true,
   long_progressive: true,
   intervals: true,
-  treadmill: true,
   race: true,
 }

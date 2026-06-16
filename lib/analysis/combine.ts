@@ -55,7 +55,7 @@ function recencySpeedAvg(items: RaceEstimate[]): number {
   items.forEach((item, i) => {
     const recency = n - i // items[0] is most recent
     const speedBonus = range > 0 ? 1 + 0.5 * (1 - (item.estimatedSecs - fastest) / range) : 1
-    const w = recency * speedBonus
+    const w = recency * speedBonus * (item.weightMultiplier ?? 1)
     totalW += w
     totalS += item.estimatedSecs * w
   })

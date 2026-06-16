@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../supabase'
 import { analyzeEasyRun } from './easyRuns'
+import { analysisWeightForActivity } from '@/lib/run-classification'
 
 /**
  * Feature extractors for the new race projector.
@@ -18,6 +19,7 @@ export interface AerobicTrendPoint {
   durationMins: number
   avgHR: number
   rawPaceSecPerKm: number
+  weight?: number
 }
 
 export interface AerobicFeature {
@@ -104,6 +106,7 @@ export function extractAerobic(runs: RunRow[]): AerobicFeature {
       durationMins: run.moving_time / 60,
       avgHR: eff.avgHR,
       rawPaceSecPerKm: eff.avgPaceSecPerKm,
+      weight: analysisWeightForActivity(run),
     })
   }
   points.sort((a, b) => a.date.localeCompare(b.date))
@@ -122,7 +125,7 @@ export function extractAerobic(runs: RunRow[]): AerobicFeature {
     const ageDays = (lastMs - new Date(p.date).getTime()) / 86_400_000
     const recencyW = Math.exp(-ageDays * Math.LN2 / halfLifeDays)
     const durationW = Math.log(Math.max(p.durationMins, 5) + 1)
-    const w = recencyW * durationW
+    const w = recencyW * durationW * (p.weight ?? 1)
     sumW += w
     sumP += p.paceAt150SecPerKm * w
   }

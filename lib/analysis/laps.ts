@@ -5,6 +5,8 @@ const MIN_EFFORT_DURATION = 45
 const MAX_EFFORT_PACE = 390
 const MIN_EFFORT_PACE = 160
 const RECOVERY_THRESHOLD = 40
+const INTERVAL_FAST_CLUSTER_RATIO = 1.15
+const INTERVAL_FAST_CLUSTER_MIN_GAP = 20
 // 5K is run at ~96% HRmax
 
 /**
@@ -61,9 +63,10 @@ export function processLaps(
   laps: any[],
   avgPaceSecPerKm: number,
   minPace: number = MIN_EFFORT_PACE,
-  maxPace: number = MAX_EFFORT_PACE
+  maxPace: number = MAX_EFFORT_PACE,
+  options: { fastClusterOnly?: boolean } = {},
 ): { repEfforts: RepEffort[]; recoveryLaps: RecoveryLap[] } {
-  const repEfforts: RepEffort[] = []
+  let repEfforts: RepEffort[] = []
   const allSlowLaps: { idx: number; lap: any }[] = []
 
   for (let i = 0; i < laps.length; i++) {
@@ -101,6 +104,16 @@ export function processLaps(
   }
 
   if (repEfforts.length === 0) return { repEfforts, recoveryLaps: [] }
+
+  if (options.fastClusterOnly && repEfforts.length > 1) {
+    const fastestPace = Math.min(...repEfforts.map(rep => rep.paceSecPerKm))
+    const fastClusterCutoff = Math.max(
+      fastestPace * INTERVAL_FAST_CLUSTER_RATIO,
+      fastestPace + INTERVAL_FAST_CLUSTER_MIN_GAP,
+    )
+    const fastCluster = repEfforts.filter(rep => rep.paceSecPerKm <= fastClusterCutoff)
+    if (fastCluster.length > 0) repEfforts = fastCluster
+  }
 
   const firstRepIdx = repEfforts[0].lapIndex - 1
   const lastRepIdx = repEfforts[repEfforts.length - 1].lapIndex - 1

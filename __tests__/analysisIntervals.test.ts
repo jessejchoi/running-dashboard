@@ -59,6 +59,29 @@ describe('analyzeIntervalSession', () => {
     expect(analysis?.recoveryLaps).toHaveLength(2)
   })
 
+  it('does not include a treadmill warmup as interval work when recoveries drag down average pace', () => {
+    const analysis = analyzeIntervalSession({
+      id: 2,
+      name: 'Treadmill 3 x 3 min',
+      start_date: '2026-04-13T06:00:00Z',
+      average_speed: 1000 / 380,
+      laps: [
+        lap(1200, 402, 335, 142),
+        lap(750, 180, 240, 174),
+        lap(180, 110, 610, 140),
+        lap(755, 180, 238, 176),
+        lap(180, 110, 610, 142),
+        lap(760, 180, 237, 178),
+        lap(1000, 410, 410, 138),
+      ],
+    }, 190)
+
+    expect(analysis).not.toBeNull()
+    expect(analysis?.effortsUsed).toBe(3)
+    expect(analysis?.allEfforts.map(rep => rep.lapIndex)).toEqual([2, 4, 6])
+    expect(analysis?.allEfforts.map(rep => Math.round(rep.paceSecPerKm))).toEqual([240, 238, 237])
+  })
+
   it('penalizes one-minute reps more than longer reps at the same pace', () => {
     const shortReps = analyzeIntervalSession(buildSession(
       Array.from({ length: 6 }, () => ({ distanceM: 280, movingTime: 60, pace: 214, hr: 172 })),

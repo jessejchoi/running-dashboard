@@ -96,7 +96,7 @@ export function analyzeIntervalSession(activity: {
   const laps: any[] = activity.laps ?? activity.splits ?? []
   if (laps.length < 2) return null
   const avgPace = activity.average_speed ? 1000 / activity.average_speed : 999
-  const { repEfforts, recoveryLaps } = processLaps(laps, avgPace)
+  const { repEfforts, recoveryLaps } = processLaps(laps, avgPace, undefined, undefined, { fastClusterOnly: true })
   return buildEstimate(repEfforts, recoveryLaps, activity, maxHr ?? DEFAULT_MAX_HR)
 }
 export function analyzeAllIntervalSessions(activities: any[], maxHr?: number): FiveKEstimate[] {

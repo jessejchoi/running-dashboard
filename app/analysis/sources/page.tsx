@@ -1,9 +1,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Nav from '@/components/Nav'
-import SourcesPageClient from '@/components/SourcesPageClient'
+import AnalysisSessionDetails from '@/components/AnalysisSessionDetails'
 import Link from 'next/link'
 import { getAthleteAnalysis } from '@/lib/analysis/service'
+import { type DistanceUnit } from '@/lib/utils'
 
 export const revalidate = 60
 
@@ -11,8 +12,9 @@ export default async function SourcesPage() {
   const cookieStore = cookies()
   const athleteId = cookieStore.get('athlete_id')?.value
   if (!athleteId) redirect('/')
+  const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
-  const { combinedJson, targetSecsMap } = await getAthleteAnalysis(Number(athleteId), {
+  const { inputs, result, combinedJson, targetSecsMap } = await getAthleteAnalysis(Number(athleteId), {
     activityColumns: '*',
     easyLookbackMonths: 3,
     longLimit: 15,
@@ -29,11 +31,17 @@ export default async function SourcesPage() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
           </Link>
           <div>
-            <h1 className="font-display font-black text-2xl sm:text-3xl">Contributing Sources</h1>
-            <p className="text-[#6b7280] text-sm mt-1">Breakdown of estimates by training signal</p>
+            <h1 className="font-display font-black text-2xl sm:text-3xl">Run Details</h1>
+            <p className="text-[#6b7280] text-sm mt-1">Session charts, source badges, and contributing runs</p>
           </div>
         </div>
-        <SourcesPageClient combined={combinedJson} targetSecsMap={targetSecsMap} />
+        <AnalysisSessionDetails
+          inputs={inputs}
+          result={result}
+          combined={combinedJson}
+          targetSecsMap={targetSecsMap}
+          unit={unit}
+        />
       </main>
     </div>
   )

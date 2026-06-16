@@ -61,7 +61,7 @@ export default function AnalysisDistanceSection({ combined, targetSecsMap, allDe
 
         {sourceCount > 0 && (
           <Link href="/analysis/sources" className="inline-flex items-center min-h-[44px] text-[#f97316] text-sm hover:underline">
-            View sources →
+            See run details →
           </Link>
         )}
       </div>

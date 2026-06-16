@@ -1,10 +1,12 @@
 import { supabaseAdmin } from '../supabase'
 import {
+  adjustBestEffortToRaceHR,
   fitCriticalPace,
   type CPFitResult,
   type BestEffortPoint,
 } from './criticalPace'
 import { loadAthleteFeatures, type AthleteFeatures } from './features'
+import { DEFAULT_MAX_HR } from './physiology'
 import { project, type DistanceProjection, type AmbientHint } from './projector'
 import { analysisWeightForActivity } from '@/lib/run-classification'
 
@@ -16,6 +18,7 @@ import { analysisWeightForActivity } from '@/lib/run-classification'
 
 const DEFAULT_WINDOW_DAYS = 60
 const RECENT_CONDITIONS_DAYS = 7
+const RACE_TOTAL_POINT_WEIGHT = 200
 
 export interface ProjectAthleteResult {
   fit: CPFitResult
@@ -29,29 +32,56 @@ export async function fitForAthlete(
   windowDays: number = DEFAULT_WINDOW_DAYS,
 ): Promise<CPFitResult | null> {
   const cutoffISO = new Date(Date.now() - windowDays * 86_400_000).toISOString()
-  const { data } = await supabaseAdmin
-    .from('activity_best_efforts')
-    .select('duration_secs, best_pace_sec_per_km, activity_start_date, activity_id')
-    .eq('athlete_id', athleteId)
-    .gte('activity_start_date', cutoffISO)
+  const [{ data }, { data: userProfile }] = await Promise.all([
+    supabaseAdmin
+      .from('activity_best_efforts')
+      .select('duration_secs, best_pace_sec_per_km, avg_hr, activity_start_date, activity_id')
+      .eq('athlete_id', athleteId)
+      .gte('activity_start_date', cutoffISO),
+    supabaseAdmin
+      .from('user_profiles')
+      .select('max_hr')
+      .eq('athlete_id', athleteId)
+      .maybeSingle(),
+  ])
   if (!data?.length) return null
+  const maxHr = userProfile?.max_hr ?? DEFAULT_MAX_HR
 
-  const activityIds = Array.from(new Set(data.map((d: any) => d.activity_id).filter((id: any) => typeof id === 'number')))
-  const { data: activities } = activityIds.length > 0
-    ? await supabaseAdmin
-      .from('activities')
-      .select('id, run_type, raw')
-      .in('id', activityIds)
-    : { data: [] as any[] }
+  const { data: activities } = await supabaseAdmin
+    .from('activities')
+    .select('id, start_date, distance, moving_time, average_heartrate, run_type, is_race, excluded_from_analysis, raw')
+    .eq('athlete_id', athleteId)
+    .eq('type', 'Run')
+    .gte('start_date', cutoffISO)
   const activitiesById = new Map((activities ?? []).map((activity: any) => [activity.id, activity]))
 
-  const points: BestEffortPoint[] = data.map((d: any) => ({
+  const cachedPoints: BestEffortPoint[] = data.map((d: any) => ({
     durationSecs: d.duration_secs,
     paceSecPerKm: d.best_pace_sec_per_km,
+    avgHR: d.avg_hr,
     date: String(d.activity_start_date).slice(0, 10),
     activityId: d.activity_id,
     weight: analysisWeightForActivity(activitiesById.get(d.activity_id)),
-  }))
+  })).map(point => adjustBestEffortToRaceHR(point, maxHr))
+
+  const totalPoints: BestEffortPoint[] = (activities ?? [])
+    .filter((activity: any) => !activity.excluded_from_analysis)
+    .filter((activity: any) => activity.distance > 0 && activity.moving_time >= 180)
+    .filter((activity: any) => activity.is_race || activity.run_type === 'race' || activity.moving_time > 5400)
+    .map((activity: any) => {
+      const isRace = activity.is_race || activity.run_type === 'race'
+      const baseWeight = analysisWeightForActivity(activity)
+      return adjustBestEffortToRaceHR({
+        durationSecs: activity.moving_time,
+        paceSecPerKm: activity.moving_time / (activity.distance / 1000),
+        avgHR: activity.average_heartrate,
+        date: String(activity.start_date).slice(0, 10),
+        activityId: activity.id,
+        weight: baseWeight * (isRace ? RACE_TOTAL_POINT_WEIGHT : 1),
+      }, maxHr)
+    })
+
+  const points = [...cachedPoints, ...totalPoints]
   return fitCriticalPace(points)
 }
 

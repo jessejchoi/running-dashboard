@@ -1,3 +1,5 @@
+import { AEROBIC_SLOPE, DEFAULT_MAX_HR } from './physiology'
+
 /**
  * 3-parameter critical-pace model (Morton 1996, adapted for running).
  *
@@ -22,6 +24,10 @@ export interface BestEffortPoint {
   date: string         // YYYY-MM-DD
   activityId: number
   weight?: number
+  avgHR?: number | null
+  observedPaceSecPerKm?: number
+  adjustedPaceSecPerKm?: number
+  adjustmentReason?: string
 }
 
 export interface CPFitResult {
@@ -73,7 +79,122 @@ function linspace(min: number, max: number, n: number): number[] {
  * could not have gone faster for that duration. Missing race-like long efforts
  * should not drag CP down as hard as actual faster efforts constrain it.
  */
-const SUBMAXIMAL_EFFORT_PENALTY = 0.25
+const SUBMAXIMAL_EFFORT_PENALTY = 1
+const CAPABILITY_MISS_PENALTY = 1_000_000
+const RIEGEL_EXPONENT = 1.06
+
+export function targetRaceHRForDuration(
+  durationSecs: number,
+  maxHr: number = DEFAULT_MAX_HR,
+): number | null {
+  if (durationSecs < 180) return null
+  if (durationSecs <= 600) return maxHr * 0.96
+  if (durationSecs <= 1200) return maxHr * 0.94
+  if (durationSecs <= 1800) return maxHr * 0.92
+  if (durationSecs <= 2700) return maxHr * 0.90
+  if (durationSecs <= 3600) return maxHr * 0.88
+  return maxHr * 0.86
+}
+
+function maxHrImprovementFraction(durationSecs: number): number {
+  if (durationSecs < 180) return 0
+  if (durationSecs <= 600) return 0.20
+  if (durationSecs <= 2700) return 0.25
+  return 0.30
+}
+
+export function adjustBestEffortToRaceHR(
+  point: BestEffortPoint,
+  maxHr: number = DEFAULT_MAX_HR,
+): BestEffortPoint {
+  const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
+  const base: BestEffortPoint = {
+    ...point,
+    paceSecPerKm: observedPace,
+    observedPaceSecPerKm: observedPace,
+    adjustedPaceSecPerKm: observedPace,
+  }
+
+  const targetHR = targetRaceHRForDuration(point.durationSecs, maxHr)
+  if (targetHR == null || point.avgHR == null || point.avgHR <= 0) return base
+
+  const hrGap = targetHR - point.avgHR
+  if (hrGap <= 0) return base
+
+  const projectedPace = observedPace + AEROBIC_SLOPE * hrGap
+  const capPace = observedPace * (1 - maxHrImprovementFraction(point.durationSecs))
+  const adjustedPace = Math.min(observedPace, Math.max(projectedPace, capPace))
+
+  if (adjustedPace >= observedPace) return base
+  return {
+    ...base,
+    paceSecPerKm: adjustedPace,
+    adjustedPaceSecPerKm: adjustedPace,
+    adjustmentReason: `HR ${point.avgHR.toFixed(0)}→${targetHR.toFixed(0)} bpm`,
+  }
+}
+
+function projectPaceToDuration(sourcePace: number, sourceSecs: number, targetSecs: number): number {
+  const ratio = targetSecs / sourceSecs
+  return sourcePace * Math.pow(ratio, 1 - 1 / RIEGEL_EXPONENT)
+}
+
+function transferForDurationGap(sourceSecs: number, targetSecs: number): number {
+  const gap = Math.log(targetSecs / sourceSecs)
+  const freeGap = Math.log(1.5)
+  return Math.exp(-Math.max(0, gap - freeGap))
+}
+
+export function buildCapabilityEnvelope(points: BestEffortPoint[]): BestEffortPoint[] {
+  const bestByDuration = new Map<number, BestEffortPoint>()
+  for (const point of points) {
+    const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
+    const adjustedPace = point.adjustedPaceSecPerKm ?? point.paceSecPerKm
+    const normalized: BestEffortPoint = {
+      ...point,
+      paceSecPerKm: adjustedPace,
+      observedPaceSecPerKm: observedPace,
+      adjustedPaceSecPerKm: adjustedPace,
+    }
+    const cur = bestByDuration.get(point.durationSecs)
+    if (!cur || normalized.paceSecPerKm < cur.paceSecPerKm) {
+      bestByDuration.set(point.durationSecs, normalized)
+    }
+  }
+
+  const envelope = Array.from(bestByDuration.values())
+    .sort((a, b) => a.durationSecs - b.durationSecs)
+  const sources = envelope.map(point => ({ ...point }))
+
+  for (const source of sources) {
+    if (source.durationSecs < 180) continue
+    for (let i = 0; i < envelope.length; i++) {
+      const target = envelope[i]
+      if (target.durationSecs <= source.durationSecs) continue
+      if (target.activityId === source.activityId) continue
+
+      const projectedPace = projectPaceToDuration(
+        source.paceSecPerKm,
+        source.durationSecs,
+        target.durationSecs,
+      )
+      if (projectedPace >= target.paceSecPerKm) continue
+
+      const transfer = transferForDurationGap(source.durationSecs, target.durationSecs)
+      const improvedPace = target.paceSecPerKm - (target.paceSecPerKm - projectedPace) * transfer
+      if (improvedPace < target.paceSecPerKm) {
+        envelope[i] = {
+          ...target,
+          paceSecPerKm: improvedPace,
+          adjustedPaceSecPerKm: improvedPace,
+          adjustmentReason: `Envelope from ${source.durationSecs}s effort`,
+        }
+      }
+    }
+  }
+
+  return envelope
+}
 
 /**
  * Fit the 3-param critical-pace model to a set of best efforts.
@@ -88,16 +209,13 @@ const SUBMAXIMAL_EFFORT_PENALTY = 0.25
 export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
   if (points.length < 3) return null
 
-  // Per duration, keep the fastest effort (lowest pace = highest speed).
-  const bestByDuration = new Map<number, BestEffortPoint>()
-  for (const p of points) {
-    const cur = bestByDuration.get(p.durationSecs)
-    if (!cur || p.paceSecPerKm < cur.paceSecPerKm) bestByDuration.set(p.durationSecs, p)
-  }
-  if (bestByDuration.size < 3) return null
+  const envelope = buildCapabilityEnvelope(points)
+  if (envelope.length < 3) return null
 
-  const data = Array.from(bestByDuration.values())
-    .sort((a, b) => a.durationSecs - b.durationSecs)
+  const fitPoints = envelope.filter(p => p.durationSecs >= 180)
+  if (fitPoints.length < 3) return null
+
+  const data = fitPoints
     .map(p => ({ t: p.durationSecs, v: 1000 / p.paceSecPerKm, weight: p.weight ?? 1 }))
 
   const residual = (cv: number, dPrime: number, vmax: number, envelopeLoss = true): number => {
@@ -107,7 +225,10 @@ export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
     for (const { t, v, weight } of data) {
       const vHat = cv + dPrime / (t + k)
       const diff = v - vHat
-      const asymmetry = envelopeLoss && diff < 0 ? SUBMAXIMAL_EFFORT_PENALTY : 1
+      const asymmetry = !envelopeLoss ? 1
+        : diff > 0 ? CAPABILITY_MISS_PENALTY
+          : diff < 0 ? SUBMAXIMAL_EFFORT_PENALTY
+            : 1
       sse += diff ** 2 * weight * asymmetry
     }
     return sse
@@ -134,7 +255,7 @@ export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
   if (bestSSE === Infinity) return null
 
   // Coordinate descent — first a coarse step, then a fine step.
-  for (const step of [[0.05, 5, 0.1], [0.005, 0.5, 0.01]]) {
+  for (const step of [[0.05, 5, 0.1], [0.005, 0.5, 0.01], [0.0005, 0.05, 0.001]]) {
     const [sCV, sD, sV] = step
     for (let iter = 0; iter < 500; iter++) {
       let improved = false
@@ -153,16 +274,33 @@ export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
     }
   }
 
+  const maxCapabilityShortfall = (cv: number, dPrime: number, vmax: number): number => {
+    const k = dPrime / (vmax - cv)
+    let maxShortfall = 0
+    for (const { t, v } of data) {
+      const vHat = cv + dPrime / (t + k)
+      maxShortfall = Math.max(maxShortfall, v - vHat)
+    }
+    return maxShortfall
+  }
+  const numericalShortfall = maxCapabilityShortfall(bestCV, bestD, bestV)
+  if (numericalShortfall > 0 && numericalShortfall <= 0.01) {
+    const shift = numericalShortfall * 1.001
+    bestCV += shift
+    bestV += shift
+    bestSSE = residual(bestCV, bestD, bestV)
+  }
+
   const weightSum = data.reduce((sum, point) => sum + point.weight, 0)
   const rmse = Math.sqrt(residual(bestCV, bestD, bestV, false) / Math.max(weightSum, 1))
   const tMin = data[0].t
   const tMax = data[data.length - 1].t
 
   // Coverage check — quality of the fit depends on whether we have points
-  // anchoring each region (Vmax / D' / CV).
-  const hasShort  = data.some(d => d.t <= 120)
-  const hasMid    = data.some(d => d.t >= 180 && d.t <= 900)
-  const hasLong   = data.some(d => d.t >= 1200)
+  // anchoring short, medium, and long race-relevant regions.
+  const hasShort  = data.some(d => d.t >= 180 && d.t <= 600)
+  const hasMid    = data.some(d => d.t >= 900 && d.t <= 1800)
+  const hasLong   = data.some(d => d.t >= 2700)
   const anchors   = (hasShort ? 1 : 0) + (hasMid ? 1 : 0) + (hasLong ? 1 : 0)
 
   const fitQuality: 'high' | 'medium' | 'low' =

@@ -31,7 +31,7 @@ export interface DistanceProjection {
   distanceKey: DistanceKey
   distanceM: number
   baseSecs: number          // pure CP prediction, no modifiers
-  idealSecs: number         // ideal conditions, neutral freshness
+  idealSecs: number         // ideal conditions, current form
   todaySecs: number         // current conditions + current form
   raceDaySecs: number | null
   p50Secs: number           // central estimate (= todaySecs)
@@ -131,10 +131,10 @@ export function project(input: ProjectionInput): DistanceProjection[] {
     const todayFormMult = formMultiplier(features.form.status, true)
     const raceHeatMult  = raceConditions ? heatMultiplier(raceConditions.wbgtApproxC, key) : null
 
-    const idealSecs   = baseSecs * enduranceMult * driftMult
-    const todaySecs   = baseSecs * enduranceMult * driftMult * todayHeatMult * todayFormMult
+    const idealSecs   = baseSecs * enduranceMult * driftMult * todayFormMult
+    const todaySecs   = idealSecs * todayHeatMult
     const raceDaySecs = raceHeatMult != null
-      ? baseSecs * enduranceMult * driftMult * raceHeatMult
+      ? idealSecs * raceHeatMult
       : null
 
     const bandPct = bandPercent(fit, features)

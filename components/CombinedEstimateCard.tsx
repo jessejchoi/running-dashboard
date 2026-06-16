@@ -63,9 +63,10 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
   }
 
   const { bestEstimateSecs, confidence, contributors } = combined
+  const currentEstimateSecs = extras?.todaySecs ?? bestEstimateSecs
   const km = distanceKm(distanceKey)
-  const paceSecPerKm = bestEstimateSecs / km
-  const vdot = distanceKey === '5k' ? vdotFrom5K(bestEstimateSecs) : vdotFrom5K(bestEstimateSecs / Math.pow(km / 5, 1.06) * 1)
+  const paceSecPerKm = currentEstimateSecs / km
+  const vdot = distanceKey === '5k' ? vdotFrom5K(currentEstimateSecs) : vdotFrom5K(currentEstimateSecs / Math.pow(km / 5, 1.06) * 1)
 
   const confLabel = confidence >= 0.85 ? 'High' : confidence >= 0.6 ? 'Medium' : 'Low'
   const confColor = confidence >= 0.85 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
@@ -73,7 +74,8 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
     : 'text-orange-400 bg-orange-400/10 border-orange-400/20'
 
   const sourceTypes = new Set(contributors.map(c => c.source))
-  const gapSecs = targetSecs ? bestEstimateSecs - targetSecs : null
+  const gapSecs = targetSecs ? currentEstimateSecs - targetSecs : null
+  const primaryLabel = extras?.todaySecs != null ? 'Current conditions' : 'Best estimate'
 
   return (
     <div className="card glow-orange fade-up" style={{ padding: '1.5rem' }}>
@@ -89,8 +91,8 @@ export default function CombinedEstimateCard({ distanceKey, combined, targetSecs
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <div>
-          <div className="text-[#6b7280] text-xs mb-1">Best estimate</div>
-          <div className="stat-num text-2xl font-bold text-[#f97316]">{formatTime(bestEstimateSecs)}</div>
+          <div className="text-[#6b7280] text-xs mb-1">{primaryLabel}</div>
+          <div className="stat-num text-2xl font-bold text-[#f97316]">{formatTime(currentEstimateSecs)}</div>
         </div>
         <div>
           <div className="text-[#6b7280] text-xs mb-1">Pace</div>

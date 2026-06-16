@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   adjustBestEffortToRaceHR,
+  adjustBestEffortsToRaceHR,
   buildCapabilityEnvelope,
   fitCriticalPace,
   predictTimeForDistance,
@@ -51,9 +52,22 @@ describe('fitCriticalPace', () => {
 
     expect(targetRaceHRForDuration(120, 195)).toBeNull()
     expect(lowHr.paceSecPerKm).toBeLessThan(360)
-    expect(lowHr.paceSecPerKm).toBeGreaterThanOrEqual(360 * 0.75)
+    expect(lowHr.paceSecPerKm).toBeGreaterThanOrEqual(360 * 0.80)
     expect(highHr.paceSecPerKm).toBe(300)
     expect(missingHr.paceSecPerKm).toBe(330)
+  })
+
+  it('does not let low-HR slower efforts project past nearby high-HR efforts', () => {
+    const adjusted = adjustBestEffortsToRaceHR([
+      { durationSecs: 1200, paceSecPerKm: 240, avgHR: 185, date: '2026-06-01', activityId: 1 },
+      { durationSecs: 1200, paceSecPerKm: 300, avgHR: 140, date: '2026-06-02', activityId: 2 },
+    ], 195)
+    const raceLike = adjusted.find(p => p.activityId === 1)!
+    const easy = adjusted.find(p => p.activityId === 2)!
+
+    expect(raceLike.paceSecPerKm).toBe(240)
+    expect(easy.paceSecPerKm).toBe(300)
+    expect(easy.adjustmentReason).toBeUndefined()
   })
 
   it('lets faster shorter efforts improve weaker longer durations without worsening the source', () => {

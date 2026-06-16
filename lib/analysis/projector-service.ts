@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../supabase'
 import {
-  adjustBestEffortToRaceHR,
+  adjustBestEffortsToRaceHR,
   fitCriticalPace,
   type CPFitResult,
   type BestEffortPoint,
@@ -62,7 +62,7 @@ export async function fitForAthlete(
     date: String(d.activity_start_date).slice(0, 10),
     activityId: d.activity_id,
     weight: analysisWeightForActivity(activitiesById.get(d.activity_id)),
-  })).map(point => adjustBestEffortToRaceHR(point, maxHr))
+  }))
 
   const totalPoints: BestEffortPoint[] = (activities ?? [])
     .filter((activity: any) => !activity.excluded_from_analysis)
@@ -71,17 +71,17 @@ export async function fitForAthlete(
     .map((activity: any) => {
       const isRace = activity.is_race || activity.run_type === 'race'
       const baseWeight = analysisWeightForActivity(activity)
-      return adjustBestEffortToRaceHR({
+      return {
         durationSecs: activity.moving_time,
         paceSecPerKm: activity.moving_time / (activity.distance / 1000),
         avgHR: activity.average_heartrate,
         date: String(activity.start_date).slice(0, 10),
         activityId: activity.id,
         weight: baseWeight * (isRace ? RACE_TOTAL_POINT_WEIGHT : 1),
-      }, maxHr)
+      }
     })
 
-  const points = [...cachedPoints, ...totalPoints]
+  const points = adjustBestEffortsToRaceHR([...cachedPoints, ...totalPoints], maxHr)
   return fitCriticalPace(points)
 }
 

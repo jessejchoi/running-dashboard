@@ -82,6 +82,8 @@ function linspace(min: number, max: number, n: number): number[] {
 const SUBMAXIMAL_EFFORT_PENALTY = 1
 const CAPABILITY_MISS_PENALTY = 1_000_000
 const RIEGEL_EXPONENT = 1.06
+const HR_ADJUSTMENT_COMPETITIVE_BPM = 8
+const HR_CONTEXT_DURATION_RATIO = 1.25
 
 export function targetRaceHRForDuration(
   durationSecs: number,
@@ -98,9 +100,9 @@ export function targetRaceHRForDuration(
 
 function maxHrImprovementFraction(durationSecs: number): number {
   if (durationSecs < 180) return 0
-  if (durationSecs <= 600) return 0.20
-  if (durationSecs <= 2700) return 0.25
-  return 0.30
+  if (durationSecs <= 600) return 0.15
+  if (durationSecs <= 2700) return 0.20
+  return 0.25
 }
 
 export function adjustBestEffortToRaceHR(
@@ -132,6 +134,45 @@ export function adjustBestEffortToRaceHR(
     adjustedPaceSecPerKm: adjustedPace,
     adjustmentReason: `HR ${point.avgHR.toFixed(0)}→${targetHR.toFixed(0)} bpm`,
   }
+}
+
+function isNearbyDuration(aSecs: number, bSecs: number): boolean {
+  const ratio = Math.max(aSecs, bSecs) / Math.max(1, Math.min(aSecs, bSecs))
+  return ratio <= HR_CONTEXT_DURATION_RATIO
+}
+
+function canUseHRAdjustment(point: BestEffortPoint, nearby: BestEffortPoint[]): boolean {
+  if (point.avgHR == null || point.avgHR <= 0) return false
+
+  const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
+  const pointsWithHr = nearby.filter(p => p.avgHR != null && p.avgHR > 0)
+  if (pointsWithHr.length <= 1) return true
+
+  const highestHR = Math.max(...pointsWithHr.map(p => p.avgHR!))
+  if (point.avgHR >= highestHR - HR_ADJUSTMENT_COMPETITIVE_BPM) return true
+
+  const fastestObservedPace = Math.min(...nearby.map(p => p.observedPaceSecPerKm ?? p.paceSecPerKm))
+  return observedPace <= fastestObservedPace
+}
+
+export function adjustBestEffortsToRaceHR(
+  points: BestEffortPoint[],
+  maxHr: number = DEFAULT_MAX_HR,
+): BestEffortPoint[] {
+  return points.map(point => {
+    const nearby = points.filter(other => isNearbyDuration(point.durationSecs, other.durationSecs))
+    if (!canUseHRAdjustment(point, nearby)) {
+      const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
+      return {
+        ...point,
+        paceSecPerKm: observedPace,
+        observedPaceSecPerKm: observedPace,
+        adjustedPaceSecPerKm: observedPace,
+        adjustmentReason: undefined,
+      }
+    }
+    return adjustBestEffortToRaceHR(point, maxHr)
+  })
 }
 
 function projectPaceToDuration(sourcePace: number, sourceSecs: number, targetSecs: number): number {

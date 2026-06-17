@@ -19,6 +19,14 @@ import { analysisWeightForActivity } from '@/lib/run-classification'
 const DEFAULT_WINDOW_DAYS = 60
 const RECENT_CONDITIONS_DAYS = 7
 const RACE_TOTAL_POINT_WEIGHT = 200
+const QUALITY_TOTAL_RUN_TYPES = new Set(['threshold', 'tempo', 'long_progressive'])
+
+function shouldUseTotalActivityPoint(activity: any): boolean {
+  if (activity.is_race || activity.run_type === 'race') return true
+  if (activity.moving_time > 5400) return true
+  if (!QUALITY_TOTAL_RUN_TYPES.has(activity.run_type)) return false
+  return activity.moving_time >= 1200 && activity.distance >= 5000
+}
 
 export interface ProjectAthleteResult {
   fit: CPFitResult
@@ -44,7 +52,6 @@ export async function fitForAthlete(
       .eq('athlete_id', athleteId)
       .maybeSingle(),
   ])
-  if (!data?.length) return null
   const maxHr = userProfile?.max_hr ?? DEFAULT_MAX_HR
 
   const { data: activities } = await supabaseAdmin
@@ -55,7 +62,7 @@ export async function fitForAthlete(
     .gte('start_date', cutoffISO)
   const activitiesById = new Map((activities ?? []).map((activity: any) => [activity.id, activity]))
 
-  const cachedPoints: BestEffortPoint[] = data.map((d: any) => ({
+  const cachedPoints: BestEffortPoint[] = (data ?? []).map((d: any) => ({
     durationSecs: d.duration_secs,
     paceSecPerKm: d.best_pace_sec_per_km,
     avgHR: d.avg_hr,
@@ -67,7 +74,7 @@ export async function fitForAthlete(
   const totalPoints: BestEffortPoint[] = (activities ?? [])
     .filter((activity: any) => !activity.excluded_from_analysis)
     .filter((activity: any) => activity.distance > 0 && activity.moving_time >= 180)
-    .filter((activity: any) => activity.is_race || activity.run_type === 'race' || activity.moving_time > 5400)
+    .filter(shouldUseTotalActivityPoint)
     .map((activity: any) => {
       const isRace = activity.is_race || activity.run_type === 'race'
       const baseWeight = analysisWeightForActivity(activity)

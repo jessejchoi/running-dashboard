@@ -135,20 +135,20 @@ export default async function DashboardRaceSection({
               const regressed = delta != null && delta > 0
               const idealSecs = extras[key]?.idealSecs ?? null
               const todaySecs = extras[key]?.todaySecs ?? null
-              // Only show the ideal line when (a) we have both numbers and
+              // Only show the current line when (a) we have both numbers and
               // (b) they differ by more than 5s — same number with rounding noise
               // would just be visual clutter.
-              const showIdeal = idealSecs != null && todaySecs != null && Math.abs(todaySecs - idealSecs) > 5
+              const showCurrent = idealSecs != null && todaySecs != null && Math.abs(todaySecs - idealSecs) > 5
               return (
                 <div key={key} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.875rem' }}>
                   <p className="font-mono text-xs uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
                   <p className="stat-num text-xl font-bold leading-none" style={{ color: estimates[key] ? '#f0f0f0' : 'var(--text-muted)' }}>
                     {estimates[key] ? formatDuration(estimates[key]!) : '—'}
                   </p>
-                  {showIdeal && (
+                  {showCurrent && (
                     <p className="font-mono text-[10px] mt-1.5 leading-none" style={{ color: 'var(--text-muted)' }}>
-                      <span style={{ color: 'var(--text-3, #6b7280)' }}>ideal</span>{' '}
-                      <span style={{ color: '#a1a1aa' }}>{formatDuration(idealSecs)}</span>
+                      <span style={{ color: 'var(--text-3, #6b7280)' }}>current</span>{' '}
+                      <span style={{ color: '#a1a1aa' }}>{formatDuration(todaySecs)}</span>
                     </p>
                   )}
                   {delta != null && (

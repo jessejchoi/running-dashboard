@@ -255,10 +255,10 @@ export async function getAthleteAnalysis(
     }
     if (projection) {
       currentEstimates = {
-        '5k':  projection.projections.find(p => p.distanceKey === '5k')?.todaySecs  ?? null,
-        '10k': projection.projections.find(p => p.distanceKey === '10k')?.todaySecs ?? null,
-        'hm':  projection.projections.find(p => p.distanceKey === 'hm')?.todaySecs  ?? null,
-        'fm':  projection.projections.find(p => p.distanceKey === 'fm')?.todaySecs  ?? null,
+        '5k':  projection.projections.find(p => p.distanceKey === '5k')?.idealSecs  ?? null,
+        '10k': projection.projections.find(p => p.distanceKey === '10k')?.idealSecs ?? null,
+        'hm':  projection.projections.find(p => p.distanceKey === 'hm')?.idealSecs  ?? null,
+        'fm':  projection.projections.find(p => p.distanceKey === 'fm')?.idealSecs  ?? null,
       }
       snapshotExtras = {}
       for (const p of projection.projections) {

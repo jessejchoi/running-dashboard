@@ -14,6 +14,7 @@ import {
   getAthleteAnalysis,
   sourceCountsByDistance,
 } from '@/lib/analysis/service'
+import { isCPEngineEnabled } from '@/lib/analysis/projector-service'
 
 async function getRaceData(athleteId: number) {
   // Single snapshot query serves dual purpose:
@@ -38,8 +39,9 @@ async function getRaceData(athleteId: number) {
   let confidence: Record<string, number> = {}
   let sourceCounts: Record<string, Record<string, number>> = {}
   let extras: Record<string, TodaysExtras> = extrasFromSnapshot
+  const shouldRefreshEstimates = isCPEngineEnabled()
 
-  if (cachedKeys.length >= 2) {
+  if (!shouldRefreshEstimates && cachedKeys.length >= 2) {
     // Use today's cached estimates — skip the heavy analysis engine
     estimates = {
       '5k':  todaySnaps['5k']  ?? null,

@@ -20,9 +20,10 @@ import { getAthleteAnalysis } from '@/lib/analysis/service'
  */
 export async function updateLatestEstimates(athleteId: number): Promise<void> {
   try {
-    const { currentEstimates: estimates } = await getAthleteAnalysis(athleteId, {
+    const analysis = await getAthleteAnalysis(athleteId, {
       activityColumns: '*',
     })
+    const { currentEstimates: estimates } = analysis
 
     await supabaseAdmin
       .from('user_latest_estimates')
@@ -36,7 +37,7 @@ export async function updateLatestEstimates(athleteId: number): Promise<void> {
       }, { onConflict: 'athlete_id' })
 
     // Keep estimate_snapshots up to date for delta tracking (week/month/quarter)
-    await saveSnapshot(athleteId, estimates)
+    await saveSnapshot(athleteId, estimates, analysis.snapshotExtras ?? undefined)
   } catch (err) {
     console.error(`[updateLatestEstimates] athlete ${athleteId}:`, err)
   }

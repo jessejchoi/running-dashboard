@@ -132,5 +132,5 @@ export async function projectAthleteRaceTimes(
 
 export function isCPEngineEnabled(): boolean {
   const v = process.env.USE_CP_ENGINE
-  return v === 'true' || v === '1'
+  return v !== 'false' && v !== '0'
 }

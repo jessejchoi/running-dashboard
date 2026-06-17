@@ -12,10 +12,10 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { analyzeAllAndCombine } from '@/lib/analysis'
 import { saveSnapshot } from '@/lib/estimateSnapshots'
-import { ANALYSIS_RUN_TYPES, DISTANCE_KEYS } from '@/lib/analysis/constants'
-import { currentEstimatesFromResult } from '@/lib/analysis/service'
+import { DISTANCE_KEYS } from '@/lib/analysis/constants'
+import { getAthleteAnalysis } from '@/lib/analysis/service'
+import { isCPEngineEnabled } from '@/lib/analysis/projector-service'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -65,52 +65,18 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 
   // Members with ≥2 distances already cached are considered fresh
-  const needsAnalysis = memberIds.filter(id => {
-    const cached = result[id] ? Object.keys(result[id]).length : 0
-    return cached < 2
-  })
+  const needsAnalysis = isCPEngineEnabled()
+    ? memberIds
+    : memberIds.filter(id => {
+      const cached = result[id] ? Object.keys(result[id]).length : 0
+      return cached < 2
+    })
 
   if (needsAnalysis.length > 0) {
-    // Batch fetch all activity data for members needing analysis — one query per type
-    const [
-      { data: intervalRuns },
-      { data: thresholdRuns },
-      { data: longRuns },
-      { data: easyRuns },
-      { data: recentRuns },
-      { data: raceRuns },
-      { data: profiles },
-    ] = await Promise.all([
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.intervals).order('start_date', { ascending: false }).limit(needsAnalysis.length * 20),
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.threshold).order('start_date', { ascending: false }).limit(needsAnalysis.length * 20),
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.long).order('start_date', { ascending: false }).limit(needsAnalysis.length * 15),
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).in('run_type', ANALYSIS_RUN_TYPES.easy).order('start_date', { ascending: false }).limit(needsAnalysis.length * 30),
-      supabaseAdmin.from('activities').select('start_date,run_type,distance,athlete_id').in('athlete_id', needsAnalysis).order('start_date', { ascending: false }).limit(needsAnalysis.length * 200),
-      supabaseAdmin.from('activities').select('*').in('athlete_id', needsAnalysis).eq('is_race', true).order('start_date', { ascending: false }).limit(needsAnalysis.length * 10),
-      supabaseAdmin.from('user_profiles').select('athlete_id, max_hr').in('athlete_id', needsAnalysis),
-    ])
-
-    const maxHrMap: Record<number, number> = Object.fromEntries(
-      (profiles ?? []).map(p => [p.athlete_id, (p.max_hr as number | null) ?? 195])
-    )
-
-    // Run analysis per member (CPU-only after the batch fetches above)
     for (const memberId of needsAnalysis) {
       try {
-        const memberIntervals  = (intervalRuns  ?? []).filter(r => r.athlete_id === memberId)
-        const memberThreshold  = (thresholdRuns ?? []).filter(r => r.athlete_id === memberId)
-        const memberLong       = (longRuns      ?? []).filter(r => r.athlete_id === memberId)
-        const memberEasy       = (easyRuns      ?? []).filter(r => r.athlete_id === memberId)
-        const memberRecent     = (recentRuns    ?? []).filter(r => r.athlete_id === memberId)
-        const memberRaces      = (raceRuns      ?? []).filter(r => r.athlete_id === memberId)
-        const maxHr            = maxHrMap[memberId] ?? 195
-
-        const analysis = analyzeAllAndCombine(
-          memberIntervals, memberThreshold, memberLong, memberEasy,
-          memberRaces, maxHr, memberRecent,
-        )
-
-        const estimates = currentEstimatesFromResult(analysis)
+        const analysis = await getAthleteAnalysis(memberId, { activityColumns: '*' })
+        const estimates = analysis.currentEstimates
         for (const dk of DISTANCE_KEYS) {
           if (estimates[dk]) {
             result[memberId] ??= {}
@@ -118,7 +84,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           }
         }
 
-        await saveSnapshot(memberId, estimates)
+        await saveSnapshot(memberId, estimates, analysis.snapshotExtras ?? undefined)
       } catch {
         // Skip member if analysis fails
       }

@@ -64,4 +64,22 @@ describe('project', () => {
     expect(fiveK.raceDaySecs).toBeGreaterThan(fiveK.idealSecs)
     expect(fiveK.todaySecs).toBeGreaterThan(fiveK.idealSecs)
   })
+
+  it('does not apply cardiac-drift durability penalties to 5K or 10K', () => {
+    const projections = project({
+      fit,
+      features: {
+        ...features,
+        drift: { avgDriftPct: 10, avgExcessDriftPct: 6, sampleSize: 6 },
+      },
+      currentConditions: null,
+    })
+    const fiveK = projections.find(p => p.distanceKey === '5k')!
+    const tenK = projections.find(p => p.distanceKey === '10k')!
+    const half = projections.find(p => p.distanceKey === 'hm')!
+
+    expect(fiveK.modifiers.driftMultiplier).toBe(1)
+    expect(tenK.modifiers.driftMultiplier).toBe(1)
+    expect(half.modifiers.driftMultiplier).toBeGreaterThan(1)
+  })
 })

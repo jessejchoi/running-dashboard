@@ -87,6 +87,7 @@ function endurancePenalty(longestRunKm: number, key: DistanceKey): number {
 
 function driftMultiplier(avgExcessPct: number | null, key: DistanceKey): number {
   if (avgExcessPct == null || avgExcessPct <= 0) return 1
+  if (key === '5k' || key === '10k') return 1
   const cap = key === 'fm' ? 0.08 : key === 'hm' ? 0.05 : 0.02
   const perPct = key === 'fm' ? 0.015 : key === 'hm' ? 0.010 : 0.003
   return 1 + Math.min(cap, avgExcessPct * perPct)

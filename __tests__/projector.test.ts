@@ -82,4 +82,21 @@ describe('project', () => {
     expect(tenK.modifiers.driftMultiplier).toBe(1)
     expect(half.modifiers.driftMultiplier).toBeGreaterThan(1)
   })
+
+  it('does not make current conditions slower than a same-condition direct race anchor', () => {
+    const projections = project({
+      fit,
+      features,
+      currentConditions: { wbgtApproxC: 25 },
+      raceAnchors: [{
+        distanceKey: '10k',
+        observedSecs: 49 * 60 + 21,
+        conditions: { wbgtApproxC: 25 },
+      }],
+    })
+    const tenK = projections.find(p => p.distanceKey === '10k')!
+
+    expect(tenK.todaySecs).toBeLessThanOrEqual(49 * 60 + 21)
+    expect(tenK.idealSecs).toBeLessThan(tenK.todaySecs)
+  })
 })

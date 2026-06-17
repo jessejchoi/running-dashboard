@@ -7,7 +7,9 @@ import {
 } from './criticalPace'
 import { loadAthleteFeatures, type AthleteFeatures } from './features'
 import { DEFAULT_MAX_HR } from './physiology'
-import { project, type DistanceProjection, type AmbientHint } from './projector'
+import { project, type DistanceProjection, type AmbientHint, type ProvenRaceAnchor } from './projector'
+import { riegelProject } from './riegel'
+import { distanceKm, type DistanceKey } from '@/lib/goals'
 import { analysisWeightForActivity } from '@/lib/run-classification'
 
 /**
@@ -20,6 +22,12 @@ const DEFAULT_WINDOW_DAYS = 60
 const RECENT_CONDITIONS_DAYS = 7
 const RACE_TOTAL_POINT_WEIGHT = 200
 const QUALITY_TOTAL_RUN_TYPES = new Set(['threshold', 'tempo', 'long_progressive'])
+const RACE_DISTANCE_TOLERANCE: Record<DistanceKey, number> = {
+  '5k': 0.08,
+  '10k': 0.08,
+  'hm': 0.06,
+  'fm': 0.04,
+}
 
 function shouldUseTotalActivityPoint(activity: any): boolean {
   if (activity.is_race || activity.run_type === 'race') return true
@@ -33,6 +41,18 @@ export interface ProjectAthleteResult {
   features: AthleteFeatures
   currentConditions: AmbientHint | null
   projections: DistanceProjection[]
+}
+
+function canonicalRaceDistanceKey(activityKm: number): DistanceKey | null {
+  let best: { key: DistanceKey; gap: number } | null = null
+  for (const key of ['5k', '10k', 'hm', 'fm'] as DistanceKey[]) {
+    const targetKm = distanceKm(key)
+    const gap = Math.abs(activityKm / targetKm - 1)
+    if (gap <= RACE_DISTANCE_TOLERANCE[key] && (!best || gap < best.gap)) {
+      best = { key, gap }
+    }
+  }
+  return best?.key ?? null
 }
 
 export async function fitForAthlete(
@@ -123,17 +143,91 @@ export async function loadRecentTypicalConditions(athleteId: number): Promise<Am
   }
 }
 
+export async function loadRecentRaceAnchors(
+  athleteId: number,
+  windowDays: number = DEFAULT_WINDOW_DAYS,
+): Promise<ProvenRaceAnchor[]> {
+  const cutoffISO = new Date(Date.now() - windowDays * 86_400_000).toISOString()
+  const { data: races } = await supabaseAdmin
+    .from('activities')
+    .select('id, distance, moving_time')
+    .eq('athlete_id', athleteId)
+    .eq('type', 'Run')
+    .gte('start_date', cutoffISO)
+    .or('is_race.eq.true,run_type.eq.race')
+    .neq('excluded_from_analysis', true)
+  if (!races?.length) return []
+
+  const ids = races.map((race: any) => race.id)
+  const [{ data: conditions }, { data: raceBestEfforts }] = await Promise.all([
+    supabaseAdmin
+      .from('activity_conditions')
+      .select('activity_id, temp_c, wbgt_approx_c')
+      .in('activity_id', ids),
+    supabaseAdmin
+      .from('activity_best_efforts')
+      .select('activity_id, duration_secs, best_pace_sec_per_km')
+      .in('activity_id', ids),
+  ])
+  const conditionsById = new Map((conditions ?? []).map((row: any) => [row.activity_id, row]))
+  const bestEffortsByActivityId = new Map<number, any[]>()
+  for (const effort of raceBestEfforts ?? []) {
+    const activityId = effort.activity_id as number
+    bestEffortsByActivityId.set(activityId, [
+      ...(bestEffortsByActivityId.get(activityId) ?? []),
+      effort,
+    ])
+  }
+
+  const bestByDistance = new Map<DistanceKey, ProvenRaceAnchor>()
+  for (const race of races) {
+    if (!race.distance || !race.moving_time) continue
+    const activityKm = race.distance / 1000
+    const key = canonicalRaceDistanceKey(activityKm)
+    if (!key) continue
+
+    const targetKm = distanceKm(key)
+    const totalObservedSecs = riegelProject(race.moving_time, activityKm, targetKm)
+    const segmentObservedSecs = (bestEffortsByActivityId.get(race.id) ?? [])
+      .map((effort: any) => {
+        const effortKm = effort.duration_secs / effort.best_pace_sec_per_km
+        if (effortKm < targetKm * 0.85 || effortKm > targetKm * 1.20) return null
+        return riegelProject(effort.duration_secs, effortKm, targetKm)
+      })
+      .filter((secs: number | null): secs is number => secs != null && Number.isFinite(secs))
+      .sort((a: number, b: number) => a - b)[0]
+    const observedSecs = Math.min(totalObservedSecs, segmentObservedSecs ?? Infinity)
+    const condition = conditionsById.get(race.id)
+    const anchor: ProvenRaceAnchor = {
+      distanceKey: key,
+      observedSecs,
+      conditions: condition ? {
+        tempC: condition.temp_c,
+        wbgtApproxC: condition.wbgt_approx_c,
+      } : null,
+    }
+
+    const current = bestByDistance.get(key)
+    if (!current || anchor.observedSecs < current.observedSecs) {
+      bestByDistance.set(key, anchor)
+    }
+  }
+
+  return Array.from(bestByDistance.values())
+}
+
 export async function projectAthleteRaceTimes(
   athleteId: number,
   windowDays: number = DEFAULT_WINDOW_DAYS,
 ): Promise<ProjectAthleteResult | null> {
-  const [fit, features, currentConditions] = await Promise.all([
+  const [fit, features, currentConditions, raceAnchors] = await Promise.all([
     fitForAthlete(athleteId, windowDays),
     loadAthleteFeatures(athleteId, windowDays),
     loadRecentTypicalConditions(athleteId),
+    loadRecentRaceAnchors(athleteId, windowDays),
   ])
   if (!fit) return null
-  const projections = project({ fit, features, currentConditions })
+  const projections = project({ fit, features, currentConditions, raceAnchors })
   return { fit, features, currentConditions, projections }
 }
 

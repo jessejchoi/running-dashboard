@@ -25,6 +25,13 @@ export interface ProjectionInput {
   features: AthleteFeatures
   currentConditions?: AmbientHint | null
   raceConditions?: AmbientHint | null
+  raceAnchors?: ProvenRaceAnchor[]
+}
+
+export interface ProvenRaceAnchor {
+  distanceKey: DistanceKey
+  observedSecs: number
+  conditions?: AmbientHint | null
 }
 
 export interface DistanceProjection {
@@ -120,7 +127,7 @@ const DISTANCES: { key: DistanceKey; m: number }[] = [
 ]
 
 export function project(input: ProjectionInput): DistanceProjection[] {
-  const { fit, features, currentConditions, raceConditions } = input
+  const { fit, features, currentConditions, raceConditions, raceAnchors = [] } = input
   const out: DistanceProjection[] = []
 
   for (const { key, m } of DISTANCES) {
@@ -132,11 +139,26 @@ export function project(input: ProjectionInput): DistanceProjection[] {
     const todayFormMult = formMultiplier(features.form.status, true)
     const raceHeatMult  = raceConditions ? heatMultiplier(raceConditions.wbgtApproxC, key) : null
 
-    const idealSecs   = baseSecs * enduranceMult * driftMult * todayFormMult
-    const todaySecs   = idealSecs * todayHeatMult
-    const raceDaySecs = raceHeatMult != null
+    let idealSecs   = baseSecs * enduranceMult * driftMult * todayFormMult
+    let todaySecs   = idealSecs * todayHeatMult
+    let raceDaySecs = raceHeatMult != null
       ? idealSecs * raceHeatMult
       : null
+
+    const anchor = raceAnchors
+      .filter(a => a.distanceKey === key)
+      .sort((a, b) => a.observedSecs - b.observedSecs)[0]
+    if (anchor) {
+      const anchorHeatMult = heatMultiplier(anchor.conditions?.wbgtApproxC, key)
+      const anchoredIdealSecs = anchor.observedSecs / anchorHeatMult
+      const anchoredTodaySecs = anchoredIdealSecs * todayHeatMult
+
+      idealSecs = Math.min(idealSecs, anchoredIdealSecs)
+      todaySecs = Math.min(todaySecs, anchoredTodaySecs)
+      if (raceHeatMult != null) {
+        raceDaySecs = Math.min(raceDaySecs ?? Infinity, anchoredIdealSecs * raceHeatMult)
+      }
+    }
 
     const bandPct = bandPercent(fit, features)
     const p50 = todaySecs

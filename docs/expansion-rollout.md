@@ -80,3 +80,17 @@ Fixture previews were exercised at 375×812 and 1440×1000. Checked race editing
 Private API responses use no-store. Client navigation does not retain five-minute copies of mutable goals and plans; expensive estimator results remain cached by data/model version in PostgreSQL. The OAuth entry route is forced dynamic and tested for unique state values.
 
 The “What changed?” recap and a dedicated progress-beyond-pace feature remain follow-ups, as scoped in the approved plan.
+
+## Group estimate refresh and Strava notifications
+
+Group Goals now refreshes missing or invalidated member estimates lazily, in batches of at most two analyses. Refresh jobs use database leases and the model/data version. A cache awaiting recomputation is labeled as updating, separately from a completed calculation with insufficient evidence. Existing group members do not need to sign in individually to populate their estimates.
+
+Strava activity notifications provide updates shortly after uploads, edits, and deletions, with the existing daily cron retained as a recovery path. The callback acknowledges after saving an idempotent job; Vercel's `waitUntil` continues processing after the response. Jobs respect Strava quota pauses and resume through the existing worker. New work is selected ahead of archive jobs before the database row limit. Event reconciliation fetches the current Strava activity, verifies its owner, preserves manual classifications/exclusions, and handles out-of-order delivery. Revocation events cannot remove credentials from a later reconnect.
+
+After deploying, register the callback once with:
+
+```sh
+npx vite-node --config vitest.config.ts scripts/register-strava-webhook.ts https://running-dashboard-three.vercel.app
+```
+
+The command uses the configured Strava app credentials, verifies the live callback, and leaves any different existing subscription untouched. Callback and verification tokens are separately derived from the server-only Strava client secret; do not share the full callback URL. Rotating that secret requires replacing the subscription through Strava. No database migration or more frequent Vercel cron plan is required. Failed deliveries remain durable jobs; retries can be delayed by quota limits or until the next worker invocation.

@@ -43,7 +43,35 @@ export default function GroupPageClient({
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
-  const memberEstimates = initialMemberEstimates
+  const [memberEstimates, setMemberEstimates] = useState(initialMemberEstimates)
+  const [pendingEstimates, setPendingEstimates] = useState(() => members.filter(m => !(m.athlete_id in initialMemberEstimates)).map(m => m.athlete_id))
+  const [estimateError, setEstimateError] = useState(false)
+
+  useEffect(() => {
+    if (tab !== 'goals') return
+    let cancelled = false, inFlight = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    async function refresh() {
+      if (inFlight || cancelled) return
+      clearTimeout(timer)
+      inFlight = true
+      try {
+        const r = await fetch(`/api/groups/${group.id}/estimates`)
+        if (!r.ok) throw new Error('Unable to refresh')
+        const data = await r.json()
+        if (cancelled) return
+        setMemberEstimates(data.estimates)
+        setPendingEstimates(data.pendingAthleteIds)
+        setEstimateError(false)
+        if (data.pendingAthleteIds.length) timer = setTimeout(refresh, 5000)
+      } catch {
+        if (!cancelled) { setEstimateError(true); timer = setTimeout(refresh, 30000) }
+      } finally { inFlight = false }
+    }
+    void refresh()
+    window.addEventListener('rundash:refresh', refresh)
+    return () => { cancelled = true; clearTimeout(timer); window.removeEventListener('rundash:refresh', refresh) }
+  }, [group.id, tab])
 
   // Group name rename
   const [groupName, setGroupName] = useState(group.name)
@@ -186,11 +214,15 @@ export default function GroupPageClient({
 
       {/* ── Goals tab ─────────────────────────────────────────────────────── */}
       {tab === 'goals' && (
+        <>
+        {estimateError && <p role="status" className="text-sm text-[var(--warning)] mb-3">Could not update estimates. Retrying shortly.</p>}
         <GroupGoalsTab
           members={localMembers}
           memberEstimates={memberEstimates}
           myAthleteId={myAthleteId}
+          pendingAthleteIds={pendingEstimates}
         />
+        </>
       )}
 
 

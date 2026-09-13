@@ -21,6 +21,7 @@ interface Props {
   members: Member[]
   memberEstimates: Record<number, Record<string, number>>
   myAthleteId: number
+  pendingAthleteIds?: number[]
 }
 
 function formatPace(secs: number) {
@@ -32,6 +33,7 @@ export default function GroupGoalsTab({
   members,
   memberEstimates,
   myAthleteId,
+  pendingAthleteIds = [],
 }: Props) {
   const { unit } = useUnit()
 
@@ -162,7 +164,7 @@ export default function GroupGoalsTab({
                         {goal.result_secs
                           ? 'Recorded race result'
                           : currentSecs == null
-                            ? 'Insufficient current evidence'
+                            ? pendingAthleteIds.includes(member.athlete_id) ? 'Updating estimate…' : 'Insufficient current evidence'
                             : currentSecs > goal.target_secs
                               ? `${formatPace(currentSecs - goal.target_secs)} from target`
                               : 'Estimate meets target; race result still to come.'}

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "evaluate:personalization": "vite-node --config vitest.config.ts scripts/evaluate-personalization.ts",
     "evaluate:estimates": "vite-node --config vitest.config.ts scripts/evaluate-estimates.ts",
     "export:evaluation": "vite-node --config vitest.config.ts scripts/export-evaluation.ts",
     "typecheck": "tsc --noEmit"

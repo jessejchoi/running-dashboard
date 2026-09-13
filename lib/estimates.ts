@@ -75,7 +75,7 @@ export async function loadEstimates(
         asOf: new Date().toISOString(),
         modelVersion: version,
         explanation: p
-          ? 'Six months of performance evidence with 40% of the capped HR adjustment and no synthetic effort transfers. Observed heat is removed before usual-condition heat is applied once. Race constraints use official results or measured elapsed efforts; modest terrain corrections use the recorded grade profile. Recent training load still uses 60 days. This model revision is not a change in fitness. Range is an estimate, not a calibrated probability.'
+          ? (p.explanation ? p.explanation + ' ' : '') + 'Six months of performance evidence with 40% of the capped HR adjustment and no synthetic effort transfers. Observed heat is removed before usual-condition heat is applied once. Race constraints use official results or measured elapsed efforts; modest terrain corrections use the recorded grade profile. Recent training load still uses 60 days. Raw drift from hot or unknown conditions does not add a finish-time penalty. This model revision is not a change in fitness. Range is an estimate, not a calibrated probability.'
           : 'Insufficient evidence for this distance.',
       }
     })

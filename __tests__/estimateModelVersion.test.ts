@@ -26,7 +26,7 @@ it('recomputes same-day old-model values and writes the new version', async () =
   cached=cache('cp-today-v1')
   const result=await loadEstimates(1)
   expect(getAthleteAnalysis).toHaveBeenCalledOnce()
-  expect(result.modelVersion).toBe('cp-evidence6m-v3')
+  expect(result.modelVersion).toBe('cp-weatherdrift-v4')
   expect(result.estimates[0].expectedSecs).toBe(1200)
   expect(result.estimates[0].explanation).toContain('40%')
   expect(supabaseAdmin.rpc).toHaveBeenCalledWith('commit_estimates',expect.objectContaining({p_bundle:expect.objectContaining({modelVersion:CP_MODEL_VERSION})}))
@@ -38,7 +38,7 @@ it('reuses fresh values from the same model and data version', async () => {
   expect(supabaseAdmin.rpc).not.toHaveBeenCalled()
 })
 it('keeps the observed-estimator flag separate from the CP calibration', () => {
-  expect(activeModelVersion()).toBe('cp-evidence6m-v3')
+  expect(activeModelVersion()).toBe('cp-weatherdrift-v4')
   vi.stubEnv('EXPECTED_ESTIMATOR_ENABLED','true')
   expect(activeModelVersion()).toBe(EXPECTED_MODEL_VERSION)
 })

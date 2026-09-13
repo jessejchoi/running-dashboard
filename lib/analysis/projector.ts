@@ -2,6 +2,7 @@ import { type CPFitResult, predictTimeForDistance } from './criticalPace'
 import { type AthleteFeatures, type FormStatus } from './features'
 import { type DistanceKey } from '../goals'
 import { performanceHeatMultiplier, RACE_DISTANCE_METERS } from './performanceEvidence'
+import { projectMarathon, type RaceCalibration, type MarathonProjection } from './personalization'
 
 /**
  * Race projector. Single physiological model in, race-time bands out.
@@ -27,6 +28,8 @@ export interface ProjectionInput {
   currentConditions?: AmbientHint | null
   raceConditions?: AmbientHint | null
   raceAnchors?: ProvenRaceAnchor[]
+  calibration?: Partial<Record<DistanceKey, RaceCalibration>>
+  useMarathonEndurance?: boolean
 }
 
 export interface ProvenRaceAnchor {
@@ -55,9 +58,13 @@ export interface DistanceProjection {
     heatMultiplier: number
     formMultiplier: number
     bandPct: number
+    calibrationMultiplier?: number
   }
   confidence: 'high' | 'medium' | 'low'
   supportingRace?: ProvenRaceAnchor
+  calibration?: RaceCalibration
+  marathon?: MarathonProjection
+  explanation?: string
 }
 
 function heatMultiplier(wbgtC: number | null | undefined, key: DistanceKey): number {
@@ -119,22 +126,40 @@ export function project(input: ProjectionInput): DistanceProjection[] {
 
   for (const { key, m } of DISTANCES) {
     const baseSecs = predictTimeForDistance(fit, m)
+    const anchor = raceAnchors.filter(a => a.distanceKey === key).sort((a, b) => normalizedAnchor(a) - normalizedAnchor(b))[0]
 
-    const enduranceMult = endurancePenalty(features.endurance.longestRunKm, key)
-    const driftMult     = driftMultiplier(features.drift.avgExcessDriftPct, key)
+    let enduranceMult = endurancePenalty(features.endurance.longestRunKm, key)
+    let driftMult = driftMultiplier(features.drift.weatherQualified ? features.drift.penaltyExcessDriftPct ?? null : features.drift.avgExcessDriftPct, key)
     const todayHeatMult = heatMultiplier(currentConditions?.wbgtApproxC, key)
     const todayFormMult = formMultiplier(features.form.status, true)
     const raceHeatMult  = raceConditions ? heatMultiplier(raceConditions.wbgtApproxC, key) : null
 
-    let idealSecs   = baseSecs * enduranceMult * driftMult * todayFormMult
+    let idealSecs = baseSecs * enduranceMult * driftMult * todayFormMult
+    const calibration = input.calibration?.[key]
+    const calibrationMult = calibration?.multiplier ?? 1
+    let marathon: MarathonProjection | null = null
+    if (key === 'fm' && input.useMarathonEndurance) {
+      const half = out.find(p => p.distanceKey === 'hm')
+      marathon = half && features.marathonTraining ? projectMarathon(half.idealSecs, features.marathonTraining) : null
+      if (marathon) {
+        if (half?.confidence === 'low') marathon.confidence = 'low'
+        idealSecs = marathon.idealSecs
+        enduranceMult = idealSecs / (baseSecs * todayFormMult)
+        driftMult = 1 // HM capability already includes its supported drift/form.
+      } else {
+        // No hidden old-model fallback under the new marathon version.
+        if (!anchor) continue
+        idealSecs = normalizedAnchor(anchor)
+        enduranceMult = 1
+        driftMult = 1
+      }
+    }
+    idealSecs *= calibrationMult
     let todaySecs   = idealSecs * todayHeatMult
     let raceDaySecs = raceHeatMult != null
       ? idealSecs * raceHeatMult
       : null
 
-    const anchor = raceAnchors
-      .filter(a => a.distanceKey === key)
-      .sort((a, b) => normalizedAnchor(a) - normalizedAnchor(b))[0]
     if (anchor) {
       const anchoredIdealSecs = normalizedAnchor(anchor)
       const anchoredTodaySecs = anchoredIdealSecs * todayHeatMult
@@ -146,12 +171,16 @@ export function project(input: ProjectionInput): DistanceProjection[] {
       }
     }
 
-    const bandPct = bandPercent(fit, features)
+    const unsupportedDrift = features.drift.weatherQualified && features.drift.penaltyExcessDriftPct == null
+    const bandPct = Math.max(bandPercent(fit, features), marathon?.bandPct ?? 0,
+      unsupportedDrift && key === 'hm' ? 0.08 : unsupportedDrift && key === 'fm' ? 0.15 : 0)
     const p50 = todaySecs
     const p80SecsLow  = p50 * (1 - bandPct)
     const p80SecsHigh = p50 * (1 + bandPct)
 
     const confidence: 'high' | 'medium' | 'low' =
+      marathon ? marathon.confidence :
+      unsupportedDrift && (key === 'hm' || key === 'fm') ? 'low' :
       fit.fitQuality === 'high' && features.aerobic.points.length >= 4 ? 'high' :
       fit.fitQuality !== 'low' ? 'medium' : 'low'
 
@@ -171,8 +200,12 @@ export function project(input: ProjectionInput): DistanceProjection[] {
         heatMultiplier:      todayHeatMult,
         formMultiplier:      todayFormMult,
         bandPct,
+        calibrationMultiplier: calibrationMult,
       },
       confidence,
+      ...(calibration ? { calibration } : {}),
+      ...(marathon ? { marathon } : {}),
+      explanation: [(key === 'hm' || key === 'fm') ? features.drift.reason : undefined, calibration?.reason, marathon?.reason].filter(Boolean).join(' '),
       ...(anchor ? { supportingRace: anchor } : {}),
     })
   }

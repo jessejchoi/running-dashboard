@@ -1,6 +1,6 @@
 import { AEROBIC_SLOPE, DEFAULT_MAX_HR } from './physiology'
 
-export const CP_MODEL_VERSION = 'cp-evidence6m-v3'
+export const CP_MODEL_VERSION = 'cp-weatherdrift-v4'
 export const HR_ADJUSTMENT_FRACTION = 0.4
 
 /**

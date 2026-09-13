@@ -1,16 +1,14 @@
 import { supabaseAdmin } from '../supabase'
 import {
-  adjustBestEffortsToRaceHR,
-  fitCriticalPace,
   type CPFitResult,
-  type BestEffortPoint,
 } from './criticalPace'
 import { loadAthleteFeatures, type AthleteFeatures } from './features'
 import { DEFAULT_MAX_HR } from './physiology'
 import { project, type DistanceProjection, type AmbientHint, type ProvenRaceAnchor } from './projector'
-import { raceClockEvidence, performanceCutoff, performanceHeatMultiplier, type EvidenceStreams, RACE_DISTANCE_METERS } from './performanceEvidence'
-import { distanceKm, type DistanceKey } from '@/lib/goals'
-import { analysisWeightForActivity } from '@/lib/run-classification'
+import { raceClockEvidence, performanceCutoff, type EvidenceStreams, RACE_DISTANCE_METERS } from './performanceEvidence'
+import { canonicalRaceDistanceKey, fitPerformanceCorpus } from './cpCorpus'
+import { raceCalibrationEnabled, marathonEnduranceEnabled } from './personalization'
+import { loadAthleteCalibration } from './calibration-service'
 
 /**
  * Orchestrates the new race-time engine: CP fit + features + conditions →
@@ -43,22 +41,6 @@ async function conditionsFor(athleteId: number, ids: number[]): Promise<Map<numb
   return byId
 }
 const RECENT_CONDITIONS_DAYS = 7
-const RACE_TOTAL_POINT_WEIGHT = 200
-const QUALITY_TOTAL_RUN_TYPES = new Set(['threshold', 'tempo', 'long_progressive'])
-const RACE_DISTANCE_TOLERANCE: Record<DistanceKey, number> = {
-  '5k': 0.08,
-  '10k': 0.08,
-  'hm': 0.06,
-  'fm': 0.04,
-}
-
-function shouldUseTotalActivityPoint(activity: any): boolean {
-  if (activity.is_race || activity.run_type === 'race') return true
-  if (activity.moving_time > 5400) return true
-  if (!QUALITY_TOTAL_RUN_TYPES.has(activity.run_type)) return false
-  return activity.moving_time >= 1200 && activity.distance >= 5000
-}
-
 export interface ProjectAthleteResult {
   fit: CPFitResult
   features: AthleteFeatures
@@ -66,23 +48,12 @@ export interface ProjectAthleteResult {
   projections: DistanceProjection[]
 }
 
-function canonicalRaceDistanceKey(activityKm: number): DistanceKey | null {
-  let best: { key: DistanceKey; gap: number } | null = null
-  for (const key of ['5k', '10k', 'hm', 'fm'] as DistanceKey[]) {
-    const targetKm = distanceKm(key)
-    const gap = Math.abs(activityKm / targetKm - 1)
-    if (gap <= RACE_DISTANCE_TOLERANCE[key] && (!best || gap < best.gap)) {
-      best = { key, gap }
-    }
-  }
-  return best?.key ?? null
-}
-
 export async function fitForAthlete(
   athleteId: number,
   windowDays?: number,
+  asOf = new Date(),
 ): Promise<CPFitResult | null> {
-  const asOf = new Date(), cutoffISO = performanceCutoff(asOf, windowDays)
+  const cutoffISO = performanceCutoff(asOf, windowDays)
   const [data, activities, profile] = await Promise.all([
     pages(() => supabaseAdmin.from('activity_best_efforts')
       .select('duration_secs, best_pace_sec_per_km, avg_hr, activity_start_date, activity_id')
@@ -96,42 +67,8 @@ export async function fitForAthlete(
   ])
   if (profile.error) throw new Error(`Performance profile read failed: ${profile.error.code}`)
   const maxHr = profile.data?.max_hr ?? DEFAULT_MAX_HR
-  const included = activities.filter(a => !a.excluded_from_analysis)
-  const activitiesById = new Map(included.map(a => [a.id, a]))
-  const conditions = await conditionsFor(athleteId, included.map(a => a.id))
-  const cachedPoints: BestEffortPoint[] = data.filter(d => activitiesById.has(d.activity_id)).map(d => ({
-    durationSecs: d.duration_secs,
-    paceSecPerKm: d.best_pace_sec_per_km,
-    avgHR: d.avg_hr,
-    date: String(d.activity_start_date).slice(0, 10),
-    activityId: d.activity_id,
-    weight: analysisWeightForActivity(activitiesById.get(d.activity_id)),
-  }))
-  const totalPoints: BestEffortPoint[] = included.filter(shouldUseTotalActivityPoint).flatMap(activity => {
-    const race = activity.is_race || activity.run_type === 'race'
-    // Official times are tied to the event distance, not excess GPS distance.
-    const canonical = race ? canonicalRaceDistanceKey(activity.distance / 1000) : null
-    const seconds = race ? activity.official_result_secs ?? activity.elapsed_time : activity.moving_time
-    const meters = activity.official_result_secs && canonical ? RACE_DISTANCE_METERS[canonical] : activity.distance
-    if (!(meters > 0) || !(seconds >= 180)) return []
-    return [{ durationSecs: seconds, paceSecPerKm: seconds / (meters / 1000), avgHR: activity.average_heartrate,
-      date: String(activity.start_date).slice(0, 10), activityId: activity.id,
-      weight: analysisWeightForActivity(activity) * (race ? RACE_TOTAL_POINT_WEIGHT : 1) }]
-  })
-  // Normalize each observed effort to cool conditions before fitting. Keep the
-  // observed distance unchanged, and retain one point per original duration so
-  // weather-adjusted timestamps don't let overlapping segments dominate the fit.
-  const bestByDuration = new Map<number, BestEffortPoint>()
-  for (const point of adjustBestEffortsToRaceHR([...cachedPoints, ...totalPoints], maxHr)) {
-    if (!(point.paceSecPerKm > 0) || !Number.isFinite(point.paceSecPerKm)) continue
-    const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
-    const meters = point.durationSecs / observedPace * 1000
-    const heat = performanceHeatMultiplier(conditions.get(point.activityId)?.wbgt_approx_c, meters)
-    const normalized = { ...point, observedDurationSecs: point.durationSecs, durationSecs: point.durationSecs / heat, paceSecPerKm: point.paceSecPerKm / heat, adjustedPaceSecPerKm: point.paceSecPerKm / heat }
-    const previous = bestByDuration.get(point.durationSecs)
-    if (!previous || normalized.paceSecPerKm < previous.paceSecPerKm) bestByDuration.set(point.durationSecs, normalized)
-  }
-  return fitCriticalPace(Array.from(bestByDuration.values()))
+  const conditions = await conditionsFor(athleteId, activities.filter(a => !a.excluded_from_analysis).map(a => a.id))
+  return fitPerformanceCorpus({ runs: activities, efforts: data, conditions, maxHr }, asOf, windowDays)
 }
 
 /**
@@ -203,14 +140,16 @@ export async function projectAthleteRaceTimes(
   athleteId: number,
   windowDays?: number,
 ): Promise<ProjectAthleteResult | null> {
-  const [fit, features, currentConditions, raceAnchors] = await Promise.all([
-    fitForAthlete(athleteId, windowDays),
-    loadAthleteFeatures(athleteId, RECENT_TRAINING_DAYS),
+  const asOf = new Date()
+  const [fit, features, currentConditions, raceAnchors, calibration] = await Promise.all([
+    fitForAthlete(athleteId, windowDays, asOf),
+    loadAthleteFeatures(athleteId, RECENT_TRAINING_DAYS, asOf),
     loadRecentTypicalConditions(athleteId),
     loadRecentRaceAnchors(athleteId, windowDays),
+    raceCalibrationEnabled() ? loadAthleteCalibration(athleteId, asOf) : Promise.resolve(undefined),
   ])
   if (!fit) return null
-  const projections = project({ fit, features, currentConditions, raceAnchors })
+  const projections = project({ fit, features, currentConditions, raceAnchors, calibration, useMarathonEndurance: marathonEnduranceEnabled() })
   return { fit, features, currentConditions, projections }
 }
 

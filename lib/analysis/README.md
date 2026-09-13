@@ -28,7 +28,7 @@ import { ANALYSIS_RUN_TYPES } from '@/lib/analysis/constants'
 
 ## Current CP calibration
 
-`criticalPace.ts` exports `CP_MODEL_VERSION` (`cp-evidence6m-v3`) and the retained HR
+`criticalPace.ts` exports `CP_MODEL_VERSION` (`cp-weatherdrift-v4`) and the retained HR
 adjustment fraction (0.4). Each eligible effort keeps 40% of its original capped
 pace reduction, before duration selection and fitting. Reapplying the adjustment
 starts from observed pace, so gains do not compound. The default envelope selects
@@ -69,3 +69,58 @@ is not proof of unchanged fitness after illness, injury or detraining.
 briefings. The optional observed estimator remains independently gated. Historical
 evaluation of `cp-today-v1` explicitly requests full HR adjustment and legacy
 synthetic transfers; production callers use the new defaults.
+
+
+## Weather-qualified drift and personal calibration
+
+`qualifiedDrift.ts` keeps the original raw/excess HR drift for context. Finish-time
+penalties require at least three easy/steady outdoor runs with known WBGT ≤18°C,
+consistent pacing and recorded mild terrain. The median eligible excess drift
+feeds the existing distance-specific penalty. Hot, indoor, unknown-weather,
+variable-pace and unsupported-terrain readings do not become cool-condition
+endurance penalties. With insufficient eligible readings the central drift
+multiplier is 1, but uncertainty increases (at least ±8% HM / ±15% marathon),
+and long-distance confidence is low. This is missing evidence, not proof of
+excellent endurance. Thresholds and intervals are heuristics, not calibrated
+probabilities; the algorithm cannot identify dehydration from run summaries.
+
+The regular training-feature loader pages summaries/splits over 98 days to cover
+12 complete Jakarta weeks, then restricts aerobic/form/drift features back to
+60 days. It never enriches archive streams. `cpCorpus.ts` is the shared pure fit
+used by both live estimates and exclusive pre-race replays. Historical legacy
+evaluation still calls the unchanged raw `extractDrift` directly.
+
+`RACE_CALIBRATION_ENABLED=true` adds `-race1` to the model/cache version. The
+calibration loader reads at most 12 months of cached summaries, splits and effort
+rows in bounded pages, then replays at most 12 recent qualifying races locally.
+Each prediction sees only earlier activities. Personal residuals are specific to
+each race distance, deduplicated by activity, recency-weighted (90-day half-life),
+robustly combined and shrunk toward neutral using four pseudo-observations. Log
+residuals are capped at ±0.10. Official/full elapsed results are equality labels
+only when recorded Strava perceived exertion is 9–10; unknown/lower effort can
+only demonstrate faster capability. Missing weather or unsupported course
+profiles are excluded from calibration. Measured fastest-distance segments stay
+demonstrated-performance constraints and never become equality calibration labels.
+The calibration uses a pre-constraint core prediction and applies its correction
+before the current demonstrated-race constraint. For marathon calibration the
+pre-race replay includes the half-marathon correction known at that time.
+
+`MARATHON_ENDURANCE_ENABLED=true` adds `-marathon1`. Its candidate model starts
+from the projected half-marathon and estimates additional distance-related
+fatigue using 12 complete local weeks: average distance, consistent weeks,
+repeated 90/120-minute runs, 25/30-km runs, and late-run pace fade from at least three comparable cool, steady, flat runs of 90+ minutes. Missing pace-fade evidence widens uncertainty rather than inventing a pace penalty. Separate runs on the same date are
+never merged into a long run. Missing weeks remain zeros; insufficient history
+returns no candidate. Marathon drift/form/longest-run penalties are not stacked
+on this second model. The explicit fatigue-exponent coefficients are hypotheses
+requiring held-out validation; they are not published Vickers coefficients.
+The research motivates evaluating volume plus prior performance, not those exact
+weights: https://doi.org/10.1186/s13102-016-0052-y.
+
+Both new switches default off and remain off after the September 13 evaluation:
+seven recorded races yielded insufficient qualified historical prediction pairs.
+Run `npm run evaluate:personalization -- corpus.json report.json` to reevaluate.
+The report separates chronological training/held-out data, distance, evidence
+quality and optimistic/absolute error. No athlete targets are training labels.
+The weather bug fix is deployed independently. Estimate bundle persistence,
+existing leased estimate workers and data-version checks also cover calibration;
+there is no extra schema, per-race network loop or new Strava request.

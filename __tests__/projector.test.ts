@@ -124,3 +124,36 @@ describe('demonstrated performances after all modifiers', () => {
     expect(half.idealSecs).toBeCloseTo(6834 / 0.98)
   })
 })
+
+describe('personalized projections', () => {
+  it('moves unsupported drift to uncertainty without changing short-distance times', () => {
+    const legacy = project({ fit, features })
+    const qualified = project({ fit, features: { ...features, drift: { ...features.drift, weatherQualified: true, penaltyExcessDriftPct: null, qualifiedSampleSize: 0 } } })
+    expect(qualified[0].todaySecs).toBe(legacy[0].todaySecs)
+    expect(qualified[1].todaySecs).toBe(legacy[1].todaySecs)
+    expect(qualified[2].modifiers.driftMultiplier).toBe(1)
+    expect(qualified[2].modifiers.bandPct).toBeGreaterThanOrEqual(0.08)
+    expect(qualified[2].confidence).toBe('low')
+  })
+  it('applies same-distance calibration once, before demonstrated-race constraints', () => {
+    const base = project({ fit, features })[1]
+    const calibrated = project({ fit, features, calibration: { '10k': { multiplier: 0.98, sampleSize: 3, effectiveWeight: 2, evidence: [], reason: 'test' } } })[1]
+    expect(calibrated.idealSecs).toBeCloseTo(base.idealSecs * 0.98)
+    const constrained = project({ fit, features, calibration: { '10k': { multiplier: 1.02, sampleSize: 3, effectiveWeight: 2, evidence: [], reason: 'test' } }, raceAnchors: [{ distanceKey: '10k', observedSecs: base.idealSecs * 0.99 }] })[1]
+    expect(constrained.idealSecs).toBeCloseTo(base.idealSecs * 0.99)
+  })
+  it('uses half-marathon capability for marathon endurance without stacking old marathon penalties', () => {
+    const result = project({ fit, features: { ...features, marathonTraining: { weeks: 12, coveredWeeks: 12, weeklyKm: Array(12).fill(70), averageWeeklyKm: 70, consistentWeeks: 12, runsOver90Mins: 12, runsOver120Mins: 6, runsOver25Km: 4, runsOver30Km: 2, supportingActivityIds: [] } }, useMarathonEndurance: true })
+    expect(result[3].modifiers.driftMultiplier).toBe(1)
+    expect(result[3].idealSecs).toBeCloseTo(result[2].idealSecs * 2 ** 1.1)
+    expect(result[3].marathon).toBeDefined()
+  })
+})
+
+it('does not silently publish the old marathon when the enabled candidate has insufficient training', () => {
+  const result = project({ fit, features, useMarathonEndurance: true })
+  expect(result.find(p => p.distanceKey === 'fm')).toBeUndefined()
+  const withRace = project({ fit, features, useMarathonEndurance: true, raceAnchors: [{ distanceKey: 'fm', observedSecs: 14000 }] })
+  expect(withRace.find(p => p.distanceKey === 'fm')?.idealSecs).toBe(14000)
+  expect(withRace.find(p => p.distanceKey === 'fm')?.marathon).toBeUndefined()
+})

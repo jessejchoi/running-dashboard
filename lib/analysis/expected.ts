@@ -5,6 +5,7 @@ import {
   type BestEffortPoint,
 } from './criticalPace'
 import { type DistanceKey, distanceKm } from '@/lib/goals'
+import { personalizationVersion } from './personalization'
 import { analysisWeightForActivity } from '@/lib/run-classification'
 
 export const DEFAULT_CALIBRATION = { huberDelta: 0.15, raceWeight: 0.9 }
@@ -13,7 +14,7 @@ export function expectedEstimatorEnabled() {
   return process.env.EXPECTED_ESTIMATOR_ENABLED === 'true'
 }
 export function activeModelVersion() {
-  return expectedEstimatorEnabled() ? EXPECTED_MODEL_VERSION : CP_MODEL_VERSION
+  return expectedEstimatorEnabled() ? EXPECTED_MODEL_VERSION : CP_MODEL_VERSION + personalizationVersion()
 }
 export interface ExpectedEstimate {
   distanceKey: DistanceKey

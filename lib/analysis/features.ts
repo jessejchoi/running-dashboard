@@ -55,6 +55,13 @@ export interface DriftFeature {
   /** Average drift in excess of normal aerobic decay. Positive = fading. */
   avgExcessDriftPct: number | null
   sampleSize: number
+  weatherQualified?: boolean
+  penaltyExcessDriftPct?: number | null
+  qualifiedSampleSize?: number
+  longRunPaceFadePct?: number | null
+  longRunPaceSampleSize?: number
+  evidenceActivityIds?: number[]
+  reason?: string
 }
 
 export interface AthleteFeatures {
@@ -63,9 +70,12 @@ export interface AthleteFeatures {
   form: FormFeature
   drift: DriftFeature
   windowDays: number
+  marathonTraining?: import('./personalization').MarathonTraining
 }
 
-interface RunRow {
+export interface RunRow {
+  total_elevation_gain?: number | null
+  is_race?: boolean | null
   id: number
   start_date: string
   distance: number
@@ -76,7 +86,7 @@ interface RunRow {
   splits: any[] | null
   laps: any[] | null
   run_type: string | null
-  raw: any
+  raw?: any
   excluded_from_analysis: boolean | null
 }
 
@@ -258,24 +268,33 @@ export function extractDrift(runs: RunRow[]): DriftFeature {
 export async function loadAthleteFeatures(
   athleteId: number,
   windowDays: number = 60,
+  asOf = new Date(),
 ): Promise<AthleteFeatures> {
   const { supabaseAdmin } = await import('../supabase')
-  const cutoffISO = new Date(Date.now() - windowDays * 86_400_000).toISOString()
-  const { data } = await supabaseAdmin
-    .from('activities')
-    .select('id, start_date, distance, moving_time, average_speed, average_heartrate, suffer_score, splits, laps, run_type, raw, excluded_from_analysis')
-    .eq('athlete_id', athleteId)
-    .eq('type', 'Run')
-    .gte('start_date', cutoffISO)
-    .order('start_date', { ascending: true })
-
-  const runs = (data ?? []) as RunRow[]
-
+  const { extractQualifiedDrift } = await import('./qualifiedDrift')
+  const { marathonTraining } = await import('./personalization')
+  const cutoffISO = new Date(asOf.getTime() - Math.max(98, windowDays) * 86_400_000).toISOString()
+  const rows: RunRow[] = []
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await supabaseAdmin.from('activities')
+      .select('id, start_date, distance, moving_time, average_speed, average_heartrate, suffer_score, splits, laps, run_type, trainer:raw->trainer, sport_type:raw->sport_type, excluded_from_analysis, total_elevation_gain, is_race')
+      .eq('athlete_id', athleteId).eq('type', 'Run').gte('start_date', cutoffISO).lt('start_date', asOf.toISOString())
+      .order('start_date').order('id').range(offset, offset + 499)
+    if (error) throw new Error(`Training evidence read failed: ${error.code}`)
+    rows.push(...(data ?? []))
+    if (!data || data.length < 500) break
+  }
+  const runs = rows.filter(r => Date.parse(r.start_date) >= asOf.getTime() - windowDays * 86400000)
+  const conditions = new Map<number, number | null>()
+  for (let offset = 0; offset < runs.length; offset += 200) {
+    const { data, error } = await supabaseAdmin.from('activity_conditions').select('activity_id, wbgt_approx_c')
+      .eq('athlete_id', athleteId).in('activity_id', runs.slice(offset, offset + 200).map(r => r.id))
+    if (!error) for (const row of data ?? []) conditions.set(row.activity_id, row.wbgt_approx_c)
+  }
+  const drift = extractQualifiedDrift(runs, conditions)
   return {
-    aerobic: extractAerobic(runs),
-    endurance: extractEndurance(runs, windowDays),
-    form: extractForm(runs),
-    drift: extractDrift(runs),
-    windowDays,
+    aerobic: extractAerobic(runs), endurance: extractEndurance(runs, windowDays),
+    form: extractForm(runs, asOf.getTime()), drift,
+    marathonTraining: marathonTraining(rows, asOf, 'Asia/Jakarta', drift), windowDays,
   }
 }

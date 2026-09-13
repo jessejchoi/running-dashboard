@@ -1,4 +1,5 @@
 import {
+  CP_MODEL_VERSION,
   fitCriticalPace,
   predictTimeForDistance,
   type BestEffortPoint,
@@ -12,7 +13,7 @@ export function expectedEstimatorEnabled() {
   return process.env.EXPECTED_ESTIMATOR_ENABLED === 'true'
 }
 export function activeModelVersion() {
-  return expectedEstimatorEnabled() ? EXPECTED_MODEL_VERSION : 'cp-today-v1'
+  return expectedEstimatorEnabled() ? EXPECTED_MODEL_VERSION : CP_MODEL_VERSION
 }
 export interface ExpectedEstimate {
   distanceKey: DistanceKey

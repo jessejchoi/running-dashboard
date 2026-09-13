@@ -1,5 +1,8 @@
 import { AEROBIC_SLOPE, DEFAULT_MAX_HR } from './physiology'
 
+export const CP_MODEL_VERSION = 'cp-hr40-v2'
+export const HR_ADJUSTMENT_FRACTION = 0.4
+
 /**
  * 3-parameter critical-pace model (Morton 1996, adapted for running).
  *
@@ -108,6 +111,7 @@ function maxHrImprovementFraction(durationSecs: number): number {
 export function adjustBestEffortToRaceHR(
   point: BestEffortPoint,
   maxHr: number = DEFAULT_MAX_HR,
+  retainedFraction: number = HR_ADJUSTMENT_FRACTION,
 ): BestEffortPoint {
   const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
   const base: BestEffortPoint = {
@@ -125,14 +129,16 @@ export function adjustBestEffortToRaceHR(
 
   const projectedPace = observedPace + AEROBIC_SLOPE * hrGap
   const capPace = observedPace * (1 - maxHrImprovementFraction(point.durationSecs))
-  const adjustedPace = Math.min(observedPace, Math.max(projectedPace, capPace))
+  const cappedPace = Math.min(observedPace, Math.max(projectedPace, capPace))
+  // Scale the final capped pace gain, not the slope or the predicted race time.
+  const adjustedPace = observedPace - retainedFraction * (observedPace - cappedPace)
 
   if (adjustedPace >= observedPace) return base
   return {
     ...base,
     paceSecPerKm: adjustedPace,
     adjustedPaceSecPerKm: adjustedPace,
-    adjustmentReason: `HR ${point.avgHR.toFixed(0)}→${targetHR.toFixed(0)} bpm`,
+    adjustmentReason: `${Math.round(retainedFraction * 100)}% of capped HR adjustment (${point.avgHR.toFixed(0)}→${targetHR.toFixed(0)} bpm)`,
   }
 }
 
@@ -158,6 +164,7 @@ function canUseHRAdjustment(point: BestEffortPoint, nearby: BestEffortPoint[]): 
 export function adjustBestEffortsToRaceHR(
   points: BestEffortPoint[],
   maxHr: number = DEFAULT_MAX_HR,
+  retainedFraction: number = HR_ADJUSTMENT_FRACTION,
 ): BestEffortPoint[] {
   return points.map(point => {
     const nearby = points.filter(other => isNearbyDuration(point.durationSecs, other.durationSecs))
@@ -171,7 +178,7 @@ export function adjustBestEffortsToRaceHR(
         adjustmentReason: undefined,
       }
     }
-    return adjustBestEffortToRaceHR(point, maxHr)
+    return adjustBestEffortToRaceHR(point, maxHr, retainedFraction)
   })
 }
 
@@ -186,7 +193,9 @@ function transferForDurationGap(sourceSecs: number, targetSecs: number): number 
   return Math.exp(-Math.max(0, gap - freeGap))
 }
 
-export function buildCapabilityEnvelope(points: BestEffortPoint[]): BestEffortPoint[] {
+/** Select existing effort points; cross-duration transfers are only retained for
+ * explicitly requested historical evaluation of cp-today-v1. */
+export function buildCapabilityEnvelope(points: BestEffortPoint[], legacySyntheticTransfers = false): BestEffortPoint[] {
   const bestByDuration = new Map<number, BestEffortPoint>()
   for (const point of points) {
     const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
@@ -205,6 +214,7 @@ export function buildCapabilityEnvelope(points: BestEffortPoint[]): BestEffortPo
 
   const envelope = Array.from(bestByDuration.values())
     .sort((a, b) => a.durationSecs - b.durationSecs)
+  if (!legacySyntheticTransfers) return envelope
   const sources = envelope.map(point => ({ ...point }))
 
   for (const source of sources) {
@@ -247,10 +257,10 @@ export function buildCapabilityEnvelope(points: BestEffortPoint[]): BestEffortPo
  *
  * Grid resolution is set so even on a hot path the fit runs in <10ms.
  */
-export function fitCriticalPace(points: BestEffortPoint[], observedOnly = false, huberDelta = 0.15): CPFitResult | null {
+export function fitCriticalPace(points: BestEffortPoint[], observedOnly = false, huberDelta = 0.15, options: { legacySyntheticTransfers?: boolean } = {}): CPFitResult | null {
   if (points.length < 3) return null
 
-  const envelope = observedOnly ? [...points].sort((a, b) => a.durationSecs - b.durationSecs) : buildCapabilityEnvelope(points)
+  const envelope = observedOnly ? [...points].sort((a, b) => a.durationSecs - b.durationSecs) : buildCapabilityEnvelope(points, options.legacySyntheticTransfers)
   if (envelope.length < 3) return null
 
   const fitPoints = envelope.filter(p => p.durationSecs >= 180)

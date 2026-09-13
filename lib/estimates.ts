@@ -71,7 +71,7 @@ export async function loadEstimates(
         asOf: new Date().toISOString(),
         modelVersion: version,
         explanation: p
-          ? 'Existing critical-pace model in usual conditions. Observed-effort calibration is awaiting validation. Range is an estimate, not a calibrated probability.'
+          ? 'Critical-pace model with synthetic effort adjustments removed and 40% of the capped HR pace adjustment retained, in usual conditions. This model revision is not a change in fitness. Range is an estimate, not a calibrated probability.'
           : 'Insufficient evidence for this distance.',
       }
     })

@@ -25,3 +25,17 @@ Use submodules for infrastructure:
 import { getAthleteAnalysis } from '@/lib/analysis/service'
 import { ANALYSIS_RUN_TYPES } from '@/lib/analysis/constants'
 ```
+
+## Current CP calibration
+
+`criticalPace.ts` exports `CP_MODEL_VERSION` (`cp-hr40-v2`) and the retained HR
+adjustment fraction (0.4). Each eligible effort keeps 40% of its original capped
+pace reduction, before duration selection and fitting. Reapplying the adjustment
+starts from observed pace, so gains do not compound. The default envelope selects
+existing fastest-duration points without synthetic cross-duration transfers.
+The asymmetric fitting objective and projector modifiers are unchanged.
+
+`expected.ts` supplies the active version to caches, jobs, snapshots and group
+briefings. The optional observed estimator remains independently gated. Historical
+evaluation of `cp-today-v1` explicitly requests full HR adjustment and legacy
+synthetic transfers; production callers use the new defaults.

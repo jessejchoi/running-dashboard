@@ -88,7 +88,12 @@ export function evaluateCorpus(
           avgHR: (run as any).average_heartrate,
         })
       const fit = fitCriticalPace(
-        adjustBestEffortsToRaceHR(points, athlete.maxHr ?? 195),
+        // Freeze the comparator to cp-today-v1 instead of silently changing
+        // past evaluation reports whenever production calibration changes.
+        adjustBestEffortsToRaceHR(points, athlete.maxHr ?? 195, 1),
+        false,
+        0.15,
+        { legacySyntheticTransfers: true },
       )
       const raceAnchors = prior
         .filter((r) => r.is_race || r.run_type === 'race')

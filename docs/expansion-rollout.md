@@ -12,7 +12,7 @@ No production migration, reconnect, feature flag change, or deployment is perfor
 
 ## Estimator meaning and gate
 
-The default `cp-today-v1` compatibility path publishes the existing projector's `todaySecs` instead of `idealSecs`. The gated `expected-observed-v1` path uses observed sustained efforts, balanced Huber fitting, per-activity weights, and official/full elapsed race results. It excludes easy-run HR speed conversions and synthetic capability points. A recent same-distance confirmed race is calibration evidence, not a license to choose the faster model. Endurance evidence and uncertainty are distance-specific. Current fitness uses the previous 60 days; archive history cannot masquerade as current fitness.
+The default `cp-hr40-v2` compatibility path publishes the projector's `todaySecs`. It removes synthetic cross-duration effort adjustments and retains 40% of each eligible effort's final capped HR pace reduction. The curve, asymmetric fitting rule and endurance/conditions modifiers otherwise remain unchanged. This is the explicitly selected CP calibration, separate from enabling the observed estimator. The gated `expected-observed-v1` path uses observed sustained efforts, balanced Huber fitting, per-activity weights, and official/full elapsed race results. It excludes easy-run HR speed conversions and synthetic capability points. A recent same-distance confirmed race is calibration evidence, not a license to choose the faster model. Endurance evidence and uncertainty are distance-specific. Current fitness uses the previous 60 days; archive history cannot masquerade as current fitness.
 
 The expected time describes current ability in usual recent conditions. Ideal conditions are secondary. Ranges are heuristic estimates, not statistically calibrated probabilities. Missing weather applies no inferred heat benefit. Sparse marathon evidence returns insufficient evidence. Numbers, explanations, cache keys, and snapshots carry the active model version; model changes never count as training improvement.
 
@@ -94,3 +94,19 @@ npx vite-node --config vitest.config.ts scripts/register-strava-webhook.ts https
 ```
 
 The command uses the configured Strava app credentials, verifies the live callback, and leaves any different existing subscription untouched. Callback and verification tokens are separately derived from the server-only Strava client secret; do not share the full callback URL. Rotating that secret requires replacing the subscription through Strava. No database migration or more frequent Vercel cron plan is required. Failed deliveries remain durable jobs; retries can be delayed by quota limits or until the next worker invocation.
+
+## CP calibration revision, 2026-09-13
+
+`cp-hr40-v2` supersedes `cp-today-v1`. Model-version changes invalidate estimate
+bundles, group estimate reads, worker keys and group briefings. Snapshots remain
+separated by version, so this recalibration is not presented as fitness regression.
+Older snapshot rows are retained. No SQL migration or environment change is needed.
+The estimate explanation names both calibration changes.
+
+The historical evaluation comparator remains explicitly pinned to full HR
+adjustment plus synthetic transfers (`cp-today-v1`), preserving the previously
+reported gate results. The new CP calibration is user-selected; it has not passed
+a new independent multi-distance evaluation. Keep `EXPECTED_ESTIMATOR_ENABLED`
+and `AUTO_ADAPT_ENABLED` disabled as before. On release, refresh connected
+athletes' estimate bundles in bounded sequential work so group members do not
+need to sign in themselves.

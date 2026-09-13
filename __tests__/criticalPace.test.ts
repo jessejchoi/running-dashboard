@@ -28,6 +28,42 @@ const raceAnchoredTenK: BestEffortPoint[] = [
 ]
 
 describe('fitCriticalPace', () => {
+
+  it('scales the capped gain to 40% and never compounds a repeated adjustment', () => {
+    const point = { durationSecs: 1800, paceSecPerKm: 360, avgHR: 130, date: '2026-06-01', activityId: 1 }
+    // The uncapped gain exceeds 72 s/km; apply the 20% cap first, then retain 40%.
+    const once = adjustBestEffortToRaceHR(point, 195)
+    expect(once.paceSecPerKm).toBeCloseTo(331.2)
+    expect(once.observedPaceSecPerKm).toBe(360)
+    expect(once.adjustmentReason).toContain('40%')
+    expect(adjustBestEffortToRaceHR(once, 195).paceSecPerKm).toBeCloseTo(331.2)
+    expect(adjustBestEffortToRaceHR(point, 195, 1).paceSecPerKm).toBeCloseTo(288)
+  })
+
+  it('scales an uncapped gain and keeps sub-three-minute observations unchanged', () => {
+    const point = { durationSecs: 1800, paceSecPerKm: 300, avgHR: 175, date: '2026-06-01', activityId: 1 }
+    // Target 179.4 bpm: 11 s/km full gain, 4.4 s/km retained.
+    expect(adjustBestEffortsToRaceHR([point], 195)[0].paceSecPerKm).toBeCloseTo(295.6)
+    expect(adjustBestEffortToRaceHR({ ...point, durationSecs: 120 }, 195).paceSecPerKm).toBe(300)
+  })
+
+  it('selects existing fastest points without changing their origin or adding durations', () => {
+    const points = [
+      { durationSecs: 1200, paceSecPerKm: 280, avgHR: 170, date: '2026-06-01', activityId: 1 },
+      { durationSecs: 1200, paceSecPerKm: 300, avgHR: 170, date: '2026-06-02', activityId: 2 },
+      { durationSecs: 2700, paceSecPerKm: 360, date: '2026-06-02', activityId: 2 },
+      { durationSecs: 5400, paceSecPerKm: 420, date: '2026-06-03', activityId: 3 },
+    ]
+    const input = adjustBestEffortsToRaceHR(points, 195)
+    const envelope = buildCapabilityEnvelope(input)
+    expect(envelope).toHaveLength(3)
+    for (const p of envelope) expect(input).toContainEqual(p)
+    expect(envelope[0].activityId).toBe(1)
+    const current = fitCriticalPace(input)!
+    const legacy = fitCriticalPace(input, false, 0.15, { legacySyntheticTransfers: true })!
+    expect(current.rmse).toBeGreaterThan(legacy.rmse)
+  })
+
   it('adjusts low-HR efforts faster without slowing high-HR or missing-HR efforts', () => {
     const lowHr = adjustBestEffortToRaceHR({
       durationSecs: 1800,
@@ -70,7 +106,7 @@ describe('fitCriticalPace', () => {
     expect(easy.adjustmentReason).toBeUndefined()
   })
 
-  it('lets faster shorter efforts improve weaker longer durations without worsening the source', () => {
+  it('keeps observed longer efforts unchanged instead of transferring faster short efforts', () => {
     const envelope = buildCapabilityEnvelope([
       { durationSecs: 1200, paceSecPerKm: 240, date: '2026-06-01', activityId: 1 },
       { durationSecs: 2700, paceSecPerKm: 360, date: '2026-06-02', activityId: 2 },
@@ -81,17 +117,17 @@ describe('fitCriticalPace', () => {
     const long = envelope.find(p => p.durationSecs === 5400)!
 
     expect(source.paceSecPerKm).toBe(240)
-    expect(tenKish.paceSecPerKm).toBeLessThan(360)
-    expect(long.paceSecPerKm).toBeLessThan(420)
-    expect(360 - tenKish.paceSecPerKm).toBeGreaterThan(420 - long.paceSecPerKm)
+    expect(tenKish.paceSecPerKm).toBe(360)
+    expect(long.paceSecPerKm).toBe(420)
+    expect(envelope.every(p => p.adjustmentReason == null)).toBe(true)
   })
 
-  it('decays short-effort influence much more for marathon-duration estimates', () => {
+  it('retains synthetic transfers only for explicit legacy evaluation', () => {
     const envelope = buildCapabilityEnvelope([
       { durationSecs: 1200, paceSecPerKm: 240, date: '2026-06-01', activityId: 1 },
       { durationSecs: 2700, paceSecPerKm: 360, date: '2026-06-02', activityId: 2 },
       { durationSecs: 14400, paceSecPerKm: 500, date: '2026-06-02', activityId: 2 },
-    ])
+    ], true)
     const tenKish = envelope.find(p => p.durationSecs === 2700)!
     const marathonish = envelope.find(p => p.durationSecs === 14400)!
 

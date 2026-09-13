@@ -7,11 +7,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getAthleteAnalysis } from '@/lib/analysis/service'
 import { loadEstimates } from '@/lib/estimates'
 import { activeModelVersion, EXPECTED_MODEL_VERSION } from '@/lib/analysis/expected'
-import { CP_MODEL_VERSION } from '@/lib/analysis/criticalPace'
 let cached: any
 beforeEach(() => {
   vi.resetAllMocks()
   vi.stubEnv('EXPECTED_ESTIMATOR_ENABLED', 'false')
+  vi.stubEnv('RACE_CALIBRATION_ENABLED', ''); delete process.env.RACE_CALIBRATION_ENABLED
+  vi.stubEnv('MARATHON_ENDURANCE_ENABLED', ''); delete process.env.MARATHON_ENDURANCE_ENABLED
   cached = null
   vi.mocked(supabaseAdmin.from).mockImplementation(table => createQueryChain({data:table==='athlete_state'?{data_version:3}:cached,error:null}) as any)
   vi.mocked(supabaseAdmin.rpc).mockResolvedValue({data:null,error:null} as any)
@@ -23,22 +24,22 @@ function cache(version:string) {
   return {model_version:version,result_json:bundle}
 }
 it('recomputes same-day old-model values and writes the new version', async () => {
-  cached=cache('cp-today-v1')
+  cached=cache('cp-weatherdrift-v4')
   const result=await loadEstimates(1)
   expect(getAthleteAnalysis).toHaveBeenCalledOnce()
-  expect(result.modelVersion).toBe('cp-weatherdrift-v4')
+  expect(result.modelVersion).toBe('cp-weatherdrift-v4-race1')
   expect(result.estimates[0].expectedSecs).toBe(1200)
   expect(result.estimates[0].explanation).toContain('40%')
-  expect(supabaseAdmin.rpc).toHaveBeenCalledWith('commit_estimates',expect.objectContaining({p_bundle:expect.objectContaining({modelVersion:CP_MODEL_VERSION})}))
+  expect(supabaseAdmin.rpc).toHaveBeenCalledWith('commit_estimates',expect.objectContaining({p_bundle:expect.objectContaining({modelVersion:activeModelVersion()})}))
 })
 it('reuses fresh values from the same model and data version', async () => {
-  cached=cache(CP_MODEL_VERSION)
+  cached=cache(activeModelVersion())
   expect((await loadEstimates(1)).estimates[0].expectedSecs).toBe(1000)
   expect(getAthleteAnalysis).not.toHaveBeenCalled()
   expect(supabaseAdmin.rpc).not.toHaveBeenCalled()
 })
 it('keeps the observed-estimator flag separate from the CP calibration', () => {
-  expect(activeModelVersion()).toBe('cp-weatherdrift-v4')
+  expect(activeModelVersion()).toBe('cp-weatherdrift-v4-race1')
   vi.stubEnv('EXPECTED_ESTIMATOR_ENABLED','true')
   expect(activeModelVersion()).toBe(EXPECTED_MODEL_VERSION)
 })

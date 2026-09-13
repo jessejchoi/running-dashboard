@@ -2,8 +2,10 @@ import type { DistanceKey } from '@/lib/goals'
 import { RACE_DISTANCE_METERS, performanceHeatMultiplier, performanceCutoff } from './performanceEvidence'
 import { localDate, weekStart, addDays } from '@/lib/calendar'
 
-// Independent rollout switches. Enable only after chronological evaluation.
-export function raceCalibrationEnabled() { return process.env.RACE_CALIBRATION_ENABLED === 'true' }
+// Independent rollouts. Race calibration was explicitly enabled by the owner
+// after the September 13 preview; its statistical validation remains incomplete.
+// An explicit false rolls it back. Marathon endurance stays opt-in.
+export function raceCalibrationEnabled() { return (process.env.RACE_CALIBRATION_ENABLED ?? 'true') === 'true' }
 export function marathonEnduranceEnabled() { return process.env.MARATHON_ENDURANCE_ENABLED === 'true' }
 export function personalizationVersion() {
   return `${raceCalibrationEnabled() ? '-race1' : ''}${marathonEnduranceEnabled() ? '-marathon1' : ''}`

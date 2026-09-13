@@ -12,7 +12,7 @@ No production migration, reconnect, feature flag change, or deployment is perfor
 
 ## Estimator meaning and gate
 
-The default `cp-weatherdrift-v4` compatibility path publishes the projector's `todaySecs`. It removes synthetic cross-duration effort adjustments and retains 40% of each eligible effort's final capped HR pace reduction. It uses six calendar months of performance evidence, normalizes source heat before fitting, and constrains projections with official or measured elapsed race evidence. Grade-profile corrections on race constraints are modest energy-cost approximations. Recent training features retain their 60-day window; the asymmetric fitting rule is unchanged. This is the explicitly selected CP calibration, separate from enabling the observed estimator. The gated `expected-observed-v1` path uses observed sustained efforts, balanced Huber fitting, per-activity weights, and official/full elapsed race results. It excludes easy-run HR speed conversions and synthetic capability points. A recent same-distance confirmed race is calibration evidence, not a license to choose the faster model. Endurance evidence and uncertainty are distance-specific. The gated observed estimator retains its previous 60-day window; the selected CP path now uses six months as requested. Historical capability is not proof of maintained fitness after detraining.
+The default `cp-weatherdrift-v4-race1` compatibility path publishes the projector's `todaySecs`. It removes synthetic cross-duration effort adjustments and retains 40% of each eligible effort's final capped HR pace reduction. It uses six calendar months of performance evidence, normalizes source heat before fitting, and constrains projections with official or measured elapsed race evidence. Grade-profile corrections on race constraints are modest energy-cost approximations. Recent training features retain their 60-day window; the asymmetric fitting rule is unchanged. This is the explicitly selected CP calibration, separate from enabling the observed estimator. The gated `expected-observed-v1` path uses observed sustained efforts, balanced Huber fitting, per-activity weights, and official/full elapsed race results. It excludes easy-run HR speed conversions and synthetic capability points. A recent same-distance confirmed race is calibration evidence, not a license to choose the faster model. Endurance evidence and uncertainty are distance-specific. The gated observed estimator retains its previous 60-day window; the selected CP path now uses six months as requested. Historical capability is not proof of maintained fitness after detraining.
 
 The expected time describes current ability in usual recent conditions. Ideal conditions are secondary. Ranges are heuristic estimates, not statistically calibrated probabilities. Missing weather applies no inferred heat benefit. Sparse marathon evidence returns insufficient evidence. Numbers, explanations, cache keys, and snapshots carry the active model version; model changes never count as training improvement.
 
@@ -144,15 +144,20 @@ can still support a penalty. Model-version invalidation prevents this correction
 from appearing as a fitness improvement. No SQL migration is needed.
 
 New, independent switches: `RACE_CALIBRATION_ENABLED` and
-`MARATHON_ENDURANCE_ENABLED`. Both are **off**. Their model-version suffixes
-ensure future activation also invalidates snapshots, jobs, briefs and caches.
+`MARATHON_ENDURANCE_ENABLED`. Both initially shipped off. Following the
+owner’s explicit request after the four-member comparison, race calibration
+now defaults **on**; marathon endurance remains **off**. The active version is
+`cp-weatherdrift-v4-race1`. An explicit `RACE_CALIBRATION_ENABLED=false` rolls
+calibration back. Version suffixes invalidate snapshots, jobs, briefs and caches.
 The former learns modest per-distance residuals from exclusive pre-race replays;
 the latter models marathon durability from half-marathon capability and 12
 complete training weeks. These hypotheses have not passed the validation gate.
 
 The local retrospective corpus contains seven recorded races and insufficient
-usable pre-race pairs to establish held-out accuracy. Do not enable either
-switch merely to match one athlete's self-assessed target. Use
+usable pre-race pairs to establish held-out accuracy. Race calibration is an
+explicit owner-authorized override of this gate, not a validated model. It has
+no effect without qualifying personal pairs; self-assessed target times do not
+enter the fit. Marathon endurance stays disabled pending validation. Use
 `npm run evaluate:personalization -- /private/path/corpus.json /private/path/report.json`.
 Corpora contain personal activity data and must remain outside git. Entries
 contain `runs`, `efforts`, `maxHr`, and an array of `conditions` keyed by

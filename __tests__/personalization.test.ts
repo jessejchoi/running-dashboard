@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { calibrateRaceResults, marathonTraining, projectMarathon, personalizationVersion, type CalibrationObservation } from '@/lib/analysis/personalization'
+import { calibrateRaceResults, marathonTraining, projectMarathon, personalizationVersion, raceCalibrationEnabled, marathonEnduranceEnabled, type CalibrationObservation } from '@/lib/analysis/personalization'
 import { extractQualifiedDrift } from '@/lib/analysis/qualifiedDrift'
 import { raceOutcome, preRaceProjection } from '@/lib/analysis/raceCalibration'
 import { fitPerformanceCorpus } from '@/lib/analysis/cpCorpus'
@@ -92,6 +92,16 @@ describe('marathon training', () => {
     expect(projectMarathon(6300, high)!.idealSecs).toBeLessThan(projectMarathon(6300, low)!.idealSecs)
     expect(projectMarathon(6300, low)!.confidence).toBe('low')
     expect(projectMarathon(6300, high)!.bandPct).toBeLessThan(projectMarathon(6300, low)!.bandPct)
+  })
+  it('enables only race calibration by default and allows explicit rollback', () => {
+    vi.stubEnv('RACE_CALIBRATION_ENABLED', ''); delete process.env.RACE_CALIBRATION_ENABLED
+    vi.stubEnv('MARATHON_ENDURANCE_ENABLED', ''); delete process.env.MARATHON_ENDURANCE_ENABLED
+    expect(raceCalibrationEnabled()).toBe(true)
+    expect(marathonEnduranceEnabled()).toBe(false)
+    expect(personalizationVersion()).toBe('-race1')
+    vi.stubEnv('RACE_CALIBRATION_ENABLED', 'false')
+    expect(raceCalibrationEnabled()).toBe(false)
+    expect(personalizationVersion()).toBe('')
   })
   it('versions calibration and marathon rollouts independently', () => {
     vi.stubEnv('RACE_CALIBRATION_ENABLED', 'false'); vi.stubEnv('MARATHON_ENDURANCE_ENABLED', 'false')

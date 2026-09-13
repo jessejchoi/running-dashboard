@@ -90,7 +90,9 @@ The regular training-feature loader pages summaries/splits over 98 days to cover
 used by both live estimates and exclusive pre-race replays. Historical legacy
 evaluation still calls the unchanged raw `extractDrift` directly.
 
-`RACE_CALIBRATION_ENABLED=true` adds `-race1` to the model/cache version. The
+`RACE_CALIBRATION_ENABLED` now defaults to `true` at the owner’s explicit request
+after the September 13 preview, adding `-race1` to the model/cache version.
+Set it to `false` to roll back; marathon endurance remains disabled by default. The
 calibration loader reads at most 12 months of cached summaries, splits and effort
 rows in bounded pages, then replays at most 12 recent qualifying races locally.
 Each prediction sees only earlier activities. Personal residuals are specific to
@@ -116,8 +118,11 @@ requiring held-out validation; they are not published Vickers coefficients.
 The research motivates evaluating volume plus prior performance, not those exact
 weights: https://doi.org/10.1186/s13102-016-0052-y.
 
-Both new switches default off and remain off after the September 13 evaluation:
-seven recorded races yielded insufficient qualified historical prediction pairs.
+The September 13 evaluation did not validate either candidate: seven recorded
+races yielded insufficient qualified historical prediction pairs. The owner
+subsequently authorized race calibration alone; this is an explicit rollout
+override, not a passing validation result. It leaves estimates unchanged when
+there are no qualifying personal race pairs. Marathon endurance remains off.
 Run `npm run evaluate:personalization -- corpus.json report.json` to reevaluate.
 The report separates chronological training/held-out data, distance, evidence
 quality and optimistic/absolute error. No athlete targets are training labels.

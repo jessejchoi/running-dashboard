@@ -100,3 +100,27 @@ describe('project', () => {
     expect(tenK.idealSecs).toBeLessThan(tenK.todaySecs)
   })
 })
+
+describe('demonstrated performances after all modifiers', () => {
+  const slowFit = { ...fit, cv: 2.8, dPrime: 100 }
+  it('keeps same-weather estimates within the observed race despite fatigue/endurance/drift penalties', () => {
+    const half = project({ fit: slowFit, features, currentConditions: { wbgtApproxC: 22 },
+      raceAnchors: [{ distanceKey: 'hm', observedSecs: 6834, conditions: { wbgtApproxC: 22 }, terrainMultiplier: 1.018 }] }).find(p => p.distanceKey === 'hm')!
+    expect(half.todaySecs).toBeCloseTo(6834 / 1.018)
+    expect(half.idealSecs).toBeCloseTo(6834 / 1.021 / 1.018)
+  })
+  it('selects the strongest normalized evidence instead of whichever raw time is faster', () => {
+    const half = project({ fit: slowFit, features, raceAnchors: [
+      { distanceKey: 'hm', observedSecs: 6800, conditions: { wbgtApproxC: 15 }, activityId: 1 },
+      { distanceKey: 'hm', observedSecs: 6834, conditions: { wbgtApproxC: 25 }, activityId: 2 },
+    ] }).find(p => p.distanceKey === 'hm')!
+    expect(half.supportingRace?.activityId).toBe(2)
+    expect(half.idealSecs).toBeCloseTo(6834 / 1.03)
+  })
+  it('does not mistake a downhill advantage for a hill penalty', () => {
+    const half = project({ fit: slowFit, features, raceAnchors: [
+      { distanceKey: 'hm', observedSecs: 6834, terrainMultiplier: 0.98 },
+    ] }).find(p => p.distanceKey === 'hm')!
+    expect(half.idealSecs).toBeCloseTo(6834 / 0.98)
+  })
+})

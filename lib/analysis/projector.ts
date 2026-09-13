@@ -1,6 +1,7 @@
 import { type CPFitResult, predictTimeForDistance } from './criticalPace'
 import { type AthleteFeatures, type FormStatus } from './features'
 import { type DistanceKey } from '../goals'
+import { performanceHeatMultiplier, RACE_DISTANCE_METERS } from './performanceEvidence'
 
 /**
  * Race projector. Single physiological model in, race-time bands out.
@@ -32,6 +33,10 @@ export interface ProvenRaceAnchor {
   distanceKey: DistanceKey
   observedSecs: number
   conditions?: AmbientHint | null
+  terrainMultiplier?: number | null
+  activityId?: number
+  date?: string
+  source?: 'official_result' | 'full_elapsed' | 'measured_distance'
 }
 
 export interface DistanceProjection {
@@ -52,35 +57,11 @@ export interface DistanceProjection {
     bandPct: number
   }
   confidence: 'high' | 'medium' | 'low'
+  supportingRace?: ProvenRaceAnchor
 }
-
-/** WBGT baseline for ideal racing conditions. */
-const STANDARD_WBGT_C = 15
-
-/**
- * How much heat hurts at each distance, relative to the same WBGT excess at HM.
- * 5K is short enough that thermoregulation rarely becomes the limiter; FM is
- * dominated by it.
- */
-const HEAT_DISTANCE_FACTOR: Record<DistanceKey, number> = {
-  '5k': 0.35,
-  '10k': 0.60,
-  'hm':  1.00,
-  'fm':  1.25,
-}
-
-/**
- * Pace cost per °C WBGT above the standard baseline, at HM distance. Calibrated
- * to literature: ~3% cost at 22°C WBGT (= 7°C above 15) for HM → 0.003 × 7 ≈ 2%.
- * Slightly conservative; we can re-fit against real data later.
- */
-const HEAT_COST_PER_C = 0.003
 
 function heatMultiplier(wbgtC: number | null | undefined, key: DistanceKey): number {
-  if (wbgtC == null) return 1
-  const excess = wbgtC - STANDARD_WBGT_C
-  if (excess <= 0) return 1
-  return 1 + excess * HEAT_COST_PER_C * HEAT_DISTANCE_FACTOR[key]
+  return performanceHeatMultiplier(wbgtC, RACE_DISTANCE_METERS[key])
 }
 
 function endurancePenalty(longestRunKm: number, key: DistanceKey): number {
@@ -126,6 +107,12 @@ const DISTANCES: { key: DistanceKey; m: number }[] = [
   { key: 'fm',  m: 42195 },
 ]
 
+function normalizedAnchor(anchor: ProvenRaceAnchor): number {
+  const terrain = anchor.terrainMultiplier
+  const terrainMult = terrain != null && Number.isFinite(terrain) && terrain >= 0.95 && terrain <= 1.05 ? terrain : 1
+  return anchor.observedSecs / heatMultiplier(anchor.conditions?.wbgtApproxC, anchor.distanceKey) / terrainMult
+}
+
 export function project(input: ProjectionInput): DistanceProjection[] {
   const { fit, features, currentConditions, raceConditions, raceAnchors = [] } = input
   const out: DistanceProjection[] = []
@@ -147,10 +134,9 @@ export function project(input: ProjectionInput): DistanceProjection[] {
 
     const anchor = raceAnchors
       .filter(a => a.distanceKey === key)
-      .sort((a, b) => a.observedSecs - b.observedSecs)[0]
+      .sort((a, b) => normalizedAnchor(a) - normalizedAnchor(b))[0]
     if (anchor) {
-      const anchorHeatMult = heatMultiplier(anchor.conditions?.wbgtApproxC, key)
-      const anchoredIdealSecs = anchor.observedSecs / anchorHeatMult
+      const anchoredIdealSecs = normalizedAnchor(anchor)
       const anchoredTodaySecs = anchoredIdealSecs * todayHeatMult
 
       idealSecs = Math.min(idealSecs, anchoredIdealSecs)
@@ -187,6 +173,7 @@ export function project(input: ProjectionInput): DistanceProjection[] {
         bandPct,
       },
       confidence,
+      ...(anchor ? { supportingRace: anchor } : {}),
     })
   }
 

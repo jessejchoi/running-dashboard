@@ -67,11 +67,15 @@ export async function loadEstimates(
         highSecs: p?.p80SecsHigh ?? null,
         confidence: p?.confidence ?? 'low',
         status: p ? 'ready' : 'insufficient_evidence',
-        evidence: [],
+        evidence: p?.supportingRace?.activityId && p.supportingRace.date ? [{
+          activityId: p.supportingRace.activityId,
+          date: p.supportingRace.date,
+          kind: p.supportingRace.source ?? 'race',
+        }] : [],
         asOf: new Date().toISOString(),
         modelVersion: version,
         explanation: p
-          ? 'Critical-pace model with synthetic effort adjustments removed and 40% of the capped HR pace adjustment retained, in usual conditions. This model revision is not a change in fitness. Range is an estimate, not a calibrated probability.'
+          ? 'Six months of performance evidence with 40% of the capped HR adjustment and no synthetic effort transfers. Observed heat is removed before usual-condition heat is applied once. Race constraints use official results or measured elapsed efforts; modest terrain corrections use the recorded grade profile. Recent training load still uses 60 days. This model revision is not a change in fitness. Range is an estimate, not a calibrated probability.'
           : 'Insufficient evidence for this distance.',
       }
     })

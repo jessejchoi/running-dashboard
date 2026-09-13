@@ -1,6 +1,6 @@
 import { AEROBIC_SLOPE, DEFAULT_MAX_HR } from './physiology'
 
-export const CP_MODEL_VERSION = 'cp-hr40-v2'
+export const CP_MODEL_VERSION = 'cp-evidence6m-v3'
 export const HR_ADJUSTMENT_FRACTION = 0.4
 
 /**
@@ -23,6 +23,7 @@ export const HR_ADJUSTMENT_FRACTION = 0.4
 
 export interface BestEffortPoint {
   durationSecs: number
+  observedDurationSecs?: number // preserves eligibility when normalizing conditions
   paceSecPerKm: number
   date: string         // YYYY-MM-DD
   activityId: number
@@ -263,7 +264,7 @@ export function fitCriticalPace(points: BestEffortPoint[], observedOnly = false,
   const envelope = observedOnly ? [...points].sort((a, b) => a.durationSecs - b.durationSecs) : buildCapabilityEnvelope(points, options.legacySyntheticTransfers)
   if (envelope.length < 3) return null
 
-  const fitPoints = envelope.filter(p => p.durationSecs >= 180)
+  const fitPoints = envelope.filter(p => (p.observedDurationSecs ?? p.durationSecs) >= 180)
   if (fitPoints.length < 3) return null
 
   const data = fitPoints

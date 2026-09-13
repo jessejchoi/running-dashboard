@@ -8,7 +8,7 @@ import {
 import { loadAthleteFeatures, type AthleteFeatures } from './features'
 import { DEFAULT_MAX_HR } from './physiology'
 import { project, type DistanceProjection, type AmbientHint, type ProvenRaceAnchor } from './projector'
-import { riegelProject } from './riegel'
+import { raceClockEvidence, performanceCutoff, performanceHeatMultiplier, type EvidenceStreams, RACE_DISTANCE_METERS } from './performanceEvidence'
 import { distanceKm, type DistanceKey } from '@/lib/goals'
 import { analysisWeightForActivity } from '@/lib/run-classification'
 
@@ -18,7 +18,30 @@ import { analysisWeightForActivity } from '@/lib/run-classification'
  * from `activity_best_efforts` / `activity_conditions` / `activities`.
  */
 
-const DEFAULT_WINDOW_DAYS = 60
+const RECENT_TRAINING_DAYS = 60
+const PAGE_SIZE = 500
+
+// Explicit pagination avoids PostgREST's 1,000-row truncation as history grows.
+async function pages(query: () => any): Promise<any[]> {
+  const rows: any[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await query().range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw new Error(`Performance evidence read failed: ${error.code}`)
+    rows.push(...(data ?? []))
+    if (!data || data.length < PAGE_SIZE) return rows
+  }
+}
+
+async function conditionsFor(athleteId: number, ids: number[]): Promise<Map<number, any>> {
+  const byId = new Map<number, any>()
+  for (let offset = 0; offset < ids.length; offset += 200) {
+    const { data, error } = await supabaseAdmin.from('activity_conditions')
+      .select('activity_id, temp_c, wbgt_approx_c').eq('athlete_id', athleteId).in('activity_id', ids.slice(offset, offset + 200))
+    if (error) throw new Error(`Performance weather read failed: ${error.code}`)
+    for (const row of data ?? []) byId.set(row.activity_id, row)
+  }
+  return byId
+}
 const RECENT_CONDITIONS_DAYS = 7
 const RACE_TOTAL_POINT_WEIGHT = 200
 const QUALITY_TOTAL_RUN_TYPES = new Set(['threshold', 'tempo', 'long_progressive'])
@@ -57,32 +80,26 @@ function canonicalRaceDistanceKey(activityKm: number): DistanceKey | null {
 
 export async function fitForAthlete(
   athleteId: number,
-  windowDays: number = DEFAULT_WINDOW_DAYS,
+  windowDays?: number,
 ): Promise<CPFitResult | null> {
-  const cutoffISO = new Date(Date.now() - windowDays * 86_400_000).toISOString()
-  const [{ data }, { data: userProfile }] = await Promise.all([
-    supabaseAdmin
-      .from('activity_best_efforts')
+  const asOf = new Date(), cutoffISO = performanceCutoff(asOf, windowDays)
+  const [data, activities, profile] = await Promise.all([
+    pages(() => supabaseAdmin.from('activity_best_efforts')
       .select('duration_secs, best_pace_sec_per_km, avg_hr, activity_start_date, activity_id')
-      .eq('athlete_id', athleteId)
-      .gte('activity_start_date', cutoffISO),
-    supabaseAdmin
-      .from('user_profiles')
-      .select('max_hr')
-      .eq('athlete_id', athleteId)
-      .maybeSingle(),
+      .eq('athlete_id', athleteId).gte('activity_start_date', cutoffISO).lte('activity_start_date', asOf.toISOString())
+      .order('activity_id').order('duration_secs')),
+    pages(() => supabaseAdmin.from('activities')
+      .select('id, start_date, distance, moving_time, elapsed_time, official_result_secs, average_heartrate, run_type, is_race, excluded_from_analysis, trainer:raw->trainer, sport_type:raw->sport_type')
+      .eq('athlete_id', athleteId).eq('type', 'Run').gte('start_date', cutoffISO).lte('start_date', asOf.toISOString())
+      .order('start_date').order('id')),
+    supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
   ])
-  const maxHr = userProfile?.max_hr ?? DEFAULT_MAX_HR
-
-  const { data: activities } = await supabaseAdmin
-    .from('activities')
-    .select('id, start_date, distance, moving_time, average_heartrate, run_type, is_race, excluded_from_analysis, raw')
-    .eq('athlete_id', athleteId)
-    .eq('type', 'Run')
-    .gte('start_date', cutoffISO)
-  const activitiesById = new Map((activities ?? []).map((activity: any) => [activity.id, activity]))
-
-  const cachedPoints: BestEffortPoint[] = (data ?? []).map((d: any) => ({
+  if (profile.error) throw new Error(`Performance profile read failed: ${profile.error.code}`)
+  const maxHr = profile.data?.max_hr ?? DEFAULT_MAX_HR
+  const included = activities.filter(a => !a.excluded_from_analysis)
+  const activitiesById = new Map(included.map(a => [a.id, a]))
+  const conditions = await conditionsFor(athleteId, included.map(a => a.id))
+  const cachedPoints: BestEffortPoint[] = data.filter(d => activitiesById.has(d.activity_id)).map(d => ({
     durationSecs: d.duration_secs,
     paceSecPerKm: d.best_pace_sec_per_km,
     avgHR: d.avg_hr,
@@ -90,26 +107,31 @@ export async function fitForAthlete(
     activityId: d.activity_id,
     weight: analysisWeightForActivity(activitiesById.get(d.activity_id)),
   }))
-
-  const totalPoints: BestEffortPoint[] = (activities ?? [])
-    .filter((activity: any) => !activity.excluded_from_analysis)
-    .filter((activity: any) => activity.distance > 0 && activity.moving_time >= 180)
-    .filter(shouldUseTotalActivityPoint)
-    .map((activity: any) => {
-      const isRace = activity.is_race || activity.run_type === 'race'
-      const baseWeight = analysisWeightForActivity(activity)
-      return {
-        durationSecs: activity.moving_time,
-        paceSecPerKm: activity.moving_time / (activity.distance / 1000),
-        avgHR: activity.average_heartrate,
-        date: String(activity.start_date).slice(0, 10),
-        activityId: activity.id,
-        weight: baseWeight * (isRace ? RACE_TOTAL_POINT_WEIGHT : 1),
-      }
-    })
-
-  const points = adjustBestEffortsToRaceHR([...cachedPoints, ...totalPoints], maxHr)
-  return fitCriticalPace(points)
+  const totalPoints: BestEffortPoint[] = included.filter(shouldUseTotalActivityPoint).flatMap(activity => {
+    const race = activity.is_race || activity.run_type === 'race'
+    // Official times are tied to the event distance, not excess GPS distance.
+    const canonical = race ? canonicalRaceDistanceKey(activity.distance / 1000) : null
+    const seconds = race ? activity.official_result_secs ?? activity.elapsed_time : activity.moving_time
+    const meters = activity.official_result_secs && canonical ? RACE_DISTANCE_METERS[canonical] : activity.distance
+    if (!(meters > 0) || !(seconds >= 180)) return []
+    return [{ durationSecs: seconds, paceSecPerKm: seconds / (meters / 1000), avgHR: activity.average_heartrate,
+      date: String(activity.start_date).slice(0, 10), activityId: activity.id,
+      weight: analysisWeightForActivity(activity) * (race ? RACE_TOTAL_POINT_WEIGHT : 1) }]
+  })
+  // Normalize each observed effort to cool conditions before fitting. Keep the
+  // observed distance unchanged, and retain one point per original duration so
+  // weather-adjusted timestamps don't let overlapping segments dominate the fit.
+  const bestByDuration = new Map<number, BestEffortPoint>()
+  for (const point of adjustBestEffortsToRaceHR([...cachedPoints, ...totalPoints], maxHr)) {
+    if (!(point.paceSecPerKm > 0) || !Number.isFinite(point.paceSecPerKm)) continue
+    const observedPace = point.observedPaceSecPerKm ?? point.paceSecPerKm
+    const meters = point.durationSecs / observedPace * 1000
+    const heat = performanceHeatMultiplier(conditions.get(point.activityId)?.wbgt_approx_c, meters)
+    const normalized = { ...point, observedDurationSecs: point.durationSecs, durationSecs: point.durationSecs / heat, paceSecPerKm: point.paceSecPerKm / heat, adjustedPaceSecPerKm: point.paceSecPerKm / heat }
+    const previous = bestByDuration.get(point.durationSecs)
+    if (!previous || normalized.paceSecPerKm < previous.paceSecPerKm) bestByDuration.set(point.durationSecs, normalized)
+  }
+  return fitCriticalPace(Array.from(bestByDuration.values()))
 }
 
 /**
@@ -145,84 +167,45 @@ export async function loadRecentTypicalConditions(athleteId: number): Promise<Am
 
 export async function loadRecentRaceAnchors(
   athleteId: number,
-  windowDays: number = DEFAULT_WINDOW_DAYS,
+  windowDays?: number,
 ): Promise<ProvenRaceAnchor[]> {
-  const cutoffISO = new Date(Date.now() - windowDays * 86_400_000).toISOString()
-  const { data: races } = await supabaseAdmin
-    .from('activities')
-    .select('id, distance, moving_time')
-    .eq('athlete_id', athleteId)
-    .eq('type', 'Run')
-    .gte('start_date', cutoffISO)
-    .or('is_race.eq.true,run_type.eq.race')
-    .neq('excluded_from_analysis', true)
-  if (!races?.length) return []
-
-  const ids = races.map((race: any) => race.id)
-  const [{ data: conditions }, { data: raceBestEfforts }] = await Promise.all([
-    supabaseAdmin
-      .from('activity_conditions')
-      .select('activity_id, temp_c, wbgt_approx_c')
-      .in('activity_id', ids),
-    supabaseAdmin
-      .from('activity_best_efforts')
-      .select('activity_id, duration_secs, best_pace_sec_per_km')
-      .in('activity_id', ids),
-  ])
-  const conditionsById = new Map((conditions ?? []).map((row: any) => [row.activity_id, row]))
-  const bestEffortsByActivityId = new Map<number, any[]>()
-  for (const effort of raceBestEfforts ?? []) {
-    const activityId = effort.activity_id as number
-    bestEffortsByActivityId.set(activityId, [
-      ...(bestEffortsByActivityId.get(activityId) ?? []),
-      effort,
-    ])
-  }
-
-  const bestByDistance = new Map<DistanceKey, ProvenRaceAnchor>()
-  for (const race of races) {
-    if (!race.distance || !race.moving_time) continue
-    const activityKm = race.distance / 1000
-    const key = canonicalRaceDistanceKey(activityKm)
-    if (!key) continue
-
-    const targetKm = distanceKm(key)
-    const totalObservedSecs = riegelProject(race.moving_time, activityKm, targetKm)
-    const segmentObservedSecs = (bestEffortsByActivityId.get(race.id) ?? [])
-      .map((effort: any) => {
-        const effortKm = effort.duration_secs / effort.best_pace_sec_per_km
-        if (effortKm < targetKm * 0.85 || effortKm > targetKm * 1.20) return null
-        return riegelProject(effort.duration_secs, effortKm, targetKm)
-      })
-      .filter((secs: number | null): secs is number => secs != null && Number.isFinite(secs))
-      .sort((a: number, b: number) => a - b)[0]
-    const observedSecs = Math.min(totalObservedSecs, segmentObservedSecs ?? Infinity)
-    const condition = conditionsById.get(race.id)
-    const anchor: ProvenRaceAnchor = {
-      distanceKey: key,
-      observedSecs,
-      conditions: condition ? {
-        tempC: condition.temp_c,
-        wbgtApproxC: condition.wbgt_approx_c,
-      } : null,
-    }
-
-    const current = bestByDistance.get(key)
-    if (!current || anchor.observedSecs < current.observedSecs) {
-      bestByDistance.set(key, anchor)
+  const asOf = new Date(), cutoffISO = performanceCutoff(asOf, windowDays)
+  const races = await pages(() => supabaseAdmin.from('activities')
+    .select('id, start_date, distance, elapsed_time, official_result_secs, excluded_from_analysis')
+    .eq('athlete_id', athleteId).eq('type', 'Run').gte('start_date', cutoffISO).lte('start_date', asOf.toISOString())
+    .or('is_race.eq.true,run_type.eq.race').order('start_date').order('id'))
+  const included = races.filter(r => !r.excluded_from_analysis && canonicalRaceDistanceKey(r.distance / 1000))
+  const conditions = await conditionsFor(athleteId, included.map(r => r.id))
+  const anchors: ProvenRaceAnchor[] = []
+  // Only confirmed race streams, in small batches; never enrich the archive or
+  // transfer coordinates/HR streams to build these distance/terrain constraints.
+  for (let offset = 0; offset < included.length; offset += 10) {
+    const batch = included.slice(offset, offset + 10)
+    const { data, error } = await supabaseAdmin.from('activities')
+      .select('id, time:streams->time, distance_stream:streams->distance, grade:streams->grade_smooth')
+      .eq('athlete_id', athleteId).in('id', batch.map(r => r.id))
+    if (error) throw new Error(`Race stream read failed: ${error.code}`)
+    const streamsById = new Map((data ?? []).map((r: any) => [r.id, { time: r.time, distance: r.distance_stream, grade_smooth: r.grade }]))
+    for (const race of batch) {
+      const key = canonicalRaceDistanceKey(race.distance / 1000)!
+      const streams: EvidenceStreams = streamsById.get(race.id) ?? {}
+      const clock = raceClockEvidence(streams, RACE_DISTANCE_METERS[key], race.elapsed_time, race.official_result_secs, race.distance)
+      if (!clock) continue
+      const condition = conditions.get(race.id)
+      anchors.push({ distanceKey: key, ...clock, activityId: race.id, date: race.start_date,
+        conditions: condition ? { tempC: condition.temp_c, wbgtApproxC: condition.wbgt_approx_c } : null })
     }
   }
-
-  return Array.from(bestByDistance.values())
+  return anchors
 }
 
 export async function projectAthleteRaceTimes(
   athleteId: number,
-  windowDays: number = DEFAULT_WINDOW_DAYS,
+  windowDays?: number,
 ): Promise<ProjectAthleteResult | null> {
   const [fit, features, currentConditions, raceAnchors] = await Promise.all([
     fitForAthlete(athleteId, windowDays),
-    loadAthleteFeatures(athleteId, windowDays),
+    loadAthleteFeatures(athleteId, RECENT_TRAINING_DAYS),
     loadRecentTypicalConditions(athleteId),
     loadRecentRaceAnchors(athleteId, windowDays),
   ])

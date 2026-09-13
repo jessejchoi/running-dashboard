@@ -12,7 +12,7 @@ No production migration, reconnect, feature flag change, or deployment is perfor
 
 ## Estimator meaning and gate
 
-The default `cp-hr40-v2` compatibility path publishes the projector's `todaySecs`. It removes synthetic cross-duration effort adjustments and retains 40% of each eligible effort's final capped HR pace reduction. The curve, asymmetric fitting rule and endurance/conditions modifiers otherwise remain unchanged. This is the explicitly selected CP calibration, separate from enabling the observed estimator. The gated `expected-observed-v1` path uses observed sustained efforts, balanced Huber fitting, per-activity weights, and official/full elapsed race results. It excludes easy-run HR speed conversions and synthetic capability points. A recent same-distance confirmed race is calibration evidence, not a license to choose the faster model. Endurance evidence and uncertainty are distance-specific. Current fitness uses the previous 60 days; archive history cannot masquerade as current fitness.
+The default `cp-evidence6m-v3` compatibility path publishes the projector's `todaySecs`. It removes synthetic cross-duration effort adjustments and retains 40% of each eligible effort's final capped HR pace reduction. It uses six calendar months of performance evidence, normalizes source heat before fitting, and constrains projections with official or measured elapsed race evidence. Grade-profile corrections on race constraints are modest energy-cost approximations. Recent training features retain their 60-day window; the asymmetric fitting rule is unchanged. This is the explicitly selected CP calibration, separate from enabling the observed estimator. The gated `expected-observed-v1` path uses observed sustained efforts, balanced Huber fitting, per-activity weights, and official/full elapsed race results. It excludes easy-run HR speed conversions and synthetic capability points. A recent same-distance confirmed race is calibration evidence, not a license to choose the faster model. Endurance evidence and uncertainty are distance-specific. The gated observed estimator retains its previous 60-day window; the selected CP path now uses six months as requested. Historical capability is not proof of maintained fitness after detraining.
 
 The expected time describes current ability in usual recent conditions. Ideal conditions are secondary. Ranges are heuristic estimates, not statistically calibrated probabilities. Missing weather applies no inferred heat benefit. Sparse marathon evidence returns insufficient evidence. Numbers, explanations, cache keys, and snapshots carry the active model version; model changes never count as training improvement.
 
@@ -110,3 +110,25 @@ a new independent multi-distance evaluation. Keep `EXPECTED_ESTIMATOR_ENABLED`
 and `AUTO_ADAPT_ENABLED` disabled as before. On release, refresh connected
 athletes' estimate bundles in bounded sequential work so group members do not
 need to sign in themselves.
+
+
+## Six-month evidence and conditions correction, 2026-09-13
+
+`cp-evidence6m-v3` supersedes `cp-hr40-v2`, invalidating the same caches and
+separating snapshot deltas. No migration or environment change is required.
+The performance window is six calendar months; recent training load remains
+60 days. Paginated evidence reads exclude manually excluded activities and
+avoid transferring full raw payloads or archive streams. Only canonical race
+streams are read in batches of ten for elapsed-distance/terrain checks.
+
+Source heat is removed before fitting; usual-condition heat is applied once.
+Ideal race constraints remove observed heat and, when usable, net terrain cost
+from the measured profile. Same-condition constraints survive later endurance,
+drift and form penalties. A hotter target can still be slower than a historical
+race; an ideal-condition time should be faster than heat/hill-affected evidence.
+Official results take precedence; GPS-distance efforts are explicitly labeled.
+
+Terrain energy-to-time conversion and six-month maintained-capability assumptions
+are not independently validated. These are user-requested CP corrections, not
+a passing chronological-validation result. The historical evaluator and both
+feature gates remain unchanged. See `lib/analysis/README.md` for limitations.

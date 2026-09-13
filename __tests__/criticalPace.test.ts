@@ -159,3 +159,10 @@ describe('fitCriticalPace', () => {
     expect(fit!.fitQuality).toBe('high')
   })
 })
+
+
+it('retains hot-weather three-minute efforts after normalization shortens their duration', () => {
+  const points = [180, 300, 600].map((secs, i) => ({ durationSecs: secs / 1.02, observedDurationSecs: secs,
+    paceSecPerKm: (200 + i * 20) / 1.02, activityId: 1, date: '2026-09-01' }))
+  expect(fitCriticalPace(points)?.nPoints).toBe(3)
+})

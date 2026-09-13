@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -83,7 +84,7 @@ const COACH_CHIPS = [
 ]
 
 export default function GroupCoachTab({ groupId, myRole, members, minimal = false, initialBriefing, initialBriefingMeta }: Props) {
-  const [briefing, setBriefing] = useState<BriefingContent | null>(initialBriefing ?? null)
+  const [briefing, setBriefing] = useState<BriefingContent | null>(initialBriefing?.weekly_edition ? initialBriefing : null)
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
   const [briefingMeta, setBriefingMeta] = useState<BriefingMeta | null>(initialBriefingMeta ?? null)
@@ -181,10 +182,10 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
     <div className="space-y-4 fade-up">
 
       {/* Coach Briefing */}
-      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-5 overflow-visible">
-        <div className="flex items-start justify-between gap-3 mb-3">
+      <div className="card overflow-visible">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display font-bold text-sm text-white">Coach Briefing</span>
+            <span className="font-display font-bold text-lg text-[var(--text-1)]">Coach · Weekly edition</span>
             <MomentumBadge momentum={briefing.group_momentum} />
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -196,16 +197,40 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
             )}
             <button
               onClick={() => fetchBriefing(true)}
-              className="text-[#6b7280] hover:text-[#f97316] transition-colors"
-              title="Refresh briefing"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[var(--text-3)] hover:text-[var(--accent)] transition-colors"
+              title="Refresh weekly edition"
+              aria-label="Refresh weekly edition"
             >
               <RefreshCw size={13} />
             </button>
           </div>
         </div>
-        <p className="text-[#d1d5db] text-[13px] leading-6 break-words overflow-visible pb-0.5">
+        {briefing.weekly_edition && (
+          <p className="font-mono text-[11px] text-[var(--text-3)] mb-3">
+            Week of {briefing.weekly_edition.week_start} · Through {briefing.weekly_edition.as_of} · Jakarta week
+          </p>
+        )}
+        <p className="text-[var(--text-2)] text-[13px] leading-6 break-words overflow-visible pb-0.5">
           {briefing.weekly_summary}
         </p>
+        {!minimal && briefing.weekly_edition && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            {briefing.weekly_edition.members.map(member => (
+              <article key={member.athlete_id} className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
+                <h3 className="font-display text-lg font-bold break-words">{member.name}</h3>
+                <p className="font-mono text-sm mt-2">{member.km.toFixed(1)} km · {member.runs} runs this week</p>
+                <p className="text-xs text-[var(--text-3)] mt-2">4-week average: {member.baseline_weekly_km.toFixed(1)} km/week</p>
+                <p className="text-sm text-[var(--text-2)] mt-2">
+                  {member.planned ? `${member.completed} of ${member.planned} workouts through today completed.` : 'No workouts scheduled through today.'}
+                </p>
+                <p className="text-sm text-[var(--text-2)] mt-2">{member.next_focus}</p>
+              </article>
+            ))}
+          </div>
+        )}
+        {!minimal && briefing.challenge_nudge && <p className="text-sm text-[var(--text-2)] mt-4">{briefing.challenge_nudge}</p>}
+        {!minimal && briefing.risks?.map((risk, i) => <p key={i} className="text-sm text-[var(--warning)] mt-2">{risk}</p>)}
+        {!minimal && <Link href="/plan" className="rd-button inline-flex items-center mt-4">Build your personal week →</Link>}
       </div>
 
       {/* This Week's Awards */}

@@ -6,11 +6,14 @@ import { type BriefingContent } from '@/lib/coachOutputs'
 import { AWARD_CATEGORIES } from '@/lib/awards'
 import { enqueueJob, claimJob, finishJob } from '@/lib/jobs'
 import { claudeMessage } from '@/lib/claude'
+import { buildWeeklyEdition } from '@/lib/weeklyEdition'
 import { localDate, weekStart } from '@/lib/calendar'
+export const GROUP_COACH_VERSION = 'weekly-edition-v1'
+export function groupCoachModelVersion() { return `${activeModelVersion()}:${GROUP_COACH_VERSION}` }
 export async function groupVersion(groupId: string) {
   const { data, error } = await supabaseAdmin.rpc('group_input_version', {
     p_group: groupId,
-    p_model: activeModelVersion(),
+    p_model: groupCoachModelVersion(),
   })
   if (error) throw error
   return String(data)
@@ -23,7 +26,7 @@ export async function publicGroupTraining(groupId: string) {
   if (error) throw error
   const ids = (members ?? []).map((m) => m.athlete_id),
     today = localDate()
-  const [{ data: plans }, { data: events }, { data: memory }] =
+  const [planResult, memoryResult] =
     await Promise.all([
       supabaseAdmin
         .from('user_plans')
@@ -34,23 +37,16 @@ export async function publicGroupTraining(groupId: string) {
         .gte('plan_date', weekStart(today))
         .lte('plan_date', today),
       supabaseAdmin
-        .from('shared_runs')
-        .select('id,title,starts_at,timezone,options,status')
-        .eq('group_id', groupId)
-        .eq('status', 'scheduled')
-        .gte('starts_at', new Date().toISOString())
-        .order('starts_at')
-        .limit(3),
-      supabaseAdmin
         .from('coach_memory')
         .select('focus,evidence,updated_at')
         .eq('group_id', groupId)
         .maybeSingle(),
     ])
+  if (planResult.error) throw planResult.error
+  if (memoryResult.error) throw memoryResult.error
   return {
-    plans: plans ?? [],
-    shared_runs: events ?? [],
-    previous_focus: memory ?? null,
+    plans: (planResult.data ?? []).filter(p => p.session_type !== 'rest'),
+    previous_focus: memoryResult.data ?? null,
   }
 }
 export async function deterministicBriefing(groupId: string) {
@@ -70,7 +66,8 @@ export async function deterministicBriefing(groupId: string) {
     previous.evidence?.week === weekStart(ctx.today) &&
     typeof progress === 'number'
       ? `${Math.max(0, completed - progress)} more planned sessions completed since the last check-in.`
-      : `${completed} of ${planned} planned sessions completed this week.`
+      : planned ? `${completed} of ${planned} planned sessions completed this week.`
+        : 'No personal workouts scheduled this week yet.'
   const candidateMembers = ctx.members
     .filter((m) => m.run_count_this_week > 0)
     .sort((a, b) => a.athlete_id - b.athlete_id)
@@ -82,12 +79,11 @@ export async function deterministicBriefing(groupId: string) {
   const memberStory = selected
     ? `${selected.name.split(' ')[0]} has ${selected.run_count_this_week} runs this week; their recent baseline is ${(selected.rolling_4w_km / 4).toFixed(1)} km per week.`
     : ''
-  const upcoming = training.shared_runs[0]
-  const next = upcoming
-    ? `Next group session: ${upcoming.title}. Choose your pace group and meet at the start.`
-    : 'Keep the next easy session easy. Consistency gets a vote too.'
+  const edition = buildWeeklyEdition(ctx, training.plans)
+  const next = 'Follow your own plan this week. Different cities, same accountability.'
   const brief: BriefingContent = {
-    weekly_summary: [follow, memberStory, next].filter(Boolean).join(' '),
+    weekly_summary: [`${edition.total_runs} runs and ${edition.total_km.toFixed(1)} km across the group this week so far.`, follow, memberStory].filter(Boolean).join(' '),
+    weekly_edition: edition,
     storylines: [
       {
         label: 'Follow-through',
@@ -110,7 +106,7 @@ export async function deterministicBriefing(groupId: string) {
     ask_prompts: [
       'How did my week compare with my plan?',
       'What should I focus on next?',
-      'Which group run suits me?',
+      'What should my next training week look like?',
       'Who made consistent progress?',
     ],
     shoutouts: engagement.award_candidates.map((a) => ({
@@ -174,7 +170,7 @@ export async function runBriefingJob(id: string) {
       'commit_briefing',
       {
         p_group: job.scope,
-        p_model: activeModelVersion(),
+        p_model: groupCoachModelVersion(),
         p_version: job.input_version,
         p_job: job.id,
         p_lease: job.lease_token,
@@ -228,7 +224,7 @@ export async function getBriefing(groupId: string) {
       refreshing: false,
     }
   await enqueueJob('briefing', groupId, version)
-  if (cache)
+  if (cache?.content_json?.weekly_edition)
     return {
       briefing: cache.content_json,
       cached: true,

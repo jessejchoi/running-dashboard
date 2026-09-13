@@ -4,7 +4,7 @@ import ExpectedEstimates from '@/components/ExpectedEstimates'
 import GoalsSection from '@/components/GoalsSection'
 import TrainingGoals from '@/components/TrainingGoals'
 import DurablePlan from '@/components/DurablePlan'
-import SharedRuns from '@/components/SharedRuns'
+import GroupCoachTab from '@/components/GroupCoachTab'
 import ActivityLog from '@/components/ActivityLog'
 import { defaultConfig } from '@/components/PlanSessionModal'
 const goals: any[] = [
@@ -128,25 +128,16 @@ let plan: any = {
     },
   ],
 }
-let shared: any = {
-  events: [
-    {
-      id: 'event',
-      creator_id: 1,
-      title: 'Sunday easy miles',
-      starts_at: '2026-09-20T00:00:00Z',
-      timezone: 'Asia/Jakarta',
-      meeting_point: 'GBK Gate 5',
-      description: 'Easy chat pace, coffee afterwards.',
-      options: [{ label: 'Easy group', distance_km: 8, pace: '6:00–6:30 /km' }],
-      status: 'scheduled',
-      version: 1,
-    },
-  ],
-  rsvps: [],
-  athleteId: 1,
-  role: 'admin',
-  planVersion: 3,
+const coachMembers = ['Alex Rivera', 'Morgan Lee', 'Sam Chen', 'Taylor Kim'].map((name, i) => ({ athlete_id: i + 1, name, profile_pic: null }))
+const briefing = {
+  weekly_summary: '16 runs and 168.0 km across the group this week so far. 8 of 12 planned sessions completed. The easy pace committee approves.',
+  weekly_edition: {
+    week_start: '2026-09-07', as_of: '2026-09-13', total_runs: 16, total_km: 168,
+    members: coachMembers.map((m, i) => ({ ...m, km: 30 + i * 8, runs: 4, baseline_weekly_km: 35 + i * 8, completed: 2, planned: 3, next_focus: i === 0 ? 'Autumn half marathon: 28 days away. Review your personal plan for the next session.' : 'Review the next session in your personal plan; missed workouts do not need catch-up mileage.' })),
+  },
+  shoutouts: [], group_momentum: 'steady' as const,
+  coach_tip: 'Different cities, same accountability.',
+  ask_prompts: ['How did my week compare with my plan?', 'What should my next training week look like?'],
 }
 const runs = Array.from({ length: 50 }, (_, i) => ({
   id: 100 + i,
@@ -169,16 +160,7 @@ export default function Preview() {
       const url = String(input)
       const b = init?.body ? JSON.parse(String(init.body)) : {}
       let data: any = { ok: true }
-      if (url.includes('/shared-runs')) {
-        if (b.action === 'rsvp')
-          shared = {
-            ...shared,
-            rsvps: b.join
-              ? [{ run_id: b.id, athlete_id: 1, option_index: 0 }]
-              : [],
-          }
-        data = shared
-      } else if (url === '/api/plans') {
+      if (url === '/api/plans') {
         if (init?.method === 'POST') {
           plan = { ...plan, version: plan.version + 1 }
           if (b.config)
@@ -199,7 +181,8 @@ export default function Preview() {
             }
         }
         data = plan
-      } else if (url.includes('/history'))
+      } else if (url.includes('/coach/briefing')) data = { briefing, cached: true, generated_at: new Date().toISOString() }
+      else if (url.includes('/history'))
         data = { status: 'queued', imported: 9950, page: 100 }
       else if (url.includes('/activities'))
         data = { items: runs, nextCursor: null }
@@ -217,7 +200,7 @@ export default function Preview() {
   return (
     <main className="max-w-[1100px] mx-auto p-3 sm:p-6 space-y-6">
       <nav className="flex gap-2">
-        {['goals', 'plan', 'shared', 'history'].map((t) => (
+        {['goals', 'plan', 'coach', 'history'].map((t) => (
           <button className="rd-button" key={t} onClick={() => setTab(t)}>
             {t}
           </button>
@@ -252,8 +235,8 @@ export default function Preview() {
           </>
         ) : tab === 'plan' ? (
           <DurablePlan initial={plan} />
-        ) : tab === 'shared' ? (
-          <SharedRuns groupId="fixture" />
+        ) : tab === 'coach' ? (
+          <GroupCoachTab groupId="fixture" myRole="member" members={coachMembers} initialBriefing={briefing} />
         ) : (
           <ActivityLog
             initial={{ items: runs, nextCursor: 'older' }}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAthleteId } from '@/lib/auth'
-import { groupRole } from '@/lib/sharedRuns'
+import { groupRole } from '@/lib/groupAccess'
 import { getBriefing } from '@/lib/groupCoach'
 export type { BriefingContent } from '@/lib/coachOutputs'
 export async function GET(

@@ -416,10 +416,10 @@ export default function DurablePlan({ initial }: { initial: any }) {
                     {s.status} · {s.source}
                     {s.locked ? ' · locked' : ''}
                   </p>
-                  {s.event_changed && (
+                  {s.source === 'shared' && (
                     <p className="text-[var(--warning)] text-xs">
-                      Group event changed. Review it in the group before
-                      updating this session.
+                      This workout came from a retired shared event. Edit or
+                      delete it here to manage your own schedule.
                     </p>
                   )}
                   <button

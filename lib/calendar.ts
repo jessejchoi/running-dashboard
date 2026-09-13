@@ -59,16 +59,3 @@ export function zonedDateTime(value: string, zone: string): string {
     )
   return new Date(instant).toISOString()
 }
-export function eventLocalTime(iso: string, zone: string) {
-  return new Intl.DateTimeFormat('sv-SE', {
-    timeZone: zone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  })
-    .format(new Date(iso))
-    .replace(' ', 'T')
-}

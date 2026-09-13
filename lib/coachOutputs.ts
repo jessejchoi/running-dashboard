@@ -2,6 +2,7 @@ import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 
 export interface BriefingContent {
   weekly_summary: string
+  weekly_edition?: import('@/lib/weeklyEdition').WeeklyEdition
   storylines?: Array<{
     label: string
     angle: string

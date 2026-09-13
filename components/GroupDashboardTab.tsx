@@ -1,6 +1,5 @@
 'use client'
 import { localDate, weekStart, zonedDateTime, addDays } from '@/lib/calendar'
-import SharedRuns from './SharedRuns'
 import { useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -819,7 +818,6 @@ export default function GroupDashboardTab({
 
 
 
-      <SharedRuns groupId={group.id} />
 
       {/* RDCoach */}
       <div>

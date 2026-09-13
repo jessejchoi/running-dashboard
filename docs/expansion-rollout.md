@@ -59,11 +59,15 @@ Strava request wrappers persist application-wide overall and non-upload quota he
 
 Long-range totals use indexed SQL aggregates. Group history sends daily totals and one cached best effort per member/day, instead of full activities, laps, or streams. Detailed challenge efforts are computed when details change. The activity list remains independent of total archive size; a 10,000-run fixture is covered by SQL aggregate and pagination tests.
 
-## Coaching and shared runs
+## Coaching and personal training
 
-Briefings cache by group membership, training/plan versions, challenge changes, shared events, day, and model. Readers get the previous briefing while a leased job regenerates. Jobs validate input version and lease before committing. Facts and awards come from deterministic evidence; optional model-generated style is restricted to a reviewed closing, so it cannot invent facts. Prior focus and completion counts persist for follow-through. Personal conversation history and private constraints never enter group briefing context.
+Briefings cache by group membership, training/plan versions, challenge changes, day, estimate model, and coach content version. The legacy SQL version hash still includes dormant event tables. Readers get the previous briefing while a leased job regenerates. Jobs validate input version and lease before committing. Facts and awards come from deterministic evidence; optional model-generated style is restricted to a reviewed closing, so it cannot invent facts. Prior focus and completion counts persist for follow-through. Personal conversation history and private constraints never enter group briefing context.
 
-Members can create shared runs and RSVP. Creators and current admins manage events. Optional personal-plan copies are locked and versioned. Event edits/cancellation flag those copies; only explicit acceptance moves or removes them. Completed sessions remain preserved. Membership removal deletes RSVP access, flags retained personal sessions, and leaves event management with current admins. Updates stay in the app; this release sends no notifications outside it.
+Shared-run coordination was retired at the owner’s request because members live in different cities. The dashboard controls and event validation code are removed; the former shared-run API returns 410 for reads and writes. Historical tables and membership cleanup remain dormant for compatibility. Existing personal-plan copies stay locked and can be edited or deleted by their owner. The coach no longer reads events or suggests meetups. No migration is required.
+
+The weekly edition lives inside Coach, with a Jakarta week label and data-through date, group totals, each member’s week-to-date activity and four-week mileage average, planned-versus-completed workouts, and next public race goal. Rest days and future workouts are excluded from completion counts. Partial-week mileage is not labeled a decline against a complete-week average. Private notes and workout descriptions are not read into these facts. Coach content version `weekly-edition-v1` invalidates old coordination-oriented briefings independently of race estimates.
+
+Personal schedules already support on-request, rule-based generation through `/plan`. AI-proposed schedules with review and per-session explanations remain a proposed extension. Automatic adaptation remains disabled; this release does not generate or change anyone’s plan.
 
 ## Validation checklist
 

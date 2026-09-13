@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Nav from '@/components/Nav'
@@ -12,7 +13,7 @@ export const revalidate = 60
 
 export default async function SourcesPage() {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) redirect('/')
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 

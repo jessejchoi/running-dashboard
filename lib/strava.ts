@@ -1,3 +1,6 @@
+import { importMayRun } from '@/lib/stravaBudget'
+import { enqueueJob } from '@/lib/jobs'
+import { stravaFetch } from './stravaBudget'
 import { supabaseAdmin } from './supabase'
 import {
   categorizeRun,
@@ -30,7 +33,7 @@ export async function getValidToken(athleteId: number): Promise<string | null> {
 }
 
 async function refreshToken(refreshToken: string, athleteId: number): Promise<string | null> {
-  const res = await fetch('https://www.strava.com/oauth/token', {
+  const res = await stravaFetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -56,17 +59,17 @@ async function refreshToken(refreshToken: string, athleteId: number): Promise<st
 
 // ─── Activity fetching ────────────────────────────────────────────────────────
 
-export async function fetchActivities(token: string, page = 1, perPage = 100) {
-  const res = await fetch(
-    `${STRAVA_API}/athlete/activities?per_page=${perPage}&page=${page}`,
+export async function fetchActivities(token: string, page = 1, perPage = 100, before?: number) {
+  const res = await stravaFetch(
+    `${STRAVA_API}/athlete/activities?per_page=${perPage}&page=${page}${before ? `&before=${before}` : ''}`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
-  if (!res.ok) throw new Error('Failed to fetch activities')
+  if (!res.ok) throw new Error(`Strava ${res.status} fetching activities`)
   return res.json()
 }
 
 export async function fetchActivityDetail(token: string, activityId: number) {
-  const res = await fetch(`${STRAVA_API}/activities/${activityId}`, {
+  const res = await stravaFetch(`${STRAVA_API}/activities/${activityId}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) {
@@ -91,16 +94,17 @@ export async function fetchActivityDetail(token: string, activityId: number) {
 const STREAM_KEYS = 'time,distance,heartrate,velocity_smooth,latlng,altitude,grade_smooth,temp'
 
 export async function fetchActivityStreams(token: string, activityId: number) {
-  const res = await fetch(
+  const res = await stravaFetch(
     `${STRAVA_API}/activities/${activityId}/streams?keys=${STREAM_KEYS}&key_by_type=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
+  if(res.status===429 || res.status>=500) throw new Error(`Strava ${res.status} fetching streams`)
   if (!res.ok) return null
   return res.json()
 }
 
 export async function fetchAthlete(token: string) {
-  const res = await fetch(`${STRAVA_API}/athlete`, {
+  const res = await stravaFetch(`${STRAVA_API}/athlete`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error('Failed to fetch athlete')
@@ -210,7 +214,7 @@ async function recategorizeRecentAutomaticRuns(athleteId: number, zones: PaceZon
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-export async function syncActivityDetails(athleteId: number, limit = 50) {
+export async function syncActivityDetails(athleteId: number, limit = 1, onlyActivityId?: number) {
   const token = await getValidToken(athleteId)
   if (!token) throw new Error('No valid token')
 
@@ -223,37 +227,20 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
   const maxHr = profile?.max_hr ?? undefined
   const zones = await buildUserPaceProfile(athleteId, maxHr)
 
-  // Fetch runs that are either not yet detail-synced OR missing stream data
-  const { data: unsynced } = await supabaseAdmin
-    .from('activities')
-    .select('id')
-    .eq('athlete_id', athleteId)
-    .eq('detail_synced', false)
-    .order('start_date', { ascending: false })
-    .limit(limit)
-
-  const { data: missingStreams } = await supabaseAdmin
-    .from('activities')
-    .select('id')
-    .eq('athlete_id', athleteId)
-    .eq('detail_synced', true)
-    .is('streams', null)
-    .order('start_date', { ascending: false })
-    .limit(limit)
-
-  // Deduplicate
-  const seen = new Set<number>()
-  const activities = [...(unsynced ?? []), ...(missingStreams ?? [])].filter(a => {
-    if (seen.has(a.id)) return false
-    seen.add(a.id)
-    return true
-  }).slice(0, limit)
+  // Archive summaries remain cheap. Optional missing streams are not retried forever.
+  let pending=supabaseAdmin.from('activities').select('id').eq('athlete_id',athleteId)
+    .eq('detail_synced',false).gte('start_date',new Date(Date.now()-60*86400000).toISOString())
+    .order('start_date',{ascending:false}).limit(Math.min(2,Math.max(1,limit)))
+  if(onlyActivityId)pending=pending.eq('id',onlyActivityId)
+  const {data:activities,error:pendingError}=await pending
+  if(pendingError)throw pendingError
 
   if (!activities?.length) return 0
 
   let synced = 0
 
   for (const act of activities) {
+    if(await importMayRun()) throw new Error('Waiting for Strava quota')
     try {
       const detail = await fetchActivityDetail(token, act.id)
       const streams = await fetchActivityStreams(token, act.id)
@@ -290,15 +277,15 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
       })
       const raceFields = raceFieldsForRunType(newRunType, raceDetection)
 
-      await supabaseAdmin
+      const {error:detailError}=await supabaseAdmin
         .from('activities')
         .update({
           laps,
           splits: detail.splits_metric ?? null,
           streams: streams ?? null,
-          detail_synced: true,
         })
         .eq('id', act.id)
+      if(detailError)throw detailError
 
       await ingestActivityFeatures({
         athleteId,
@@ -324,10 +311,13 @@ export async function syncActivityDetails(athleteId: number, limit = 50) {
           .or('run_type_manual.is.false,run_type_manual.is.null')
       }
 
+      const {error:completeError}=await supabaseAdmin.from('activities').update({detail_synced:true}).eq('id',act.id)
+      if(completeError)throw completeError
       synced++
       await sleep(1100)
     } catch (err) {
       console.error(`Failed to sync detail for activity ${act.id}:`, err)
+      throw err
     }
   }
 
@@ -397,7 +387,7 @@ export function calculateTrainingLoad(
 
 // ─── Main sync ────────────────────────────────────────────────────────────────
 
-export async function syncActivities(athleteId: number, accessToken?: string) {
+export async function syncActivities(athleteId: number, accessToken?: string, continuation?: {page:number;before:number;stopId:number}) {
   const token = accessToken ?? await getValidToken(athleteId)
   if (!token) throw new Error('No valid token')
   const { data: profile } = await supabaseAdmin
@@ -408,7 +398,8 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
   const maxHr = profile?.max_hr ?? undefined
   const zones = await buildUserPaceProfile(athleteId, maxHr)
 
-  let page = 1
+  let page = continuation?.page ?? 1
+  const lastPage=page+1, before=continuation?.before ?? Math.ceil(Date.now()/1000)
   let totalSynced = 0
 
   // Get the most recent activity ID already in the DB so we can stop early
@@ -418,10 +409,10 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
     .eq('athlete_id', athleteId)
     .order('start_date', { ascending: false })
     .limit(1)
-  const latestStoredId = latestStored?.[0]?.id ?? null
+  const latestStoredId = continuation?.stopId ?? latestStored?.[0]?.id ?? null
 
-  while (true) {
-    const activities = await fetchActivities(token, page)
+  while (page <= lastPage) {
+    const activities = await fetchActivities(token, page,100,before)
     if (!activities.length) break
 
     // Stop if we've hit activities we already have
@@ -487,15 +478,17 @@ export async function syncActivities(athleteId: number, accessToken?: string) {
 
       // Only insert truly new runs — never overwrite existing rows so manual
       // run_type tags and excluded_from_analysis flags are preserved.
-      await supabaseAdmin.from('activities').upsert(runs, {
+      const {error:insertError}=await supabaseAdmin.from('activities').upsert(runs, {
         onConflict: 'id',
         ignoreDuplicates: true,
       })
+      if(insertError) throw insertError
       totalSynced += newCount
     }
 
     if (hasKnown || activities.length < 100) break
     page++
+    if(page>lastPage && latestStoredId) await enqueueJob('incremental',String(athleteId),`${before}:${page}:${latestStoredId}`,{page,before,stopId:latestStoredId})
   }
 
   if (totalSynced > 0) {

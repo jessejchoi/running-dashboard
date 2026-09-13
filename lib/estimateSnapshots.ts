@@ -1,3 +1,4 @@
+import { activeModelVersion } from '@/lib/analysis/expected'
 /**
  * Helpers for reading and writing estimate_snapshots.
  *
@@ -44,6 +45,7 @@ async function fetchSnapshotWindow(athleteId: number) {
       .from('estimate_snapshots')
       .select('distance_key, estimated_secs, snapshotted_at')
       .eq('athlete_id', athleteId)
+      .eq('model_version', activeModelVersion())
       .gte('snapshotted_at', cutoff)
       .order('snapshotted_at', { ascending: false })
 
@@ -158,6 +160,7 @@ export async function saveSnapshot(
       return {
         athlete_id: athleteId,
         distance_key: dk,
+        model_version: activeModelVersion(),
         estimated_secs: Math.round(secs as number),
         snapshotted_at: today,
         ideal_secs:    e?.idealSecs    != null ? Math.round(e.idealSecs)    : null,
@@ -167,11 +170,16 @@ export async function saveSnapshot(
       }
     })
 
-  if (rows.length === 0) return
+  // Missing evidence must clear cached values instead of preserving stale predictions.
 
-  const { error } = await supabaseAdmin
+  const missing = Object.entries(estimates).filter(([,value])=>value==null).map(([key])=>key)
+  if (missing.length) {
+    const {error} = await supabaseAdmin.from('estimate_snapshots').delete().eq('athlete_id',athleteId).eq('snapshotted_at',today).eq('model_version',activeModelVersion()).in('distance_key',missing)
+    if(error) throw error
+  }
+  const { error } = rows.length ? await supabaseAdmin
     .from('estimate_snapshots')
-    .upsert(rows, { onConflict: 'athlete_id,distance_key,snapshotted_at' })
+    .upsert(rows, { onConflict: 'athlete_id,distance_key,snapshotted_at,model_version' }) : {error:null}
 
   if (error) {
     throw error
@@ -181,6 +189,7 @@ export async function saveSnapshot(
     .from('user_latest_estimates')
     .upsert({
       athlete_id: athleteId,
+      model_version: activeModelVersion(),
       secs_5k:  estimates['5k']  != null ? Math.round(estimates['5k']!)  : null,
       secs_10k: estimates['10k'] != null ? Math.round(estimates['10k']!) : null,
       secs_hm:  estimates['hm']  != null ? Math.round(estimates['hm']!)  : null,
@@ -211,6 +220,7 @@ export async function fetchTodaysExtras(
       .from('estimate_snapshots')
       .select('distance_key, ideal_secs, today_secs, p80_low_secs, p80_high_secs')
       .eq('athlete_id', athleteId)
+      .eq('model_version', activeModelVersion())
       .eq('snapshotted_at', today)
 
     const result: Record<string, TodaysExtras> = {}

@@ -1,0 +1,206 @@
+{
+  "comparator": "Legacy HR-adjusted CP projector, reconstructed at race start; weather unavailable for both models",
+  "calibration": {
+    "huberDelta": 0.15,
+    "raceWeight": 0.9
+  },
+  "splitDate": "2026-07-05",
+  "training": {
+    "races": 3,
+    "predictions": 2,
+    "paired": 2,
+    "mae": 242.00008514538865,
+    "baselineMae": 161.73455622551342,
+    "optimisticError": 0,
+    "baselineOptimisticError": 161.73455622551342,
+    "intervalCoverage": 0.5
+  },
+  "heldout": {
+    "races": 2,
+    "predictions": 2,
+    "paired": 2,
+    "mae": 304.16487830326207,
+    "baselineMae": 649.4536455110568,
+    "optimisticError": 0,
+    "baselineOptimisticError": 649.4536455110568,
+    "intervalCoverage": 0.5
+  },
+  "byDistance": {
+    "5k": {
+      "races": 1,
+      "predictions": 1,
+      "paired": 1,
+      "mae": 255.89703052685968,
+      "baselineMae": 121.94349321875848,
+      "optimisticError": 0,
+      "baselineOptimisticError": 121.94349321875848,
+      "intervalCoverage": 0
+    },
+    "10k": {
+      "races": 0,
+      "predictions": 0,
+      "paired": 0,
+      "mae": null,
+      "baselineMae": null,
+      "optimisticError": null,
+      "baselineOptimisticError": null,
+      "intervalCoverage": null
+    },
+    "hm": {
+      "races": 1,
+      "predictions": 1,
+      "paired": 1,
+      "mae": 352.43272607966446,
+      "baselineMae": 1176.9637978033552,
+      "optimisticError": 0,
+      "baselineOptimisticError": 1176.9637978033552,
+      "intervalCoverage": 1
+    },
+    "fm": {
+      "races": 0,
+      "predictions": 0,
+      "paired": 0,
+      "mae": null,
+      "baselineMae": null,
+      "optimisticError": null,
+      "baselineOptimisticError": null,
+      "intervalCoverage": null
+    }
+  },
+  "byEvidence": {
+    "low": {
+      "races": 1,
+      "predictions": 1,
+      "paired": 1,
+      "mae": 352.43272607966446,
+      "baselineMae": 1176.9637978033552,
+      "optimisticError": 0,
+      "baselineOptimisticError": 1176.9637978033552,
+      "intervalCoverage": 1
+    },
+    "medium": {
+      "races": 1,
+      "predictions": 1,
+      "paired": 1,
+      "mae": 255.89703052685968,
+      "baselineMae": 121.94349321875848,
+      "optimisticError": 0,
+      "baselineOptimisticError": 121.94349321875848,
+      "intervalCoverage": 0
+    },
+    "high": {
+      "races": 0,
+      "predictions": 0,
+      "paired": 0,
+      "mae": null,
+      "baselineMae": null,
+      "optimisticError": null,
+      "baselineOptimisticError": null,
+      "intervalCoverage": null
+    }
+  },
+  "gate": "disabled_insufficient_evidence_or_regression",
+  "selectedCalibration": {
+    "huberDelta": 0.15,
+    "raceWeight": 0.9
+  },
+  "calibrationEvidence": "insufficient training pairs; defaults retained",
+  "candidateTrainingScores": [
+    {
+      "calibration": {
+        "huberDelta": 0.15,
+        "raceWeight": 0.7
+      },
+      "training": {
+        "races": 3,
+        "predictions": 2,
+        "paired": 2,
+        "mae": 242.00008514538865,
+        "baselineMae": 161.73455622551342,
+        "optimisticError": 0,
+        "baselineOptimisticError": 161.73455622551342,
+        "intervalCoverage": 0.5
+      }
+    },
+    {
+      "calibration": {
+        "huberDelta": 0.15,
+        "raceWeight": 0.9
+      },
+      "training": {
+        "races": 3,
+        "predictions": 2,
+        "paired": 2,
+        "mae": 242.00008514538865,
+        "baselineMae": 161.73455622551342,
+        "optimisticError": 0,
+        "baselineOptimisticError": 161.73455622551342,
+        "intervalCoverage": 0.5
+      }
+    },
+    {
+      "calibration": {
+        "huberDelta": 0.2,
+        "raceWeight": 0.7
+      },
+      "training": {
+        "races": 3,
+        "predictions": 2,
+        "paired": 2,
+        "mae": 243.8625486610091,
+        "baselineMae": 161.73455622551342,
+        "optimisticError": 0,
+        "baselineOptimisticError": 161.73455622551342,
+        "intervalCoverage": 0.5
+      }
+    },
+    {
+      "calibration": {
+        "huberDelta": 0.2,
+        "raceWeight": 0.9
+      },
+      "training": {
+        "races": 3,
+        "predictions": 2,
+        "paired": 2,
+        "mae": 243.8625486610091,
+        "baselineMae": 161.73455622551342,
+        "optimisticError": 0,
+        "baselineOptimisticError": 161.73455622551342,
+        "intervalCoverage": 0.5
+      }
+    },
+    {
+      "calibration": {
+        "huberDelta": 0.1,
+        "raceWeight": 0.7
+      },
+      "training": {
+        "races": 3,
+        "predictions": 2,
+        "paired": 2,
+        "mae": 245.1341201489339,
+        "baselineMae": 161.73455622551342,
+        "optimisticError": 0,
+        "baselineOptimisticError": 161.73455622551342,
+        "intervalCoverage": 0.5
+      }
+    },
+    {
+      "calibration": {
+        "huberDelta": 0.1,
+        "raceWeight": 0.9
+      },
+      "training": {
+        "races": 3,
+        "predictions": 2,
+        "paired": 2,
+        "mae": 245.1341201489339,
+        "baselineMae": 161.73455622551342,
+        "optimisticError": 0,
+        "baselineOptimisticError": 161.73455622551342,
+        "intervalCoverage": 0.5
+      }
+    }
+  ]
+}

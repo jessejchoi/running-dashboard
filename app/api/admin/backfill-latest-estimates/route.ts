@@ -1,10 +1,10 @@
+import { getAthleteId } from '@/lib/auth'
 /**
  * POST /api/admin/backfill-latest-estimates
  *
  * One-time backfill: runs analysis for every athlete and populates
  * user_latest_estimates. Safe to re-run — uses upsert.
- * Requires athlete_id cookie (any authenticated user can trigger it,
- * but it processes all athletes so only use from admin context).
+ * Requires a verified session matching ADMIN_ATHLETE_ID.
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -12,9 +12,10 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { updateLatestEstimates } from '@/lib/latestEstimates'
 
 export async function POST() {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
+  if(!process.env.ADMIN_ATHLETE_ID || athleteId!==process.env.ADMIN_ATHLETE_ID) return NextResponse.json({error:'Admin access required'},{status:403})
   const { data: athletes } = await supabaseAdmin
     .from('strava_tokens')
     .select('athlete_id')
@@ -34,4 +35,4 @@ export async function POST() {
   return NextResponse.json({ processed: ids.length, results })
 }
 
-export const GET = POST
+export async function GET(){return NextResponse.json({error:'Use POST'},{status:405})}

@@ -1,9 +1,10 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 
 export async function GET() {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   // Get all group_ids this athlete belongs to
@@ -47,7 +48,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { name } = await req.json()

@@ -52,7 +52,7 @@ interface Props {
   displayDate: string
   initialConfig: SessionConfig | null
   onClose: () => void
-  onSave: (config: SessionConfig) => void
+  onSave: (config: SessionConfig) => void | boolean | Promise<void | boolean>
   onDelete?: () => void
 }
 
@@ -368,6 +368,7 @@ function validate(config: SessionConfig): string | null {
 export default function PlanSessionModal({ displayDate, initialConfig, onClose, onSave, onDelete }: Props) {
   const { unit } = useUnit()
   const [config, setConfig] = useState<SessionConfig>(initialConfig ?? defaultConfig())
+  const [saving,setSaving]=useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmClose, setConfirmClose] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -387,11 +388,16 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
     update({ ...config, blocks: config.blocks.map(b => b.id === id ? { ...b, ...patch } as Block : b) })
   }
 
-  function handleSave() {
+  async function handleSave() {
     const err = validate(config)
     if (err) { setValidationError(err); return }
-    onSave(config)
-    onClose()
+    setSaving(true)
+    try {
+      const saved=await onSave(config)
+      if(saved===false) setValidationError('Could not save. Your draft is preserved; close this editor to review the error or refresh the current plan before retrying.')
+      else onClose()
+    } catch(e) {setValidationError(e instanceof Error?e.message:'Could not save; your draft is preserved.')}
+    finally {setSaving(false)}
   }
 
   function handleClose() {
@@ -682,6 +688,7 @@ export default function PlanSessionModal({ displayDate, initialConfig, onClose, 
           <span className="text-xs text-red-400 min-h-[1rem]">{validationError ?? ''}</span>
           <button
             onClick={handleSave}
+            disabled={saving}
             className="text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors shrink-0"
             style={{ background: 'var(--orange)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--orange-dim)')}

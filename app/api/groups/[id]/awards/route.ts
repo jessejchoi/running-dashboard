@@ -1,10 +1,11 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { data: membership } = await supabaseAdmin

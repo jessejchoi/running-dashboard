@@ -10,6 +10,11 @@ export const DISTANCE_OPTIONS = [
 export type DistanceKey = '5k' | '10k' | 'hm' | 'fm'
 
 export interface UserGoal {
+  status?: 'active' | 'completed' | 'archived'
+  is_primary?: boolean
+  result_secs?: number | null
+  result_activity_id?: number | null
+  timezone?: string
   id: string
   athlete_id: number
   distance_key: DistanceKey
@@ -35,7 +40,9 @@ export function distanceShortLabel(key: DistanceKey): string {
 
 // Parse "mm:ss" or "h:mm:ss" → total seconds
 export function parseTime(t: string): number {
+  if (!/^(?:\d{1,3}:)?\d{1,3}:[0-5]\d$/.test(t.trim())) return 0
   const parts = t.trim().split(':').map(Number)
+  if (parts.length === 3 && parts[1] >= 60) return 0
   if (parts.some(isNaN)) return 0
   if (parts.length === 2) return parts[0] * 60 + parts[1]
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
@@ -59,4 +66,8 @@ export function formatGoalTime(secs: number): string {
 // pace in sec/km from finish time + distance
 export function paceSecs(totalSecs: number, key: DistanceKey): number {
   return totalSecs / distanceKm(key)
+}
+
+export function primaryRace<T extends {race_date:string;status?:string;is_primary?:boolean}>(goals:T[],today:string):T|null {
+ return goals.filter(g=>(g.status??'active')==='active'&&g.race_date>=today).sort((a,b)=>Number(!!b.is_primary)-Number(!!a.is_primary)||a.race_date.localeCompare(b.race_date))[0]??null
 }

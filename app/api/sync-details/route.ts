@@ -1,17 +1,18 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { syncActivityDetails } from '@/lib/strava'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
 
   if (!athleteId) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
   const body = await request.json().catch(() => ({}))
-  const limit = body.limit ?? 50
+  const limit = Math.min(2,Math.max(1,Number(body.limit)||1))
 
   try {
     const count = await syncActivityDetails(Number(athleteId), limit)
@@ -20,3 +21,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
+
+export const maxDuration = 60

@@ -1,0 +1,82 @@
+# RunDash expansion rollout
+
+## Deployment order
+
+1. Apply `supabase/migration_021.sql` to a staging copy with migrations 001–020 already installed. It is additive and repeatable, preserves manual sessions and race goals, removes the old same-distance goal uniqueness, and leaves betting tables untouched. Snapshot history is separated by model version; old rows remain `legacy-unversioned`.
+2. Deploy the app with `EXPECTED_ESTIMATOR_ENABLED=false` and `AUTO_ADAPT_ENABLED=false`, plus `CRON_SECRET`. Verify the existing `/api/cron/sync` schedule and a server runtime supporting 60-second requests. Use an external scheduler if the hosting tier cannot run the configured worker. No archive work runs during server rendering.
+3. Existing users reconnect Strava once. Only a hashed, opaque 30-day `rundash_session` authenticates pages/APIs; the old athlete-ID cookie grants no access. Reconnecting reuses the athlete ID and stored data, and resumes revoked archive jobs at their saved cursor.
+4. Verify real-account goals, recent sync, archive progress, personal plans, and group permissions on staging. The integration suite is isolated PostgreSQL; UI fixture checks do not substitute for real OAuth/Strava checks.
+5. Enable each flag separately only after its gate passes. Roll back a flag independently if estimates or adaptations regress. Disable adaptation first if reverting application code; the migration need not be reversed.
+
+No production migration, reconnect, feature flag change, or deployment is performed by the implementation tests.
+
+## Estimator meaning and gate
+
+The default `cp-today-v1` compatibility path publishes the existing projector's `todaySecs` instead of `idealSecs`. The gated `expected-observed-v1` path uses observed sustained efforts, balanced Huber fitting, per-activity weights, and official/full elapsed race results. It excludes easy-run HR speed conversions and synthetic capability points. A recent same-distance confirmed race is calibration evidence, not a license to choose the faster model. Endurance evidence and uncertainty are distance-specific. Current fitness uses the previous 60 days; archive history cannot masquerade as current fitness.
+
+The expected time describes current ability in usual recent conditions. Ideal conditions are secondary. Ranges are heuristic estimates, not statistically calibrated probabilities. Missing weather applies no inferred heat benefit. Sparse marathon evidence returns insufficient evidence. Numbers, explanations, cache keys, and snapshots carry the active model version; model changes never count as training improvement.
+
+Run offline evaluation with:
+
+```sh
+npm run export:evaluation -- /tmp/rundash-evaluation-corpus.json
+npm run evaluate:estimates -- /tmp/rundash-evaluation-corpus.json /tmp/rundash-estimate-evaluation.json
+```
+
+The first command reads connected athletes with server credentials; it does not mutate the database. Keep the corpus outside git. The evaluator admits only activity dated before each race and limits fitness evidence to 60 days. It splits by calendar date, ranks calibration candidates by training-partition error, and reports a separate held-out partition. Current labels and the baseline comparator’s current max-HR setting are used because their historical edits were not recorded; this is a retrospective evaluation, not a fully prospective trial. The comparator reconstructs the legacy HR-adjusted CP projector without weather, with the same missing-weather limitation for the new model.
+
+Gate: at least 10 training and 10 held-out races, with at least 3 paired held-out predictions per distance; no distance may worsen mean absolute error or optimistic error, and overall optimistic error must decrease. Evidence-quality breakdowns and missing predictions remain visible. Reusing the held-out races to tune parameters invalidates this gate; collect a fresh holdout before release if model behavior is changed in response to those outcomes.
+
+### Local evaluation, 2026-09-13
+
+Six athletes supplied only five qualifying confirmed races: three chronological training races (two paired predictions), two held-out races. Defaults were retained because calibration data were insufficient.
+
+| Held-out distance | Paired races | Legacy absolute error | New absolute error | Result |
+| --- | ---: | ---: | ---: | --- |
+| 5K | 1 | 121.9 s | 255.9 s | Worse |
+| 10K | 0 | — | — | Insufficient |
+| Half marathon | 1 | 1177.0 s | 352.4 s | Better |
+| Marathon | 0 | — | — | Insufficient |
+| Combined | 2 | 649.5 s | 304.2 s | Insufficient validation |
+
+Mean optimistic error fell from 649.5 seconds to zero across the two paired held-out races, but only one actual result fell inside its estimated range. The 5K regression and missing-distance evidence fail the rollout gate. **Keep the observed estimator disabled.** The full aggregate report, including evidence-quality breakdowns, is in `estimate-evaluation.json`. Individual activity data are not included.
+
+## Durable plans and adaptation
+
+Full workout JSON, stable IDs, source, ownership, locks, recorded-run links, and complete before/after revisions live in PostgreSQL. Every plan write compares the athlete's plan version under a row lock; automatic writes also compare their input data version. Generated sessions are constrained by availability, minutes per session, current training volume, optional weekly distance cap, weekly distance/frequency goals, rest spacing, and easy-only mode. Private free-text notes are chat context, not executable scheduling constraints. Future fitness gains are never assumed. The dated progression is an outline; each detailed week uses fresh observed training.
+
+Automatic edits preserve today, completed/skipped workouts, manual sessions, shared sessions, and locked workouts. Editing manually locks the session. Run matching requires a unique compatible session and distance on the same local date; ambiguous matches remain for confirmation. Explicit unlinking disables automatic rematching of that session. Undo applies only to the latest coach revision at the current plan version and locks restored workouts so later edits cannot be overwritten.
+
+Legacy server rows default to manual/locked. Date-only browser drafts are offered for explicit ownership confirmation and saved as new manual sessions. They are not assigned based on whoever happens to sign in.
+
+Keep `AUTO_ADAPT_ENABLED=false` until staging confirms sync-triggered revision, preference/goal changes, ambiguous matches, undo, and shared-event protections across two signed-in accounts. On-demand weekly generation remains available.
+
+## Background processing and history
+
+Archive jobs save a fixed upper date, page, progress, retries, and completion state per athlete. Inserts ignore duplicate IDs to preserve classifications and exclusions. Incremental sync runs first and creates bounded continuations for gaps larger than two pages; archive jobs cannot prevent new-run sync. Only recent 60-day runs or an explicit detail request fetch expensive details/streams. Background enrichment handles one run per leased job; manual detail batches are capped at two. Missing optional streams do not cause endless archive retries. List responses contain at most 50 run summaries plus an opaque `(date, id)` cursor; raw JSON and streams are omitted. Date filters default to Jakarta and accept an explicit timezone.
+
+Strava request wrappers persist application-wide overall and non-upload quota headers. Archive imports pause before exhausting the quota and resume at the reported reset boundaries. These are natural 15-minute boundaries and midnight UTC, as documented by [Strava](https://developers.strava.com/docs/rate-limits/). Database leases and cursor comparisons make interrupted and duplicate jobs resumable. `/api/work` provides authenticated, bounded continuations while the dashboard, plan, or group is open. The scheduled worker handles idle users; expired leases are claimable again. Mutations coalesce pending athlete recomputations. Archive status labels the number of summaries processed, which can include previously imported records.
+
+Long-range totals use indexed SQL aggregates. Group history sends daily totals and one cached best effort per member/day, instead of full activities, laps, or streams. Detailed challenge efforts are computed when details change. The activity list remains independent of total archive size; a 10,000-run fixture is covered by SQL aggregate and pagination tests.
+
+## Coaching and shared runs
+
+Briefings cache by group membership, training/plan versions, challenge changes, shared events, day, and model. Readers get the previous briefing while a leased job regenerates. Jobs validate input version and lease before committing. Facts and awards come from deterministic evidence; optional model-generated style is restricted to a reviewed closing, so it cannot invent facts. Prior focus and completion counts persist for follow-through. Personal conversation history and private constraints never enter group briefing context.
+
+Members can create shared runs and RSVP. Creators and current admins manage events. Optional personal-plan copies are locked and versioned. Event edits/cancellation flag those copies; only explicit acceptance moves or removes them. Completed sessions remain preserved. Membership removal deletes RSVP access, flags retained personal sessions, and leaves event management with current admins. Updates stay in the app; this release sends no notifications outside it.
+
+## Validation checklist
+
+- Unit and PostgreSQL integration suite: 143 tests passed.
+- Independent TypeScript check (`npm run typecheck`), since the existing Next build skips TypeScript/lint validation.
+- Production build (`npm run build`).
+- Mobile and desktop fixture checks for goals/results, plans/editor, shared runs/RSVP, and 50-row history.
+- Staging OAuth reconnect, real Strava quota interruption/resume, and two-account permissions before production enablement.
+
+### Local UI checks
+
+Fixture previews were exercised at 375×812 and 1440×1000. Checked race editing/result inputs, saved workout structure, preferences and progression layout, shared-run join state, and history pagination. History rendered exactly 50 rows before and after the older-page action; the page width stayed within 375px. Fixed missing accent/surface CSS aliases and an unlabeled race-editor close control. A first-load development chunk timeout cleared after recompilation/reload; no subsequent runtime errors were observed in the exercised screens. These fixture checks use mocked API responses and are not production OAuth or database end-to-end tests.
+
+Private API responses use no-store. Client navigation does not retain five-minute copies of mutable goals and plans; expensive estimator results remain cached by data/model version in PostgreSQL. The OAuth entry route is forced dynamic and tested for unique state values.
+
+The “What changed?” recap and a dedicated progress-beyond-pace feature remain follow-ups, as scoped in the approved plan.

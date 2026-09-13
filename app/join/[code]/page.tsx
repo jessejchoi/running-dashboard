@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -5,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 export const dynamic = 'force-dynamic'
 
 export default async function JoinPage({ params }: { params: { code: string } }) {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
 
   // Look up group by invite code
   const { data: group } = await supabaseAdmin

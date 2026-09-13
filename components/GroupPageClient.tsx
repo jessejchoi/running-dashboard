@@ -1,13 +1,13 @@
 'use client'
+import BackgroundWork from './BackgroundWork'
 import { useState, useEffect, useRef } from 'react'
-import { Target, Activity, BarChart2, CalendarDays, Banknote } from 'lucide-react'
+import { Target, Activity, BarChart2, CalendarDays } from 'lucide-react'
 import { type Group, type Member, type Run, type LeaderboardRun, type Challenge, type TrainingLoad } from '@/components/GroupShared'
 import GroupDashboardTab from '@/components/GroupDashboardTab'
 import GroupFeedTab from '@/components/GroupFeedTab'
 import GroupPlansTab from '@/components/GroupPlansTab'
 import GroupGoalsTab from '@/components/GroupGoalsTab'
 import GroupPageHeader from '@/components/GroupPageHeader'
-import { GroupBetsTab } from '@/components/GroupBets'
 import type { BriefingContent } from '@/lib/coachOutputs'
 
 interface UserPlan {
@@ -42,7 +42,7 @@ export default function GroupPageClient({
   initialBriefing, initialBriefingMeta, initialPlans, memberEstimates: initialMemberEstimates = {},
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans' | 'bets'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
   const memberEstimates = initialMemberEstimates
 
   // Group name rename
@@ -111,6 +111,7 @@ export default function GroupPageClient({
 
   return (
     <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
+      <BackgroundWork />
       <GroupPageHeader
         allGroups={allGroups}
         copied={copied}
@@ -138,7 +139,6 @@ export default function GroupPageClient({
         {([
           { key: 'dashboard', label: 'Home',  icon: BarChart2 },
           { key: 'goals',     label: 'Goals', icon: Target },
-          { key: 'bets',      label: 'Bets',  icon: Banknote },
           { key: 'feed',      label: 'Runs',  icon: Activity },
           { key: 'plans',     label: 'Plans',     icon: CalendarDays },
         ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
@@ -193,14 +193,7 @@ export default function GroupPageClient({
         />
       )}
 
-      {/* ── Bets tab ──────────────────────────────────────────────────────── */}
-      {tab === 'bets' && (
-        <GroupBetsTab
-          groupId={group.id}
-          members={localMembers}
-          myRole={myRole}
-        />
-      )}
+
 
       {/* ── Plans tab ─────────────────────────────────────────────────────── */}
       <div className={tab !== 'plans' ? 'hidden' : ''}>

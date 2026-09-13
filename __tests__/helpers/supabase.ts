@@ -8,6 +8,11 @@ type TerminalMethod =
   | 'then'
 
 type ChainMethod =
+  | 'gt'
+  | 'lt'
+  | 'neq'
+  | 'or'
+  | 'range'
   | 'select'
   | 'eq'
   | 'in'
@@ -21,6 +26,7 @@ type ChainMethod =
   | 'limit'
 
 const CHAIN_METHODS: ChainMethod[] = [
+  'gt', 'lt', 'neq', 'or', 'range',
   'select',
   'eq',
   'in',

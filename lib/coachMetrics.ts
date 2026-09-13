@@ -1,3 +1,5 @@
+import { recentCoachRuns, canonicalTotals } from '@/lib/coachData'
+import { getGroupLatestEstimates } from '@/lib/latestEstimates'
 import { supabaseAdmin } from '@/lib/supabase'
 import { computeStreak, speedToPace } from '@/lib/utils'
 
@@ -22,6 +24,8 @@ export interface CoachMetricTotal extends CoachRangeDefinition {
 
 export interface CoachActivity {
   id?: number
+  effort_count?: number
+  source_count?: number
   athlete_id: number
   start_date: string
   distance: number | null
@@ -193,7 +197,7 @@ function totalForRange(activities: CoachActivity[], range: CoachRangeDefinition)
     unit: 'km',
     meters: Math.round(meters),
     km: Math.round((meters / 1000) * 10) / 10,
-    source_count: runs.length,
+    source_count: runs.reduce((n,a)=>n+(a.source_count??1),0),
   }
 }
 
@@ -401,8 +405,8 @@ export function buildChallengeMetricsFromActivities(params: {
   const memberIds = params.memberIds ?? Array.from(new Set(params.activities.map(a => a.athlete_id)))
 
   return params.challenges.map(challenge => {
-    const start = new Date(challenge.start_date + 'T00:00:00Z')
-    const end = new Date(challenge.end_date + 'T23:59:59Z')
+    const start = new Date(challenge.start_date + 'T00:00:00+07:00')
+    const end = new Date(challenge.end_date + 'T23:59:59+07:00')
     const relevant = params.activities.filter(a => {
       if (!isRun(a)) return false
       const d = new Date(a.start_date)
@@ -419,7 +423,7 @@ export function buildChallengeMetricsFromActivities(params: {
       end_date: challenge.end_date,
       total_km: Math.round((meters / 1000) * 10) / 10,
       target_km: targetKm,
-      source_count: relevant.length,
+      source_count: relevant.reduce((n,a)=>n+(a.source_count??1),0),
     }
 
     if (cType === 'elevation') {
@@ -438,8 +442,8 @@ export function buildChallengeMetricsFromActivities(params: {
       const target = challenge.target_meters ?? null
       return {
         ...base,
-        pct: target ? Math.min(Math.round((relevant.length / target) * 100), 100) : 0,
-        progress_value: relevant.length,
+        pct: target ? Math.min(Math.round((relevant.reduce((n,a)=>n+(a.source_count??1),0) / target) * 100), 100) : 0,
+        progress_value: relevant.reduce((n,a)=>n+(a.source_count??1),0),
         target_value: target,
         progress_unit: 'runs',
       }
@@ -485,10 +489,11 @@ export function buildChallengeMetricsFromActivities(params: {
     }
 
     if (cType === 'fastest_effort') {
+      const effortCount=relevant.reduce((n,a)=>n+(a.effort_count??0),0)
       return {
         ...base,
-        pct: relevant.length > 0 ? 100 : 0,
-        progress_value: relevant.length,
+        pct: effortCount > 0 ? 100 : 0,
+        progress_value: effortCount,
         target_value: null,
         progress_unit: 'efforts',
       }
@@ -535,12 +540,7 @@ export function buildCoachFactsSnapshot(metrics: CoachGroupMetrics | CoachAthlet
 export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthleteMetrics> {
   const now = new Date()
   const [{ data: allRuns }, { data: tokenRow }, { data: goals }, { data: debriefs }] = await Promise.all([
-    supabaseAdmin
-      .from('activities')
-      .select('id, athlete_id, start_date, distance, moving_time, average_speed, average_heartrate, run_type, type, total_elevation_gain')
-      .eq('athlete_id', athleteId)
-      .eq('type', 'Run')
-      .order('start_date', { ascending: false }),
+    recentCoachRuns([athleteId]),
     supabaseAdmin
       .from('strava_tokens')
       .select('athlete_name')
@@ -548,7 +548,7 @@ export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthle
       .maybeSingle(),
     supabaseAdmin
       .from('user_goals')
-      .select('label, distance_key, target_secs, current_secs, race_date')
+      .select('label, distance_key, target_secs, current_secs, race_date').eq('status','active')
       .eq('athlete_id', athleteId)
       .order('race_date', { ascending: true }),
     supabaseAdmin
@@ -560,14 +560,18 @@ export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthle
   ])
 
   const activities = allRuns ?? []
-  return buildAthleteMetricsFromActivities({
+  const [totals, estimates] = await Promise.all([canonicalTotals([athleteId], getCoachRangeDefinitions(now)), getGroupLatestEstimates([athleteId])])
+  const metrics = buildAthleteMetricsFromActivities({
     athlete_id: athleteId,
     name: tokenRow?.athlete_name ?? `Athlete ${athleteId}`,
     activities,
-    goals: goals ?? [],
+    goals: (goals ?? []).map(g=>({...g,current_secs:estimates[athleteId]?.[g.distance_key]??null})),
     debriefs: debriefs ?? [],
     now,
   })
+  metrics.totals = totals[athleteId] ?? metrics.totals
+  metrics.signals = buildAthleteSignals(metrics)
+  return metrics
 }
 
 export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetrics> {
@@ -605,14 +609,9 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
       .in('athlete_id', memberIds),
     supabaseAdmin
       .from('user_goals')
-      .select('athlete_id, label, distance_key, target_secs, current_secs, race_date')
+      .select('athlete_id, label, distance_key, target_secs, current_secs, race_date').eq('status','active')
       .in('athlete_id', memberIds),
-    supabaseAdmin
-      .from('activities')
-      .select('id, athlete_id, start_date, distance, moving_time, average_speed, average_heartrate, run_type, type, total_elevation_gain')
-      .in('athlete_id', memberIds)
-      .eq('type', 'Run')
-      .order('start_date', { ascending: false }),
+    recentCoachRuns(memberIds),
     supabaseAdmin
       .from('run_coach_notes')
       .select('run_id, athlete_id, perceived_effort, athlete_note, generated_at')
@@ -632,23 +631,37 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     nameMap[token.athlete_id] = token.athlete_name ?? `Athlete ${token.athlete_id}`
   }
 
+  const [canonical, estimates] = await Promise.all([canonicalTotals(memberIds, getCoachRangeDefinitions(now)), getGroupLatestEstimates(memberIds)])
   const allActivities = activities ?? []
   const members = memberIds.map(athleteId => buildAthleteMetricsFromActivities({
     athlete_id: athleteId,
     name: nameMap[athleteId] ?? `Athlete ${athleteId}`,
     activities: allActivities.filter(a => a.athlete_id === athleteId),
-    goals: (goals ?? []).filter(g => g.athlete_id === athleteId),
+    goals: (goals ?? []).filter(g => g.athlete_id === athleteId).map(g=>({...g,current_secs:estimates[athleteId]?.[g.distance_key]??null})),
     debriefs: (debriefs ?? []).filter(d => d.athlete_id === athleteId),
     now,
   }))
-  const totals = buildCoachTotals(allActivities, now)
+  for (const member of members) { member.totals = canonical[member.athlete_id] ?? member.totals; member.signals = buildAthleteSignals(member) }
+  const totals = buildCoachTotals([], now)
+  for (const key of Object.keys(totals) as CoachRangeKey[]) {
+    totals[key].meters = members.reduce((n,m)=>n+m.totals[key].meters,0)
+    totals[key].km = Math.round(totals[key].meters/100)/10
+    totals[key].source_count = members.reduce((n,m)=>n+m.totals[key].source_count,0)
+  }
+  let challengeActivities: CoachActivity[] = []
+  if (challenges?.length) {
+    const from = challenges.map(c=>c.start_date).sort()[0] + 'T00:00:00+07:00'
+    const {data,error} = await supabaseAdmin.rpc('group_daily_context',{p_athletes:memberIds,p_from:from,p_to:now.toISOString()})
+    if(error) throw error
+    challengeActivities = data ?? []
+  }
   const groupWithoutSignals = {
     generated_at: now.toISOString(),
     today,
     group: { id: groupId, name: group?.name ?? 'Group' },
     totals,
     members,
-    active_challenges: buildChallengeMetricsFromActivities({ challenges: challenges ?? [], activities: allActivities, memberIds, now }),
+    active_challenges: buildChallengeMetricsFromActivities({ challenges: challenges ?? [], activities: challengeActivities, memberIds, now }),
     signals: [],
   }
 

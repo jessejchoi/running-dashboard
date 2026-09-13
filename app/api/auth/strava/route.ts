@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const clientId = process.env.STRAVA_CLIENT_ID
@@ -20,6 +20,7 @@ export async function GET() {
   stravaAuthUrl.searchParams.set('state', state)
 
   const response = NextResponse.redirect(stravaAuthUrl.toString())
+  response.headers.set('Cache-Control', 'no-store')
   response.cookies.set('strava_state', state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

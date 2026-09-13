@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -7,7 +8,7 @@ import GroupsPageClient from '@/components/GroupsPageClient'
 export const dynamic = 'force-dynamic'
 
 export default async function GroupsPage() {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) redirect('/')
 
   // Fetch groups this athlete belongs to + their primary group preference

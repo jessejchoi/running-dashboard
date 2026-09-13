@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -16,7 +17,7 @@ import { isTreadmillRun } from '@/lib/run-classification/surface'
 
 export default async function RunDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { from?: string } }) {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) redirect('/')
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 

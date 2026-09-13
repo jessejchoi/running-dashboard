@@ -43,6 +43,8 @@ export interface Group {
 }
 
 export interface LeaderboardRun {
+  source_count?: number
+  best_challenge?: import('@/lib/challengeUtils').ChallengeEffort | null
   id: number
   athlete_id: number
   distance: number

@@ -1,8 +1,9 @@
+import { getAthleteId, SESSION_COOKIE } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
-  const athleteIdCookie = request.cookies.get('athlete_id')?.value
+  const athleteIdCookie = await getAthleteId()
   if (!athleteIdCookie) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
@@ -35,8 +36,12 @@ export async function POST(request: NextRequest) {
     .delete()
     .eq('athlete_id', athleteId)
 
+  const { error: sessionError } = await supabaseAdmin.from('app_sessions').delete().eq('athlete_id', athleteId)
+  if (sessionError) return NextResponse.json({ error: 'Could not revoke sessions' }, { status: 503 })
+
   // Clear auth cookies
   const response = NextResponse.json({ ok: true })
+  response.cookies.set(SESSION_COOKIE, '', { maxAge: 0, path: '/' })
   response.cookies.set('athlete_id', '', { maxAge: 0, path: '/' })
   response.cookies.set('unit_pref', '', { maxAge: 0, path: '/' })
   return response

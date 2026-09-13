@@ -1,10 +1,11 @@
+import { getAthleteId } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const [{ data: profile }, { data: tokenRow }] = await Promise.all([
@@ -32,7 +33,7 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()

@@ -82,19 +82,21 @@ export async function loadEstimates(
     modelVersion: version,
     dataVersion,
   }
-  const { data: committed, error } = await supabaseAdmin.rpc(
-    'commit_estimates',
-    {
-      p_athlete: athleteId,
-      p_version: dataVersion,
-      p_bundle: bundle,
-    },
-  )
-  if (error) throw error
-  if (!committed)
-    throw new Error(
-      'Training changed during analysis. Refresh to use the latest evidence.',
+  // Persistence must not turn a successful analysis into a page-wide failure.
+  // The RPC still rejects stale writes; background work can refresh the cache later.
+  try {
+    const { error } = await supabaseAdmin.rpc(
+      'commit_estimates',
+      {
+        p_athlete: athleteId,
+        p_version: dataVersion,
+        p_bundle: bundle,
+      },
     )
+    if (error) console.error('Estimate cache write failed', { code: error.code })
+  } catch {
+    console.error('Estimate cache request failed')
+  }
   return {
     ...bundle,
     deltas: await fetchDeltas(athleteId, estimateValues(bundle)),

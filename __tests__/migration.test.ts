@@ -14,7 +14,7 @@ beforeAll(async () => {
  create table activities(id bigint primary key,athlete_id bigint,type text,start_date timestamptz,distance numeric,moving_time int,total_elevation_gain numeric);
  create table activity_best_efforts(athlete_id bigint,activity_start_date timestamptz);
  create table user_latest_estimates(athlete_id bigint primary key,secs_5k int,secs_10k int,secs_hm int,secs_fm int,updated_at timestamptz);
- create table estimate_snapshots(athlete_id bigint,distance_key text,estimated_secs int,snapshotted_at date,unique(athlete_id,distance_key,snapshotted_at));
+ create table estimate_snapshots(athlete_id bigint,distance_key text,estimated_secs int,snapshotted_at date,primary key(athlete_id,distance_key,snapshotted_at));
  create table user_plans(id uuid primary key default gen_random_uuid(),athlete_id bigint,plan_date date,session_index int default 0,session_type text,description text,target_distance_meters numeric,created_at timestamptz default now(),updated_at timestamptz default now(),constraint user_plans_athlete_id_plan_date_session_index_key unique(athlete_id,plan_date,session_index));
  create table group_coach_briefings(group_id uuid unique,content_json jsonb,generated_at timestamptz);
  create table group_challenges(id uuid primary key default gen_random_uuid(),group_id uuid,name text);
@@ -33,6 +33,29 @@ beforeAll(async () => {
 afterAll(async () => {
   await db?.close()
 })
+
+it('repairs an already migrated production primary key without losing history', async () => {
+  const production = new PGlite()
+  try {
+    await production.exec(`create table estimate_snapshots(
+      athlete_id bigint, distance_key text, snapshotted_at date, model_version text,
+      estimated_secs integer, primary key(athlete_id,distance_key,snapshotted_at));
+      create unique index snapshots_model_day on estimate_snapshots(athlete_id,distance_key,snapshotted_at,model_version);
+      insert into estimate_snapshots values(1,'5k','2026-09-13','legacy-unversioned',1500);`)
+    const repair = readFileSync('supabase/migration_022.sql', 'utf8')
+    await production.exec(repair)
+    await production.exec(repair)
+    await production.exec("insert into estimate_snapshots values(1,'5k','2026-09-13','cp-today-v1',1600)")
+    const rows = await production.query('select model_version,estimated_secs from estimate_snapshots order by estimated_secs')
+    expect(rows.rows).toEqual([
+      { model_version: 'legacy-unversioned', estimated_secs: 1500 },
+      { model_version: 'cp-today-v1', estimated_secs: 1600 },
+    ])
+    await expect(production.exec("insert into estimate_snapshots values(1,'5k','2026-09-13','cp-today-v1',1700)")).rejects.toThrow('duplicate key')
+  } finally {
+    await production.close()
+  }
+}, 30000)
 async function commit(
   aid: number,
   version: number,

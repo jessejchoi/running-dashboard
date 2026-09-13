@@ -294,7 +294,7 @@ alter table estimate_snapshots add column if not exists p80_high_secs integer;
 update estimate_snapshots set model_version='legacy-unversioned' where model_version is null;
 alter table estimate_snapshots alter column model_version set default 'legacy-unversioned';
 do $$ declare c record; begin
- for c in select conname from pg_constraint where conrelid='estimate_snapshots'::regclass and contype='u'
+ for c in select conname from pg_constraint where conrelid='estimate_snapshots'::regclass and contype in ('u','p')
  and pg_get_constraintdef(oid) not like '%model_version%'
  loop execute format('alter table estimate_snapshots drop constraint %I',c.conname);end loop;
 end $$;

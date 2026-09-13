@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`
 
   if (!isCron) {
-    const athleteId = cookies().get('athlete_id')?.value
+    const athleteId = await getAthleteId()
     if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const { data: membership } = await supabaseAdmin

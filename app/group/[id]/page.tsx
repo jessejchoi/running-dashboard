@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -19,7 +20,7 @@ function formatGoalTime(secs: number) {
 }
 
 export default async function GroupPage({ params }: { params: { id: string } }) {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) redirect('/')
 
   // Verify membership & fetch group
@@ -99,7 +100,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .in('athlete_id', memberIds),
     supabaseAdmin
       .from('user_goals')
-      .select('athlete_id, id, distance_key, label, target_secs, current_secs, race_date')
+      .select('athlete_id, id, distance_key, label, target_secs, current_secs, race_date, status, result_secs')
       .in('athlete_id', memberIds)
       .order('race_date', { ascending: true }),
     supabaseAdmin
@@ -109,13 +110,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .gte('start_date', thirtyDaysAgo)
       .order('start_date', { ascending: false })
       .limit(100),
-    supabaseAdmin
-      .from('activities')
-      .select('id, athlete_id, distance, moving_time, start_date, suffer_score, average_speed, run_type, total_elevation_gain, laps, splits')
-      .in('athlete_id', memberIds)
-      .eq('type', 'Run')
-      .gte('start_date', sixMonthsAgo)
-      .order('start_date', { ascending: false }),
+    supabaseAdmin.rpc('group_daily_context',{p_athletes:memberIds,p_from:new Date(Math.min(Date.parse(sixMonthsAgo),Date.parse(new Date().getFullYear()+'-01-01T00:00:00+07:00'))).toISOString(),p_to:new Date().toISOString()}),
     supabaseAdmin
       .from('group_coach_briefings')
       .select('content_json, generated_at')

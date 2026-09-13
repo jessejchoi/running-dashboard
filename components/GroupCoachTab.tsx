@@ -93,7 +93,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   const answerRef = useRef<HTMLDivElement>(null)
 
   async function fetchBriefing(force = false) {
-    setBriefingLoading(true)
+    if(!briefing) setBriefingLoading(true)
     setBriefingError(false)
     try {
       const url = `/api/groups/${groupId}/coach/briefing${force ? '?force=true' : ''}`
@@ -113,8 +113,11 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   }
 
   useEffect(() => {
-    if (!initialBriefing) fetchBriefing()
-  }, [])
+    fetchBriefing()
+    const refresh=()=>{void fetchBriefing()}
+    window.addEventListener('rundash:refresh',refresh)
+    return()=>window.removeEventListener('rundash:refresh',refresh)
+  }, [groupId])
 
   async function askCoach(chipText: string) {
     if (answerStreaming) return

@@ -1,10 +1,11 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 
 // ── GET /api/groups/[id]/messages ─────────────────────────────────────────────
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { data: membership } = await supabaseAdmin
@@ -63,7 +64,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 // ── POST /api/groups/[id]/messages ────────────────────────────────────────────
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { data: membership } = await supabaseAdmin
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
 // ── DELETE /api/groups/[id]/messages ─────────────────────────────────────────
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { data: membership } = await supabaseAdmin

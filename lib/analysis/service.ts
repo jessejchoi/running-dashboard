@@ -1,3 +1,5 @@
+import { expectedEstimatorEnabled } from './expected'
+import { getExpectedEstimates } from './expected-service'
 import { subMonths } from 'date-fns'
 import { supabaseAdmin } from '@/lib/supabase'
 import { type DistanceKey } from '@/lib/goals'
@@ -136,13 +138,13 @@ export async function fetchAthleteAnalysisInputs(
   const activityColumns = options.activityColumns ?? ANALYSIS_ACTIVITY_COLUMNS
 
   const [{ data: goalRows }, { data: userProfile }] = await Promise.all([
-    supabaseAdmin.from('user_goals').select('distance_key, target_secs').eq('athlete_id', athleteId),
+    supabaseAdmin.from('user_goals').select('distance_key, target_secs').eq('athlete_id', athleteId).eq('status','active').order('is_primary',{ascending:false}).order('race_date',{ascending:true}),
     supabaseAdmin.from('user_profiles').select('max_hr, pace_zones').eq('athlete_id', athleteId).maybeSingle(),
   ])
 
   const targetSecsMap: Record<string, number> = {}
   for (const goal of goalRows ?? []) {
-    targetSecsMap[goal.distance_key] = goal.target_secs
+    targetSecsMap[goal.distance_key] ??= goal.target_secs
   }
 
   let intervalQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).in('run_type', ANALYSIS_RUN_TYPES.intervals).order('start_date', { ascending: false })
@@ -255,10 +257,10 @@ export async function getAthleteAnalysis(
     }
     if (projection) {
       currentEstimates = {
-        '5k':  projection.projections.find(p => p.distanceKey === '5k')?.idealSecs  ?? null,
-        '10k': projection.projections.find(p => p.distanceKey === '10k')?.idealSecs ?? null,
-        'hm':  projection.projections.find(p => p.distanceKey === 'hm')?.idealSecs  ?? null,
-        'fm':  projection.projections.find(p => p.distanceKey === 'fm')?.idealSecs  ?? null,
+        '5k':  projection.projections.find(p => p.distanceKey === '5k')?.todaySecs  ?? null,
+        '10k': projection.projections.find(p => p.distanceKey === '10k')?.todaySecs ?? null,
+        'hm':  projection.projections.find(p => p.distanceKey === 'hm')?.todaySecs  ?? null,
+        'fm':  projection.projections.find(p => p.distanceKey === 'fm')?.todaySecs  ?? null,
       }
       snapshotExtras = {}
       for (const p of projection.projections) {
@@ -270,6 +272,12 @@ export async function getAthleteAnalysis(
         }
       }
     }
+  }
+
+  if (expectedEstimatorEnabled()) {
+    const observed = await getExpectedEstimates(athleteId)
+    currentEstimates = Object.fromEntries(observed.map(e => [e.distanceKey, e.expectedSecs]))
+    snapshotExtras = Object.fromEntries(observed.map(e => [e.distanceKey, { idealSecs: e.idealSecs, todaySecs: e.expectedSecs, p80LowSecs: e.lowSecs, p80HighSecs: e.highSecs }]))
   }
 
   return {

@@ -1,9 +1,10 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { buildAthleteContext } from '@/lib/coachContext'
 
 export async function GET() {
-  const athleteId = cookies().get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   try {

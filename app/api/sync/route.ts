@@ -1,10 +1,11 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { syncActivities } from '@/lib/strava'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
 
   if (!athleteId) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })

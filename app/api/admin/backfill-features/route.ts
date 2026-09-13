@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { runBackfillBatch } from '@/lib/analysis/backfillBatch'
@@ -17,7 +18,7 @@ export const maxDuration = 60
  */
 export async function POST(request: NextRequest) {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
@@ -32,5 +33,5 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  return POST(request)
+  return NextResponse.json({error:'Use POST'},{status:405})
 }

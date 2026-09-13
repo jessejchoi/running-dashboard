@@ -1,6 +1,8 @@
+import { createSession, SESSION_COOKIE, SESSION_SECONDS } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { syncActivities } from '@/lib/strava'
+import { startHistory } from '@/lib/history'
+import { queueAthleteWork } from '@/lib/worker'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -108,18 +110,22 @@ export async function GET(request: NextRequest) {
   }
 
   // Kick off initial sync in background
-  syncActivities(athlete.id).catch(console.error)
+  await supabaseAdmin.rpc('reconnect_history',{p_athlete:athlete.id})
+  await startHistory(athlete.id)
+  await queueAthleteWork(athlete.id)
 
-  // Set athlete_id cookie and redirect to dashboard
+  // Issue an opaque server session and retire the legacy identity cookie
   const response = NextResponse.redirect(`${appUrl}/?syncing=true`)
   // Clear the pending profile and state cookies
   response.cookies.set('pending_profile', '', { maxAge: 0, path: '/' })
   response.cookies.set('strava_state', '', { maxAge: 0, path: '/' })
-  response.cookies.set('athlete_id', String(athlete.id), {
+  response.cookies.set('athlete_id', '', { maxAge: 0, path: '/' })
+  response.cookies.set(SESSION_COOKIE, await createSession(athlete.id), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 365,
+    maxAge: SESSION_SECONDS,
+    path: '/',
   })
   // Set unit_pref for new users so units work immediately without visiting settings
   if (!existingProfile) {

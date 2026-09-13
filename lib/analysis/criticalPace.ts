@@ -247,10 +247,10 @@ export function buildCapabilityEnvelope(points: BestEffortPoint[]): BestEffortPo
  *
  * Grid resolution is set so even on a hot path the fit runs in <10ms.
  */
-export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
+export function fitCriticalPace(points: BestEffortPoint[], observedOnly = false, huberDelta = 0.15): CPFitResult | null {
   if (points.length < 3) return null
 
-  const envelope = buildCapabilityEnvelope(points)
+  const envelope = observedOnly ? [...points].sort((a, b) => a.durationSecs - b.durationSecs) : buildCapabilityEnvelope(points)
   if (envelope.length < 3) return null
 
   const fitPoints = envelope.filter(p => p.durationSecs >= 180)
@@ -270,7 +270,9 @@ export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
         : diff > 0 ? CAPABILITY_MISS_PENALTY
           : diff < 0 ? SUBMAXIMAL_EFFORT_PENALTY
             : 1
-      sse += diff ** 2 * weight * asymmetry
+      sse += observedOnly && envelopeLoss
+        ? weight * (Math.abs(diff) <= huberDelta ? diff ** 2 : 2 * huberDelta * Math.abs(diff) - huberDelta ** 2)
+        : diff ** 2 * weight * asymmetry
     }
     return sse
   }
@@ -325,7 +327,7 @@ export function fitCriticalPace(points: BestEffortPoint[]): CPFitResult | null {
     return maxShortfall
   }
   const numericalShortfall = maxCapabilityShortfall(bestCV, bestD, bestV)
-  if (numericalShortfall > 0 && numericalShortfall <= 0.01) {
+  if (!observedOnly && numericalShortfall > 0 && numericalShortfall <= 0.01) {
     const shift = numericalShortfall * 1.001
     bestCV += shift
     bestV += shift

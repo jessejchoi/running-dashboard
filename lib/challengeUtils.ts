@@ -64,7 +64,8 @@ function bestUserLap(laps: SegmentLike[]): ChallengeEffortCandidate | null {
   return { ...best, source: 'lap' }
 }
 
-export function getBestChallengeEffort(activity: { id: number; laps?: SegmentLike[] | null; splits?: SegmentLike[] | null }) {
+export function getBestChallengeEffort(activity: { best_challenge?: ChallengeEffort | null; id: number; laps?: SegmentLike[] | null; splits?: SegmentLike[] | null }) {
+  if(activity.best_challenge) return activity.best_challenge
   const bestLap = bestUserLap(activity.laps ?? [])
   const bestKm = bestKmSplit(activity.splits ?? [])
   const best = !bestLap ? bestKm : !bestKm ? bestLap : (bestLap.averageSpeed >= bestKm.averageSpeed ? bestLap : bestKm)

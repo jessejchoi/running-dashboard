@@ -1,4 +1,6 @@
 'use client'
+import { localDate, weekStart, zonedDateTime, addDays } from '@/lib/calendar'
+import SharedRuns from './SharedRuns'
 import { useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -9,7 +11,6 @@ import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, formatTime } from '@/components/GroupShared'
 import GroupCoachTab from '@/components/GroupCoachTab'
 import GroupMessageBoard from '@/components/GroupMessageBoard'
-import { GroupBetsDashboardCard } from '@/components/GroupBets'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 
 interface BriefingMeta {
@@ -37,18 +38,9 @@ type LeaderRange = 'week' | 'month' | 'ytd' | '6m'
 type ChallengeType = 'group_distance' | 'weekly_quota' | 'fastest_effort' | 'elevation' | 'run_count'
 
 function getRangeStart(range: LeaderRange): Date {
-  const now = new Date()
-  if (range === 'week') {
-    const d = new Date(now)
-    const day = d.getDay()
-    const diff = day === 0 ? 6 : day - 1
-    d.setDate(d.getDate() - diff)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
-  if (range === 'month') return new Date(now.getFullYear(), now.getMonth(), 1)
-  if (range === 'ytd')   return new Date(now.getFullYear(), 0, 1)
-  return new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
+  const today=localDate()
+  const date=range==='week'?weekStart(today):range==='month'?today.slice(0,7)+'-01':range==='ytd'?today.slice(0,4)+'-01-01':addDays(today,-182)
+  return new Date(zonedDateTime(date+'T00:00','Asia/Jakarta'))
 }
 
 function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members: Member[]) {
@@ -58,7 +50,7 @@ function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members:
   for (const r of filtered) {
     if (!totals[r.athlete_id]) totals[r.athlete_id] = { distance: 0, count: 0 }
     totals[r.athlete_id].distance += r.distance
-    totals[r.athlete_id].count += 1
+    totals[r.athlete_id].count += r.source_count ?? 1
   }
   return members
     .map(m => ({
@@ -79,7 +71,6 @@ function challengeStatus(c: Challenge): 'active' | 'upcoming' | 'past' {
   const now = new Date()
   const start = new Date(c.start_date)
   const end = new Date(c.end_date)
-  end.setHours(23, 59, 59, 999)
   if (now < start) return 'upcoming'
   if (now > end)   return 'past'
   return 'active'
@@ -90,9 +81,8 @@ function computeChallengeProgress(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date)
-  const end = new Date(challenge.end_date)
-  end.setHours(23, 59, 59, 999)
+  const start = new Date(challenge.start_date+'T00:00:00+07:00')
+  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
   const relevant = leaderboardRuns.filter(r => {
     const d = new Date(r.start_date)
     return d >= start && d <= end
@@ -113,8 +103,8 @@ function computeWeeklyQuota(
   challenge: Challenge,
   members: Member[],
 ) {
-  const challengeStart = new Date(challenge.start_date)
-  const challengeEnd = new Date(challenge.end_date)
+  const challengeStart = new Date(challenge.start_date+'T00:00:00+07:00')
+  const challengeEnd = new Date(challenge.end_date+'T23:59:59.999+07:00')
   challengeEnd.setHours(23, 59, 59, 999)
   const weeklyMeters = (challenge.config.weekly_meters as number) ?? 0
 
@@ -153,9 +143,8 @@ function computeFastestEffort(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date)
-  const end = new Date(challenge.end_date)
-  end.setHours(23, 59, 59, 999)
+  const start = new Date(challenge.start_date+'T00:00:00+07:00')
+  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
   const relevant = leaderboardRuns.filter(r => {
     const d = new Date(r.start_date)
     return d >= start && d <= end
@@ -185,9 +174,8 @@ function computeElevationProgress(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date)
-  const end = new Date(challenge.end_date)
-  end.setHours(23, 59, 59, 999)
+  const start = new Date(challenge.start_date+'T00:00:00+07:00')
+  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
   const relevant = leaderboardRuns.filter(r => {
     const d = new Date(r.start_date)
     return d >= start && d <= end
@@ -208,9 +196,8 @@ function computeRunCountProgress(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date)
-  const end = new Date(challenge.end_date)
-  end.setHours(23, 59, 59, 999)
+  const start = new Date(challenge.start_date+'T00:00:00+07:00')
+  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
   const relevant = leaderboardRuns.filter(r => {
     const d = new Date(r.start_date)
     return d >= start && d <= end
@@ -220,9 +207,9 @@ function computeRunCountProgress(
     name: m.name,
     profile_pic: m.profile_pic,
     is_me: m.is_me,
-    count: relevant.filter(r => r.athlete_id === m.athlete_id).length,
+    count: relevant.filter(r => r.athlete_id === m.athlete_id).reduce((n,r)=>n+(r.source_count??1),0),
   })).sort((a, b) => b.count - a.count)
-  return { totalCount: relevant.length, byMember }
+  return { totalCount: relevant.reduce((n,r)=>n+(r.source_count??1),0), byMember }
 }
 
 function getLastMonthRange(now: Date) {
@@ -350,8 +337,7 @@ export default function GroupDashboardTab({
   const lastMonthChallenge = [...past]
     .filter(c => {
       const end = new Date(c.end_date)
-      end.setHours(23, 59, 59, 999)
-      return end >= lastMonthRange.start && end <= lastMonthRange.end
+          return end >= lastMonthRange.start && end <= lastMonthRange.end
     })
     .sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime())[0]
   const lastMonthSummary = lastMonthChallenge
@@ -831,11 +817,9 @@ export default function GroupDashboardTab({
         />
       </div>
 
-      <GroupBetsDashboardCard
-        groupId={group.id}
-        members={members}
-        myRole={myRole}
-      />
+
+
+      <SharedRuns groupId={group.id} />
 
       {/* RDCoach */}
       <div>

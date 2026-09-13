@@ -5,7 +5,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const RETRY_DELAYS = [2000, 4000]
 
 function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -18,12 +18,21 @@ export async function claudeMessage(params: {
   system: string
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
   max_tokens: number
+  timeoutMs?: number
+  retries?: number
 }): Promise<string> {
   const startMs = Date.now()
 
-  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+  for (
+    let attempt = 0;
+    attempt <= (params.retries ?? RETRY_DELAYS.length);
+    attempt++
+  ) {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30_000)
+    const timeout = setTimeout(
+      () => controller.abort(),
+      params.timeoutMs ?? 30_000,
+    )
 
     try {
       const message = await anthropic.messages.create(
@@ -33,7 +42,7 @@ export async function claudeMessage(params: {
           messages: params.messages,
           max_tokens: params.max_tokens,
         },
-        { signal: controller.signal }
+        { signal: controller.signal, maxRetries: 0 },
       )
 
       const latencyMs = Date.now() - startMs
@@ -55,7 +64,7 @@ export async function claudeMessage(params: {
         error: err instanceof Error ? err.message : String(err),
       })
 
-      if (isRetryable && attempt < RETRY_DELAYS.length) {
+      if (isRetryable && attempt < (params.retries ?? RETRY_DELAYS.length)) {
         await sleep(RETRY_DELAYS[attempt])
         continue
       }

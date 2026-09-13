@@ -1,3 +1,7 @@
+import BackgroundWork from '@/components/BackgroundWork'
+import {canonicalTotals} from '@/lib/coachData'
+import {getCoachRangeDefinitions} from '@/lib/coachMetrics'
+import { getAthleteId } from '@/lib/auth'
 import { Suspense } from 'react'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -24,7 +28,7 @@ async function getFastData(athleteId: number) {
   ] = await Promise.all([
     supabaseAdmin
       .from('activities')
-      .select('id,start_date,distance,moving_time,suffer_score,run_type,run_type_manual,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain,raw')
+      .select('id,start_date,distance,moving_time,suffer_score,run_type,run_type_manual,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain')
       .eq('athlete_id', athleteId)
       .eq('type', 'Run')
       .order('start_date', { ascending: false })
@@ -74,7 +78,7 @@ function RaceSectionSkeleton() {
 
 export default async function DashboardPage() {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
   if (!athleteId) {
@@ -82,19 +86,21 @@ export default async function DashboardPage() {
   }
 
   const { activities, athlete, displayName, hasMaxHr, primaryGroupId } = await getFastData(Number(athleteId))
+  const totals = (await canonicalTotals([Number(athleteId)],getCoachRangeDefinitions()))[Number(athleteId)]
   const trainingLoad = calculateTrainingLoad(activities)
 
   const thisWeek = isoWeek(new Date())
   const weekActivities = activities.filter((a: any) => isoWeek(new Date(a.start_date)) === thisWeek)
-  const weekDist = weekActivities.reduce((s: number, a: any) => s + a.distance, 0)
+  const weekDist = totals.week.meters
   const weekTime = weekActivities.reduce((s: number, a: any) => s + a.moving_time, 0)
   const yearStart = new Date(new Date().getFullYear(), 0, 1)
-  const yearDist = activities.filter((a: any) => new Date(a.start_date) >= yearStart).reduce((s: number, a: any) => s + a.distance, 0)
+  const yearDist = totals.ytd.meters
   const unitLabel = distanceUnitLabel(unit)
 
   return (
     <>
       <Nav />
+      <BackgroundWork />
       {primaryGroupId && <PrefetchGroup groupId={primaryGroupId} />}
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
 
@@ -104,7 +110,7 @@ export default async function DashboardPage() {
             Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]} 👋
           </h1>
           <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            {format(new Date(), 'EEE, MMM d')} · {activities.length} runs tracked
+            {format(new Date(), 'EEE, MMM d')} · {totals.all_time.source_count} runs tracked
           </p>
         </div>
 
@@ -128,10 +134,10 @@ export default async function DashboardPage() {
           {/* Mini stats — 2×2 */}
           <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
             {[
-              { label: 'Week runs',  value: `${weekActivities.length}`, unit: 'runs' },
+              { label: 'Week runs',  value: `${totals.week.source_count}`, unit: 'runs' },
               { label: 'Week time',  value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
               { label: 'This year',  value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel },
-              { label: 'Activities', value: `${activities.filter((a: any) => new Date(a.start_date) >= yearStart).length}`, unit: 'this yr' },
+              { label: 'Activities', value: `${totals.ytd.source_count}`, unit: 'this yr' },
             ].map((s, i) => (
               <div key={i} className="card fade-up" style={{ animationDelay: `${60 + i * 50}ms`, padding: '0.875rem 1rem' }}>
                 <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>{s.label}</p>

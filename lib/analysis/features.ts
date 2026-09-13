@@ -1,4 +1,3 @@
-import { supabaseAdmin } from '../supabase'
 import { analyzeEasyRun } from './easyRuns'
 import { analysisWeightForActivity } from '@/lib/run-classification'
 
@@ -180,8 +179,7 @@ export function extractEndurance(runs: RunRow[], windowDays: number): EnduranceF
   }
 }
 
-export function extractForm(runs: RunRow[]): FormFeature {
-  const now = Date.now()
+export function extractForm(runs: RunRow[], now = Date.now()): FormFeature {
   const dayMs = 86_400_000
   const acuteDays = 7
   const chronicDays = 28
@@ -261,6 +259,7 @@ export async function loadAthleteFeatures(
   athleteId: number,
   windowDays: number = 60,
 ): Promise<AthleteFeatures> {
+  const { supabaseAdmin } = await import('../supabase')
   const cutoffISO = new Date(Date.now() - windowDays * 86_400_000).toISOString()
   const { data } = await supabaseAdmin
     .from('activities')

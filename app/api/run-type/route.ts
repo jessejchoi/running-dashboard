@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { updateLatestEstimates } from '@/lib/latestEstimates'
@@ -7,7 +8,7 @@ import { detectRaceFieldsForRunType, isManualRunType } from '@/lib/run-classific
 
 export async function PATCH(request: NextRequest) {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   const numericAthleteId = Number(athleteId)
   if (!Number.isFinite(numericAthleteId)) {

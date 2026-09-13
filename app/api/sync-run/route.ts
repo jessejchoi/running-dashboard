@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -6,7 +7,7 @@ import { generateCoachNote } from '@/lib/coachNote'
 
 export async function POST(req: NextRequest) {
   const cookieStore = cookies()
-  const athleteId = cookieStore.get('athlete_id')?.value
+  const athleteId = await getAthleteId()
   if (!athleteId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { activityId } = await req.json()

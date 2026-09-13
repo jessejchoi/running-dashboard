@@ -15,7 +15,7 @@ A Next.js dashboard connected to Strava. Tracks weekly mileage, pace trends, and
 ### 2. Supabase Database
 1. Go to https://supabase.com and create a free account + new project
 2. In your project, go to **SQL Editor**
-3. Paste and run the contents of `supabase/schema.sql`
+3. Paste and run `supabase/schema.sql`, then the numbered migrations in order. Existing installations apply `supabase/migration_021.sql` before deploying this release. See [rollout notes](docs/expansion-rollout.md).
 4. Go to **Project Settings > API** and copy:
    - Project URL
    - `anon` public key
@@ -63,19 +63,20 @@ After deploying:
 | Route | Description |
 |---|---|
 | `/` | Dashboard: stats, weekly mileage chart, pace trend, goals preview, recent runs |
-| `/goals` | Race goal tracker: progress bars and training notes for each goal |
-| `/runs` | Full activity log table with pace, HR, elevation, suffer score |
+| `/goals` | Saved race events, actual results, credible target gaps and recurring training goals |
+| `/runs` | 50-row activity history with date/type filters and resumable archive status |
 
 ---
 
-## Your Race Goals (pre-configured)
-- **Sub 22:30 5K** — Mid April 2026 (4:30/km)
-- **Sub 45:00 10K** — Mid July 2026 (4:30/km)
-- **Sub 1:45 Half Marathon** — End October 2026 (4:58/km)
+## Plans and groups
 
-To change race dates or targets, edit `lib/utils.ts` → `RACE_GOALS`.
+Set race events on `/goals` and availability on `/plan`. Saved manual workouts remain protected. Coach plans provide seven upcoming days plus a dated progression. The estimator and automatic adaptation have independent, disabled-by-default rollout flags.
 
----
+Groups retain challenges, coaching awards, and chat, and can schedule shared runs with optional personal-plan copies. Betting interfaces and handlers have been retired; their historical tables remain dormant.
+
+## Validation
+
+Run `npm test`, `npm run typecheck`, and `npm run build`. The PostgreSQL integration tests use an isolated PGlite database and never touch production. See [rollout and evaluation](docs/expansion-rollout.md) for migrations, model evaluation, feature gates, and operational checks.
 
 ## Tech Stack
 - **Next.js 14** (App Router) — frontend + API routes

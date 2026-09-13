@@ -1,3 +1,4 @@
+import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { cookies } from 'next/headers'
@@ -14,7 +15,7 @@ async function getCallerRole(groupId: string, athleteId: number) {
 
 // PATCH — update a member's role (promote to admin / demote to member)
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const callerIdStr = cookies().get('athlete_id')?.value
+  const callerIdStr = await getAthleteId()
   if (!callerIdStr) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   const callerId = parseInt(callerIdStr)
 
@@ -43,7 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 // DELETE — kick a member from the group
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const callerIdStr = cookies().get('athlete_id')?.value
+  const callerIdStr = await getAthleteId()
   if (!callerIdStr) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   const callerId = parseInt(callerIdStr)
 

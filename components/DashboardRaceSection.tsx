@@ -21,13 +21,13 @@ export default async function DashboardRaceSection({
   ])
   return (
     <div className="space-y-6 my-6">
-      <ExpectedEstimates estimates={bundle.estimates} />
       <GoalsSection
         initialGoals={goals ?? []}
         bundle={bundle}
         estimates={estimateValues(bundle)}
         unit={unit}
       />
+      <ExpectedEstimates estimates={bundle.estimates} deltas={bundle.deltas} />
     </div>
   )
 }

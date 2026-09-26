@@ -6,10 +6,12 @@ import { type DistanceUnit } from '@/lib/utils'
 export default async function DashboardRaceSection({
   athleteId,
   unit,
+  today,
 }: {
   athleteId: number
   unit: DistanceUnit
   hasMaxHr: boolean
+  today: string
 }) {
   const [bundle, { data: goals }] = await Promise.all([
     loadEstimates(athleteId, { allowStaleDay: true }),
@@ -26,6 +28,7 @@ export default async function DashboardRaceSection({
         bundle={bundle}
         estimates={estimateValues(bundle)}
         unit={unit}
+        today={today}
       />
       <ExpectedEstimates estimates={bundle.estimates} deltas={bundle.deltas} />
     </div>

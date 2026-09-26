@@ -1,16 +1,20 @@
 'use client'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
-import { metersToKm, metersToMiles, distanceUnitLabel, isoWeek } from '@/lib/utils'
+import { metersToKm, metersToMiles, distanceUnitLabel } from '@/lib/utils'
+import { addDays, weekStart } from '@/lib/calendar'
 import { useUnit } from '@/lib/unit-context'
 import { format, parseISO } from 'date-fns'
 
 interface Activity {
-  start_date: string
+  /** Local calendar date the run happened on. */
+  day: string
   distance: number
 }
 
 interface Props {
   activities: Activity[]
+  /** The runner's local date. */
+  today: string
   weeks?: number
 }
 
@@ -24,21 +28,19 @@ function CustomTooltip({ active, payload, label, unitLabel }: any) {
   )
 }
 
-export default function WeeklyMileageChart({ activities, weeks = 16 }: Props) {
+export default function WeeklyMileageChart({ activities, today, weeks = 16 }: Props) {
   const { unit } = useUnit()
   const unitLabel = distanceUnitLabel(unit)
 
   const weekMap: Record<string, number> = {}
   for (const a of activities) {
-    const w = isoWeek(new Date(a.start_date))
+    const w = weekStart(a.day)
     const dist = unit === 'miles' ? metersToMiles(a.distance) : metersToKm(a.distance)
     weekMap[w] = (weekMap[w] ?? 0) + dist
   }
 
   const data = Array.from({ length: weeks }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (weeks - 1 - i) * 7)
-    const w = isoWeek(d)
+    const w = addDays(weekStart(today), -(weeks - 1 - i) * 7)
     return {
       week: format(parseISO(w), 'MMM d'),
       km: parseFloat((weekMap[w] ?? 0).toFixed(1)),

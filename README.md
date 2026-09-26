@@ -68,11 +68,11 @@ After deploying:
 
 ---
 
-## Plans and groups
+## Goals and groups
 
-Set race events on `/goals` and availability on `/plan`. Saved manual workouts remain protected. Coach plans provide seven upcoming days plus a dated progression. The estimator and automatic adaptation have independent, disabled-by-default rollout flags.
+Set race events on `/goals`. The expected estimator has a disabled-by-default rollout flag. Personal run plans were removed on 2026-09-26; `supabase/migration_025.sql` drops their tables.
 
-Groups retain challenges, coaching awards, chat, and a weekly edition inside Coach. The edition covers every member’s week so far, recent baseline, workout completion, and upcoming race focus. Shared-run coordination and betting have been retired; their historical database tables remain dormant. Existing linked workouts can still be managed in personal plans.
+Groups retain challenges, coaching awards, chat, and a weekly edition inside Coach. The edition covers every member’s week so far, recent baseline, workout completion, and upcoming race focus. Shared-run coordination and betting have been retired; their historical database tables remain dormant.
 
 ## Validation
 

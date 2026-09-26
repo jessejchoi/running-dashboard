@@ -1,6 +1,6 @@
 import type { DistanceKey } from '@/lib/goals'
 import { RACE_DISTANCE_METERS, performanceHeatMultiplier, performanceCutoff } from './performanceEvidence'
-import { localDate, weekStart, addDays } from '@/lib/calendar'
+import { localDate, weekStart, addDays, runDay } from '@/lib/calendar'
 
 // Independent rollouts. Race calibration was explicitly enabled by the owner
 // after the September 13 preview; its statistical validation remains incomplete.
@@ -57,7 +57,7 @@ export function calibrateRaceResults(observations: CalibrationObservation[], key
 }
 
 export interface TrainingEvidenceRun {
-  id: number; start_date: string; distance: number; moving_time: number
+  id: number; start_date: string; start_date_local?: string | null; distance: number; moving_time: number
   excluded_from_analysis?: boolean | null
 }
 export interface MarathonTraining {
@@ -86,7 +86,7 @@ export function marathonTraining(runs: TrainingEvidenceRun[], asOf: Date, timezo
   for (const run of runs) {
     if (run.excluded_from_analysis || seen.has(run.id) || !Number.isFinite(run.distance) || !Number.isFinite(run.moving_time) || run.distance <= 0 || run.moving_time <= 0 || !Number.isFinite(Date.parse(run.start_date)) || Date.parse(run.start_date) >= asOf.getTime()) continue
     seen.add(run.id)
-    const date = localDate(new Date(run.start_date), timezone)
+    const date = runDay(run, timezone)
     if (date < earliest) earliest = date
     if (date < start || date >= end) continue
     const week = weekStart(date)

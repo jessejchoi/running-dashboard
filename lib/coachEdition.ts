@@ -1,5 +1,5 @@
 import type { CoachContext } from '@/lib/coachContext'
-import { addDays, localDate, weekday, weekStart } from '@/lib/calendar'
+import { addDays, runDay, weekday, weekStart } from '@/lib/calendar'
 
 /**
  * The Coach edition is built in two layers. This module owns every fact:
@@ -16,6 +16,7 @@ export type Facts = Record<string, FactValue>
 export interface EditionRun {
   athlete_id: number
   start_date: string
+  start_date_local?: string | null
   distance: number | null
   moving_time?: number | null
   run_type?: string | null
@@ -151,7 +152,7 @@ function summarize(
 ): MemberWeek {
   const dated = runs
     .filter(r => r.athlete_id === member.athlete_id)
-    .map(r => ({ ...r, date: localDate(new Date(r.start_date)) }))
+    .map(r => ({ ...r, date: runDay(r) }))
   const inRange = (from: string, to: string) => dated.filter(r => r.date >= from && r.date <= to)
   const week = inRange(window.week_start, window.as_of)
   const prev = inRange(addDays(window.week_start, -7), addDays(window.week_start, -1))

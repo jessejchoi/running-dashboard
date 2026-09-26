@@ -16,7 +16,6 @@ import {
   resolveEdition,
   type EditionCopy,
 } from '@/lib/coachEditionCopy'
-import { localDate, weekStart } from '@/lib/calendar'
 // Sonnet held the voice and read the facts correctly in side-by-side tests; Haiku misread them.
 const EDITION_MODEL = 'claude-sonnet-5'
 export const GROUP_COACH_VERSION = 'weekly-edition-v2'
@@ -29,36 +28,14 @@ export async function groupVersion(groupId: string) {
   if (error) throw error
   return String(data)
 }
-export async function publicGroupTraining(groupId: string) {
-  const { data: members, error } = await supabaseAdmin
-    .from('group_members')
-    .select('athlete_id')
+export async function previousCoachFocus(groupId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('coach_memory')
+    .select('focus,evidence,updated_at')
     .eq('group_id', groupId)
+    .maybeSingle()
   if (error) throw error
-  const ids = (members ?? []).map((m) => m.athlete_id),
-    today = localDate()
-  const [planResult, memoryResult] =
-    await Promise.all([
-      supabaseAdmin
-        .from('user_plans')
-        .select(
-          'athlete_id,plan_date,session_type,target_distance_meters,status,activity_id',
-        )
-        .in('athlete_id', ids)
-        .gte('plan_date', weekStart(today))
-        .lte('plan_date', today),
-      supabaseAdmin
-        .from('coach_memory')
-        .select('focus,evidence,updated_at')
-        .eq('group_id', groupId)
-        .maybeSingle(),
-    ])
-  if (planResult.error) throw planResult.error
-  if (memoryResult.error) throw memoryResult.error
-  return {
-    plans: (planResult.data ?? []).filter(p => p.session_type !== 'rest'),
-    previous_focus: memoryResult.data ?? null,
-  }
+  return data ?? null
 }
 /** Assemble the stored briefing from the plan and whatever model copy survived grounding. */
 export function composeBriefing(plan: EditionPlan, ctx: CoachContext, copy: EditionCopy | null): BriefingContent {

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
+import { browserTimezone, DEFAULT_TIMEZONE } from '@/lib/calendar'
 import {
   DISTANCE_OPTIONS,
   parseTime,
@@ -41,7 +42,11 @@ export default function GoalSetupModal({ existing, onSave, onClose }: Props) {
   const [resultStr, setResultStr] = useState(
     existing?.result_secs ? formatGoalTime(existing.result_secs) : '',
   )
-  const [timezone, setTimezone] = useState(existing?.timezone ?? 'Asia/Jakarta')
+  const [timezone, setTimezone] = useState(existing?.timezone ?? DEFAULT_TIMEZONE)
+  // New goals default to where this browser is; set after mount so SSR markup matches.
+  useEffect(() => {
+    if (!existing?.timezone) setTimezone(browserTimezone())
+  }, [existing?.timezone])
   const [resultActivity, setResultActivity] = useState(
     existing?.result_activity_id ?? null,
   )

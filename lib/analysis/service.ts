@@ -152,7 +152,7 @@ export async function fetchAthleteAnalysisInputs(
   let longQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).in('run_type', ANALYSIS_RUN_TYPES.long).order('start_date', { ascending: false })
   let easyQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).in('run_type', ANALYSIS_RUN_TYPES.easy).order('start_date', { ascending: false })
   let legacyTreadmillQuery = supabaseAdmin.from('activities').select(activityColumns).eq('athlete_id', athleteId).eq('type', 'Run').eq('run_type', 'treadmill').order('start_date', { ascending: false })
-  let allActivitiesQuery = supabaseAdmin.from('activities').select('start_date, run_type, distance').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false })
+  let allActivitiesQuery = supabaseAdmin.from('activities').select('start_date, start_date_local, run_type, distance').eq('athlete_id', athleteId).eq('type', 'Run').not('run_type', 'is', null).order('start_date', { ascending: false })
 
   let easyCutoffISO: string | undefined
   if (options.easyLookbackMonths) {

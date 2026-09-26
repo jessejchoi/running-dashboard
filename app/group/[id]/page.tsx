@@ -5,8 +5,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import GroupPageClient from '@/components/GroupPageClient'
 import { format } from 'date-fns'
-import { calculateTrainingLoad } from '@/lib/strava'
+import { calculateTrainingLoad, TRAINING_LOAD_COLUMNS } from '@/lib/strava'
 import { getGroupLatestEstimates } from '@/lib/latestEstimates'
+import { addDays, localDate, validTimezone, DEFAULT_TIMEZONE } from '@/lib/calendar'
 import type { BriefingContent } from '@/lib/coachOutputs'
 
 export const dynamic = 'force-dynamic'
@@ -54,7 +55,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .maybeSingle(),
     supabaseAdmin
       .from('user_profiles')
-      .select('primary_group_id')
+      .select('primary_group_id, timezone')
       .eq('athlete_id', myId)
       .maybeSingle(),
   ])
@@ -80,10 +81,8 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   // Batch 2: all member-dependent data in parallel
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
-  // Today in Jakarta time (UTC+7) for plans date range
-  const jakartaNow = new Date(Date.now() + 7 * 60 * 60 * 1000)
-  const todayStr = jakartaNow.toISOString().slice(0, 10)
-  const planEndStr = new Date(jakartaNow.getTime() + 27 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  // The viewer's own date; each member's runs count on the day they ran them.
+  const todayStr = localDate(new Date(), validTimezone(myProfile?.timezone) ? myProfile.timezone : DEFAULT_TIMEZONE)
 
   const [
     { data: allGroupsRaw },
@@ -92,7 +91,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     { data: goals },
     { data: recentRuns },
     { data: leaderboardRuns },
-    { data: plansRaw },
     trainingLoadRunsByMember,
     memberEstimates,
   ] = await Promise.all([
@@ -105,7 +103,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .in('athlete_id', memberIds),
     supabaseAdmin
       .from('user_profiles')
-      .select('athlete_id, status_tag')
+      .select('athlete_id, status_tag, max_hr')
       .in('athlete_id', memberIds),
     supabaseAdmin
       .from('user_goals')
@@ -114,25 +112,17 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .order('race_date', { ascending: true }),
     supabaseAdmin
       .from('activities')
-      .select('id, athlete_id, name, start_date, distance, moving_time, average_speed, average_heartrate, run_type')
+      .select('id, athlete_id, name, start_date, start_date_local, distance, moving_time, average_speed, average_heartrate, run_type')
       .in('athlete_id', memberIds)
       .gte('start_date', thirtyDaysAgo)
       .order('start_date', { ascending: false })
       .limit(100),
-    supabaseAdmin.rpc('group_daily_context',{p_athletes:memberIds,p_from:new Date(Math.min(Date.parse(sixMonthsAgo),Date.parse(new Date().getFullYear()+'-01-01T00:00:00+07:00'))).toISOString(),p_to:new Date().toISOString()}),
-    supabaseAdmin
-      .from('user_plans')
-      .select('id, athlete_id, plan_date, session_index, session_type, description, target_distance_meters')
-      .in('athlete_id', memberIds)
-      .gte('plan_date', todayStr)
-      .lte('plan_date', planEndStr)
-      .order('plan_date', { ascending: true })
-      .order('session_index', { ascending: true }),
+    supabaseAdmin.rpc('group_daily_context',{p_athletes:memberIds,p_from:new Date(Math.min(Date.parse(sixMonthsAgo),Date.parse(addDays(todayStr.slice(0,4)+'-01-01',-1)+'T00:00:00Z'))).toISOString(),p_to:new Date().toISOString()}),
     Promise.all(
       memberIds.map(async memberId => {
         const { data } = await supabaseAdmin
           .from('activities')
-          .select('start_date,distance,moving_time,suffer_score')
+          .select(TRAINING_LOAD_COLUMNS)
           .eq('athlete_id', memberId)
           .eq('type', 'Run')
           .order('start_date', { ascending: false })
@@ -150,7 +140,8 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   // Compute current training load (ATL/CTL/TSB) for each member
   const memberTrainingLoads: Record<number, { ctl: number; atl: number; tsb: number }> = {}
   for (const { memberId, runs } of trainingLoadRunsByMember) {
-    const loadPoints = calculateTrainingLoad(runs)
+    const maxHr = memberProfilesData?.find(p => p.athlete_id === memberId)?.max_hr ?? null
+    const loadPoints = calculateTrainingLoad(runs, { maxHr })
     const latest = loadPoints[loadPoints.length - 1]
     memberTrainingLoads[memberId] = latest
       ? { ctl: latest.ctl, atl: latest.atl, tsb: latest.tsb }
@@ -199,8 +190,8 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         allGroups={allGroups}
         initialBriefing={initialBriefing}
         initialBriefingMeta={initialBriefingMeta}
-        initialPlans={plansRaw ?? []}
         memberEstimates={memberEstimates}
+        today={todayStr}
       />
     </div>
   )

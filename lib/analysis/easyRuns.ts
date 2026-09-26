@@ -3,6 +3,7 @@ import { formatPace } from './formatting'
 import { DISTANCE_KM } from './riegel'
 import { AEROBIC_SLOPE, DEFAULT_MAX_HR, REF_HR, computeCardiacDrift, driftPenaltyMultiplier, durationEfficiencyCredit } from './physiology'
 import { buildTimedSplits, extractSteadyWindow } from './steadyWindows'
+import { runDay } from '@/lib/calendar'
 export function analyzeEasyRun(activity: {
   id: number
   name: string
@@ -17,7 +18,7 @@ export function analyzeEasyRun(activity: {
   raw?: any
 }): EasyRunEfficiency | null {
   const stub = (excludedReason: string): EasyRunEfficiency => ({
-    date: new Date(new Date(activity.start_date).getTime() + 7*60*60*1000).toISOString().split('T')[0],
+    date: runDay(activity),
     activityId: activity.id,
     activityName: activity.name,
     runType: activity.run_type ?? 'easy',
@@ -119,7 +120,7 @@ export function analyzeEasyRun(activity: {
   })
 
   return {
-    date: new Date(new Date(activity.start_date).getTime() + 7*60*60*1000).toISOString().split('T')[0],
+    date: runDay(activity),
     activityId: activity.id,
     activityName: activity.name,
     runType: activity.run_type ?? 'easy',

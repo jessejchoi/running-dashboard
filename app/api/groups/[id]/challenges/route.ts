@@ -2,6 +2,8 @@ import { getAthleteId } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { cookies } from 'next/headers'
+import { localDate, runDay } from '@/lib/calendar'
+import { athleteTimezone } from '@/lib/timezone'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const athleteId = await getAthleteId()
@@ -16,7 +18,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   if (!membership) return NextResponse.json({ error: 'Not a member' }, { status: 403 })
 
-  const today = new Date().toISOString().split('T')[0]
+  // Challenge dates are local calendar dates: the viewer's for "today", and
+  // each member's own for the day a run happened.
+  const today = localDate(new Date(), await athleteTimezone(parseInt(athleteId)))
 
   // Active + upcoming challenges
   const { data: challenges } = await supabaseAdmin
@@ -49,20 +53,18 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const minStart = challenges[0].start_date
   const { data: activities } = await supabaseAdmin
     .from('activities')
-    .select('athlete_id, start_date, distance, total_elevation_gain, laps, splits')
+    .select('athlete_id, start_date, start_date_local, distance, total_elevation_gain, laps, splits')
     .in('athlete_id', memberIds)
-    .gte('start_date', minStart + 'T00:00:00Z')
+    .gte('start_date_local', minStart)
     .order('start_date', { ascending: false })
 
   const meAthleteId = parseInt(athleteId)
 
   const result = (challenges as Array<typeof challenges[0] & { created_by_coach: boolean }>).map(c => {
-    const start = new Date(c.start_date + 'T00:00:00Z')
-    const end = new Date(c.end_date + 'T23:59:59Z')
     const cType = c.challenge_type ?? 'group_distance'
     const relevant = (activities ?? []).filter(a => {
-      const d = new Date(a.start_date)
-      return d >= start && d <= end
+      const day = runDay(a)
+      return day >= c.start_date && day <= c.end_date
     })
 
     const target = c.target_meters ?? 0

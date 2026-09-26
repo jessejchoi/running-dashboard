@@ -9,7 +9,7 @@ import { claimJob, enqueueJob, finishJob } from '@/lib/jobs'
 import { claudeMessage } from '@/lib/claude'
 import { buildEditionPlan, editionWindow, type EditionRun } from '@/lib/coachEdition'
 import { allowedNumbers, editionPrompt, grounded, resolveEdition } from '@/lib/coachEditionCopy'
-import { composeBriefing, editionCopyKey, getBriefing, groupCoachModelVersion, groupVersion, publicGroupTraining, runBriefingJob } from '@/lib/groupCoach'
+import { composeBriefing, editionCopyKey, getBriefing, groupCoachModelVersion, groupVersion, previousCoachFocus, runBriefingJob } from '@/lib/groupCoach'
 import { GET, POST, PATCH, DELETE } from '@/app/api/groups/[id]/shared-runs/route'
 import { createQueryChain } from './helpers/supabase'
 
@@ -247,11 +247,11 @@ describe('briefing jobs', () => {
 })
 
 describe('retired plan coordination', () => {
-  it('reads public plan progress without private workout text', async () => {
-    vi.mocked(supabaseAdmin.from).mockImplementation(table => createQueryChain({ data: table === 'group_members' ? [{ athlete_id: 1 }] : table === 'user_plans' ? [{ session_type: 'rest' }, { session_type: 'easy' }] : null, error: null }) as any)
-    expect((await publicGroupTraining('g')).plans).toEqual([{ session_type: 'easy' }])
-    const planQuery = vi.mocked(supabaseAdmin.from).mock.results[1].value
-    expect(planQuery.select.mock.calls[0][0]).not.toMatch(/description|config|constraints/)
+  it('gives the coach its previous focus without reading training plans', async () => {
+    const focus = { focus: 'Easy days easy', evidence: {}, updated_at: '2026-09-20T00:00:00Z' }
+    vi.mocked(supabaseAdmin.from).mockReturnValue(createQueryChain({ data: focus, error: null }) as any)
+    expect(await previousCoachFocus('g')).toEqual(focus)
+    expect(vi.mocked(supabaseAdmin.from).mock.calls.map(c => c[0])).toEqual(['coach_memory'])
   })
 
   it('rejects all retired shared-run operations for old clients', async () => {

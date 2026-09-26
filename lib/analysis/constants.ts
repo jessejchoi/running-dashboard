@@ -12,6 +12,7 @@ export const ANALYSIS_ACTIVITY_COLUMNS = [
   'name',
   'type',
   'start_date',
+  'start_date_local',
   'distance',
   'moving_time',
   'elapsed_time',

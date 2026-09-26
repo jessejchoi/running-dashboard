@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
 import { ChevronDown, Check } from 'lucide-react'
-import { toJakartaDate, speedToPace, formatDuration, formatDistanceShort, paceUnitLabel } from '@/lib/utils'
+import { speedToPace, formatDuration, formatDistanceShort, paceUnitLabel } from '@/lib/utils'
+import { runWallTime } from '@/lib/calendar'
 import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, StatusTag, type Run, type Member } from '@/components/GroupShared'
 
@@ -144,7 +145,7 @@ export default function GroupFeedTab({ groupId, recentRuns, members, myAthleteId
                     <RunTypeDot type={run.run_type} />
                     <span>{run.run_type?.replace(/_/g, ' ') ?? 'run'}</span>
                     <span>·</span>
-                    <span>{format(toJakartaDate(run.start_date), 'EEE MMM d, h:mm a')}</span>
+                    <span>{format(runWallTime(run), 'EEE MMM d, h:mm a')}</span>
                   </div>
                   <a href={`/runs/${run.id}?from=group/${groupId}`} className="font-medium text-sm text-white hover:text-[#f97316] transition-colors block truncate mb-2">
                     {run.name}

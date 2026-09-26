@@ -5,7 +5,8 @@ import {
   type CombinedEstimate,
   type FiveKEstimate,
 } from '@/lib/analysis'
-import { speedToPace, formatDuration, toJakartaDate, paceUnitLabel, formatDistanceShort, type DistanceUnit } from '@/lib/utils'
+import { speedToPace, formatDuration, paceUnitLabel, formatDistanceShort, type DistanceUnit } from '@/lib/utils'
+import { runWallTime } from '@/lib/calendar'
 import { distanceShortLabel, type DistanceKey } from '@/lib/goals'
 import { format, parseISO } from 'date-fns'
 import ToggleAnalysisButton from '@/components/ToggleAnalysisButton'
@@ -152,7 +153,7 @@ function ContinuousRunTable({ run }: { run: any }) {
                         <span className="font-display font-bold text-base">{run.name}</span>
                         <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
                       </div>
-                      <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                      <div className="text-[#6b7280] text-xs mt-0.5">{format(runWallTime(run), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
                     </div>
                     {estimate ? (
                       <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#f97316" />
@@ -221,7 +222,7 @@ function ContinuousRunTable({ run }: { run: any }) {
                               <span className="font-display font-bold text-base">{run.name}</span>
                               <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
                             </div>
-                            <div className="text-[#6b7280] text-xs mt-0.5">{format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
+                            <div className="text-[#6b7280] text-xs mt-0.5">{format(runWallTime(run), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}</div>
                           </div>
                           {estimate ? (
                             <RunEstimateBadge raceEstimates={estimate.raceEstimates} fallbackSecs={estimate.estimatedSecs} color="#60a5fa" />
@@ -317,7 +318,7 @@ function ContinuousRunTable({ run }: { run: any }) {
                             <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} autoExcludedReason={eff?.excludedReason} />
                           </div>
                           <div className="text-[#6b7280] text-xs mt-0.5">
-                            {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
+                            {format(runWallTime(run), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
                             {run.run_type && <span className="ml-2 text-purple-400 capitalize">{run.run_type.replace(/_/g, ' ')}</span>}
                           </div>
                         </div>
@@ -437,7 +438,7 @@ function ContinuousRunTable({ run }: { run: any }) {
                             <ToggleAnalysisButton activityId={run.id} excluded={!!run.excluded_from_analysis} />
                           </div>
                           <div className="text-[#6b7280] text-xs mt-0.5">
-                            {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
+                            {format(runWallTime(run), 'EEE, MMM d yyyy')} · {formatDistanceShort(run.distance, unit)} · {formatDuration(run.moving_time)}
                             {a && <span className="ml-2 text-emerald-400 capitalize">{a.runStructure === 'fast_middle' ? 'fast block' : a.runStructure}</span>}
                           </div>
                         </div>

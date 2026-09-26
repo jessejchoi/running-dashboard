@@ -21,7 +21,7 @@ export async function loadCalibrationCorpus(athleteId: number, asOf = new Date()
     }
   }
   const [runs, efforts, profile] = await Promise.all([
-    read('activities', 'id,start_date,distance,moving_time,elapsed_time,official_result_secs,is_race,run_type,excluded_from_analysis,average_speed,average_heartrate,suffer_score,total_elevation_gain,splits,laps,trainer:raw->trainer,sport_type:raw->sport_type,perceived_exertion:raw->perceived_exertion', 'start_date', ['start_date','id']),
+    read('activities', 'id,start_date,start_date_local,timezone,distance,moving_time,elapsed_time,official_result_secs,is_race,run_type,excluded_from_analysis,average_speed,average_heartrate,suffer_score,total_elevation_gain,splits,laps,trainer:raw->trainer,sport_type:raw->sport_type,perceived_exertion:raw->perceived_exertion', 'start_date', ['start_date','id']),
     read('activity_best_efforts', 'activity_id,activity_start_date,duration_secs,best_pace_sec_per_km,avg_hr', 'activity_start_date', ['activity_id','duration_secs']),
     supabaseAdmin.from('user_profiles').select('max_hr').eq('athlete_id', athleteId).maybeSingle(),
   ])

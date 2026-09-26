@@ -228,3 +228,4 @@ inner stats: surface-2 bg, rgba(255,255,255,0.05) border
 | 2026-03-17 | Single orange accent | Restrained palette — orange is high-energy, athletic, distinctive; second accent would dilute it |
 | 2026-03-17 | fadeUp 300ms (from 400ms) | Tighter animation feels snappier in a performance context |
 | 2026-09-26 | Pixel-art weapon sprites for Rhythm | 16×16 upright grids in orange `#f97316` and steel `#a1a1aa` / `#52525b` on dark surfaces, drawn with `shape-rendering: crispEdges` (`lib/sprites.ts`, `components/WeaponSprite.tsx`). Retro timing-chip feel, and a collectible look for the weapon tiers. Approved by Jesse. |
+| 2026-09-26 | Streak number inside a flame (Rhythm card) | Like Strava's streak badge: a solid accent flame with the week count in white; grey and unlit at 0 (`components/StreakFlame.tsx`). Makes a long streak feel like something to protect. Requested by Jesse. |

@@ -231,7 +231,7 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
         )}
 
         {edition?.mission && (
-          <div className="mt-3 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-muted)] px-3 py-2.5">
+          <div className="mt-3 rounded-lg border border-[rgba(249,115,22,0.3)] bg-[var(--accent-muted)] px-3 py-2.5">
             <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] mb-0.5">Mission</div>
             <p className="text-[13px] leading-6 text-[var(--text-1)] break-words">{edition.mission}</p>
           </div>

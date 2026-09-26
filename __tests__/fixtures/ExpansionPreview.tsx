@@ -144,7 +144,11 @@ const briefing = {
     roll_call: coachMembers.map((m, i) => ({ athlete_id: m.athlete_id, name: m.name, km: [54, 38.6, 38, 37.4][i], runs: 4, line: ['Top of the board. Act like you\'ve been here before.', 'Above the usual 32.0. Quietly building.', '4 runs, no drama. Coach approves.', 'Autumn half marathon in 28 days. Protect the legs.'][i] })),
     voice: 'template' as const,
   },
-  shoutouts: [], group_momentum: 'rising' as const,
+  shoutouts: [
+    { athlete_id: 1, athlete_name: 'Alex', award_key: 'mileage_monster', award_label: 'Mileage Monster', caption: '54.0 km. Ran the group\'s homework and then some.' },
+    { athlete_id: 3, athlete_name: 'Sam', award_key: 'consistency_crown', award_label: 'Consistency Crown', caption: 'Showed up on 5 different days. Dull, repeatable, undefeated.' },
+  ],
+  group_momentum: 'rising' as const,
   coach_tip: "This week's number to beat: 168.0 km as a group.",
   ask_prompts: ['Give us a 48-hour mission', 'Roast the leaderboard'],
 }

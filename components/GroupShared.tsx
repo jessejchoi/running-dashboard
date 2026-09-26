@@ -1,3 +1,4 @@
+import type { TierKey } from '@/lib/rhythm'
 // Shared types and micro-components for Group page
 
 export interface Goal {
@@ -88,10 +89,9 @@ export interface Challenge {
   created_by_coach: boolean
 }
 
-/** Each member's Rhythm streak, and how many weeks Rhythm has been live. Null while Rhythm is off. */
+/** Each member's current Rhythm weapon tier. Null while Rhythm is off; a member is missing before launch week. */
 export interface MemberRhythm {
-  streaks: Record<number, number>
-  seasonWeek: number
+  tiers: Record<number, TierKey>
 }
 
 export interface TrainingLoad {

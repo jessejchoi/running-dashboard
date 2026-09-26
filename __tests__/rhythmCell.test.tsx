@@ -29,44 +29,60 @@ function result(overrides: Partial<RhythmResult> = {}): RhythmResult {
     status: 'building',
     streak: 1,
     fadeWeeks: 0,
-    weapon: { tier: tier('stick'), level: 1, nextTier: tier('dagger'), weeksToNext: 1, redeemAvailable: false, redeemTier: null },
+    weapon: { tier: tier('stick'), level: 1, nextTier: tier('dagger'), weeksToNext: 1, tierWeeksDone: 0, tierWeeksTotal: 1, leveledUp: false, redeemAvailable: false, redeemTier: null },
     history: [{ week: '2026-10-05', state: 'on', runs: 3, target: 3 }],
     unfrozenWeeks: 0,
     ...overrides,
   }
 }
 
-const html = (r: RhythmResult) => renderToStaticMarkup(<RhythmCell rhythm={r} today={TODAY} />)
+const html = (r: RhythmResult) => renderToStaticMarkup(<RhythmCell rhythm={r} />)
 
 describe('RhythmCell', () => {
-  it('shows the label and next step for every status', () => {
-    const cases: Array<[RhythmStatus, Partial<RhythmResult>, string, string]> = [
-      ['on', { thisWeek: { runs: 3, needed: 0, daysLeft: 4, runDays: [WEEK] } }, 'Target hit', 'Done for the week'],
-      ['building', {}, 'On pace', '2 runs to go · 5 days left'],
-      ['at_risk', { thisWeek: { runs: 0, needed: 3, daysLeft: 2, runDays: [] } }, 'At risk', 'Need 3 runs in 2 days'],
-      ['fade', {}, 'Fading', 'Missed 2 of your last 3 weeks · 2 runs to go'],
-      ['redeem', { weapon: { ...result().weapon, redeemAvailable: true, redeemTier: tier('sword') } }, 'Redeem', 'Hit 3 this week to get your Sword back'],
-    ]
-    for (const [status, overrides, label, line] of cases) {
-      const markup = html(result({ status, ...overrides }))
-      expect(markup, status).toContain(label)
-      expect(markup, status).toContain(line)
-    }
+  const bars = (markup: string, color: string) => markup.split(`background:${color}`).length - 1
+
+  it('shows level, attack power and streak as numbers', () => {
+    const markup = html(result({ streak: 5, weapon: { ...result().weapon, tier: tier('sword'), level: 5, nextTier: tier('axe'), weeksToNext: 2, tierWeeksDone: 1, tierWeeksTotal: 3 } }))
+    expect(markup).toContain('Your level')
+    expect(markup).toMatch(/Level<\/p><div[^>]*>4<\/div><p[^>]*>Sword/)
+    expect(markup).toMatch(/Attack<\/p><div[^>]*>3<\/div>/)
+    expect(markup).toMatch(/Streak<\/p><div[^>]*>5<\/div><p[^>]*>weeks/)
+    expect(markup).not.toContain('Season')
   })
 
-  it('uses singulars, shows Max tier at Legendary, and hides an empty history strip', () => {
-    const markup = html(result({
-      status: 'at_risk',
-      thisWeek: { runs: 2, needed: 1, daysLeft: 1, runDays: [WEEK] },
-      weapon: { tier: tier('legendary'), level: 12, nextTier: null, weeksToNext: null, redeemAvailable: false, redeemTier: null },
-      history: [],
-    }))
-    expect(markup).toContain('Need 1 run in 1 day')
-    expect(markup).toContain('Max tier')
-    expect(markup).toContain('aria-label="Legendary"')
-    expect(markup).not.toContain('Recent weeks')
-    // A redeem with no known tier still reads sensibly.
-    expect(html(result({ status: 'redeem' }))).toContain('get your weapon back')
+  it('draws one bar per target run, orange as they happen, and all green once the target is hit', () => {
+    const inProgress = html(result())
+    expect(inProgress).toContain('1 of 3 target runs this week')
+    expect(inProgress).toContain('2 to go')
+    expect(bars(inProgress, 'var(--success)')).toBe(0)
+
+    const hit = html(result({ status: 'on', thisWeek: { runs: 5, needed: 0, daysLeft: 2, runDays: [WEEK] } }))
+    expect(hit).toMatch(/<b[^>]*>5<\/b> done · target <b[^>]*>3<\/b> runs ✓/)
+    // Exactly the 3 target bars, all green: extra runs don't add bars.
+    expect(bars(hit, 'var(--success)')).toBe(3)
+  })
+
+  it('says LEVEL UP! only in the week the weapon changed tier', () => {
+    expect(html(result({ status: 'on', weapon: { ...result().weapon, leveledUp: true } }))).toContain('Level up!')
+    expect(html(result())).not.toContain('Level up!')
+  })
+
+  it('shows progress to the next level as week pips with the next weapon', () => {
+    const markup = html(result({ weapon: { ...result().weapon, tier: tier('dagger'), level: 3, nextTier: tier('sword'), weeksToNext: 1, tierWeeksDone: 1, tierWeeksTotal: 2 } }))
+    expect(markup).toContain('1 of 2 weeks on target toward level 4')
+    expect(markup).toContain('1/2 wks')
+    expect(markup).toContain('aria-label="Sword"')
+    expect(markup).toMatch(/Lv <!-- -->4|Lv 4/)
+  })
+
+  it('adds a note only when the week needs attention, and shows Max level at Legendary', () => {
+    expect(html(result({ status: 'at_risk', thisWeek: { runs: 0, needed: 1, daysLeft: 1, runDays: [] } }))).toContain('At risk: 1 run in 1 day')
+    expect(html(result({ status: 'redeem', weapon: { ...result().weapon, redeemAvailable: true, redeemTier: tier('sword') } }))).toContain('win back your Sword')
+    expect(html(result({ status: 'redeem' }))).toContain('win back your weapon')
+    expect(html(result({ status: 'fade' }))).toContain('Fading: missed 2 of your last 3 weeks')
+    expect(html(result({ status: 'building' }))).not.toMatch(/At risk|Fading|win back/)
+    const max = html(result({ weapon: { ...result().weapon, tier: tier('legendary'), level: 12, nextTier: null, weeksToNext: null, tierWeeksDone: 0, tierWeeksTotal: 0 } }))
+    expect(max).toContain('Max level reached')
   })
 })
 
@@ -101,7 +117,7 @@ describe('DashboardRhythmSection', () => {
     const markup = renderToStaticMarkup((await DashboardRhythmSection({ athleteId: 1, today: TODAY }))!)
     // The freeze reuses what the card already loaded rather than querying again.
     expect(mockFreeze).toHaveBeenCalledWith(inputs, '2026-10-05', now)
-    expect(markup).toContain('1/3')
+    expect(markup).toContain('1 of 3 target runs this week')
 
     mockFreeze.mockClear()
     mockLoad.mockResolvedValue({ launchWeek: '2026-10-05', byAthlete: { 1: result({ unfrozenWeeks: 0 }) } })

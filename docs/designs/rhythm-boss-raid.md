@@ -127,7 +127,7 @@ Two things are accepted and never retroactively applied to frozen weeks:
 **Counted run** (simplified after eng review, 2026-09-26). A run counts toward Rhythm when:
 
 - It's a run activity. The activities query filters `.eq('type', 'Run')`, the same as every existing run query.
-- Its `moving_time` is **at least 15 minutes**. That's one fixed rule, and it blocks junk runs.
+- Its `moving_time` is **at least 10 minutes** (lowered from 15 on 2026-09-26, so a 13-minute run counts; a 3.5-minute one doesn't). That's one fixed rule, and it blocks junk runs.
 - Runs excluded from race analysis **still count** (Jesse's decision). The analysis toggle is about pace data only, and a run you showed up for is a run.
 - Doubles count: each run counts separately.
 
@@ -228,7 +228,15 @@ A week that is `short` or `zero` counts as a **miss**.
 
 `foldWeek` is the only function that applies the weapon rules. The freezer and the live view both call it, so the frozen and live weapon logic can't drift apart.
 
-**UI.** The dashboard gets a Rhythm `.card` (`components/RhythmCell.tsx`), styled from the pre-refresh DESIGN.md on `main`, with a mono uppercase "RHYTHM" label:
+**UI (card design A, "stat sheet", chosen 2026-09-26).** The dashboard gets a "Your level" `.card` (`components/RhythmCell.tsx`), styled from the pre-refresh DESIGN.md on `main`. Players see **level numbers 1–6** (Unarmed = 1 up to Legendary = 6), not the internal 0–12 weapon level.
+
+- A **LEVEL UP!** badge shows in the week the weapon moves up a tier.
+- Three stat tiles show **Level** (number and weapon name), **Attack** (power) and **Streak** (weeks).
+- "This week" reads "X done · target Y runs", above a bar with one segment per target run. Segments turn orange as runs happen, and **all turn green once the target is hit**; extra runs don't add segments.
+- A one-line note appears only when the week needs attention: at risk, redeem, or fading.
+- "Next level" shows week pips (on-target weeks done out of those needed in this tier), "N/M wks", and a small sprite of the next weapon with its level.
+
+The earlier layout (listed below) was replaced:
 
 - A big mono `2/4`.
 - A Mon–Sun row of 7 small chips.
@@ -385,16 +393,10 @@ This all ships in PR1. PR2 needs no migration.
 - migration 024
 - its own daily cron, `/api/cron/rhythm-freeze`, over every athlete (not part of `/api/cron/sync`)
 - the dashboard Rhythm cell with weapon sprites. `lib/sprites.ts` starts here, with the 5 weapons.
-- **Retire `computeStreak` (decided in eng review).** There are 2 calculation sites and about 6 consumers.
-  - `lib/coachMetrics.ts:312` switches to the Rhythm streak. `buildCoachAthleteMetrics` gains a `rhythmStreak` input from `loadRhythmInputs`.
-  - `components/GroupDashboardTab.tsx:65` switches to the Rhythm streak. The group page passes it in as a prop.
-  - Consumers that change meaning automatically: `lib/coachContext.ts`, `lib/coachEdition.ts:188` (`streak_weeks`), `lib/coachNote.ts:104`, `app/api/coach/insight/route.ts:54`, `app/api/groups/[id]/challenges/generate/route.ts:106`, and the leaderboard flame at `GroupDashboardTab.tsx:839`. Their prompt text ("streak N weeks") stays correct.
-  - Delete `computeStreak` and its tests (`__tests__/utils.test.ts:19-97`). Update the coach fixtures that set `streak`.
-  - The Coach edition's copy cache will regenerate once, because the model input changes. That's expected.
-  - **"Fresh start" framing** (decided in eng review, answering the outside-voice point that everyone's streak reads 0 on launch day):
-    - Coach metrics gain `rhythm_season_week`, the number of weeks since `RHYTHM_LAUNCH_WEEK`, plus 1.
-    - While it's 4 or less, the coach prompt context says "Rhythm season week N: everyone started Unarmed". It doesn't present a streak of 0 as a failure.
-    - During the first 4 weeks, the leaderboard flame shows from a streak of 1, not 2.
+- **Retire `computeStreak`.** Updated after testing on 2026-09-26:
+  - The Coach doesn't use Rhythm or streaks at all (Jesse: "dont worry about adding this rhythm stuff to coach insight"). The streak fields and the fresh-start wording were removed from the coach metrics, contexts and prompts.
+  - The leaderboard flame is replaced by each member's **level badge**: a small weapon sprite plus "Lv N".
+  - `computeStreak` and its tests are deleted.
 - **Components:** `components/RhythmCell.tsx` is new. The dashboard mounts it; it isn't built inline in `app/page.tsx`.
 
 **PR2: Boss Raid (group).** It builds on PR1's ledger.

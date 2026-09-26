@@ -31,5 +31,5 @@ export default async function DashboardRhythmSection({ athleteId, today }: { ath
     await freezeLoadedWeeks(summaries.inputs, summaries.launchWeek, summaries.now)
       .catch(error => console.error('[dashboard] Rhythm freeze failed', error))
   }
-  return <RhythmCell rhythm={rhythm} today={today} />
+  return <RhythmCell rhythm={rhythm} />
 }

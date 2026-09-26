@@ -4,7 +4,6 @@ import {
   computeRhythm,
   countRuns,
   dropOneTier,
-  rhythmStreakLabel,
   targetFromAverage,
   tierFor,
   weeksToFreeze,
@@ -49,8 +48,9 @@ describe('weapon tiers', () => {
 })
 
 describe('countRuns', () => {
-  it('counts runs of 15+ minutes in the week, including doubles, and ignores short ones', () => {
-    const runs = [run(LAUNCH, 40), run(LAUNCH, 20), run(addDays(LAUNCH, 1), 14), run(addDays(LAUNCH, 6), 15), run(addDays(LAUNCH, 7), 60)]
+  it('counts runs of 10+ minutes in the week, including doubles, and ignores short ones', () => {
+    // A 13-minute run counts; a 3.5-minute one doesn't.
+    const runs = [run(LAUNCH, 40), run(LAUNCH, 13), run(addDays(LAUNCH, 1), 3.5), run(addDays(LAUNCH, 6), 10), run(addDays(LAUNCH, 7), 60)]
     expect(countRuns(runs, LAUNCH, ZONE)).toBe(3)
   })
 
@@ -226,17 +226,22 @@ describe('computeRhythm', () => {
   })
 })
 
-describe('rhythmStreakLabel', () => {
-  it('frames the first month as a fresh start', () => {
-    expect(rhythmStreakLabel(0, 1)).toContain('season week 1')
-    expect(rhythmStreakLabel(5, 6)).toBe('Rhythm streak 5 weeks (weeks in a row hitting their weekly runs target)')
-    expect(rhythmStreakLabel(0, null)).toBe('weekly streak not tracked yet')
+describe('level-up and progress to the next level', () => {
+  it('flags a level-up only in the week the weapon changes tier', () => {
+    // Launch week on target: Unarmed → Stick (a new tier).
+    const first = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 3])), LAUNCH, at(addDays(LAUNCH, 5)))!
+    expect(first.weapon).toMatchObject({ leveledUp: true, tier: { key: 'stick' }, tierWeeksDone: 0, tierWeeksTotal: 1 })
+    // Second on-week: Stick → Dagger.
+    const second = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 3, 3])), LAUNCH, at(addDays(LAUNCH, 12)))!
+    expect(second.weapon).toMatchObject({ leveledUp: true, tier: { key: 'dagger' }, tierWeeksDone: 0, tierWeeksTotal: 2 })
+    // Third on-week stays a Dagger (1 of 2 weeks toward Sword): no level-up.
+    const third = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 3, 3, 3])), LAUNCH, at(addDays(LAUNCH, 19)))!
+    expect(third.weapon).toMatchObject({ leveledUp: false, tier: { key: 'dagger' }, tierWeeksDone: 1, tierWeeksTotal: 2 })
   })
 
-  it('uses the singular for one week and drops the fresh-start framing after week 4', () => {
-    expect(rhythmStreakLabel(1, 9)).toBe('Rhythm streak 1 week (weeks in a row hitting their weekly runs target)')
-    expect(rhythmStreakLabel(3, 4)).toContain('season week 4: everyone restarted from zero')
-    expect(rhythmStreakLabel(4, 5)).not.toContain('restarted')
+  it('does not flag a level-up while the target is still open', () => {
+    const r = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 1])), LAUNCH, at(addDays(LAUNCH, 2)))!
+    expect(r.weapon).toMatchObject({ leveledUp: false, tier: { key: 'unarmed' }, tierWeeksDone: 0, tierWeeksTotal: 1 })
   })
 })
 

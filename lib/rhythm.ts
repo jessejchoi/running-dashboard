@@ -20,14 +20,12 @@ export const RHYTHM_RULES_VERSION = 1
 
 const WEEK = 7
 /** A run counts toward Rhythm when it lasts at least this long. */
-export const MIN_RUN_SECS = 15 * 60
+export const MIN_RUN_SECS = 10 * 60
 const AVERAGE_WEEKS = 6
 const REDEEM_COOLDOWN_WEEKS = 4
 /** Fading: at least FADE_MISSES misses in the last FADE_WINDOW_WEEKS finished weeks. */
 export const FADE_WINDOW_WEEKS = 3
 export const FADE_MISSES = 2
-/** Rhythm's first weeks, when everyone is restarting from Unarmed. */
-export const FRESH_START_WEEKS = 4
 /** Freezing waits this many days past a week's Sunday for late uploads. */
 export const GRACE_DAYS = 2
 /** Runs needed before the first open week: the 6 weeks the average covers. */
@@ -74,6 +72,11 @@ export interface RhythmInputs {
   ledger: LedgerRow[]
   /** Runs from RUN_LOOKBACK_WEEKS before the first open week onward. */
   runs: RhythmRun[]
+}
+
+/** The level players see: 1 for Unarmed up to 6 for Legendary. */
+export function tierNumber(tier: Tier): number {
+  return TIERS.indexOf(tier) + 1
 }
 
 export function tierFor(level: number): Tier {
@@ -213,6 +216,11 @@ export interface RhythmResult {
     level: number
     nextTier: Tier | null
     weeksToNext: number | null
+    /** On-target weeks done and needed within the current tier, toward the next one. */
+    tierWeeksDone: number
+    tierWeeksTotal: number
+    /** This week's target was hit and it moved the runner up a tier. */
+    leveledUp: boolean
     redeemAvailable: boolean
     redeemTier: Tier | null
   }
@@ -280,21 +288,15 @@ export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = ne
       level,
       nextTier,
       weeksToNext: nextTier ? nextTier.min - level : null,
+      tierWeeksDone: nextTier ? level - tier.min : 0,
+      tierWeeksTotal: nextTier ? nextTier.min - tier.min : 0,
+      leveledUp: current.state === 'on' && TIERS.indexOf(tier) > TIERS.indexOf(tierFor(last?.level ?? 0)),
       redeemAvailable,
       redeemTier: redeemLevel != null ? tierFor(redeemLevel) : null,
     },
     history: history.slice(-12).map(r => ({ week: r.week_start, state: r.state, runs: r.runs, target: r.target })),
     unfrozenWeeks: Math.max(0, weeksBetween(frozenThrough, lastFreezableWeek(today))),
   }
-}
-
-/** How prompts describe a runner's streak, framed as a fresh start in the first month. */
-export function rhythmStreakLabel(streak: number, seasonWeek: number | null): string {
-  if (seasonWeek == null) return 'weekly streak not tracked yet'
-  const base = `Rhythm streak ${streak} week${streak === 1 ? '' : 's'} (weeks in a row hitting their weekly runs target)`
-  return seasonWeek <= FRESH_START_WEEKS
-    ? `${base}; Rhythm season week ${seasonWeek}: everyone restarted from zero, so a short streak is expected, not a failure`
-    : base
 }
 
 export function isMonday(date: string): boolean {

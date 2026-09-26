@@ -83,19 +83,35 @@ Each runner gets one row per week in `rhythm_weeks`. Once a row is **frozen**, i
                                                           weeks of runs
 ```
 
-- **Fold start:** `RHYTHM_LAUNCH_WEEK`, the Monday of the week the feature ships. It's a code constant. Everyone starts **Unarmed** (`level = 0`), and nothing before launch counts toward weapons.
+- **Fold start:** `RHYTHM_LAUNCH_WEEK`, the Monday of the week the feature ships. Everyone starts **Unarmed** (`level = 0`), and nothing before launch counts toward weapons.
+  - It comes from the **`RHYTHM_LAUNCH_WEEK` environment variable** (for example `2026-10-19`), not a hardcoded constant. That way a slipped deploy can't leave the date wrong.
+  - **It's also the feature flag.** When it's unset, the Rhythm cell, the freeze job and the Raid panel all stay off. When it's set to a date that isn't a Monday, it's treated as unset and an error is logged.
+  - **Deploy order:**
+    1. Paste migration 024.
+    2. Deploy.
+    3. Set the variable in Vercel.
+    4. Redeploy.
+  - **Missing tables don't crash anything.** If the migration hasn't been pasted, Supabase returns `42P01` (table doesn't exist). The loader catches that, treats the feature as off, and logs an error, so neither the dashboard nor the cron crashes.
+- **Rebuild path** (decided in eng review, answering the outside-voice concern that frozen rows also freeze bugs):
+  - Every ledger row stores `rules_version`, matching `RHYTHM_RULES_VERSION` in `lib/rhythm.ts`.
+  - `scripts/rebuild-rhythm.ts [athleteId|--all]` deletes the athlete's rows and refolds them from launch week, using their full run history through `fetchAllPages`.
+  - For a rule fix or retune: bump the version, deploy, then run the rebuild. The loader logs a warning when it reads rows with an older `rules_version`.
 - **Freezing:** a week freezes once 2 days have passed since it ended, in the runner's own zone. For a Jakarta runner, that's Wednesday 00:00. The grace period absorbs late watch and Strava uploads. Once frozen, a row is final.
 - **Who freezes weeks:** `freezeRhythmWeeks(athleteId)` in `lib/rhythmLedger.ts`.
   - It's idempotent: it folds forward from the latest frozen row and upserts every week that's ready to freeze.
-  - It's called from the daily `/api/cron/sync` loop for each athlete.
-  - It's also called when a runner's own dashboard loads, if their latest frozen row is behind. The sync loop has a 25-second deadline and can skip athletes, so this is the safety net.
+  - **It runs in its own daily cron, `/api/cron/rhythm-freeze`, over ALL athletes** that have a Strava token (outside-voice finding #3). It doesn't live inside `/api/cron/sync`, for two reasons:
+    - `next_sync_athletes()` returns only the 20 least-recently-synced athletes (`supabase/migration_021.sql:284`).
+    - The sync loop shares a 25-second deadline with the Strava calls.
+  - The route uses the same `CRON_SECRET` check as `app/api/cron/sync/route.ts`. It's scheduled in `vercel.json` at `30 17 * * *` (00:30 Jakarta). Before adding it, check that the Vercel plan allows a third cron.
+  - `loadRaidState(groupId)` also calls `freezeRhythmWeeks` for **every member** who is behind, before it computes anything. Members who have stopped opening the app, the ones who are fading, are frozen whenever anyone views the group.
+  - It's also called on a runner's own dashboard load when their rows are behind. All three callers are safe because the freeze is idempotent.
 - **Reads are bounded while the freezer keeps up:** a runner's last 26 frozen rows, plus their runs from the last ~14 weeks. The 14 weeks cover the open weeks plus the 12-week duration floor.
   - To be precise, the run window starts **12 weeks before the first unfrozen week**. If freezing falls behind for a runner (the cron skipped them and they haven't opened their dashboard), the live fold still comes out correct. It just reads more runs until the next freeze catches up.
 - **Before launch:** the first freeze reads about 20 weeks of runs from before launch, only to compute launch week's suggested target (8 weeks of counts, each with its own 12-week floor).
 - **What the ledger provides:** the Monday battle report and boss HP read frozen rows directly. That covers last week's attackers and power, and everyone's weapon at the start of the raid. Until last week freezes on Wednesday, the report and HP are marked **provisional** on screen.
 - **Rows are inspectable:** you can open `rhythm_weeks` in Supabase and see exactly why someone is on a Dagger.
 
-**Ledger table.** `rhythm_weeks(athlete_id bigint, week_start date, qualifying_runs int, target int, target_source text check (target_source in ('stored','provisional')), suggested int, state text check (state in ('on','short','zero','rest')), level int check (level between 0 and 12), level_before_miss int, redeemed boolean not null default false, frozen_at timestamptz not null default now(), primary key (athlete_id, week_start))`.
+**Ledger table.** `rhythm_weeks(athlete_id bigint, week_start date, qualifying_runs int, target int, target_source text check (target_source in ('stored','provisional')), suggested int, state text check (state in ('on','short','zero','rest')), level int check (level between 0 and 12), level_before_miss int, redeemed boolean not null default false, rules_version int not null, frozen_at timestamptz not null default now(), primary key (athlete_id, week_start))`.
 
 - `level` is capped at 12. Anything above that is Legendary either way.
 - `suggested` is stored per week, so the provisional target (the highest suggestion over the last 26 weeks) comes straight from ledger rows.
@@ -196,7 +212,9 @@ A week that is `short` or `zero` counts as a **miss**.
    ├─ 4 queries total, whatever the group size, each .in('athlete_id', ids), in parallel:
    │   rhythm_weeks, runs, rhythm_targets, rhythm_rest_weeks. Plus the existing
    │   athleteTimezones(ids).
-   │   Every query goes through fetchAllPages() (.range() until a short page), so the
+   │   Every query goes through fetchAllPages() from a new shared lib/fetchAllPages.ts.
+   │   lib/coachData.ts:17 and lib/analysis/projector-service.ts adopt it too, replacing
+   │   their own copies of the same loop (.range() until a short page), so the
    │   1,000-row API cap can never truncate silently.
    │   The runs query uses the earliest window any member needs; each member's rows are
    │   then trimmed to their own window in TS.
@@ -216,7 +234,7 @@ A week that is `short` or `zero` counts as a **miss**.
 
 `foldWeek` is the only function that applies the weapon rules. The freezer and the live view both call it, so the frozen and live weapon logic can't drift apart.
 
-**UI.** The dashboard timing-chip panel gets a `0X RHYTHM` cell:
+**UI.** The dashboard gets a Rhythm `.card` (`components/RhythmCell.tsx`), styled from the pre-refresh DESIGN.md on `main`, with a mono uppercase "RHYTHM" label:
 
 - A big mono `2/4`.
 - A Mon–Sun row of 7 small chips.
@@ -265,11 +283,11 @@ Members who joined mid-week start the following week. Dormant members don't atta
   - Before the first raid, the Raid panel shows "First boss arrives Mon <date>" alongside everyone's current weapon.
   - No history is backfilled, so there's no "7 bosses slain" on launch day.
   - Check that `groups.created_at` exists in the SQL editor. The table was created outside the repo's migrations. If it doesn't exist, every group starts at `RAID_LAUNCH_WEEK`, and later groups start at the next boundary after their first member joined (`min(group_members.joined_at)`).
-- **Boss HP:** fixed at the raid's start as `max(4, round(0.7 × Σ over members active at the raid's start of Σ_{k=1..4} power(s_m + k)))`.
-  - That's 70% of the damage the group would deal if every member hit every week. It scales with group size and current weapons.
+- **Boss HP:** fixed at the raid's start as `max(4, round(0.5 × Σ over members active at the raid's start of Σ_{k=1..4} power(s_m + k)))`.
+  - That's 50% of the damage the group would deal if every member hit every week. It scales with group size and current weapons.
   - HP is computed from each member's **frozen ledger `level` for the week before the raid**, so it's stable once that week freezes.
   - During the raid's first 2 days (Monday and Tuesday, before the Wednesday freeze), HP is computed from the live fold and marked provisional.
-  - HP deliberately includes members who later rest or go dormant. The 0.7 factor is the slack for that.
+  - HP deliberately includes members who later rest or go dormant. The 0.5 factor is the slack for that: attacks are all-or-nothing and misses cost tiers, so real damage runs well below the maximum (outside-voice finding, eng review).
 - **Boss:** v1 has 3 bosses, taking turns in order by `raid_index`: Humidity Golem, Traffic Kraken, Couch Lich. Each has a name, a pixel sprite and 2 taunt lines.
   - v2 grows the roster: Snooze Hydra, Monsoon Wyrm, Excuse Goblin King, Treadmill Mimic, Rest Day Troll.
 - **How it ends:** the boss is **slain** in the week cumulative damage reaches its HP. Damage in later weeks of the raid is shown as "overkill" for bragging rights. If HP is still above 0 after 4 weeks, the boss **escapes** and taunts the group on the card.
@@ -384,6 +402,10 @@ This all ships in PR1. PR2 needs no migration.
   - Consumers that change meaning automatically: `lib/coachContext.ts`, `lib/coachEdition.ts:188` (`streak_weeks`), `lib/coachNote.ts:104`, `app/api/coach/insight/route.ts:54`, `app/api/groups/[id]/challenges/generate/route.ts:106`, and the leaderboard flame at `GroupDashboardTab.tsx:839`. Their prompt text ("streak N weeks") stays correct.
   - Delete `computeStreak` and its tests (`__tests__/utils.test.ts:19-97`). Update the coach fixtures that set `streak`.
   - The Coach edition's copy cache will regenerate once, because the model input changes. That's expected.
+  - **"Fresh start" framing** (decided in eng review, answering the outside-voice point that everyone's streak reads 0 on launch day):
+    - Coach metrics gain `rhythm_season_week`, the number of weeks since `RHYTHM_LAUNCH_WEEK`, plus 1.
+    - While it's 4 or less, the coach prompt context says "Rhythm season week N: everyone started Unarmed". It doesn't present a streak of 0 as a failure.
+    - During the first 4 weeks, the leaderboard flame shows from a streak of 1, not 2.
 - **Components:** `components/RhythmCell.tsx` is new. The dashboard mounts it; it isn't built inline in `app/page.tsx`.
 
 **PR2: Boss Raid (group).** It builds on PR1's ledger.
@@ -402,8 +424,9 @@ This all ships in PR1. PR2 needs no migration.
 
 ## Open Questions
 
+
 1. **Pixel-sprite style:** orange-on-black 16×16 sprites are a new visual element for DESIGN.md. Confirm the direction before they're drawn. `/design-consultation` or a quick mockup could settle it.
-2. **HP factor 0.7:** tune after the first raid. If the first boss dies in week 2, raise it. If nobody has killed a boss after 2 raids, lower it.
+2. **HP factor 0.5:** tune after the first raid. If the first boss dies in week 2, raise it. If nobody has killed a boss after 2 raids, lower it.
 3. **Qualifying floor:** `max(15 min, 50% of median)` needs a backtest against real group data.
 4. **Naming on cards:** named shaming is the point in a friend group, but confirm the group is into it (Next Steps, step 1).
 
@@ -470,21 +493,93 @@ The existing deployment pipeline covers this: push to Vercel, paste migration 02
 ## Dependencies
 
 - The in-progress per-runner time zone work (`lib/timezone.ts`, `migration_023.sql`, the `lib/calendar.ts` changes) should land first.
-- **Run-plan removal** (Jesse, during eng review: "no one uses that feature") ships as its own PR **before PR1**. It deletes plan code from `app/page.tsx`, `app/group/[id]/page.tsx` and `GroupPageClient.tsx`, which PR1 and PR2 also touch. Landing it first shrinks those files and avoids merge conflicts. It's tracked as a separate task.
+- **Build order** (updated 2026-09-26, after Jesse's instruction in the run-plan removal session):
+  1. [PR jessejchoi/running-dashboard#2](https://github.com/jessejchoi/running-dashboard/pull/2) (`release/timezones-and-plan-removal`). It contains the run-plan removal, the unused-component cleanup and the per-runner time zone work, and it renumbers the plan-drop migration to `migration_025.sql`, which keeps 024 free for Rhythm. It merges once migration 023 is confirmed applied in Supabase.
+  2. The dashboard design refresh stays on its own branch, `design/dashboard-refresh-v2`. The older `design/dashboard-refresh-d` is superseded, so don't build on it. Jesse hasn't yet decided whether it ships.
+  3. PR1: Rhythm + Weapon, **branched from `main`** (Jesse's decision; PR #2 is merged at `158ad3e`, and migration 023 is applied). It must not depend on anything from `36321ac`: the `Eyebrow` component, `NextRaceBlock`, the `.panel` CSS and the refresh's DESIGN.md tokens are not on `main`. Build the Rhythm cell as a `.card` that follows the **pre-refresh DESIGN.md on `main`**. A fresh redesign is planned after Rhythm ships.
+  4. PR2: Boss Raid.
+  - Migration numbering: 024 is Rhythm. 025 is the plan-table drop, which isn't applied yet.
+
+## Accepted Risks (considered in eng review, deliberately not fixed)
+
+- **The Monday battle report is provisional.** The week freezes Wednesday, 2 days after it ends, but the report can be shared from Monday. A late upload could flip a result after the card has been posted. The card and panel show a "provisional" label until the freeze. Jesse chose to keep the 2-day grace and the Monday timing.
+- **Race rest weeks** keep the write-on-goal-save design. Two known gaps:
+  - Goals that already exist, including Jesse's 3 races, get no race rest rows unless migration 024 backfills them.
+  - Creating and then deleting future race goals can grant extra rest weeks.
+
+  Jesse chose not to take the derive-and-cap alternative.
 
 ## Next Steps
 
 1. **Assignment:** before writing code, pitch it in the group WhatsApp. "Every 4 weeks we fight a boss. Hit your usual runs per week and your weapon levels up. If most of us show up, we attack. What's your honest weekly number, and are you OK being roasted on the Monday card?" Their answers seed the targets and settle open question 4.
-2. Land the time zone work.
-3. Write `lib/rhythm.ts` and the weapon fold with tests, including a fixture from your own history showing a real fade.
-4. Write migration 024, the settings target field, the rest-week API and the dashboard Rhythm cell with a weapon placeholder.
-5. Build `lib/raid.ts`, `lib/raidCopy.ts` and the Raid panel.
-6. Confirm the sprite style, then draw the sprites.
-7. Build the card route (report and rally), and the share button.
-8. After the first raid, tune the HP factor. After 2 weeks, check the v2 gate.
+2. ~~Land the time zone work.~~ Done: merged in PR #2 (`158ad3e`).
+3. **PR1** (branched from `main`): tasks T1–T7 from the eng review.
+   - The shared paging helper.
+   - `lib/rhythm.ts`, with a fixture from your own history that shows a real fade.
+   - The ledger: migration 024, the freeze cron and the rebuild script.
+   - The loader, behind the feature flag.
+   - The target and rest-week routes.
+   - Retiring `computeStreak` with the "fresh start" framing.
+   - The Rhythm card and weapon sprites.
+4. Paste migration 024, deploy, set `RHYTHM_LAUNCH_WEEK` to the next Monday, then redeploy.
+5. Confirm the sprite style (for example with `/plan-design-review`) before drawing the 3 bosses.
+6. **PR2:** tasks T8–T9. That's `lib/raid.ts`, `lib/raidData.ts`, `lib/raidCopy.ts`, the Raid panel, the card route and the share button.
+7. After the first raid, tune the HP factor (it starts at 0.5). After 2 weeks, check the v2 gate (TODO-006).
 
 ## What I noticed about how you think
 
 - You picked "Keep group alive" and "Show up consistently", and passed on "Train smart" and PRs, even though you're in the middle of a three-race season. You wanted the group to show up, not a better training tool, and the design follows that.
 - When I asked where the group actually talks, you answered "WhatsApp/Telegram group" straight away. That one answer moved the group feature toward a shareable card and away from an in-app feed.
 - Presented with a finished doc ready for approval, you didn't approve it. You took the second opinion's throwaway "boss fight" line and designed the whole mechanic yourself, with the arithmetic worked out: "3 week streak... 2 week streak... 1 week, then the total collective power is 6". The best idea in the session came from you rewriting the recommendation, not accepting it.
+
+## Eng Review Outcomes (2026-09-26)
+
+**NOT in scope** (considered and deferred):
+
+- Boss Raid v2 (Coach battle copy, `bosskiller` award, leaderboard weapons, trophy wall, a bigger boss roster). Gated on sharing; tracked as TODO-006.
+- The dashboard redesign. It's parked on `design/dashboard-refresh-v2`, and a fresh redesign comes after Rhythm.
+- Deriving race rest weeks from goals, and capping them. Declined; see Accepted Risks.
+- Moving the battle report to after the freeze. Declined; see Accepted Risks.
+- A Telegram bot, and link-preview (public) cards.
+
+**What already exists, and is reused:**
+
+- `weekStart`, `runDay`, `addDays`, `localDate` and `commonTimezone` in `lib/calendar.ts`
+- `athleteTimezones` in `lib/timezone.ts`
+- `group_members.joined_at`
+- the `CRON_SECRET` pattern in `/api/cron/sync`
+- the peek-route membership check
+- the mocked-Supabase test helpers
+- the paging loops in `lib/coachData.ts` and `lib/analysis/projector-service.ts`, which get extracted into `fetchAllPages`
+- `Avatar` and initials, which get extracted into a shared `initials()`
+
+**Failure modes:**
+
+| Codepath | Realistic failure | Test | Handled | User sees |
+|---|---|---|---|---|
+| `loadRhythmInputs` | the 1,000-row cap truncates results | rhythmData | `fetchAllPages` | correct data |
+| `loadRhythmInputs` | migration 024 not pasted yet (`42P01`) | rhythmData | feature off, error logged | no Rhythm card, no crash |
+| freeze cron | an athlete is skipped | rhythmLedger | own loop, plus freezing on dashboard and group load | correct numbers |
+| `foldWeek` | a rule bug gets frozen into history | rhythm | `rules_version` + the rebuild script | fixed after a rebuild |
+| target route | the profile gets clobbered | rhythmRoutes | a dedicated route | profile intact |
+| card route | a non-member fetches the card | raidCard | 403 | error |
+| card route | an avatar fetch hangs | raidCard | 2-second budget, then initials | initials on the card |
+| battle report | a late upload flips the result after it's shared | — | "provisional" label | **an accepted risk, not a silent failure** |
+
+No critical gaps: every failure mode is either tested, handled, or labelled on screen.
+
+**Worktree parallelization:** Within PR1, `lib/rhythm.ts` (pure rules), `lib/fetchAllPages.ts` and the API routes can be built in parallel lanes. The ledger, loader and UI depend on `rhythm.ts`. PR2 is sequential after PR1.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 1 (Claude subagent; Codex model unusable) | issues_found | 8 findings: 4 applied (#3, #6, #7, #8), 2 tensions resolved (ledger + rebuild, streak framing), 2 declined as accepted risks (#1, #5) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 13 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **VERDICT:** ENG CLEARED, ready to implement PR1 from `main`. A design review is recommended before the sprites are drawn (open question 1).
+
+NO UNRESOLVED DECISIONS

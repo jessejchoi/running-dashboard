@@ -61,3 +61,29 @@ Deferred work tracked here. One item per entry.
 **Effort:** M (human: ~1 day) → S (CC+gstack: ~20 min)
 **Priority:** P2
 **Depends on:** Nothing — fully independent
+
+---
+
+## TODO-006: Boss Raid v2 follow-ups
+
+**What:** The Boss Raid v2 set from `docs/designs/rhythm-boss-raid.md`:
+- The Coach edition writes the battle-report copy.
+- A `bosskiller` award for the MVP of the killing blow.
+- Weapon icons on `GroupLeaderboard`.
+- A trophy wall of slain bosses.
+- A boss roster that grows from 3 to 8 (Snooze Hydra, Monsoon Wyrm, Excuse Goblin King, Treadmill Mimic, Rest Day Troll).
+
+**Why:** These make the raid richer once it's proven people actually engage with it. They were deliberately held out of PR1 and PR2 to keep v1 small.
+
+**Pros:** More personality in the weekly report, visible status on the leaderboard, and long-term collection value from slain bosses.
+
+**Cons:** More sprites, more copy, and more Coach prompt surface. Worth it only if the v1 loop actually drives sharing.
+
+**Context:** Decided in office-hours and plan-eng-review (2026-09-26). **Gate:** only build this if a battle report card gets posted in the group WhatsApp without being prompted within the first 2 weeks of PR2 shipping. Where to start:
+- `lib/coachMetrics.ts`: add `raid` to the group metrics.
+- `lib/awards.ts`: add `bosskiller`.
+- `lib/sprites.ts`: add the new bosses.
+
+**Effort:** M (human: ~3 days) → S (CC+gstack: ~45 min)
+**Priority:** P3 (gated)
+**Depends on:** PR2 (Boss Raid) shipped, plus the sharing gate above

@@ -4,7 +4,7 @@ import { createQueryChain } from './helpers/supabase'
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: vi.fn(), rpc: vi.fn() } }))
 vi.mock('@/lib/analysis/service', () => ({ getAthleteAnalysis: vi.fn() }))
 vi.mock('@/lib/analysis/expected-service', () => ({ getExpectedEstimates: vi.fn() }))
-vi.mock('@/lib/estimateSnapshots', () => ({ fetchDeltas: vi.fn().mockResolvedValue({}) }))
+vi.mock('@/lib/estimateSnapshots', () => ({ fetchDeltas: vi.fn().mockResolvedValue({}), fetchSnapshotsByDate: vi.fn().mockResolvedValue({}), buildAllDeltas: vi.fn().mockReturnValue({}) }))
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { getAthleteAnalysis } from '@/lib/analysis/service'

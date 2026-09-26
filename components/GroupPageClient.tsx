@@ -29,6 +29,8 @@ interface Props {
   myRole: string
   inviteUrl: string
   myAthleteId: number
+  /** Already the viewer's saved primary group — skip re-saving it on mount. */
+  isPrimaryGroup?: boolean
   memberTrainingLoads: Record<number, TrainingLoad>
   allGroups: { id: string; name: string }[]
   initialBriefing?: BriefingContent | null
@@ -38,7 +40,7 @@ interface Props {
 }
 
 export default function GroupPageClient({
-  group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, memberTrainingLoads, allGroups,
+  group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, isPrimaryGroup = false, memberTrainingLoads, allGroups,
   initialBriefing, initialBriefingMeta, initialPlans, memberEstimates: initialMemberEstimates = {},
 }: Props) {
   const [copied, setCopied] = useState(false)
@@ -88,8 +90,9 @@ export default function GroupPageClient({
 
   // Save selected group as primary in DB
   useEffect(() => {
+    if (isPrimaryGroup) return
     fetch(`/api/groups/${group.id}/select`, { method: 'POST' })
-  }, [group.id])
+  }, [group.id, isPrimaryGroup])
 
   useEffect(() => {
     if (!switcherOpen) return

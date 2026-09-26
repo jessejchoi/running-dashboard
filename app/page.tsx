@@ -7,11 +7,10 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import OnboardingPage from '@/components/OnboardingPage'
-import WeeklyMileageChart from '@/components/WeeklyMileageChart'
-import TrainingLoadChart from '@/components/TrainingLoadChart'
+import { WeeklyMileageChart, TrainingLoadChart } from '@/components/DashboardCharts'
 import DashboardRaceSection from '@/components/DashboardRaceSection'
 import RecentRunsCard from '@/components/RecentRunsCard'
-import WeeklyPlanCard from '@/components/WeeklyPlanCard'
+import WeeklyPlanCard, { WeeklyPlanCardSkeleton } from '@/components/WeeklyPlanCard'
 import PrefetchGroup from '@/components/PrefetchGroup'
 import { formatDuration, isoWeek, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
@@ -25,6 +24,7 @@ async function getFastData(athleteId: number) {
     { data: activities },
     { data: tokenData },
     { data: userProfile },
+    totalsByAthlete,
   ] = await Promise.all([
     supabaseAdmin
       .from('activities')
@@ -43,9 +43,11 @@ async function getFastData(athleteId: number) {
       .select('display_name, max_hr, primary_group_id')
       .eq('athlete_id', athleteId)
       .maybeSingle(),
+    canonicalTotals([athleteId], getCoachRangeDefinitions()),
   ])
 
   return {
+    totals: totalsByAthlete[athleteId],
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
     displayName: userProfile?.display_name ?? null,
@@ -85,9 +87,10 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, hasMaxHr, primaryGroupId } = await getFastData(Number(athleteId))
-  const totals = (await canonicalTotals([Number(athleteId)],getCoachRangeDefinitions()))[Number(athleteId)]
-  const trainingLoad = calculateTrainingLoad(activities)
+  const { activities, athlete, displayName, hasMaxHr, primaryGroupId, totals } = await getFastData(Number(athleteId))
+  // The chart shows 90 days; don't serialize the full history to the client.
+  const trainingLoad = calculateTrainingLoad(activities).slice(-100)
+  const mileageRuns = activities.map((a: any) => ({ start_date: a.start_date, distance: a.distance }))
 
   const thisWeek = isoWeek(new Date())
   const weekActivities = activities.filter((a: any) => isoWeek(new Date(a.start_date)) === thisWeek)
@@ -127,7 +130,7 @@ export default async function DashboardPage() {
               <span className="font-normal ml-1.5" style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>{unitLabel}</span>
             </div>
             <div style={{ height: 160 }}>
-              <WeeklyMileageChart activities={activities} />
+              <WeeklyMileageChart activities={mileageRuns} />
             </div>
           </div>
 
@@ -161,7 +164,9 @@ export default async function DashboardPage() {
         )}
 
         {/* ── This Week's Plan ── */}
-        <WeeklyPlanCard unit={unit} />
+        <Suspense fallback={<WeeklyPlanCardSkeleton />}>
+          <WeeklyPlanCard athleteId={Number(athleteId)} unit={unit} />
+        </Suspense>
 
         {/* ── Race Goals + Estimates (deferred) ── */}
         <Suspense fallback={<RaceSectionSkeleton />}>

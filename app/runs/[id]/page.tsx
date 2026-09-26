@@ -28,7 +28,9 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
   const [{ data: run }, { data: profile }] = await Promise.all([
     supabaseAdmin
       .from('activities')
-      .select('*')
+      // Only what this page renders: the HR series (not every GPS stream) and
+      // the two raw flags the treadmill badge needs, not the whole payload.
+      .select('id,name,start_date,distance,moving_time,average_speed,total_elevation_gain,average_cadence,suffer_score,average_heartrate,max_heartrate,run_type,run_type_manual,detail_synced,splits,laps,hr_stream:streams->heartrate,time_stream:streams->time,trainer:raw->trainer,sport_type:raw->>sport_type')
       .eq('id', params.id)
       .single(),
     supabaseAdmin
@@ -54,7 +56,8 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
   }
   const paceZones = (profile?.pace_zones ?? null) as PaceZones | null
   const maxHr = (profile?.max_hr ?? null) as number | null
-  const isTreadmill = isTreadmillRun(run)
+  const surface = { run_type: run.run_type, trainer: run.trainer === true, sport_type: run.sport_type }
+  const isTreadmill = isTreadmillRun(surface)
   const primaryRunType = run.run_type === 'treadmill' ? null : run.run_type
   // Build segments for any run with laps (including single-lap for HR overlay)
   const lapSegments = laps.length > 0
@@ -62,7 +65,9 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
     : []
 
   // Fetch HR stream from Strava if available (stored in raw or streams column)
-  const streams = run.streams ?? null
+  const streams = run.hr_stream
+    ? { heartrate: run.hr_stream as { data: number[] }, time: (run.time_stream ?? undefined) as { data: number[] } | undefined }
+    : null
 
   return (
     <>
@@ -81,7 +86,7 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
                 <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                   {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy · h:mm a')}
                 </p>
-                {isTreadmill && <RunSurfaceBadge run={run} />}
+                {isTreadmill && <RunSurfaceBadge run={surface} />}
               </div>
             </div>
             <div className="relative z-[100]">

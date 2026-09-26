@@ -109,6 +109,8 @@ export interface CoachGroupMetrics {
   members: CoachAthleteMetrics[]
   active_challenges: CoachChallengeMetrics[]
   signals: CoachSignal[]
+  /** Raw runs from the last 12 weeks, for the weekly Coach edition. */
+  runs?: CoachActivity[]
 }
 
 function jakartaParts(date: Date) {
@@ -668,6 +670,7 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
   return {
     ...groupWithoutSignals,
     signals: buildGroupSignals(groupWithoutSignals),
+    runs: allActivities,
   }
 }
 

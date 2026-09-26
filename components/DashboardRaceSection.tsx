@@ -12,7 +12,7 @@ export default async function DashboardRaceSection({
   hasMaxHr: boolean
 }) {
   const [bundle, { data: goals }] = await Promise.all([
-    loadEstimates(athleteId),
+    loadEstimates(athleteId, { allowStaleDay: true }),
     supabaseAdmin
       .from('user_goals')
       .select('*')

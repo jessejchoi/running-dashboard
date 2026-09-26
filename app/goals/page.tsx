@@ -18,7 +18,7 @@ export default async function GoalsPage() {
       .select('*')
       .eq('athlete_id', id)
       .order('race_date'),
-    loadEstimates(Number(id)),
+    loadEstimates(Number(id), { allowStaleDay: true }),
     trainingGoals(Number(id)),
   ])
   return (

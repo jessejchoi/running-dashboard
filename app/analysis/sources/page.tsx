@@ -7,9 +7,8 @@ import AnalysisDistanceToggle from '@/components/AnalysisDistanceToggle'
 import { AnalysisTabProvider } from '@/components/AnalysisTabContext'
 import Link from 'next/link'
 import { getAthleteAnalysis } from '@/lib/analysis/service'
+import { ANALYSIS_ACTIVITY_COLUMNS } from '@/lib/analysis/constants'
 import { type DistanceUnit } from '@/lib/utils'
-
-export const revalidate = 60
 
 export default async function SourcesPage() {
   const cookieStore = cookies()
@@ -18,7 +17,9 @@ export default async function SourcesPage() {
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
   const { inputs, result, combinedJson, targetSecsMap } = await getAthleteAnalysis(Number(athleteId), {
-    activityColumns: '*',
+    // Never '*': that pulls per-second GPS streams for every run, which the
+    // engine doesn't read.
+    activityColumns: `${ANALYSIS_ACTIVITY_COLUMNS}, official_result_secs`,
     easyLookbackMonths: 3,
     longLimit: 15,
     raceLimit: 10,

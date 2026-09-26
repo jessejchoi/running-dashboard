@@ -28,6 +28,7 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover' as const,
+  themeColor: '#0a0a0a',
 }
 
 export const metadata: Metadata = {
@@ -38,7 +39,6 @@ export const metadata: Metadata = {
     apple: '/rundash-icon.png',
     shortcut: '/rundash-icon.png',
   },
-  themeColor: '#0a0a0a',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

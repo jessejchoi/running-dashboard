@@ -20,7 +20,27 @@ export async function claudeMessage(params: {
   max_tokens: number
   timeoutMs?: number
   retries?: number
+  effort?: 'low' | 'medium' | 'high'
+  /** Constrain the reply to this JSON schema (structured outputs). */
+  jsonSchema?: Record<string, unknown>
+  /** Re-run a safety decline on Anthropic's recommended fallback model. */
+  fallbacks?: boolean
 }): Promise<string> {
+  const outputConfig = {
+    ...(params.effort ? { effort: params.effort } : {}),
+    ...(params.jsonSchema ? { format: { type: 'json_schema', schema: params.jsonSchema } } : {}),
+  }
+  // The pinned SDK predates output_config and fallbacks; it forwards unknown body fields as-is.
+  const body = {
+    model: params.model,
+    system: params.system,
+    messages: params.messages,
+    max_tokens: params.max_tokens,
+    ...(Object.keys(outputConfig).length ? { output_config: outputConfig } : {}),
+    ...(params.fallbacks ? { fallbacks: 'default' } : {}),
+  } as unknown as Anthropic.MessageCreateParamsNonStreaming
+  const headers = params.fallbacks ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : undefined
+
   const startMs = Date.now()
 
   for (
@@ -35,15 +55,11 @@ export async function claudeMessage(params: {
     )
 
     try {
-      const message = await anthropic.messages.create(
-        {
-          model: params.model,
-          system: params.system,
-          messages: params.messages,
-          max_tokens: params.max_tokens,
-        },
-        { signal: controller.signal, maxRetries: 0 },
-      )
+      const message = await anthropic.messages.create(body, {
+        signal: controller.signal,
+        maxRetries: 0,
+        ...(headers ? { headers } : {}),
+      })
 
       const latencyMs = Date.now() - startMs
       console.log('[claude]', {
@@ -52,7 +68,11 @@ export async function claudeMessage(params: {
         latencyMs,
       })
 
-      return message.content[0].type === 'text' ? message.content[0].text : ''
+      if ((message.stop_reason as string) === 'refusal') throw new Error('claudeMessage: refused')
+      // Thinking and fallback blocks can precede the answer; return only the text.
+      return message.content
+        .map(block => (block.type === 'text' ? block.text : ''))
+        .join('')
     } catch (err) {
       const isApiError = err instanceof Anthropic.APIError
       const status = isApiError ? err.status : undefined

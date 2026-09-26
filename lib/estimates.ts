@@ -6,7 +6,13 @@ import {
   type ExpectedEstimate,
 } from '@/lib/analysis/expected'
 import { getExpectedEstimates } from '@/lib/analysis/expected-service'
-import { fetchDeltas, type AllDeltas } from '@/lib/estimateSnapshots'
+import {
+  buildAllDeltas,
+  fetchDeltas,
+  fetchSnapshotsByDate,
+  type AllDeltas,
+} from '@/lib/estimateSnapshots'
+import { localDate } from '@/lib/calendar'
 import { type DistanceKey } from '@/lib/goals'
 export interface EstimateBundle {
   estimates: ExpectedEstimate[]
@@ -15,9 +21,23 @@ export interface EstimateBundle {
   dataVersion: number
   deltas?: AllDeltas
 }
+export interface LoadEstimatesOptions {
+  /**
+   * Page reads pass true: a bundle computed on an earlier day for the same
+   * model and data version is served immediately instead of recomputing the
+   * full analysis inside the render. The background worker's daily
+   * "estimates" job refreshes it moments later.
+   */
+  allowStaleDay?: boolean
+}
 export async function loadEstimates(
   athleteId: number,
+  { allowStaleDay = false }: LoadEstimatesOptions = {},
 ): Promise<EstimateBundle> {
+  // The snapshot window only feeds deltas; fetch it alongside the cache so a
+  // cache hit costs a single round trip.
+  const snapshotsPromise = fetchSnapshotsByDate(athleteId)
+  snapshotsPromise.catch(() => {})
   const [{ data: state }, { data: cached }] = await Promise.all([
     supabaseAdmin
       .from('athlete_state')
@@ -37,11 +57,12 @@ export async function loadEstimates(
     stored &&
     stored.modelVersion === version &&
     stored.dataVersion === dataVersion &&
-    stored.updatedAt.slice(0, 10) === new Date().toISOString().slice(0, 10)
+    (allowStaleDay ||
+      localDate(new Date(stored.updatedAt)) === localDate())
   )
     return {
       ...stored,
-      deltas: await fetchDeltas(athleteId, estimateValues(stored)),
+      deltas: buildAllDeltas(estimateValues(stored), await snapshotsPromise),
     }
   let estimates: ExpectedEstimate[]
   if (expectedEstimatorEnabled())

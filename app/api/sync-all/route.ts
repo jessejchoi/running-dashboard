@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
     // Re-run analysis whenever new runs were synced (after detail sync so run_type is set)
     if (newRuns > 0) await updateLatestEstimates(Number(athleteId))
     await startHistory(Number(athleteId))
-    await queueAthleteWork(Number(athleteId))
-    await runWorker({athleteId:Number(athleteId),budgetMs:5000})
+    const groupIds = await queueAthleteWork(Number(athleteId))
+    await runWorker({athleteId:Number(athleteId),groupIds,budgetMs:5000})
     return NextResponse.json({ newRuns, detailsSynced })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

@@ -10,54 +10,67 @@ import { activeModelVersion } from "@/lib/analysis/expected";
 import { runStravaWebhookJob } from "@/lib/stravaWebhook";
 import { importMayRun } from "@/lib/stravaBudget";
 export async function queueAthleteWork(athleteId: number) {
-  const { data: state } = await supabaseAdmin
-    .from("athlete_state")
-    .select("data_version,plan_version")
-    .eq("athlete_id", athleteId)
-    .maybeSingle();
+  // Independent reads and idempotent upserts: run them concurrently so the
+  // per-minute poll costs one round trip per stage instead of one per job.
+  const [{ data: state }, { data: pending }, { data: groups }] =
+    await Promise.all([
+      supabaseAdmin
+        .from("athlete_state")
+        .select("data_version,plan_version")
+        .eq("athlete_id", athleteId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("activities")
+        .select("id")
+        .eq("athlete_id", athleteId)
+        .eq("detail_synced", false)
+        .gte("start_date", new Date(Date.now() - 60 * 86400000).toISOString())
+        .order("start_date", { ascending: false })
+        .limit(3),
+      supabaseAdmin
+        .from("group_members")
+        .select("group_id")
+        .eq("athlete_id", athleteId),
+    ]);
   const version = `${state?.data_version ?? 0}:${localDate()}`;
-  const { data: pending } = await supabaseAdmin
-    .from("activities")
-    .select("id")
-    .eq("athlete_id", athleteId)
-    .eq("detail_synced", false)
-    .gte("start_date", new Date(Date.now() - 60 * 86400000).toISOString())
-    .order("start_date", { ascending: false })
-    .limit(3);
-  for (const run of pending ?? [])
-    await enqueueJob(
-      "details",
+  await Promise.all([
+    ...(pending ?? []).map((run) =>
+      enqueueJob(
+        "details",
+        String(athleteId),
+        `${run.id}:${state?.data_version ?? 0}`,
+      ),
+    ),
+    enqueueJob("adapt", String(athleteId), version),
+    enqueueJob(
+      "estimates",
       String(athleteId),
-      `${run.id}:${state?.data_version ?? 0}`,
-    );
-  await enqueueJob("adapt", String(athleteId), version);
-  await enqueueJob(
-    "estimates",
-    String(athleteId),
-    `${version}:${activeModelVersion()}`,
-  );
-  const { data: groups } = await supabaseAdmin
-    .from("group_members")
-    .select("group_id")
-    .eq("athlete_id", athleteId);
-  for (const g of groups ?? [])
-    await enqueueJob("briefing", g.group_id, await groupVersion(g.group_id));
+      `${version}:${activeModelVersion()}`,
+    ),
+    ...(groups ?? []).map(async (g) =>
+      enqueueJob("briefing", g.group_id, await groupVersion(g.group_id)),
+    ),
+  ]);
+  return (groups ?? []).map((g) => g.group_id as string);
 }
+/** Runs queued jobs within the time budget; returns how many were executed. */
 export async function runWorker(
-  options: { athleteId?: number; budgetMs?: number } = {},
-) {
+  options: { athleteId?: number; groupIds?: string[]; budgetMs?: number } = {},
+): Promise<number> {
   const end = Date.now() + (options.budgetMs ?? 20000);
+  let ran = 0;
   let scopes: string[] | undefined;
   if (options.athleteId) {
-    const { data: groups, error } = await supabaseAdmin
-      .from("group_members")
-      .select("group_id")
-      .eq("athlete_id", options.athleteId);
-    if (error) throw error;
-    scopes = [
-      String(options.athleteId),
-      ...(groups ?? []).map((g) => g.group_id),
-    ];
+    let groupIds = options.groupIds;
+    if (!groupIds) {
+      const { data: groups, error } = await supabaseAdmin
+        .from("group_members")
+        .select("group_id")
+        .eq("athlete_id", options.athleteId);
+      if (error) throw error;
+      groupIds = (groups ?? []).map((g) => g.group_id);
+    }
+    scopes = [String(options.athleteId), ...groupIds];
   }
   function pendingJobs() {
     let query = supabaseAdmin
@@ -93,14 +106,17 @@ export async function runWorker(
         .eq("athlete_id", Number(item.scope))
         .maybeSingle();
       if (connected) await queueAthleteWork(Number(item.scope));
+      ran++;
       continue;
     }
     if (item.kind === "history") {
       await runHistoryJob(item.id);
+      ran++;
       continue;
     }
     if (item.kind === "briefing") {
       await runBriefingJob(item.id);
+      ran++;
       continue;
     }
     const job = await claimJob(item.id);
@@ -139,8 +155,10 @@ export async function runWorker(
       if (job.kind === "adapt") await adaptPlan(Number(job.scope));
       if (job.kind === "estimates") await loadEstimates(Number(job.scope));
       await finishJob(job);
+      ran++;
     } catch (e) {
       await finishJob(job, e instanceof Error ? e.message : String(e));
     }
   }
+  return ran;
 }

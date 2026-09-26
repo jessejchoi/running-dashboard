@@ -1,4 +1,5 @@
 import { buildAthleteMetrics, buildCoachFactsSnapshot, buildGroupMetrics, type CoachMetricTotal, type CoachSignal } from '@/lib/coachMetrics'
+import type { EditionRun } from '@/lib/coachEdition'
 
 export interface CoachContext {
   group: { name: string }
@@ -46,6 +47,7 @@ export interface CoachContext {
     completed_member_weeks?: number
     elapsed_member_weeks?: number
   }>
+  runs?: EditionRun[]
 }
 
 export async function buildCoachContext(groupId: string): Promise<CoachContext> {
@@ -81,6 +83,13 @@ export async function buildCoachContext(groupId: string): Promise<CoachContext> 
       recent_runs: member.recent_runs,
     })),
     active_challenges: metrics.active_challenges,
+    runs: (metrics.runs ?? []).map(run => ({
+      athlete_id: run.athlete_id,
+      start_date: run.start_date,
+      distance: run.distance,
+      moving_time: run.moving_time ?? null,
+      run_type: run.run_type ?? null,
+    })),
   }
 }
 

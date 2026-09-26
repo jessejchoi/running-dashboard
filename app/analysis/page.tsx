@@ -7,7 +7,7 @@ import { loadEstimates } from '@/lib/estimates'
 export default async function AnalysisPage() {
   const id = await getAthleteId()
   if (!id) redirect('/')
-  const bundle = await loadEstimates(Number(id))
+  const bundle = await loadEstimates(Number(id), { allowStaleDay: true })
   return (
     <>
       <Nav />

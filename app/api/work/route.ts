@@ -5,9 +5,13 @@ export async function POST() {
   const id = await getAthleteId()
   if (!id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    await queueAthleteWork(Number(id))
-    await runWorker({ athleteId: Number(id), budgetMs: 15000 })
-    return NextResponse.json({ ok: true })
+    const groupIds = await queueAthleteWork(Number(id))
+    const ran = await runWorker({
+      athleteId: Number(id),
+      groupIds,
+      budgetMs: 15000,
+    })
+    return NextResponse.json({ ok: true, ran })
   } catch {
     return NextResponse.json(
       { error: 'Background work will retry.' },

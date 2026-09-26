@@ -16,7 +16,7 @@ import { LEVEL_CAP, isMiss, levelIfOn, redeemableLevel, tierFor, type LedgerRow,
 
 export const RAID_WEEKS = 4
 /** Boss HP is this share of what the group would deal if everyone hit every week. */
-export const HP_FACTOR = 0.5
+export const HP_FACTOR = 0.75
 export const MIN_HP = 4
 /** A member with no qualifying run in this many weeks is dormant: no attack, no block. */
 export const DORMANT_WEEKS = 8
@@ -290,12 +290,23 @@ export interface RaidSummary {
 }
 
 /** A whole raid as of `currentWeek`: weeks from `currentWeek` on haven't finished. */
+/**
+ * HP for a raid starting on `start`, from everyone active then at their level
+ * after the week before. Provisional while any of those weeks isn't frozen
+ * (or hasn't finished: the incoming boss's HP is a projection).
+ */
+export function raidHp(members: RaidMemberInput[], start: string): { hp: number; provisional: boolean } {
+  const before = addDays(start, -WEEK)
+  const startWeeks = members.filter(m => isActive(m, start)).map(m => memberWeek(m, before))
+  return {
+    hp: bossHp(startWeeks.map(w => w?.level ?? 0)),
+    provisional: startWeeks.some(w => w != null && !w.frozen),
+  }
+}
+
 export function resolveRaid(members: RaidMemberInput[], index: number, firstIndex: number, raidLaunch: string, currentWeek: string): RaidSummary {
   const start = raidStart(index, raidLaunch)
-  const before = addDays(start, -WEEK)
-  const starters = members.filter(m => isActive(m, start))
-  const startWeeks = starters.map(m => memberWeek(m, before))
-  const hp = bossHp(startWeeks.map(w => w?.level ?? 0))
+  const { hp, provisional: hpProvisional } = raidHp(members, start)
 
   const weeks: RaidWeekResult[] = []
   let damage = 0, slainWeek: number | null = null
@@ -316,7 +327,7 @@ export function resolveRaid(members: RaidMemberInput[], index: number, firstInde
     start,
     end: addDays(start, RAID_WEEKS * WEEK - 1),
     hp,
-    hpProvisional: startWeeks.some(w => w != null && !w.open && !w.frozen),
+    hpProvisional,
     weeks,
     damage,
     status: slainWeek != null ? 'slain' : finished === RAID_WEEKS ? 'escaped' : 'active',
@@ -347,6 +358,8 @@ export interface RaidState {
   /** Days left this week in the group's zone, counting today. */
   daysLeft: number
   firstRaidStart: string
+  /** Before the first raid: the incoming boss's HP if it arrived with today's weapons. */
+  projectedHp: number | null
   /** The raid in progress, or null before the group's first raid. */
   raid: RaidSummary | null
   /** The raid that just ended, while its final week is still "last week". */
@@ -432,6 +445,7 @@ export function computeRaid({ members, groupZone, createdDay, rhythmLaunchWeek, 
     week,
     daysLeft: 7 - ((weekday(today) + 6) % 7),
     firstRaidStart,
+    projectedHp: inRaid ? null : raidHp(members, firstRaidStart).hp,
     raid,
     previous,
     thisWeek,

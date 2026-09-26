@@ -75,11 +75,11 @@ describe('raid calendar', () => {
 })
 
 describe('bossHp', () => {
-  it('is half the damage of everyone hitting all 4 weeks from their starting level', () => {
-    // Level 1 → 2,3,4,5 = Dagger, Dagger, Sword, Sword = 10 each.
-    expect(bossHp([1, 1, 1])).toBe(15)
+  it('is 75% of the damage of everyone hitting all 4 weeks from their starting level', () => {
+    // Level 1 → 2,3,4,5 = Dagger, Dagger, Sword, Sword = 10 each: 30 × 0.75.
+    expect(bossHp([1, 1, 1])).toBe(23)
     // Level 10 → 11 (Axe 5), then capped Legendary 8 × 3 = 29.
-    expect(bossHp([10])).toBe(15)
+    expect(bossHp([10])).toBe(22)
   })
 
   it('never drops below the minimum', () => {
@@ -209,16 +209,17 @@ describe('raidWeek', () => {
 describe('resolveRaid', () => {
   const end = at('2026-11-10') // Tuesday after the first raid
 
-  it('slays the boss early and counts the rest as overkill', () => {
+  it('slays the boss and counts the rest as overkill', () => {
     const members = [1, 2, 3].map(id => member(id, `M${id}`, [...BASE, 3, 3, 3, 3, 3, 3], end))
     const raid = resolveRaid(members, 0, 0, RAID, '2026-11-09')
     expect(raid.boss.key).toBe('golem')
-    expect(raid.hp).toBe(15)
+    expect(raid.hp).toBe(23)
     // Damage per week: 6 (Dagger), 6 (Dagger), 9 (Sword), 9 (Sword).
     expect(raid.weeks.map(w => w.damage)).toEqual([6, 6, 9, 9])
     expect(raid.status).toBe('slain')
-    expect(raid.slainWeek).toBe(3)
-    expect(raid.overkill).toBe(15)
+    // 6 + 6 + 9 = 21 falls short of 23; week 4's 9 finishes it.
+    expect(raid.slainWeek).toBe(4)
+    expect(raid.overkill).toBe(7)
   })
 
   it('lets the boss escape after 4 weeks', () => {
@@ -252,6 +253,8 @@ describe('computeRaid', () => {
     expect(state.raid).toBeNull()
     expect(state.firstRaidStart).toBe(RAID)
     expect(state.nextBoss.key).toBe('golem')
+    // Launch week on target makes Ana level 1: 2+2+3+3 = 10 × 0.75.
+    expect(state.projectedHp).toBe(8)
     expect(state.roster[0]).toMatchObject({ name: 'Ana', on: true, role: 'fighting' })
   })
 

@@ -54,7 +54,7 @@ describe('wayBack', () => {
   })
 
   it('says so when they are already back on target', () => {
-    expect(wayBack(miss(1, 'Budi', { redeemNext: true }), true)).toBe('Already back on target this week ✓')
+    expect(wayBack(miss(1, 'Budi', { redeemNext: true }), true)).toBe('Already back on target this week.')
   })
 })
 
@@ -127,7 +127,7 @@ describe('situation', () => {
     weeks: [], damage: 4, status: 'active', slainWeek: null, overkill: 0, ...overrides,
   })
   const state = (thisWeek: RaidWeekResult, r: RaidSummary | null, daysLeft = 4): RaidState => ({
-    today: '2026-10-22', week: '2026-10-19', daysLeft, firstRaidStart: '2026-10-12', raid: r, previous: null,
+    today: '2026-10-22', week: '2026-10-19', daysLeft, firstRaidStart: '2026-10-12', projectedHp: null, raid: r, previous: null,
     thisWeek, lastWeek: null, recentWeeks: [], roster: [], bossesSlain: 0, raidsFought: 0, nextBoss: BOSSES[1],
   })
 

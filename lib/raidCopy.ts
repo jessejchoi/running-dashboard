@@ -108,7 +108,7 @@ function nudgeLine(f: RaidFighter, seed: Array<string | number>): string {
  * redemption is open, otherwise the climb to the next weapon.
  */
 export function wayBack(f: RaidFighter, onThisWeek = false): string {
-  if (onThisWeek) return 'Already back on target this week ✓'
+  if (onThisWeek) return 'Already back on target this week.'
   if (f.redeemNext) return `Hit your target this week to win back your ${f.tierBefore.name} (${levelLabel(f.tierBefore)}).`
   const next = TIERS[tierIndex(f.tier) + 1] ?? null
   if (!next) return 'Hit your target this week to keep your weapon climbing.'

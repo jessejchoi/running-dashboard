@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
-import type { Tier } from '@/lib/rhythm'
-import { RAID_WEEKS, type RaidFighter } from '@/lib/raid'
+import { tierNumber, type Tier } from '@/lib/rhythm'
+import { RAID_WEEKS, type Boss, type RaidSummary } from '@/lib/raid'
 import { SPRITE_COLORS, SPRITE_SIZE, bossPixels, weaponPixels, type Pixel } from '@/lib/sprites'
-import { attackHeadline, firstName, levelLabel, rallyNames, shortDate, stillNeeded } from '@/lib/raidCopy'
+import { firstName, shortDate, stillNeeded } from '@/lib/raidCopy'
 import type { RaidView } from '@/lib/raidData'
 import { initials } from '@/lib/utils'
 
@@ -10,6 +10,13 @@ import { initials } from '@/lib/utils'
  * The shareable Boss Raid cards, rendered by next/og (Satori) at 1080×1350.
  * Satori lays out flexbox only: every element with more than one child needs
  * display: flex. Colors are DESIGN.md's tokens as literals (no CSS variables).
+ *
+ *   ┌ BOSS RAID · group ─────────── RUNDASH ┐
+ *   │        glowing boss on its stage       │  stamps: SLAIN / ESCAPED / BLOCKED
+ *   │  HP 18 /25 ▮▮▮▮▮▮▮▮▯▯▯▯  −6 this week │  damage floats on the recap
+ *   │  [ status banner ]                     │
+ *   │  the party: weapon + target pips each  │
+ *   └────────────────────────────────────────┘
  */
 
 export const CARD_WIDTH = 1080
@@ -23,16 +30,16 @@ const C = {
   surface3: '#0f0f0f',
   border: '#2a2a2a',
   accent: '#f97316',
-  accentMuted: 'rgba(249,115,22,0.30)',
   text1: '#f0f0f0',
   text2: '#a1a1aa',
   text3: '#6b7280',
   success: '#22c55e',
-  warning: '#eab308',
   error: '#ef4444',
+  warning: '#eab308',
 }
 const DISPLAY = 'Syne'
 const MONO = 'Space Mono'
+const PAD = 56
 
 export type Avatars = Record<number, string | null>
 
@@ -98,187 +105,176 @@ function Avatar({ name, src, size }: { name: string; src: string | null | undefi
   )
 }
 
-function Label({ children, color = C.text3, size = 22 }: { children: string; color?: string; size?: number }) {
-  return <div style={{ fontFamily: MONO, fontSize: size, letterSpacing: 3, textTransform: 'uppercase', color }}>{children}</div>
+function Mono({ children, size = 22, color = C.text3, bold = false, spacing = 3 }: { children: ReactNode; size?: number; color?: string; bold?: boolean; spacing?: number }) {
+  return <div style={{ display: 'flex', fontFamily: MONO, fontSize: size, fontWeight: bold ? 700 : 400, letterSpacing: spacing, textTransform: 'uppercase', color }}>{children}</div>
 }
 
-/** Remaining HP in orange, the damage being dealt as a lighter chunk, the rest empty. */
-function HpBar({ hp, remaining, chunk }: { hp: number; remaining: number; chunk: number }) {
-  const pct = (n: number) => `${Math.max(0, Math.min(100, (n / Math.max(hp, 1)) * 100))}%`
-  const after = Math.max(0, remaining - chunk)
+function Frame({ view, children }: { view: RaidView; children: ReactNode }) {
   return (
-    <div style={{ display: 'flex', width: '100%', height: 28, borderRadius: 6, background: C.surface3, border: `2px solid ${C.border}`, overflow: 'hidden' }}>
-      <div style={{ width: pct(after), background: C.accent }} />
-      <div style={{ width: pct(Math.min(chunk, remaining)), background: C.accentMuted }} />
-    </div>
-  )
-}
-
-function Header({ view, right }: { view: RaidView; right: string }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <Label color={C.accent}>Boss Raid</Label>
-        <div style={{ fontFamily: DISPLAY, fontSize: 36, color: C.text1, marginTop: 4 }}>{view.groupName}</div>
-      </div>
-      <Label>{right}</Label>
-    </div>
-  )
-}
-
-function BossBlock({ bossKey, name, hp, remaining, chunk, caption, defeated = false }: { bossKey: Parameters<typeof bossPixels>[0]; name: string; hp: number; remaining: number; chunk: number; caption: string; defeated?: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', marginTop: 44, gap: 36 }}>
-      <div style={{ display: 'flex', width: 232, height: 232, alignItems: 'center', justifyContent: 'center', background: C.surface1, border: `2px solid ${C.border}`, borderRadius: 16, opacity: defeated ? 0.35 : 1 }}>
-        <Sprite pixels={bossPixels(bossKey)} size={192} />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <div style={{ fontFamily: DISPLAY, fontSize: 60, lineHeight: 0.95, color: C.text1, textTransform: 'uppercase', letterSpacing: -1 }}>{name}</div>
-        <div style={{ display: 'flex', marginTop: 24 }}>
-          <HpBar hp={hp} remaining={remaining} chunk={chunk} />
+    <div style={{ width: CARD_WIDTH, height: CARD_HEIGHT, display: 'flex', flexDirection: 'column', background: C.bg, color: C.text1, fontFamily: MONO, paddingBottom: 48 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `40px ${PAD}px 0` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 14, height: 14, background: C.accent }} />
+          <Mono color={C.accent} bold spacing={5}>Boss Raid</Mono>
+          <Mono color={C.text2} spacing={2}>{`· ${view.groupName}`}</Mono>
         </div>
-        <div style={{ display: 'flex', marginTop: 12 }}>
-          <Label color={C.text2} size={22}>{caption}</Label>
+        <div style={{ display: 'flex', fontFamily: DISPLAY, fontSize: 28, color: C.text1 }}>
+          RUN<span style={{ color: C.accent }}>DASH</span>
         </div>
       </div>
-    </div>
-  )
-}
-
-function WeaponLine({ tier, extra }: { tier: Tier; extra?: string }) {
-  return <Label color={C.text2} size={20}>{`${levelLabel(tier)}${extra ? ` · ${extra}` : ''}`}</Label>
-}
-
-function FighterChip({ f, avatars, sub = `${f.power} dmg` }: { f: RaidFighter; avatars: Avatars; sub?: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: C.surface1, border: `2px solid ${C.border}`, borderRadius: 12, padding: '10px 16px 10px 10px' }}>
-      <Avatar name={f.name} src={avatars[f.athlete_id]} size={48} />
-      <Sprite pixels={weaponPixels(f.tier.key)} size={40} />
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 22, color: C.text1 }}>{firstName(f.name)}</div>
-        <div style={{ fontFamily: MONO, fontSize: 18, color: C.text2 }}>{sub}</div>
-      </div>
-    </div>
-  )
-}
-
-function Footer({ note }: { note: string | null }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto' }}>
-      <Label color={C.warning} size={20}>{note ?? ''}</Label>
-      <div style={{ display: 'flex', fontFamily: DISPLAY, fontSize: 30, color: C.text1 }}>
-        RUN<span style={{ color: C.accent }}>DASH</span>
-      </div>
-    </div>
-  )
-}
-
-function Frame({ children }: { children: ReactNode }) {
-  return (
-    <div style={{ width: CARD_WIDTH, height: CARD_HEIGHT, display: 'flex', flexDirection: 'column', background: C.bg, padding: 64, fontFamily: MONO, color: C.text1 }}>
       {children}
     </div>
   )
 }
 
-function Countdown({ view, avatars }: { view: RaidView; avatars: Avatars }) {
-  const { state } = view
-  const fighters = state.roster.filter(r => r.role !== 'dormant').slice(0, 8)
+type Stamp = { text: string; color: string } | null
+
+/** The boss on a glowing stage, with an optional stamp and a floating damage number. */
+function Stage({ boss, tag, stamp = null, hit = 0, dim = false, sprite = 250 }: { boss: Boss; tag: string; stamp?: Stamp; hit?: number; dim?: boolean; sprite?: number }) {
+  const glow = stamp?.color === C.error ? 'rgba(239,68,68,0.28)' : 'rgba(249,115,22,0.34)'
   return (
-    <Frame>
-      <Header view={view} right="Hype week" />
-      <BossBlock bossKey={state.nextBoss.key} name={state.nextBoss.name} hp={1} remaining={1} chunk={0} caption={`Arrives ${shortDate(state.firstRaidStart)}`} />
-      <div style={{ fontFamily: DISPLAY, fontSize: 64, lineHeight: 1, marginTop: 64, color: C.accent, textTransform: 'uppercase' }}>Sharpen your weapons</div>
-      <div style={{ fontFamily: MONO, fontSize: 26, color: C.text2, marginTop: 16 }}>Every on-target week until then levels you up.</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 44 }}>
-        {fighters.map(r => (
-          <div key={r.athlete_id} style={{ display: 'flex', alignItems: 'center', gap: 12, width: 456, background: C.surface1, border: `2px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-            <Avatar name={r.name} src={avatars[r.athlete_id]} size={56} />
-            <Sprite pixels={weaponPixels(r.tier.key)} size={48} />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 24 }}>{firstName(r.name)}</div>
-              <WeaponLine tier={r.tier} />
-            </div>
-          </div>
-        ))}
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', marginTop: 8, paddingTop: 10,
+      backgroundImage: `radial-gradient(circle at 50% 44%, ${glow} 0%, rgba(249,115,22,0.06) 34%, rgba(8,8,8,0) 58%)`,
+    }}>
+      <Mono color={C.accent} spacing={6}>{tag}</Mono>
+      <div style={{ display: 'flex', position: 'relative', marginTop: 10, opacity: dim ? 0.28 : 1 }}>
+        <Sprite pixels={bossPixels(boss.key)} size={sprite} />
       </div>
-      <Footer note={null} />
-    </Frame>
+      {/* the floor the boss stands on */}
+      <div style={{ display: 'flex', width: 520, height: 3, marginTop: -6, backgroundImage: 'linear-gradient(90deg, rgba(249,115,22,0) 0%, #f97316 50%, rgba(249,115,22,0) 100%)' }} />
+      <div style={{ display: 'flex', fontFamily: DISPLAY, fontSize: 72, lineHeight: 1, marginTop: 18, textTransform: 'uppercase', letterSpacing: -1, textShadow: '0 0 36px rgba(249,115,22,0.45)' }}>{boss.name}</div>
+      {hit > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'absolute', top: 60, right: 170 }}>
+          <div style={{ display: 'flex', fontFamily: DISPLAY, fontSize: 116, lineHeight: 1, color: C.accent, textShadow: '0 0 30px rgba(249,115,22,0.8)' }}>{`-${hit}`}</div>
+          <Mono size={22} color={C.accent} bold spacing={6}>dmg</Mono>
+        </div>
+      )}
+      {stamp && (
+        <div style={{ display: 'flex', position: 'absolute', top: 130, fontFamily: DISPLAY, fontSize: stamp.text.length > 5 ? 76 : 100, color: stamp.color, border: `8px solid ${stamp.color}`, borderRadius: 12, padding: '0 30px', transform: 'rotate(-10deg)', background: 'rgba(8,8,8,0.55)' }}>{stamp.text}</div>
+      )}
+    </div>
   )
 }
 
-function Report({ view, avatars }: { view: RaidView; avatars: Avatars }) {
-  const report = view.report!
-  const { raid, week, raidWeek, shame } = report
-  const before = raid.hp - raid.weeks.slice(0, raidWeek - 1).reduce((s, w) => s + w.damage, 0)
-  const after = Math.max(0, before - week.damage)
-  const slainNow = raid.slainWeek === raidWeek
-  const overkill = before <= 0
-  const escaped = raid.status === 'escaped' && raidWeek === RAID_WEEKS
-  const others = week.attackers.filter(f => f.athlete_id !== week.mvp?.athlete_id).slice(0, 6)
-
+/** Chunky HP: remaining segments in orange, this hit as hollow orange, the rest empty. */
+function HpBlock({ hp, remaining, chunk, right, rightColor = C.accent }: { hp: number; remaining: number; chunk: number; right: string; rightColor?: string }) {
+  const n = Math.min(hp, 30)
+  const seg = (v: number) => Math.round((Math.max(0, v) / Math.max(hp, 1)) * n)
+  const after = seg(remaining - chunk)
+  const before = Math.max(after, seg(remaining))
   return (
-    <Frame>
-      <Header view={view} right={`Raid #${raid.number} · Week ${raidWeek}/${RAID_WEEKS}`} />
-      <BossBlock
-        bossKey={raid.boss.key}
-        name={raid.boss.name}
-        hp={raid.hp}
-        remaining={Math.max(0, before)}
-        chunk={week.damage}
-        caption={overkill ? `Slain · overkill +${week.damage}` : `HP ${Math.max(0, before)} → ${after} / ${raid.hp}`}
-        defeated={overkill || slainNow}
-      />
-
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, marginTop: 48 }}>
-        <div style={{ fontFamily: DISPLAY, fontSize: 54, lineHeight: 1, textTransform: 'uppercase', color: week.landed ? C.success : C.error }}>{attackHeadline(week)}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', padding: `0 ${PAD}px`, marginTop: 22 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <Mono size={24} spacing={4}>HP</Mono>
+          <div style={{ display: 'flex', fontFamily: MONO, fontWeight: 700, fontSize: 58, lineHeight: 1 }}>{`${Math.max(0, remaining - chunk)}`}</div>
+          <Mono size={30} spacing={0}>{`/${hp}`}</Mono>
+        </div>
+        <Mono size={26} color={rightColor} bold spacing={3}>{right}</Mono>
       </div>
-      {slainNow && (
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 12 }}>
-          <div style={{ fontFamily: DISPLAY, fontSize: 40, color: C.accent, textTransform: 'uppercase' }}>{`${raid.boss.name} slain!`}</div>
-          <Label color={C.text2}>{`Bosses slain: ${view.state.bossesSlain}${raid.overkill > 0 ? ` · Overkill +${raid.overkill}` : ''}`}</Label>
-        </div>
-      )}
-      {escaped && (
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 12 }}>
-          <div style={{ fontFamily: DISPLAY, fontSize: 40, color: C.error, textTransform: 'uppercase' }}>{`The ${raid.boss.name} escaped`}</div>
-          <div style={{ fontFamily: MONO, fontSize: 26, color: C.text2, marginTop: 8 }}>{`"${report.taunt}"`}</div>
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: 5, marginTop: 14 }}>
+        {Array.from({ length: n }, (_, i) => {
+          const full = i < after
+          const hit = !full && i < before
+          return <div key={i} style={{ display: 'flex', flex: 1, height: 32, borderRadius: 3, background: full ? C.accent : hit ? 'rgba(249,115,22,0.18)' : C.surface2, border: `2px solid ${full || hit ? C.accent : C.border}` }} />
+        })}
+      </div>
+    </div>
+  )
+}
 
-      {week.mvp && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginTop: 36, background: C.surface2, border: `2px solid ${C.accent}`, borderRadius: 16, padding: 24 }}>
-          <Avatar name={week.mvp.name} src={avatars[week.mvp.athlete_id]} size={104} />
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <Label color={C.accent}>MVP</Label>
-            <div style={{ fontFamily: DISPLAY, fontSize: 48, color: C.text1, marginTop: 4 }}>{firstName(week.mvp.name)}</div>
-            <WeaponLine tier={week.mvp.tier} extra={`${week.mvp.power} dmg`} />
-          </div>
-          <Sprite pixels={weaponPixels(week.mvp.tier.key)} size={112} />
-        </div>
-      )}
-      {others.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 20 }}>
-          {others.map(f => <FighterChip key={f.athlete_id} f={f} avatars={avatars} sub={week.landed ? undefined : 'showed up'} />)}
-        </div>
-      )}
+function Banner({ text, right, color, bg }: { text: string; right: string; color: string; bg: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: `22px ${PAD}px 0`, padding: '16px 28px', borderRadius: 14, background: bg, border: `2px solid ${color}` }}>
+      <div style={{ display: 'flex', fontFamily: DISPLAY, fontSize: 40, lineHeight: 1, color, textTransform: 'uppercase' }}>{text}</div>
+      <Mono size={24} color={C.text1} bold spacing={2}>{right}</Mono>
+    </div>
+  )
+}
 
-      {shame.entries.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 36 }}>
-          <Label color={week.landed ? C.text3 : C.error}>{week.landed ? 'Missed the fight' : 'Let the boss live'}</Label>
-          {shame.entries.map(e => (
-            <div key={e.athlete_id} style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16 }}>
-              <Avatar name={e.name} src={avatars[e.athlete_id]} size={52} />
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 24, color: C.text1 }}>{e.line}</div>
-                <div style={{ fontFamily: MONO, fontSize: 20, color: C.accent, marginTop: 2 }}>{e.wayBack}</div>
-              </div>
+interface PartyRow {
+  id: number
+  name: string
+  tier: Tier
+  runs: number
+  target: number
+  on: boolean
+  /** Right-hand status: "in", "2 to go", "+3 dmg", "missed"… */
+  status: string
+  statusColor: string
+  faded?: boolean
+}
+
+function Pips({ runs, target, on, size }: { runs: number; target: number; on: boolean; size: number }) {
+  const shown = Math.min(target, 7)
+  return (
+    <div style={{ display: 'flex', gap: Math.round(size / 5) }}>
+      {Array.from({ length: shown }, (_, i) => {
+        const done = on || i < runs
+        const fill = on ? C.success : done ? C.accent : C.surface3
+        return <div key={i} style={{ display: 'flex', width: size, height: size, borderRadius: 3, background: fill, border: `2px solid ${done ? fill : C.border}` }} />
+      })}
+    </div>
+  )
+}
+
+function Party({ title, rows, avatars, compact = rows.length > 6 }: { title: string; rows: PartyRow[]; avatars: Avatars; compact?: boolean }) {
+  const avatar = compact ? 40 : 52
+  const maxTarget = Math.max(1, ...rows.map(r => r.target))
+  const pip = compact ? (maxTarget > 4 ? 13 : 18) : 26
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', padding: `0 ${PAD}px`, marginTop: 24 }}>
+      <Mono size={20} spacing={4}>{title}</Mono>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+        {rows.slice(0, 10).map(r => (
+          <div key={r.id} style={{
+            display: 'flex', alignItems: 'center', gap: compact ? 8 : 14, width: compact ? 479 : 968, padding: compact ? '8px 12px' : '8px 18px',
+            background: C.surface1, borderRadius: 12, border: `2px solid ${r.on ? 'rgba(34,197,94,0.45)' : C.border}`, opacity: r.faded ? 0.45 : 1,
+          }}>
+            <Avatar name={r.name} src={avatars[r.id]} size={avatar} />
+            <div style={{ display: 'flex', flexDirection: 'column', width: compact ? 118 : 190 }}>
+              <div style={{ display: 'flex', fontFamily: MONO, fontWeight: 700, fontSize: compact ? 20 : 26, color: C.text1 }}>{firstName(r.name)}</div>
+              <Mono size={compact ? 12 : 16} color={C.text2} spacing={compact ? 0 : 1}>{`Lv ${tierNumber(r.tier)} ${r.tier.name}`}</Mono>
             </div>
-          ))}
-          {shame.overflow > 0 && <div style={{ fontFamily: MONO, fontSize: 20, color: C.text3, marginTop: 12 }}>{`+${shame.overflow} others`}</div>}
-        </div>
-      )}
-      <Footer note={week.provisional || raid.hpProvisional ? 'Provisional until the Wednesday freeze' : null} />
+            <Sprite pixels={weaponPixels(r.tier.key)} size={compact ? 32 : 44} />
+            <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: compact ? 6 : 12, marginLeft: compact ? 2 : 6 }}>
+              <Pips runs={r.runs} target={r.target} on={r.on} size={pip} />
+              <Mono size={compact ? 16 : 22} color={C.text2} spacing={0}>{`${r.runs}/${r.target}`}</Mono>
+            </div>
+            <Mono size={compact ? 15 : 20} color={r.statusColor} bold spacing={1}>{r.status}</Mono>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+function thisWeekRows(view: RaidView): PartyRow[] {
+  return view.state.roster.map(r => ({
+    id: r.athlete_id,
+    name: r.name,
+    tier: r.tier,
+    runs: r.runs,
+    target: r.target,
+    on: r.on,
+    status: r.role === 'dormant' ? 'zzz' : r.role === 'new' ? 'next wk' : r.on ? 'in' : `${r.needed} to go`,
+    statusColor: r.role !== 'fighting' ? C.text3 : r.on ? C.success : C.accent,
+    faded: r.role !== 'fighting',
+  }))
+}
+
+function Countdown({ view, avatars }: { view: RaidView; avatars: Avatars }) {
+  const { state } = view
+  const hp = state.projectedHp ?? 0
+  return (
+    <Frame view={view}>
+      <Stage boss={state.nextBoss} tag={`Incoming · ${shortDate(state.firstRaidStart)}`} />
+      <HpBlock hp={hp} remaining={hp} chunk={0} right="Grows as you level" rightColor={C.text2} />
+      <Banner text="Sharpen your weapons" right={`${plural(state.daysLeft, 'day')} left`} color={C.accent} bg="rgba(249,115,22,0.10)" />
+      <Party title="The party · this week's targets" rows={thisWeekRows(view)} avatars={avatars} />
     </Frame>
   )
 }
@@ -288,72 +284,133 @@ function Rally({ view, avatars }: { view: RaidView; avatars: Avatars }) {
   const raid = state.raid!
   const week = state.thisWeek
   const hpLeft = Math.max(0, raid.hp - raid.damage)
-  const pending = stillNeeded(week, state.daysLeft)
   const need = Math.max(0, week.majority - week.attackers.length)
-  const blocked = !week.landed && pending.length < need
+  const blocked = !week.landed && stillNeeded(week, state.daysLeft).length < need
   const slain = raid.status === 'slain'
-
-  const headline = slain ? `Slain in week ${raid.slainWeek}`
-    : week.landed ? 'Attack locked in'
-    : blocked ? 'Attack blocked'
-    : `Attack needs ${need} more`
-  const color = slain ? C.accent : week.landed ? C.success : blocked ? C.error : C.accent
-
+  const banner = slain ? { text: 'Overkill round', color: C.accent, bg: 'rgba(249,115,22,0.10)' }
+    : week.landed ? { text: 'Attack locked in', color: C.success, bg: 'rgba(34,197,94,0.10)' }
+    : blocked ? { text: 'Attack blocked', color: C.error, bg: 'rgba(239,68,68,0.10)' }
+    : { text: `Need ${need} more`, color: C.accent, bg: 'rgba(249,115,22,0.10)' }
   return (
-    <Frame>
-      <Header view={view} right={`Raid #${raid.number} · Week ${raid.weeks.length}/${RAID_WEEKS}`} />
-      <BossBlock
-        bossKey={raid.boss.key}
-        name={raid.boss.name}
+    <Frame view={view}>
+      <Stage
+        boss={raid.boss}
+        tag={`Raid ${raid.number} · Week ${raid.weeks.length}/${RAID_WEEKS}`}
+        stamp={slain ? { text: 'SLAIN', color: C.accent } : null}
+        dim={slain}
+      />
+      <HpBlock
         hp={raid.hp}
         remaining={hpLeft}
-        chunk={week.locked}
-        caption={slain ? `Overkill ${raid.overkill} so far` : `HP ${hpLeft} / ${raid.hp}`}
-        defeated={slain}
+        chunk={slain ? 0 : week.locked}
+        right={slain ? `Overkill +${raid.overkill}` : week.locked ? `-${week.locked} this week` : 'No damage yet'}
+        rightColor={week.locked || slain ? C.accent : C.text3}
       />
-      <div style={{ fontFamily: DISPLAY, fontSize: 58, lineHeight: 1, marginTop: 56, textTransform: 'uppercase', color }}>{headline}</div>
-      <div style={{ fontFamily: MONO, fontSize: 28, color: C.text1, marginTop: 20 }}>
-        {slain ? 'Keep your weapons climbing: every hit still counts as overkill.'
-          : week.landed ? `${week.attackers.length} of ${week.eligible.length} on target.`
-          : pending.length ? rallyNames(pending.slice(0, 4)) : 'Nobody left who can make it this week.'}
-      </div>
-      <div style={{ display: 'flex', gap: 16, marginTop: 36 }}>
-        {[
-          ['Days left', `${state.daysLeft}`],
-          ['Locked', `${week.locked}`],
-          ['Possible', `${week.possible}`],
-        ].map(([label, value]) => (
-          <div key={label} style={{ display: 'flex', flexDirection: 'column', flex: 1, background: C.surface2, borderRadius: 12, padding: '18px 22px' }}>
-            <Label size={18}>{label}</Label>
-            <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 56, color: C.text1, marginTop: 6 }}>{value}</div>
+      <Banner text={banner.text} right={`${plural(state.daysLeft, 'day')} left`} color={banner.color} bg={banner.bg} />
+      <Party title="The party · this week's targets" rows={thisWeekRows(view)} avatars={avatars} />
+    </Frame>
+  )
+}
+
+function RaidStrip({ raid }: { raid: RaidSummary }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, padding: `0 ${PAD}px`, marginTop: 16 }}>
+      {Array.from({ length: RAID_WEEKS }, (_, i) => {
+        const w = raid.weeks[i]
+        const done = w && !w.open
+        const color = !done ? C.text3 : w.landed ? C.success : C.error
+        return (
+          <div key={i} style={{ display: 'flex', flex: 1, justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderRadius: 10, background: C.surface1, border: `2px solid ${C.border}` }}>
+            <Mono size={18}>{`Wk ${i + 1}`}</Mono>
+            <Mono size={24} bold color={color} spacing={0}>{!done ? '-' : w.landed ? `${w.damage}` : 'X'}</Mono>
           </div>
-        ))}
-      </div>
-      {week.attackers.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 36 }}>
-          <Label>Attacking</Label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14 }}>
-            {week.attackers.slice(0, 8).map(f => <FighterChip key={f.athlete_id} f={f} avatars={avatars} />)}
-          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function Recap({ view, avatars }: { view: RaidView; avatars: Avatars }) {
+  const report = view.report!
+  const { raid, week, raidWeek, shame } = report
+  const before = raid.hp - raid.weeks.slice(0, raidWeek - 1).reduce((s, w) => s + w.damage, 0)
+  const slainNow = raid.slainWeek === raidWeek
+  const overkill = before <= 0
+  const escaped = raid.status === 'escaped' && raidWeek === RAID_WEEKS
+  const final = slainNow || escaped
+  const stamp: Stamp = slainNow || overkill ? { text: 'SLAIN', color: C.accent }
+    : escaped ? { text: 'ESCAPED', color: C.error }
+    : !week.landed ? { text: 'BLOCKED', color: C.error }
+    : null
+  const shamed = new Set(shame.entries.map(e => e.athlete_id))
+  const rows: PartyRow[] = [
+    ...week.eligible.map(f => ({
+      id: f.athlete_id,
+      name: f.name,
+      tier: f.tier,
+      runs: f.runs,
+      target: f.target,
+      on: f.state === 'on',
+      status: f.state === 'on' ? (week.landed ? `+${f.power} dmg` : 'showed up') : shamed.has(f.athlete_id) && !week.landed ? 'blocked' : 'missed',
+      statusColor: f.state === 'on' ? (week.landed ? C.success : C.text2) : C.error,
+    })),
+    ...week.dormant.map(d => ({ id: d.athlete_id, name: d.name, tier: view.state.roster.find(r => r.athlete_id === d.athlete_id)?.tier ?? { key: 'unarmed', name: 'Unarmed', min: 0, power: 0 } as Tier, runs: 0, target: 1, on: false, status: 'zzz', statusColor: C.text3, faded: true })),
+  ]
+  const mvp = week.mvp
+  return (
+    <Frame view={view}>
+      <Stage
+        boss={raid.boss}
+        tag={`Raid ${raid.number} · ${final ? 'Final recap' : `Week ${raidWeek} recap`}`}
+        stamp={stamp}
+        hit={week.landed && !overkill ? week.damage : 0}
+        dim={slainNow || overkill}
+        sprite={final ? 200 : 230}
+      />
+      <HpBlock
+        hp={raid.hp}
+        remaining={Math.max(0, before)}
+        chunk={week.damage}
+        right={week.landed ? `-${week.damage} dmg${overkill ? ' overkill' : ''}` : 'No damage'}
+        rightColor={week.landed ? C.accent : C.error}
+      />
+      <Banner
+        text={week.landed ? 'Attack landed' : 'Attack failed'}
+        right={mvp ? `MVP ${firstName(mvp.name)} · ${mvp.power} dmg` : `${week.attackers.length} of ${week.eligible.length} on target`}
+        color={week.landed ? C.success : C.error}
+        bg={week.landed ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)'}
+      />
+      {final && <RaidStrip raid={raid} />}
+      {escaped && report.taunt && (
+        <div style={{ display: 'flex', padding: `0 ${PAD}px`, marginTop: 16, fontFamily: MONO, fontSize: 22, lineHeight: 1.4, color: C.text2 }}>{`"${report.taunt}"`}</div>
+      )}
+      <Party title="The party · last week" rows={rows} avatars={avatars} compact={rows.length > (shame.entries.length || final ? 2 : 6)} />
+      {shame.entries.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', padding: `0 ${PAD}px`, marginTop: 18, gap: 10 }}>
+          {shame.entries.map(e => (
+            <div key={e.athlete_id} style={{ display: 'flex', flexDirection: 'column', paddingLeft: 16, borderLeft: `4px solid ${e.kind === 'blocker' ? C.error : C.accent}` }}>
+              <div style={{ display: 'flex', fontFamily: MONO, fontWeight: 700, fontSize: 21, color: C.text1 }}>{e.line}</div>
+              <div style={{ display: 'flex', fontFamily: MONO, fontSize: 18, color: C.accent }}>{e.wayBack}</div>
+            </div>
+          ))}
+          {shame.overflow > 0 && <Mono size={18} spacing={1}>{`+${shame.overflow} others`}</Mono>}
         </div>
       )}
-      <Footer note={null} />
     </Frame>
   )
 }
 
 /** Who needs an avatar on this card. */
 export function cardPeople(view: RaidView, kind: CardKind): number[] {
-  const { state, report } = view
-  if (!state.raid && !(kind === 'report' && report)) return state.roster.filter(r => r.role !== 'dormant').slice(0, 8).map(r => r.athlete_id)
-  if (kind === 'report' && report) {
-    return [...report.week.attackers.slice(0, 7).map(f => f.athlete_id), ...report.shame.entries.map(e => e.athlete_id)]
+  if (kind === 'report' && view.report) {
+    const w = view.report.week
+    return [...w.eligible.map(f => f.athlete_id), ...w.dormant.map(d => d.athlete_id)].slice(0, 10)
   }
-  return state.thisWeek.attackers.slice(0, 8).map(f => f.athlete_id)
+  return view.state.roster.slice(0, 10).map(r => r.athlete_id)
 }
 
 export function RaidCard({ view, kind, avatars }: { view: RaidView; kind: CardKind; avatars: Avatars }) {
-  if (kind === 'report' && view.report) return <Report view={view} avatars={avatars} />
+  if (kind === 'report' && view.report) return <Recap view={view} avatars={avatars} />
   if (view.state.raid) return <Rally view={view} avatars={avatars} />
   return <Countdown view={view} avatars={avatars} />
 }

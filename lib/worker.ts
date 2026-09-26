@@ -3,7 +3,6 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { runHistoryJob, startHistory } from "@/lib/history";
 import { runBriefingJob, groupVersion } from "@/lib/groupCoach";
 import { enqueueJob, claimJob, finishJob } from "@/lib/jobs";
-import { adaptPlan } from "@/lib/planService";
 import { loadEstimates } from "@/lib/estimates";
 import { localDate } from "@/lib/calendar";
 import { activeModelVersion } from "@/lib/analysis/expected";
@@ -16,7 +15,7 @@ export async function queueAthleteWork(athleteId: number) {
     await Promise.all([
       supabaseAdmin
         .from("athlete_state")
-        .select("data_version,plan_version")
+        .select("data_version")
         .eq("athlete_id", athleteId)
         .maybeSingle(),
       supabaseAdmin
@@ -41,7 +40,6 @@ export async function queueAthleteWork(athleteId: number) {
         `${run.id}:${state?.data_version ?? 0}`,
       ),
     ),
-    enqueueJob("adapt", String(athleteId), version),
     enqueueJob(
       "estimates",
       String(athleteId),
@@ -121,6 +119,11 @@ export async function runWorker(
     }
     const job = await claimJob(item.id);
     if (!job) continue;
+    // Retired plan adaptation: the database trigger may still queue these until migration_024 runs.
+    if (job.kind === "adapt") {
+      await finishJob(job);
+      continue;
+    }
     try {
       if (job.kind === "incremental" || job.kind === "details") {
         const resume = await importMayRun();
@@ -129,7 +132,7 @@ export async function runWorker(
           continue;
         }
       }
-      if (["adapt", "estimates"].includes(job.kind)) {
+      if (job.kind === "estimates") {
         const { data: state, error } = await supabaseAdmin
           .from("athlete_state")
           .select("data_version")
@@ -152,7 +155,6 @@ export async function runWorker(
           1,
           Number(job.input_version.split(":")[0]),
         );
-      if (job.kind === "adapt") await adaptPlan(Number(job.scope));
       if (job.kind === "estimates") await loadEstimates(Number(job.scope));
       await finishJob(job);
       ran++;

@@ -80,10 +80,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
   // Batch 2: all member-dependent data in parallel
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const sixMonthsAgo = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000).toISOString()
-  // Today in Jakarta time (UTC+7) for plans date range
-  const jakartaNow = new Date(Date.now() + 7 * 60 * 60 * 1000)
-  const todayStr = jakartaNow.toISOString().slice(0, 10)
-  const planEndStr = new Date(jakartaNow.getTime() + 27 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   const [
     { data: allGroupsRaw },
@@ -92,7 +88,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     { data: goals },
     { data: recentRuns },
     { data: leaderboardRuns },
-    { data: plansRaw },
     trainingLoadRunsByMember,
     memberEstimates,
   ] = await Promise.all([
@@ -120,14 +115,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
       .order('start_date', { ascending: false })
       .limit(100),
     supabaseAdmin.rpc('group_daily_context',{p_athletes:memberIds,p_from:new Date(Math.min(Date.parse(sixMonthsAgo),Date.parse(new Date().getFullYear()+'-01-01T00:00:00+07:00'))).toISOString(),p_to:new Date().toISOString()}),
-    supabaseAdmin
-      .from('user_plans')
-      .select('id, athlete_id, plan_date, session_index, session_type, description, target_distance_meters')
-      .in('athlete_id', memberIds)
-      .gte('plan_date', todayStr)
-      .lte('plan_date', planEndStr)
-      .order('plan_date', { ascending: true })
-      .order('session_index', { ascending: true }),
     Promise.all(
       memberIds.map(async memberId => {
         const { data } = await supabaseAdmin
@@ -199,7 +186,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         allGroups={allGroups}
         initialBriefing={initialBriefing}
         initialBriefingMeta={initialBriefingMeta}
-        initialPlans={plansRaw ?? []}
         memberEstimates={memberEstimates}
       />
     </div>

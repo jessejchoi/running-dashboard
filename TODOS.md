@@ -22,21 +22,9 @@ Deferred work tracked here. One item per entry.
 
 ---
 
-## TODO-003: Phase 3 — Full AI-generated weekly training plan per athlete
+## ~~TODO-003: Phase 3 — Full AI-generated weekly training plan per athlete~~
 
-**What:** `POST /api/coach/plan` generates a full 7-day training plan per athlete (Monday–Sunday, specific sessions with run type, distance, target pace, notes). New UI: `WeeklyPlanCard` component on `/plan` page or dashboard.
-
-**Why:** The apex of actionable coaching — athlete doesn't need to think, just follows the plan. Natural evolution from P3 (today's workout generator).
-
-**Pros:** Highest-value feature for serious training. Differentiates RunDash from passive analytics tools.
-
-**Cons:** Requires RDCoach v2 shipped first (needs memory, workout context, DB tables). Significant new UI surface.
-
-**Context:** Identified in RDCoach v2 CEO review (2026-03-18). Claude Sonnet generates the plan using: race dates, current estimates from analysis.ts, training load trend, and conversation history (P1). Renders as a calendar-style card.
-
-**Effort:** L (human: ~1 week) → M (CC+gstack: ~1 hour)
-**Priority:** P1 — after v2 ships
-**Depends on:** RDCoach v2 (P1 memory, P3 workout generator, new DB tables)
+**Dropped 2026-09-26.** The personal run plan feature was removed because nobody used it; see `docs/expansion-rollout.md`.
 
 ---
 

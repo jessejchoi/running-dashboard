@@ -2,8 +2,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 import { beforeAll, afterAll, describe, it, expect } from 'vitest'
 let db: PGlite
-const group = '10000000-0000-0000-0000-000000000001',
-  session = '20000000-0000-0000-0000-000000000001'
+const group = '10000000-0000-0000-0000-000000000001'
 beforeAll(async () => {
   db = new PGlite()
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
@@ -22,6 +21,12 @@ beforeAll(async () => {
   const sql = readFileSync('supabase/migration_021.sql', 'utf8')
   await db.exec(sql)
   await db.exec(sql)
+  await db.exec(
+    "insert into background_jobs(kind,scope,input_version) values('adapt','70','1:2026-09-26')",
+  )
+  const retirePlans = readFileSync('supabase/migration_024.sql', 'utf8')
+  await db.exec(retirePlans)
+  await db.exec(retirePlans)
   await db.query('insert into groups(id,name) values($1,$2)', [
     group,
     'Test group',
@@ -56,36 +61,6 @@ it('repairs an already migrated production primary key without losing history', 
     await production.close()
   }
 }, 30000)
-async function commit(
-  aid: number,
-  version: number,
-  rows: any[],
-  deletes: string[] = [],
-  auto = false,
-  dataVersion: number | null = null,
-) {
-  return db.query('select commit_plan($1,$2,$3,$4,$5,$6,$7,$8) as version', [
-    aid,
-    version,
-    dataVersion,
-    JSON.stringify(rows),
-    deletes,
-    'Test revision',
-    auto,
-    '2026-09-13',
-  ])
-}
-function row(id = session) {
-  return {
-    id,
-    plan_date: '2026-09-15',
-    session_type: 'easy',
-    config: { name: 'Workout', blocks: [] },
-    target_distance_meters: 5000,
-    source: 'manual',
-    locked: true,
-  }
-}
 describe('migration and database invariants', () => {
   it('preserves multiple races of the same distance', async () => {
     await db.exec(
@@ -95,32 +70,6 @@ describe('migration and database invariants', () => {
       'select count(*) from user_goals where athlete_id=1',
     )
     expect(Number((r.rows[0] as any).count)).toBe(2)
-  })
-  it('commits complete workouts and rejects stale updates atomically', async () => {
-    await commit(1, 0, [row()])
-    await expect(
-      commit(1, 0, [{ ...row(), description: 'stale' }]),
-    ).rejects.toThrow('STALE_VERSION')
-    const r = await db.query('select config from user_plans where id=$1', [
-      session,
-    ])
-    expect((r.rows[0] as any).config.name).toBe('Workout')
-  })
-  it('blocks cross-athlete modification and deletion', async () => {
-    await expect(commit(2, 0, [row()])).rejects.toThrow('Not your session')
-    await expect(commit(2, 0, [], [session])).rejects.toThrow(
-      'Not your session',
-    )
-  })
-  it('protects manual sessions from automatic changes', async () => {
-    await expect(
-      commit(1, 1, [{ ...row(), description: 'overwrite' }], [], true),
-    ).rejects.toThrow('Protected session')
-  })
-  it('rejects jobs based on stale activity input', async () => {
-    await expect(commit(1, 1, [], [], true, -1)).rejects.toThrow(
-      'STALE_VERSION',
-    )
   })
   it('leases a job only once until expiry', async () => {
     const r = await db.query(
@@ -145,49 +94,30 @@ describe('migration and database invariants', () => {
     expect((r.rows[0] as any).totals[0].runs).toBe(10000)
     expect((r.rows[0] as any).totals[0].meters).toBe(10000000)
   })
-  it('flags shared-plan changes without moving a member workout', async () => {
+  it('retires plan storage and adaptation jobs', async () => {
+    const left = await db.query<any>(
+      "select to_regclass('user_plans') as plans,to_regclass('plan_revisions') as revisions,to_regclass('training_preferences') as prefs",
+    )
+    expect(left.rows[0]).toEqual({ plans: null, revisions: null, prefs: null })
+    const fns = await db.query(
+      "select proname from pg_proc where proname in('commit_plan','save_training_preferences','rsvp_shared_run','update_shared_run')",
+    )
+    expect(fns.rows).toHaveLength(0)
+    const adapt = await db.query<any>(
+      "select status from background_jobs where kind='adapt' and scope='70'",
+    )
+    expect(adapt.rows).toEqual([{ status: 'done' }])
+  })
+  it('clears shared-run RSVPs when a member leaves without plan tables', async () => {
     const event = '30000000-0000-0000-0000-000000000001'
     await db.query(
-      `insert into shared_runs(id,group_id,creator_id,title,starts_at,meeting_point,options) values($1,$2,1,'Group run','2026-10-01T00:00:00Z','Park',$3)`,
-      [
-        event,
-        group,
-        JSON.stringify([{ label: 'Easy', distance_km: 5, pace: 'Easy' }]),
-      ],
+      `insert into shared_runs(id,group_id,creator_id,title,starts_at,meeting_point,options) values($1,$2,1,'Group run','2026-10-01T00:00:00Z','Park','[]')`,
+      [event, group],
     )
-    await db.query('select rsvp_shared_run($1,$2,2,1,0,true,true,false,0)', [
-      group,
-      event,
-    ])
-    const before = await db.query(
-      'select plan_date from user_plans where athlete_id=2',
+    await db.query(
+      'insert into shared_run_rsvps(run_id,athlete_id,option_index) values($1,2,0)',
+      [event],
     )
-    await db.query('select update_shared_run($1,$2,1,1,$3,false)', [
-      group,
-      event,
-      JSON.stringify({
-        title: 'Updated',
-        starts_at: '2026-10-02T00:00:00Z',
-        timezone: 'Asia/Jakarta',
-        meeting_point: 'Park',
-        description: '',
-        options: [{ label: 'Easy', distance_km: 6, pace: 'Easy' }],
-      }),
-    ])
-    const after = await db.query(
-      'select plan_date,event_changed from user_plans where athlete_id=2',
-    )
-    expect((after.rows[0] as any).plan_date).toEqual(
-      (before.rows[0] as any).plan_date,
-    )
-    expect((after.rows[0] as any).event_changed).toBe(true)
-    await expect(
-      db.query('select update_shared_run($1,$2,2,2,$3,true)', [
-        group,
-        event,
-        '{}',
-      ]),
-    ).rejects.toThrow('Not allowed')
     await db.query(
       'delete from group_members where group_id=$1 and athlete_id=2',
       [group],
@@ -266,11 +196,12 @@ describe('cache and input concurrency', () => {
     )
     const jobs = (
       await db.query<any>(
-        "select input_version from background_jobs where scope='81' and status='queued'",
+        "select kind,input_version from background_jobs where scope='81' and status='queued'",
       )
     ).rows
-    expect(jobs).toHaveLength(2)
-    expect(jobs.every((j) => j.input_version.startsWith('3:'))).toBe(true)
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0].kind).toBe('estimates')
+    expect(jobs[0].input_version.startsWith('3:')).toBe(true)
   })
   it('resumes the same history cursor after reconnecting', async () => {
     await db.exec(
@@ -290,17 +221,6 @@ describe('cache and input concurrency', () => {
         )
       ).rows[0].page,
     ).toBe(7)
-  })
-  it('rejects a missing plan version and stale preference writes', async () => {
-    await expect(commit(83, null as any, [])).rejects.toThrow('STALE_VERSION')
-    await db.query('select save_training_preferences(83,0,$1)', [
-      JSON.stringify({ days: [1] }),
-    ])
-    await expect(
-      db.query('select save_training_preferences(83,0,$1)', [
-        JSON.stringify({ days: [2] }),
-      ]),
-    ).rejects.toThrow('STALE_VERSION')
   })
   it('attaches results only to an owned run at the race date and distance', async () => {
     await db.exec(
@@ -324,56 +244,6 @@ describe('cache and input concurrency', () => {
   })
 })
 
-it('keeps linked session revisions and rejects stale event acceptance', async () => {
-  const event = '30000000-0000-0000-0000-000000000099'
-  await db.exec(
-    `insert into group_members values('${group}',91,'member'),('${group}',92,'member');insert into shared_runs(id,group_id,creator_id,title,starts_at,meeting_point,options) values('${event}','${group}',91,'Evening run','2026-10-03T01:00:00Z','Park','[{"label":"Easy","distance_km":5,"pace":"Easy"}]');`,
-  )
-  await db.query('select rsvp_shared_run($1,$2,92,1,0,true,true,false,0)', [
-    group,
-    event,
-  ])
-  const saved = (
-    await db.query<any>(
-      'select config,locked from user_plans where athlete_id=92',
-    )
-  ).rows[0]
-  expect(saved.config.blocks[0].distanceM).toBe(5000)
-  expect(saved.locked).toBe(true)
-  expect(
-    (await db.query('select * from plan_revisions where athlete_id=92')).rows,
-  ).toHaveLength(1)
-  await db.exec(
-    `delete from group_members where group_id='${group}' and athlete_id=91`,
-  )
-  await db.query('select update_shared_run($1,$2,1,1,$3,true)', [
-    group,
-    event,
-    '{}',
-  ])
-  await expect(
-    db.query('select rsvp_shared_run($1,$2,92,1,0,true,true,true,1)', [
-      group,
-      event,
-    ]),
-  ).rejects.toThrow('STALE_VERSION')
-  await expect(
-    db.query('select rsvp_shared_run($1,$2,92,2,0,true,true,true,2)', [
-      group,
-      event,
-    ]),
-  ).rejects.toThrow('Event cancelled')
-  expect(
-    (await db.query('select * from user_plans where athlete_id=92')).rows,
-  ).toHaveLength(1)
-  await db.query('select rsvp_shared_run($1,$2,92,2,0,false,false,true,2)', [
-    group,
-    event,
-  ])
-  expect(
-    (await db.query('select * from user_plans where athlete_id=92')).rows,
-  ).toHaveLength(0)
-})
 it('aggregates daily run counts and preserves the best effort identity', async () => {
   await db.exec(
     `insert into activities(id,athlete_id,type,start_date,distance,moving_time,laps) values(998001,93,'Run','2026-09-01T01:00:00Z',5000,1500,'[{"distance":400,"moving_time":80,"average_speed":5}]'),(998002,93,'Run','2026-09-01T08:00:00Z',6000,1800,'[{"distance":400,"moving_time":100,"average_speed":4}]');`,

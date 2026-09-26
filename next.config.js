@@ -2,7 +2,7 @@
 const nextConfig = {
   experimental: {
     staleTimes: {
-      dynamic: 0,    // Reflect saved goals/plans on navigation; expensive analysis is cached in PostgreSQL
+      dynamic: 0,    // Reflect saved goals on navigation; expensive analysis is cached in PostgreSQL
       static: 300,
     },
   },

@@ -3,10 +3,8 @@ import { useEffect, useState } from 'react'
 import ExpectedEstimates from '@/components/ExpectedEstimates'
 import GoalsSection from '@/components/GoalsSection'
 import TrainingGoals from '@/components/TrainingGoals'
-import DurablePlan from '@/components/DurablePlan'
 import GroupCoachTab from '@/components/GroupCoachTab'
 import ActivityLog from '@/components/ActivityLog'
-import { defaultConfig } from '@/components/PlanSessionModal'
 const goals: any[] = [
   {
     id: '10000000-0000-0000-0000-000000000001',
@@ -41,93 +39,6 @@ const estimates: any[] = ['5k', '10k', 'hm', 'fm'].map((distanceKey, i) => ({
       ? 'More sustained quality efforts or a confirmed race are needed at this distance.'
       : 'Observed efforts in usual conditions. Range is an estimate, not a calibrated probability.',
 }))
-let plan: any = {
-  sessions: [
-    {
-      id: 'x',
-      plan_date: '2026-09-14',
-      session_index: 0,
-      session_type: 'easy',
-      description: 'Easy aerobic run',
-      target_distance_meters: 5000,
-      config: {
-        ...defaultConfig(),
-        name: 'Easy aerobic run',
-        blocks: [
-          {
-            id: 'easy',
-            kind: 'continuous',
-            label: 'Easy',
-            mode: 'distance',
-            distanceM: 5000,
-            durationMin: 0,
-            targetPace: '6:00',
-          },
-        ],
-      },
-      source: 'coach',
-      locked: false,
-      status: 'planned',
-      activity_id: null,
-    },
-    {
-      id: 'y',
-      plan_date: '2026-09-16',
-      session_index: 0,
-      session_type: 'easy',
-      description: 'Sunday group run',
-      target_distance_meters: 8000,
-      config: null,
-      source: 'shared',
-      locked: true,
-      status: 'planned',
-      activity_id: null,
-      event_changed: true,
-    },
-  ],
-  version: 3,
-  dataVersion: 10,
-  preferences: {
-    days: [0, 1, 3, 5],
-    longRunDay: 0,
-    maxMinutes: 60,
-    timezone: 'Asia/Jakarta',
-    easyOnly: false,
-    startingWeeklyKm: 30,
-    autoAdapt: true,
-  },
-  goals,
-  revisions: [
-    {
-      id: 'r',
-      version: 3,
-      reason:
-        'Aerobic foundation: based on 30.0 km/week observed and availability.',
-    },
-  ],
-  runs: [
-    {
-      id: 123,
-      name: 'Morning run',
-      distance: 5000,
-      start_date: '2026-09-12T00:00:00Z',
-    },
-  ],
-  autoAdaptEnabled: false,
-  progression: [
-    {
-      start: '2026-09-13',
-      end: '2026-10-18',
-      focus:
-        'Race-specific preparation with one controlled quality session per week.',
-    },
-    {
-      start: '2026-10-18',
-      end: '2026-11-01',
-      focus: 'Taper and arrive rested.',
-    },
-  ],
-}
 const coachMembers = ['Alex Rivera', 'Morgan Lee', 'Sam Chen', 'Taylor Kim'].map((name, i) => ({ athlete_id: i + 1, name, profile_pic: null }))
 const briefing = {
   weekly_summary: 'Alex ran 54.0 km. Everyone else combined: 114.0. Discuss.',
@@ -173,28 +84,7 @@ export default function Preview() {
       const url = String(input)
       const b = init?.body ? JSON.parse(String(init.body)) : {}
       let data: any = { ok: true }
-      if (url === '/api/plans') {
-        if (init?.method === 'POST') {
-          plan = { ...plan, version: plan.version + 1 }
-          if (b.config)
-            plan = {
-              ...plan,
-              sessions: [
-                ...plan.sessions,
-                {
-                  id: 'new',
-                  plan_date: b.date,
-                  config: b.config,
-                  description: b.config.name,
-                  source: 'manual',
-                  locked: true,
-                  status: 'planned',
-                },
-              ],
-            }
-        }
-        data = plan
-      } else if (url.includes('/coach/briefing')) data = { briefing, cached: true, generated_at: new Date().toISOString() }
+      if (url.includes('/coach/briefing')) data = { briefing, cached: true, generated_at: new Date().toISOString() }
       else if (url.includes('/history'))
         data = { status: 'queued', imported: 9950, page: 100 }
       else if (url.includes('/activities'))
@@ -213,7 +103,7 @@ export default function Preview() {
   return (
     <main className="max-w-[1100px] mx-auto p-3 sm:p-6 space-y-6">
       <nav className="flex gap-2">
-        {['goals', 'plan', 'coach', 'history'].map((t) => (
+        {['goals', 'coach', 'history'].map((t) => (
           <button className="rd-button" key={t} onClick={() => setTab(t)}>
             {t}
           </button>
@@ -246,8 +136,6 @@ export default function Preview() {
             />
             <ExpectedEstimates estimates={estimates} />
           </>
-        ) : tab === 'plan' ? (
-          <DurablePlan initial={plan} />
         ) : tab === 'coach' ? (
           <GroupCoachTab groupId="fixture" myRole="member" members={coachMembers} initialBriefing={briefing} />
         ) : (

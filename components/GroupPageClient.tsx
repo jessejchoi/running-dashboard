@@ -1,24 +1,13 @@
 'use client'
 import BackgroundWork from './BackgroundWork'
 import { useState, useEffect, useRef } from 'react'
-import { Target, Activity, BarChart2, CalendarDays } from 'lucide-react'
+import { Target, Activity, BarChart2 } from 'lucide-react'
 import { type Group, type Member, type Run, type LeaderboardRun, type Challenge, type TrainingLoad } from '@/components/GroupShared'
 import GroupDashboardTab from '@/components/GroupDashboardTab'
 import GroupFeedTab from '@/components/GroupFeedTab'
-import GroupPlansTab from '@/components/GroupPlansTab'
 import GroupGoalsTab from '@/components/GroupGoalsTab'
 import GroupPageHeader from '@/components/GroupPageHeader'
 import type { BriefingContent } from '@/lib/coachOutputs'
-
-interface UserPlan {
-  id: string
-  athlete_id: number
-  plan_date: string
-  session_index: number
-  session_type: string | null
-  description: string | null
-  target_distance_meters: number | null
-}
 
 interface Props {
   group: Group
@@ -35,16 +24,15 @@ interface Props {
   allGroups: { id: string; name: string }[]
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: { cached: boolean; generated_at: string } | null
-  initialPlans?: UserPlan[]
   memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, isPrimaryGroup = false, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, initialPlans, memberEstimates: initialMemberEstimates = {},
+  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {},
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals'>('dashboard')
   const [memberEstimates, setMemberEstimates] = useState(initialMemberEstimates)
   const [pendingEstimates, setPendingEstimates] = useState(() => members.filter(m => !(m.athlete_id in initialMemberEstimates)).map(m => m.athlete_id))
   const [estimateError, setEstimateError] = useState(false)
@@ -171,7 +159,6 @@ export default function GroupPageClient({
           { key: 'dashboard', label: 'Home',  icon: BarChart2 },
           { key: 'goals',     label: 'Goals', icon: Target },
           { key: 'feed',      label: 'Runs',  icon: Activity },
-          { key: 'plans',     label: 'Plans',     icon: CalendarDays },
         ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
           <button
             key={key}
@@ -227,18 +214,6 @@ export default function GroupPageClient({
         />
         </>
       )}
-
-
-
-      {/* ── Plans tab ─────────────────────────────────────────────────────── */}
-      <div className={tab !== 'plans' ? 'hidden' : ''}>
-        <GroupPlansTab
-          group={group}
-          members={localMembers}
-          myAthleteId={myAthleteId}
-          initialPlans={initialPlans}
-        />
-      </div>
     </main>
   )
 }

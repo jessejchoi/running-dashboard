@@ -43,6 +43,8 @@ Mean optimistic error fell from 649.5 seconds to zero across the two paired held
 
 ## Durable plans and adaptation
 
+_Removed 2026-09-26; see “Run plan removal” below._
+
 Full workout JSON, stable IDs, source, ownership, locks, recorded-run links, and complete before/after revisions live in PostgreSQL. Every plan write compares the athlete's plan version under a row lock; automatic writes also compare their input data version. Generated sessions are constrained by availability, minutes per session, current training volume, optional weekly distance cap, weekly distance/frequency goals, rest spacing, and easy-only mode. Private free-text notes are chat context, not executable scheduling constraints. Future fitness gains are never assumed. The dated progression is an outline; each detailed week uses fresh observed training.
 
 Automatic edits preserve today, completed/skipped workouts, manual sessions, shared sessions, and locked workouts. Editing manually locks the session. Run matching requires a unique compatible session and distance on the same local date; ambiguous matches remain for confirmation. Explicit unlinking disables automatic rematching of that session. Undo applies only to the latest coach revision at the current plan version and locks restored workouts so later edits cannot be overwritten.
@@ -173,3 +175,9 @@ three held-out predictions at each relevant distance and five maximal-effort
 labels, with non-worsening absolute error and reduced optimistic bias. Missing
 conditions/course/effort labels are not fabricated. Current profile/classification
 edits were not historically versioned, so retrospective results have that limit.
+
+## Run plan removal, 2026-09-26
+
+The owner removed personal run plans because nobody used them. `/plan`, `/api/plans`, the group Plans tab and its API, the dashboard weekly plan card, plan adaptation jobs and plan context in the Coach chat are gone. The Coach edition never read plans and is unchanged. `AUTO_ADAPT_ENABLED` no longer has any effect.
+
+Deploy the code first; it reads no plan tables, and the worker finishes any `adapt` jobs the database still queues without doing work. Then paste `supabase/migration_024.sql` into the Supabase SQL editor. It deletes `user_plans`, `plan_revisions`, `training_preferences`, the plan write functions and the unreachable shared-run RSVP/update functions, stops queuing `adapt` jobs, and keeps membership cleanup of dormant shared-run RSVPs working. It is destructive and cannot be undone without a backup.

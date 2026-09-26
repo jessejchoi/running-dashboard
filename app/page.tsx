@@ -10,7 +10,6 @@ import OnboardingPage from '@/components/OnboardingPage'
 import { WeeklyMileageChart, TrainingLoadChart } from '@/components/DashboardCharts'
 import DashboardRaceSection from '@/components/DashboardRaceSection'
 import RecentRunsCard from '@/components/RecentRunsCard'
-import WeeklyPlanCard, { WeeklyPlanCardSkeleton } from '@/components/WeeklyPlanCard'
 import PrefetchGroup from '@/components/PrefetchGroup'
 import { formatDuration, isoWeek, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
@@ -162,11 +161,6 @@ export default async function DashboardPage() {
             </div>
           </div>
         )}
-
-        {/* ── This Week's Plan ── */}
-        <Suspense fallback={<WeeklyPlanCardSkeleton />}>
-          <WeeklyPlanCard athleteId={Number(athleteId)} unit={unit} />
-        </Suspense>
 
         {/* ── Race Goals + Estimates (deferred) ── */}
         <Suspense fallback={<RaceSectionSkeleton />}>

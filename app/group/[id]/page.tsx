@@ -9,8 +9,6 @@ import { calculateTrainingLoad, TRAINING_LOAD_COLUMNS } from '@/lib/strava'
 import { getGroupLatestEstimates } from '@/lib/latestEstimates'
 import { addDays, localDate, validTimezone, DEFAULT_TIMEZONE } from '@/lib/calendar'
 import type { BriefingContent } from '@/lib/coachOutputs'
-import { loadRhythmSummaries } from '@/lib/rhythmData'
-import type { MemberRhythm } from '@/components/GroupShared'
 
 export const dynamic = 'force-dynamic'
 
@@ -95,7 +93,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     { data: leaderboardRuns },
     trainingLoadRunsByMember,
     memberEstimates,
-    rhythmSummaries,
   ] = await Promise.all([
     allGroupIds.length > 0
       ? supabaseAdmin.from('groups').select('id, name').in('id', allGroupIds)
@@ -136,19 +133,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
     ),
     // Read latest estimates from user_latest_estimates (single source of truth)
     getGroupLatestEstimates(memberIds),
-    // The leaderboard's streaks; the page still renders if Rhythm can't load.
-    loadRhythmSummaries(memberIds).catch(error => {
-      console.error('[group] Rhythm unavailable', error)
-      return null
-    }),
   ])
-
-  const memberRhythm: MemberRhythm | null = rhythmSummaries
-    ? {
-        streaks: Object.fromEntries(memberIds.map(id => [id, rhythmSummaries.byAthlete[id]?.streak ?? 0])),
-        seasonWeek: Math.max(0, ...memberIds.map(id => rhythmSummaries.byAthlete[id]?.seasonWeek ?? 0)),
-      }
-    : null
 
   const allGroups = (allGroupsRaw ?? []).map(g => ({ id: g.id as string, name: g.name as string }))
 
@@ -206,7 +191,6 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         initialBriefing={initialBriefing}
         initialBriefingMeta={initialBriefingMeta}
         memberEstimates={memberEstimates}
-        memberRhythm={memberRhythm}
         today={todayStr}
       />
     </div>

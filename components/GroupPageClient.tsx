@@ -2,7 +2,7 @@
 import BackgroundWork from './BackgroundWork'
 import { useState, useEffect, useRef } from 'react'
 import { Target, Activity, BarChart2 } from 'lucide-react'
-import { type Group, type Member, type Run, type LeaderboardRun, type Challenge, type TrainingLoad, type MemberRhythm } from '@/components/GroupShared'
+import { type Group, type Member, type Run, type LeaderboardRun, type Challenge, type TrainingLoad } from '@/components/GroupShared'
 import GroupDashboardTab from '@/components/GroupDashboardTab'
 import GroupFeedTab from '@/components/GroupFeedTab'
 import GroupGoalsTab from '@/components/GroupGoalsTab'
@@ -25,14 +25,13 @@ interface Props {
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: { cached: boolean; generated_at: string } | null
   memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
-  memberRhythm: MemberRhythm | null
   /** The viewer's local date. */
   today: string
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, isPrimaryGroup = false, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, memberRhythm, today,
+  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, today,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals'>('dashboard')
@@ -192,7 +191,6 @@ export default function GroupPageClient({
           onUpdateMemberRole={updateMemberRole}
           initialBriefing={initialBriefing}
           initialBriefingMeta={initialBriefingMeta}
-          memberRhythm={memberRhythm}
           today={today}
         />
       </div>

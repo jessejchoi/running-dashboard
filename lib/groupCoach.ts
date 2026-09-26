@@ -16,7 +16,8 @@ import {
   type EditionCopy,
 } from '@/lib/coachEditionCopy'
 import { localDate, weekStart } from '@/lib/calendar'
-const EDITION_MODEL = 'claude-opus-5'
+// Sonnet held the voice and read the facts correctly in side-by-side tests; Haiku misread them.
+const EDITION_MODEL = 'claude-sonnet-5'
 export const GROUP_COACH_VERSION = 'weekly-edition-v2'
 export function groupCoachModelVersion() { return `${activeModelVersion()}:${GROUP_COACH_VERSION}` }
 export async function groupVersion(groupId: string) {
@@ -112,7 +113,6 @@ async function writeEditionCopy(plan: EditionPlan, ctx: CoachContext): Promise<E
       max_tokens: 4000,
       effort: 'low',
       jsonSchema: EDITION_COPY_SCHEMA as unknown as Record<string, unknown>,
-      fallbacks: true,
       timeoutMs: 30000,
       retries: 0,
       system: EDITION_SYSTEM_PROMPT,

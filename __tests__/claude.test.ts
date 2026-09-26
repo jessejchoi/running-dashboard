@@ -148,7 +148,7 @@ describe('claudeMessage request options', () => {
     getMocks().mockCreate.mockReset()
   })
 
-  it('sends effort, a JSON schema and default fallbacks, and returns only text blocks', async () => {
+  it('sends effort and a JSON schema, and returns only text blocks', async () => {
     const { mockCreate } = getMocks()
     mockCreate.mockResolvedValueOnce({
       content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '{"ok":true}' }],
@@ -156,11 +156,11 @@ describe('claudeMessage request options', () => {
       usage: { input_tokens: 10 },
     })
     const schema = { type: 'object', properties: { ok: { type: 'boolean' } } }
-    const result = await claudeMessage({ ...DEFAULT_PARAMS, effort: 'low', jsonSchema: schema, fallbacks: true })
+    const result = await claudeMessage({ ...DEFAULT_PARAMS, effort: 'low', jsonSchema: schema })
     expect(result).toBe('{"ok":true}')
-    const [body, options] = mockCreate.mock.calls[0]
-    expect(body).toMatchObject({ output_config: { effort: 'low', format: { type: 'json_schema', schema } }, fallbacks: 'default' })
-    expect(options.headers).toEqual({ 'anthropic-beta': 'server-side-fallback-2026-07-01' })
+    const [body] = mockCreate.mock.calls[0]
+    expect(body).toMatchObject({ output_config: { effort: 'low', format: { type: 'json_schema', schema } } })
+    expect(body).not.toHaveProperty('fallbacks')
   })
 
   it('throws on a refusal instead of returning partial text', async () => {

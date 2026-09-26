@@ -395,7 +395,7 @@ This all ships in PR1. PR2 needs no migration.
 - the dashboard Rhythm cell with weapon sprites. `lib/sprites.ts` starts here, with the 5 weapons.
 - **Retire `computeStreak`.** Updated after testing on 2026-09-26:
   - The Coach doesn't use Rhythm or streaks at all (Jesse: "dont worry about adding this rhythm stuff to coach insight"). The streak fields and the fresh-start wording were removed from the coach metrics, contexts and prompts.
-  - The leaderboard flame is replaced by each member's **level badge**: a small weapon sprite plus "Lv N".
+  - The leaderboard keeps its **flame**, now showing the Rhythm streak (weeks in a row on target). It shows from 1 week during Rhythm's first 4 weeks (`FRESH_START_WEEKS`), and from 2 weeks after that. A level badge was tried and reverted at Jesse's request.
   - `computeStreak` and its tests are deleted.
 - **Components:** `components/RhythmCell.tsx` is new. The dashboard mounts it; it isn't built inline in `app/page.tsx`.
 

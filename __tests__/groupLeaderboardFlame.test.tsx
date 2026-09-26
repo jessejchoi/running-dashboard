@@ -22,8 +22,8 @@ const runs: LeaderboardRun[] = members.map(m => ({
   start_date: `${TODAY}T00:00:00Z`, start_date_local: `${TODAY}T07:00:00`,
 }))
 
-/** The level badges on the leaderboard, as { first name: level }. */
-function levels(memberRhythm: MemberRhythm | null) {
+/** The streak badges on the leaderboard, as { first name: weeks }. */
+function flames(memberRhythm: MemberRhythm | null) {
   const html = renderToStaticMarkup(
     <GroupDashboardTab
       group={{ id: 'g', name: 'Crew', invite_code: 'x', created_by: 1, created_at: '2026-01-01' }}
@@ -40,21 +40,20 @@ function levels(memberRhythm: MemberRhythm | null) {
     />,
   )
   const found: Record<string, number> = {}
-  // Each member's row starts at their name; look for a level badge before the next row.
-  const rows = html.split('text-xs font-bold truncate').slice(1)
-  for (const row of rows) {
-    const name = row.match(/">(\w+)<\/span>/)?.[1]
-    const level = row.match(/Lv (?:<!-- -->)?(\d+)/)?.[1]
-    if (name && level) found[name] = Number(level)
-  }
+  const pattern = /text-\[#d1d5db\]">(\w+)<\/span>(?:<span class="flex items-center gap-0.5 text-orange-400[^>]*><svg[\s\S]*?<\/svg>(\d+)w<\/span>)?/g
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(html))) if (match[2]) found[match[1]] = Number(match[2])
   return found
 }
 
-describe('group leaderboard level badge', () => {
-  it('shows each member\'s weapon level in place of the old streak flame', () => {
-    expect(levels({ tiers: { 1: 'stick', 2: 'sword', 3: 'unarmed' } })).toEqual({ Ana: 2, Ben: 4, Cy: 1 })
-    // Before launch week a member has no tier yet, and while Rhythm is off there's nothing to show.
-    expect(levels({ tiers: { 2: 'legendary' } })).toEqual({ Ben: 6 })
-    expect(levels(null)).toEqual({})
+describe('group leaderboard Rhythm flame', () => {
+  it('shows 1-week streaks in the first month, needs 2+ after, and hides flames while Rhythm is off', () => {
+    const streaks = { 1: 1, 2: 2, 3: 0 }
+    expect(flames({ streaks, seasonWeek: 4 })).toEqual({ Ana: 1, Ben: 2 })
+    expect(flames({ streaks, seasonWeek: 5 })).toEqual({ Ben: 2 })
+    // Off: no streak data, so nobody gets a flame (the old run-count streak is gone).
+    expect(flames(null)).toEqual({})
+    // A member missing from the Rhythm map reads as 0.
+    expect(flames({ streaks: { 2: 3 }, seasonWeek: 1 })).toEqual({ Ben: 3 })
   })
 })

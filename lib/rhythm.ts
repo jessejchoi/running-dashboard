@@ -26,6 +26,8 @@ const REDEEM_COOLDOWN_WEEKS = 4
 /** Fading: at least FADE_MISSES misses in the last FADE_WINDOW_WEEKS finished weeks. */
 export const FADE_WINDOW_WEEKS = 3
 export const FADE_MISSES = 2
+/** Rhythm's first weeks, when everyone is restarting from Unarmed (the leaderboard flame shows from 1 week). */
+export const FRESH_START_WEEKS = 4
 /** Freezing waits this many days past a week's Sunday for late uploads. */
 export const GRACE_DAYS = 2
 /** Runs needed before the first open week: the 6 weeks the average covers. */

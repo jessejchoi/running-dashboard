@@ -3,11 +3,10 @@ import { weekStart, addDays, runDay } from '@/lib/calendar'
 import { useState } from 'react'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
-import { Trophy, Plus, X, Shield, ShieldOff, UserMinus } from 'lucide-react'
+import { Flame, Trophy, Plus, X, Shield, ShieldOff, UserMinus } from 'lucide-react'
 import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles } from '@/lib/utils'
 import { getBestChallengeEffort } from '@/lib/challengeUtils'
-import { TIERS, tierNumber } from '@/lib/rhythm'
-import WeaponSprite from '@/components/WeaponSprite'
+import { FRESH_START_WEEKS } from '@/lib/rhythm'
 import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, type MemberRhythm, formatTime } from '@/components/GroupShared'
 import GroupCoachTab from '@/components/GroupCoachTab'
@@ -31,7 +30,7 @@ interface Props {
   onUpdateMemberRole: (athleteId: number, role: 'admin' | 'member') => Promise<void>
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: BriefingMeta | null
-  /** Rhythm weapon tiers for the leaderboard; null while Rhythm is off. */
+  /** Rhythm streaks for the leaderboard flame; null while Rhythm is off. */
   memberRhythm: MemberRhythm | null
   /** The viewer's local date. Runs count on the local date they were run. */
   today: string
@@ -66,7 +65,7 @@ function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members:
       is_me: m.is_me,
       distance: totals[m.athlete_id]?.distance ?? 0,
       count: totals[m.athlete_id]?.count ?? 0,
-      tier: TIERS.find(t => t.key === rhythm?.tiers[m.athlete_id]) ?? null,
+      streak: rhythm?.streaks[m.athlete_id] ?? 0,
     }))
     .sort((a, b) => b.distance - a.distance)
 }
@@ -298,6 +297,8 @@ export default function GroupDashboardTab({
   const [showHistory, setShowHistory] = useState(false)
 
   const board = computeLeaderboard(leaderboardRuns, leaderRange, members, today, memberRhythm)
+  // Everyone restarts at zero when Rhythm launches, so show the flame from week 1 during the first month.
+  const flameFrom = memberRhythm && memberRhythm.seasonWeek <= FRESH_START_WEEKS ? 1 : 2
   const maxDist = Math.max(...board.map(e => e.distance), 1)
   const ranges: { key: LeaderRange; label: string }[] = [
     { key: 'week',  label: 'This Week' },
@@ -840,9 +841,9 @@ export default function GroupDashboardTab({
                         <span className={`text-xs font-bold truncate ${entry.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
                           {entry.is_me ? 'You' : entry.name.split(' ')[0]}
                         </span>
-                        {entry.tier && (
-                          <span className="flex items-center gap-1 font-mono text-[10px] font-bold shrink-0" style={{ color: 'var(--accent)' }} title={entry.tier.name}>
-                            <WeaponSprite tier={entry.tier} size={14} />Lv {tierNumber(entry.tier)}
+                        {entry.streak >= flameFrom && (
+                          <span className="flex items-center gap-0.5 text-orange-400 text-[10px] font-bold shrink-0">
+                            <Flame size={10} />{entry.streak}w
                           </span>
                         )}
                         <span className="text-[#4b5563] text-[10px] shrink-0">

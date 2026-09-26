@@ -145,10 +145,8 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
 
   const memberRhythm: MemberRhythm | null = rhythmSummaries
     ? {
-        tiers: Object.fromEntries(memberIds.flatMap(id => {
-          const result = rhythmSummaries.byAthlete[id]
-          return result ? [[id, result.weapon.tier.key]] : []
-        })),
+        streaks: Object.fromEntries(memberIds.map(id => [id, rhythmSummaries.byAthlete[id]?.streak ?? 0])),
+        seasonWeek: Math.max(0, ...memberIds.map(id => rhythmSummaries.byAthlete[id]?.seasonWeek ?? 0)),
       }
     : null
 

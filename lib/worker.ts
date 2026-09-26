@@ -119,7 +119,7 @@ export async function runWorker(
     }
     const job = await claimJob(item.id);
     if (!job) continue;
-    // Retired plan adaptation: the database trigger may still queue these until migration_024 runs.
+    // Retired plan adaptation: the database trigger may still queue these until migration_025 runs.
     if (job.kind === "adapt") {
       await finishJob(job);
       continue;

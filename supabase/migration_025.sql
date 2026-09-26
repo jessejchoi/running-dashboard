@@ -1,4 +1,4 @@
--- migration_024: Retire the personal run/training plan feature.
+-- migration_025: Retire the personal run/training plan feature.
 -- Run manually in the Supabase SQL editor, only AFTER the release that removes
 -- the plan code is live. No deployed code reads these objects once that release
 -- ships, so waiting a release before running this is safe.

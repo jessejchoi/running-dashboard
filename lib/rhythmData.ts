@@ -53,16 +53,18 @@ function toLedgerRow(row: any): LedgerRow {
 
 /**
  * Everything the rules need for each runner, in 3 queries whatever the group
- * size. Returns null when the Rhythm tables don't exist yet.
+ * size. Returns null when the Rhythm tables don't exist yet. `ledgerWeeks`
+ * widens the frozen-row window for callers that look further back (raids).
  */
 export async function loadRhythmInputs(
   ids: number[],
   launchWeek: string,
   now = new Date(),
+  { ledgerWeeks = LEDGER_WINDOW_WEEKS }: { ledgerWeeks?: number } = {},
 ): Promise<Record<number, RhythmInputs> | null> {
   if (!ids.length) return {}
   // A day's slack covers every zone, so the window doesn't wait on the timezone read.
-  const ledgerFrom = weekStart(addDays(localDate(now, 'UTC'), -LEDGER_WINDOW_WEEKS * 7 - 1))
+  const ledgerFrom = weekStart(addDays(localDate(now, 'UTC'), -ledgerWeeks * 7 - 1))
   const windowStart = ledgerFrom > launchWeek ? ledgerFrom : launchWeek
 
   let zones: Record<number, string>

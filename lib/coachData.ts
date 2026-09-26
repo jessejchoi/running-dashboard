@@ -1,24 +1,18 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 export async function recentCoachRuns(ids: number[]) {
-  const rows: any[] = []
   // Two spare days: ranges below are local dates, which can sit up to a day off UTC.
   const cutoff = new Date(Date.now() - 86 * 86400000).toISOString()
-  for (let offset = 0; ; offset += 500) {
-    const { data, error } = await supabaseAdmin
-      .from('activities')
-      .select(
-        'id,athlete_id,start_date,start_date_local,distance,moving_time,average_speed,average_heartrate,run_type,type,total_elevation_gain',
-      )
-      .in('athlete_id', ids)
-      .eq('type', 'Run')
-      .gte('start_date', cutoff)
-      .order('start_date', { ascending: false })
-      .order('id', { ascending: false })
-      .range(offset, offset + 499)
-    if (error) throw error
-    rows.push(...(data ?? []))
-    if ((data ?? []).length < 500) break
-  }
+  const rows = await fetchAllPages(() => supabaseAdmin
+    .from('activities')
+    .select(
+      'id,athlete_id,start_date,start_date_local,distance,moving_time,average_speed,average_heartrate,run_type,type,total_elevation_gain',
+    )
+    .in('athlete_id', ids)
+    .eq('type', 'Run')
+    .gte('start_date', cutoff)
+    .order('start_date', { ascending: false })
+    .order('id', { ascending: false }))
   return { data: rows }
 }
 export async function canonicalTotals(ids: number[], ranges: any) {

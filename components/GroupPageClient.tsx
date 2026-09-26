@@ -37,11 +37,13 @@ interface Props {
   initialBriefingMeta?: { cached: boolean; generated_at: string } | null
   initialPlans?: UserPlan[]
   memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
+  /** The viewer's local date. */
+  today: string
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, isPrimaryGroup = false, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, initialPlans, memberEstimates: initialMemberEstimates = {},
+  initialBriefing, initialBriefingMeta, initialPlans, memberEstimates: initialMemberEstimates = {}, today,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals' | 'plans'>('dashboard')
@@ -202,6 +204,7 @@ export default function GroupPageClient({
           onUpdateMemberRole={updateMemberRole}
           initialBriefing={initialBriefing}
           initialBriefingMeta={initialBriefingMeta}
+          today={today}
         />
       </div>
 
@@ -237,6 +240,7 @@ export default function GroupPageClient({
           members={localMembers}
           myAthleteId={myAthleteId}
           initialPlans={initialPlans}
+          today={today}
         />
       </div>
     </main>

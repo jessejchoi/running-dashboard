@@ -26,13 +26,21 @@ describe('coach metrics ranges', () => {
     vi.useRealTimers()
   })
 
-  it('defines YTD from Jan 1 in app timezone through tomorrow local midnight', () => {
+  it('defines ranges as local dates in the viewer\'s zone, through tomorrow', () => {
     const ranges = getCoachRangeDefinitions(NOW)
 
-    expect(ranges.ytd.range_start).toBe('2025-12-31T17:00:00.000Z')
-    expect(ranges.ytd.range_end).toBe('2026-05-14T17:00:00.000Z')
-    expect(ranges.week.range_start).toBe('2026-05-10T17:00:00.000Z')
-    expect(ranges.month.range_start).toBe('2026-04-30T17:00:00.000Z')
+    expect(ranges.ytd.range_start).toBe('2026-01-01')
+    expect(ranges.ytd.range_end).toBe('2026-05-15')
+    expect(ranges.week.range_start).toBe('2026-05-11')
+    expect(ranges.month.range_start).toBe('2026-05-01')
+  })
+
+  it('uses the viewer\'s own date when their zone is behind', () => {
+    const ranges = getCoachRangeDefinitions(new Date('2026-05-11T03:00:00Z'), 'America/Los_Angeles')
+
+    // Still Sunday May 10 in Los Angeles, so the week began May 4.
+    expect(ranges.week.range_start).toBe('2026-05-04')
+    expect(ranges.week.range_end).toBe('2026-05-11')
   })
 })
 

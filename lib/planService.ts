@@ -9,7 +9,8 @@ import {
   unambiguousMatches,
   progression,
 } from '@/lib/planning'
-import { localDate, addDays, validDate } from '@/lib/calendar'
+import { localDate, addDays, validDate, validTimezone } from '@/lib/calendar'
+import { athleteTimezone } from '@/lib/timezone'
 import { loadEstimates, estimateValues } from '@/lib/estimates'
 export async function loadPlan(athleteId: number) {
   const [
@@ -68,6 +69,16 @@ export async function loadPlan(athleteId: number) {
     autoAdaptEnabled: process.env.AUTO_ADAPT_ENABLED === 'true',
   }
 }
+/** Today in the plan's zone, falling back to where the athlete last ran. */
+async function planToday(athleteId: number) {
+  const { data } = await supabaseAdmin
+    .from('training_preferences')
+    .select('config')
+    .eq('athlete_id', athleteId)
+    .maybeSingle()
+  const zone = data?.config?.timezone
+  return localDate(new Date(), validTimezone(zone) ? zone : await athleteTimezone(athleteId))
+}
 export async function commitPlan(
   athleteId: number,
   version: number,
@@ -76,8 +87,9 @@ export async function commitPlan(
   reason: string,
   dataVersion: number | null = null,
   auto = false,
-  today = localDate(),
+  today?: string,
 ) {
+  today ??= await planToday(athleteId)
   const { data, error } = await supabaseAdmin.rpc('commit_plan', {
     p_athlete: athleteId,
     p_version: version,

@@ -16,7 +16,8 @@ import {
   resolveEdition,
   type EditionCopy,
 } from '@/lib/coachEditionCopy'
-import { localDate, weekStart } from '@/lib/calendar'
+import { commonTimezone, localDate, weekStart } from '@/lib/calendar'
+import { athleteTimezones } from '@/lib/timezone'
 // Sonnet held the voice and read the facts correctly in side-by-side tests; Haiku misread them.
 const EDITION_MODEL = 'claude-sonnet-5'
 export const GROUP_COACH_VERSION = 'weekly-edition-v2'
@@ -36,7 +37,7 @@ export async function publicGroupTraining(groupId: string) {
     .eq('group_id', groupId)
   if (error) throw error
   const ids = (members ?? []).map((m) => m.athlete_id),
-    today = localDate()
+    today = localDate(new Date(), commonTimezone(Object.values(await athleteTimezones(ids))))
   const [planResult, memoryResult] =
     await Promise.all([
       supabaseAdmin

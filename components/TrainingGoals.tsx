@@ -1,12 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { browserTimezone, DEFAULT_TIMEZONE } from '@/lib/calendar'
 export default function TrainingGoals({ initial }: { initial: any[] }) {
   const [goals, setGoals] = useState(initial),
     [metric, setMetric] = useState('distance'),
     [target, setTarget] = useState(''),
-    [timezone, setTimezone] = useState('Asia/Jakarta'),
+    [timezone, setTimezone] = useState(DEFAULT_TIMEZONE),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
+  // Default to where this browser is; set after mount so SSR markup matches.
+  useEffect(() => setTimezone(browserTimezone()), [])
   async function save() {
     setBusy(true)
     try {

@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx'
+import { addDays, localDate, runDay, weekStart, type DatedRun } from './calendar'
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
@@ -77,17 +78,6 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-// ─── Timezone ─────────────────────────────────────────────────────────────────
-
-/**
- * Strava returns start_date in UTC. Convert to Jakarta local time (WIB = UTC+7).
- * Use this instead of new Date(str) for all display purposes.
- */
-export function toJakartaDate(utcStr: string): Date {
-  const d = new Date(utcStr)
-  return new Date(d.getTime() + 7 * 60 * 60 * 1000)
-}
-
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 export function getWeekStart(date: Date): Date {
@@ -105,43 +95,22 @@ export function isoWeek(date: Date): string {
 }
 
 /**
- * Compute weekly run streak for an athlete.
- * Uses Jakarta timezone (UTC+7) for week boundary calculation.
- * A "week" is Mon–Sun. Streak = consecutive weeks with ≥1 run,
- * counting back from the current or most recent week.
+ * Weekly run streak: consecutive Mon–Sun weeks with at least one run, counting
+ * back from this week or last. Each run counts in the week where it was run;
+ * `today` is the viewer's local date.
  */
 export function computeStreak(
-  runs: Array<{ start_date: string; athlete_id: number }>,
-  athleteId: number
+  runs: Array<DatedRun & { athlete_id: number }>,
+  athleteId: number,
+  today = localDate(),
 ): number {
-  const myRuns = runs.filter(r => r.athlete_id === athleteId)
-  if (!myRuns.length) return 0
-
-  const jakartaWeekStartMs = (utcStr: string) => {
-    const jakarta = toJakartaDate(utcStr)
-    const day = jakarta.getUTCDay()
-    const diff = jakarta.getUTCDate() - day + (day === 0 ? -6 : 1)
-    const weekStartJakartaUtc = Date.UTC(jakarta.getUTCFullYear(), jakarta.getUTCMonth(), diff)
-    return weekStartJakartaUtc
-  }
-
-  // Get unique week-start timestamps (Monday midnight Jakarta)
-  const weekStarts = Array.from(
-    new Set(myRuns.map(r => jakartaWeekStartMs(r.start_date)))
-  ).sort((a, b) => b - a)
-
-  if (!weekStarts.length) return 0
-
-  // Must have run this week or last week to have an active streak
-  const thisWeek = jakartaWeekStartMs(new Date().toISOString())
-  const lastWeek = thisWeek - 7 * 24 * 60 * 60 * 1000
-
-  if (weekStarts[0] !== thisWeek && weekStarts[0] !== lastWeek) return 0
-
-  let streak = 1
-  for (let i = 1; i < weekStarts.length; i++) {
-    if (weekStarts[i] === weekStarts[i - 1] - 7 * 24 * 60 * 60 * 1000) streak++
-    else break
+  const weeks = new Set(runs.filter(r => r.athlete_id === athleteId).map(r => weekStart(runDay(r))))
+  const thisWeek = weekStart(today)
+  let week = weeks.has(thisWeek) ? thisWeek : addDays(thisWeek, -7)
+  let streak = 0
+  while (weeks.has(week)) {
+    streak++
+    week = addDays(week, -7)
   }
   return streak
 }

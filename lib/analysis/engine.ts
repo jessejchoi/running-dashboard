@@ -24,6 +24,7 @@ import {
 } from './easyRuns'
 import { combineEstimates } from './combine'
 import { analysisWeightForActivity } from '@/lib/run-classification'
+import { runDay } from '@/lib/calendar'
 
 export type {
   ActivityAnalysis,
@@ -186,7 +187,7 @@ export function analyzeAllAndCombine(
     const distanceKey = raceAnalysis.matchedDistanceKey
     const raceDate = raceAnalysis.date
     const count = allActivities.filter(a =>
-      a.run_type && a.start_date.split('T')[0] > raceDate
+      a.run_type && runDay(a) > raceDate
     ).length
 
     if (count < runsSinceRace[distanceKey]) {
@@ -198,7 +199,7 @@ export function analyzeAllAndCombine(
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
   const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0]
   const longestRecentRunKm = allActivities
-    .filter(a => a.distance && a.start_date.split('T')[0] >= threeMonthsAgoStr)
+    .filter(a => a.distance && runDay(a) >= threeMonthsAgoStr)
     .reduce((max, a) => Math.max(max, (a.distance ?? 0) / 1000), 0)
 
   const combined: Record<DistanceKey, CombinedEstimate | null> = {

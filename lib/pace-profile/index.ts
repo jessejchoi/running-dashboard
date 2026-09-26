@@ -1,4 +1,5 @@
 import { type PaceZones } from '@/lib/run-classification'
+import { runDay, weekStart } from '@/lib/calendar'
 
 type ObservationKind = 'whole' | 'steady' | 'sustained' | 'fast_rep'
 type SegmentSource = 'split' | 'lap'
@@ -20,6 +21,7 @@ export interface PaceProfileActivity {
   type?: string | null
   sport_type?: string | null
   start_date: string
+  start_date_local?: string | null
   distance?: number | null
   moving_time?: number | null
   average_speed?: number | null
@@ -31,7 +33,7 @@ export interface PaceProfileActivity {
   excluded_from_analysis?: boolean | null
   laps?: SegmentLike[] | null
   splits?: SegmentLike[] | null
-  raw?: { trainer?: boolean | null; sport_type?: string | null } | null
+  raw?: { trainer?: boolean | null; sport_type?: string | null; start_date_local?: string } | null
 }
 
 interface Segment {
@@ -541,15 +543,6 @@ function enforceMonotonicZones(input: {
   return { intervalMaxPace, thresholdMaxPace, tempoMaxPace, easyMaxPace }
 }
 
-function isoWeekKey(d: Date): string {
-  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const day = utc.getUTCDay() || 7
-  utc.setUTCDate(utc.getUTCDate() + 4 - day)
-  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1))
-  const week = Math.ceil(((utc.getTime() - yearStart.getTime()) / MS_PER_DAY + 1) / 7)
-  return `${utc.getUTCFullYear()}-W${week}`
-}
-
 function longRunThreshold(activities: PaceProfileActivity[], now: Date): LongRunThreshold {
   const cutoffMs = now.getTime() - 84 * MS_PER_DAY
   const weeklyMax: Record<string, number> = {}
@@ -566,7 +559,7 @@ function longRunThreshold(activities: PaceProfileActivity[], now: Date): LongRun
         : null
     if (km <= 0 || !isValidPace(averagePace)) continue
     distances.push(km)
-    const key = isoWeekKey(date)
+    const key = weekStart(runDay(activity))
     if (!weeklyMax[key] || km > weeklyMax[key]) weeklyMax[key] = km
   }
   const weeklyLongest = Object.values(weeklyMax).sort((a, b) => a - b)

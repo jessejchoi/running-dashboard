@@ -231,6 +231,7 @@ export default function Preview() {
                 modelVersion: 'expected-observed-v1',
                 dataVersion: 10,
               }}
+              today="2026-09-13"
             />
             <TrainingGoals
               initial={[

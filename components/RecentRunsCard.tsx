@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import RunTypeSelector from '@/components/RunTypeSelector'
 import RunSurfaceBadge from '@/components/RunSurfaceBadge'
-import { speedToPace, formatDuration, formatDistance, paceUnitLabel, toJakartaDate, type DistanceUnit } from '@/lib/utils'
+import { speedToPace, formatDuration, formatDistance, paceUnitLabel, type DistanceUnit } from '@/lib/utils'
+import { runWallTime } from '@/lib/calendar'
 import { RUN_TYPES, type RunType } from '@/lib/runtypes'
 import { isTreadmillRun } from '@/lib/run-classification/surface'
 import Eyebrow from '@/components/Eyebrow'
@@ -74,7 +75,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                   className="font-mono text-[11px] uppercase tracking-[0.08em] shrink-0 whitespace-nowrap hover:text-white transition-colors w-14"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  {format(toJakartaDate(run.start_date), 'MMM d')}
+                  {format(runWallTime(run), 'MMM d')}
                 </Link>
 
                 {/* Type dot — mobile only; the full selector pill is too wide to fit */}

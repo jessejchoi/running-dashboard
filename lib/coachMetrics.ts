@@ -2,8 +2,9 @@ import { recentCoachRuns, canonicalTotals } from '@/lib/coachData'
 import { getGroupLatestEstimates } from '@/lib/latestEstimates'
 import { supabaseAdmin } from '@/lib/supabase'
 import { computeStreak, speedToPace } from '@/lib/utils'
+import { addDays, commonTimezone, localDate, runDay, weekStart, DEFAULT_TIMEZONE } from '@/lib/calendar'
+import { athleteTimezone, athleteTimezones } from '@/lib/timezone'
 
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export type CoachRangeKey = 'week' | 'month' | 'rolling_4w' | 'rolling_12w' | 'ytd' | 'all_time'
@@ -28,6 +29,8 @@ export interface CoachActivity {
   source_count?: number
   athlete_id: number
   start_date: string
+  /** Local wall-clock start (or local date, for daily aggregates). */
+  start_date_local?: string | null
   distance: number | null
   moving_time?: number | null
   average_speed?: number | null
@@ -113,70 +116,24 @@ export interface CoachGroupMetrics {
   runs?: CoachActivity[]
 }
 
-function jakartaParts(date: Date) {
-  const shifted = new Date(date.getTime() + JAKARTA_OFFSET_MS)
+/**
+ * Totals ranges as local calendar dates, [range_start, range_end), in the
+ * viewer's zone. Runs match on the local date they were run.
+ */
+export function getCoachRangeDefinitions(
+  now = new Date(),
+  timezone = DEFAULT_TIMEZONE,
+): Record<CoachRangeKey, CoachRangeDefinition> {
+  const today = localDate(now, timezone)
+  const rangeEnd = addDays(today, 1)
+  const range = (key: CoachRangeKey, label: string, range_start: string | null) => ({ key, label, range_start, range_end: rangeEnd })
   return {
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth(),
-    date: shifted.getUTCDate(),
-    day: shifted.getUTCDay(),
-  }
-}
-
-function localMidnightUtc(year: number, month: number, date: number) {
-  return new Date(Date.UTC(year, month, date) - JAKARTA_OFFSET_MS)
-}
-
-function ymd(date: Date) {
-  return date.toISOString().slice(0, 10)
-}
-
-export function getCoachRangeDefinitions(now = new Date()): Record<CoachRangeKey, CoachRangeDefinition> {
-  const parts = jakartaParts(now)
-  const todayStartUtc = localMidnightUtc(parts.year, parts.month, parts.date)
-  const tomorrowStartUtc = new Date(todayStartUtc.getTime() + DAY_MS)
-  const weekStartUtc = new Date(todayStartUtc.getTime() - (parts.day === 0 ? 6 : parts.day - 1) * DAY_MS)
-  const monthStartUtc = localMidnightUtc(parts.year, parts.month, 1)
-  const yearStartUtc = localMidnightUtc(parts.year, 0, 1)
-  const rangeEnd = tomorrowStartUtc.toISOString()
-
-  return {
-    week: {
-      key: 'week',
-      label: 'This week',
-      range_start: weekStartUtc.toISOString(),
-      range_end: rangeEnd,
-    },
-    month: {
-      key: 'month',
-      label: 'This month',
-      range_start: monthStartUtc.toISOString(),
-      range_end: rangeEnd,
-    },
-    rolling_4w: {
-      key: 'rolling_4w',
-      label: 'Rolling 4 weeks',
-      range_start: new Date(tomorrowStartUtc.getTime() - 28 * DAY_MS).toISOString(),
-      range_end: rangeEnd,
-    },
-    rolling_12w: {
-      key: 'rolling_12w',
-      label: 'Rolling 12 weeks',
-      range_start: new Date(tomorrowStartUtc.getTime() - 84 * DAY_MS).toISOString(),
-      range_end: rangeEnd,
-    },
-    ytd: {
-      key: 'ytd',
-      label: 'YTD',
-      range_start: yearStartUtc.toISOString(),
-      range_end: rangeEnd,
-    },
-    all_time: {
-      key: 'all_time',
-      label: 'All time',
-      range_start: null,
-      range_end: rangeEnd,
-    },
+    week: range('week', 'This week', weekStart(today)),
+    month: range('month', 'This month', today.slice(0, 7) + '-01'),
+    rolling_4w: range('rolling_4w', 'Rolling 4 weeks', addDays(rangeEnd, -28)),
+    rolling_12w: range('rolling_12w', 'Rolling 12 weeks', addDays(rangeEnd, -84)),
+    ytd: range('ytd', 'YTD', today.slice(0, 4) + '-01-01'),
+    all_time: range('all_time', 'All time', null),
   }
 }
 
@@ -184,15 +141,14 @@ function isRun(activity: CoachActivity) {
   return activity.type === 'Run'
 }
 
-function inRange(activity: CoachActivity, range: CoachRangeDefinition) {
-  const t = new Date(activity.start_date).getTime()
-  if (Number.isNaN(t)) return false
-  if (range.range_start && t < new Date(range.range_start).getTime()) return false
-  return t < new Date(range.range_end).getTime()
+function inRange(activity: CoachActivity, range: CoachRangeDefinition, timezone = DEFAULT_TIMEZONE) {
+  const day = runDay(activity, timezone)
+  if (range.range_start && day < range.range_start) return false
+  return day < range.range_end
 }
 
-function totalForRange(activities: CoachActivity[], range: CoachRangeDefinition): CoachMetricTotal {
-  const runs = activities.filter(a => isRun(a) && inRange(a, range))
+function totalForRange(activities: CoachActivity[], range: CoachRangeDefinition, timezone: string): CoachMetricTotal {
+  const runs = activities.filter(a => isRun(a) && inRange(a, range, timezone))
   const meters = runs.reduce((sum, a) => sum + (a.distance ?? 0), 0)
   return {
     ...range,
@@ -206,41 +162,40 @@ function totalForRange(activities: CoachActivity[], range: CoachRangeDefinition)
 export function buildCoachTotals(
   activities: CoachActivity[],
   now = new Date(),
+  timezone = DEFAULT_TIMEZONE,
 ): Record<CoachRangeKey, CoachMetricTotal> {
-  const ranges = getCoachRangeDefinitions(now)
+  const ranges = getCoachRangeDefinitions(now, timezone)
   return {
-    week: totalForRange(activities, ranges.week),
-    month: totalForRange(activities, ranges.month),
-    rolling_4w: totalForRange(activities, ranges.rolling_4w),
-    rolling_12w: totalForRange(activities, ranges.rolling_12w),
-    ytd: totalForRange(activities, ranges.ytd),
-    all_time: totalForRange(activities, ranges.all_time),
+    week: totalForRange(activities, ranges.week, timezone),
+    month: totalForRange(activities, ranges.month, timezone),
+    rolling_4w: totalForRange(activities, ranges.rolling_4w, timezone),
+    rolling_12w: totalForRange(activities, ranges.rolling_12w, timezone),
+    ytd: totalForRange(activities, ranges.ytd, timezone),
+    all_time: totalForRange(activities, ranges.all_time, timezone),
   }
 }
 
-function daysToRace(raceDate: string, now: Date) {
-  const today = ymd(new Date(now.getTime() + JAKARTA_OFFSET_MS))
-  const todayDate = new Date(today + 'T00:00:00Z')
-  return Math.ceil((new Date(raceDate).getTime() - todayDate.getTime()) / DAY_MS)
+function daysToRace(raceDate: string, today: string) {
+  return Math.round((Date.parse(raceDate.slice(0, 10)) - Date.parse(today)) / DAY_MS)
 }
 
-function runTypeMix(activities: CoachActivity[], range: CoachMetricTotal) {
+function runTypeMix(activities: CoachActivity[], range: CoachMetricTotal, timezone: string) {
   const mix: Record<string, number> = {}
   for (const activity of activities) {
-    if (!isRun(activity) || !inRange(activity, range)) continue
+    if (!isRun(activity) || !inRange(activity, range, timezone)) continue
     const type = activity.run_type ?? 'untyped'
     mix[type] = (mix[type] ?? 0) + 1
   }
   return mix
 }
 
-function recentRuns(activities: CoachActivity[]) {
+function recentRuns(activities: CoachActivity[], timezone: string) {
   return activities
     .filter(isRun)
     .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
     .slice(0, 10)
     .map(a => ({
-      date: a.start_date.slice(0, 10),
+      date: runDay(a, timezone),
       type: a.run_type ?? null,
       distance_km: Math.round(((a.distance ?? 0) / 1000) * 10) / 10,
       pace_per_km: speedToPace(a.average_speed ?? 0, 'km'),
@@ -332,15 +287,19 @@ export function buildAthleteMetricsFromActivities(params: {
   goals: CoachGoal[]
   debriefs?: CoachDebrief[]
   now?: Date
+  /** The athlete's current zone. */
+  timezone?: string
 }): CoachAthleteMetrics {
   const now = params.now ?? new Date()
-  const totals = buildCoachTotals(params.activities, now)
+  const timezone = params.timezone ?? DEFAULT_TIMEZONE
+  const today = localDate(now, timezone)
+  const totals = buildCoachTotals(params.activities, now, timezone)
   const goals = params.goals.map(g => ({
     label: g.label,
     distance_key: g.distance_key,
     target_secs: g.target_secs,
     current_secs: g.current_secs,
-    days_to_race: daysToRace(g.race_date, now),
+    days_to_race: daysToRace(g.race_date, today),
     gap_secs: g.current_secs == null ? null : g.current_secs - g.target_secs,
   }))
   const athleteRuns = params.activities.filter(a => a.athlete_id === params.athlete_id && isRun(a))
@@ -348,9 +307,9 @@ export function buildAthleteMetricsFromActivities(params: {
     athlete_id: params.athlete_id,
     name: params.name,
     totals,
-    run_type_mix_4w: runTypeMix(params.activities, totals.rolling_4w),
-    recent_runs: recentRuns(params.activities),
-    streak: computeStreak(athleteRuns.map(a => ({ athlete_id: a.athlete_id, start_date: a.start_date })), params.athlete_id),
+    run_type_mix_4w: runTypeMix(params.activities, totals.rolling_4w, timezone),
+    recent_runs: recentRuns(params.activities, timezone),
+    streak: computeStreak(athleteRuns, params.athlete_id, today),
     goals,
     recent_debriefs: params.debriefs ?? [],
     signals: [],
@@ -402,17 +361,19 @@ export function buildChallengeMetricsFromActivities(params: {
   activities: CoachActivity[]
   memberIds?: number[]
   now?: Date
+  timezone?: string
 }): CoachChallengeMetrics[] {
   const now = params.now ?? new Date()
+  const timezone = params.timezone ?? DEFAULT_TIMEZONE
+  const today = localDate(now, timezone)
   const memberIds = params.memberIds ?? Array.from(new Set(params.activities.map(a => a.athlete_id)))
 
   return params.challenges.map(challenge => {
-    const start = new Date(challenge.start_date + 'T00:00:00+07:00')
-    const end = new Date(challenge.end_date + 'T23:59:59+07:00')
+    // Inclusive local dates; each run counts on the day it was run.
     const relevant = params.activities.filter(a => {
       if (!isRun(a)) return false
-      const d = new Date(a.start_date)
-      return d >= start && d <= end
+      const day = runDay(a, timezone)
+      return day >= challenge.start_date && day <= challenge.end_date
     })
     const cType = challenge.challenge_type ?? 'group_distance'
     const meters = relevant.reduce((sum, a) => sum + (a.distance ?? 0), 0)
@@ -453,26 +414,21 @@ export function buildChallengeMetricsFromActivities(params: {
 
     if (cType === 'weekly_quota') {
       const weeklyMeters = Number(challenge.config?.weekly_meters ?? challenge.target_meters ?? 0)
-      const weeks: Date[] = []
-      const firstWeekStart = getCoachRangeDefinitions(start).week.range_start
-      let cur = new Date(firstWeekStart ?? start)
-      while (cur <= end) {
-        weeks.push(new Date(cur))
-        cur = new Date(cur.getTime() + 7 * DAY_MS)
-      }
+      const weeks: string[] = []
+      for (let week = weekStart(challenge.start_date); week <= challenge.end_date; week = addDays(week, 7)) weeks.push(week)
 
       let elapsedMemberWeeks = 0
       let completedMemberWeeks = 0
       for (const athleteId of memberIds) {
         const memberRuns = relevant.filter(a => a.athlete_id === athleteId)
-        for (const weekStart of weeks) {
-          if (weekStart > now) continue
+        for (const week of weeks) {
+          if (week > today) continue
           elapsedMemberWeeks++
-          const weekEnd = new Date(weekStart.getTime() + 7 * DAY_MS - 1)
+          const weekEnd = addDays(week, 7)
           const weekMeters = memberRuns
             .filter(a => {
-              const d = new Date(a.start_date)
-              return d >= weekStart && d <= weekEnd
+              const day = runDay(a, timezone)
+              return day >= week && day < weekEnd
             })
             .reduce((sum, a) => sum + (a.distance ?? 0), 0)
           if (weeklyMeters > 0 && weekMeters >= weeklyMeters) completedMemberWeeks++
@@ -541,6 +497,7 @@ export function buildCoachFactsSnapshot(metrics: CoachGroupMetrics | CoachAthlet
 
 export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthleteMetrics> {
   const now = new Date()
+  const timezone = await athleteTimezone(athleteId)
   const [{ data: allRuns }, { data: tokenRow }, { data: goals }, { data: debriefs }] = await Promise.all([
     recentCoachRuns([athleteId]),
     supabaseAdmin
@@ -562,7 +519,7 @@ export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthle
   ])
 
   const activities = allRuns ?? []
-  const [totals, estimates] = await Promise.all([canonicalTotals([athleteId], getCoachRangeDefinitions(now)), getGroupLatestEstimates([athleteId])])
+  const [totals, estimates] = await Promise.all([canonicalTotals([athleteId], getCoachRangeDefinitions(now, timezone)), getGroupLatestEstimates([athleteId])])
   const metrics = buildAthleteMetricsFromActivities({
     athlete_id: athleteId,
     name: tokenRow?.athlete_name ?? `Athlete ${athleteId}`,
@@ -570,6 +527,7 @@ export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthle
     goals: (goals ?? []).map(g=>({...g,current_secs:estimates[athleteId]?.[g.distance_key]??null})),
     debriefs: debriefs ?? [],
     now,
+    timezone,
   })
   metrics.totals = totals[athleteId] ?? metrics.totals
   metrics.signals = buildAthleteSignals(metrics)
@@ -578,7 +536,6 @@ export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthle
 
 export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetrics> {
   const now = new Date()
-  const today = ymd(new Date(now.getTime() + JAKARTA_OFFSET_MS))
   const { data: group } = await supabaseAdmin
     .from('groups')
     .select('name')
@@ -591,8 +548,11 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     .eq('group_id', groupId)
 
   const memberIds = (memberRows ?? []).map(m => m.athlete_id)
+  // One shared "today" for the group: the zone most members run in.
+  const timezone = commonTimezone(Object.values(await athleteTimezones(memberIds)))
+  const today = localDate(now, timezone)
   if (memberIds.length === 0) {
-    const totals = buildCoachTotals([], now)
+    const totals = buildCoachTotals([], now, timezone)
     return {
       generated_at: now.toISOString(),
       today,
@@ -633,7 +593,7 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     nameMap[token.athlete_id] = token.athlete_name ?? `Athlete ${token.athlete_id}`
   }
 
-  const [canonical, estimates] = await Promise.all([canonicalTotals(memberIds, getCoachRangeDefinitions(now)), getGroupLatestEstimates(memberIds)])
+  const [canonical, estimates] = await Promise.all([canonicalTotals(memberIds, getCoachRangeDefinitions(now, timezone)), getGroupLatestEstimates(memberIds)])
   const allActivities = activities ?? []
   const members = memberIds.map(athleteId => buildAthleteMetricsFromActivities({
     athlete_id: athleteId,
@@ -642,9 +602,10 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     goals: (goals ?? []).filter(g => g.athlete_id === athleteId).map(g=>({...g,current_secs:estimates[athleteId]?.[g.distance_key]??null})),
     debriefs: (debriefs ?? []).filter(d => d.athlete_id === athleteId),
     now,
+    timezone,
   }))
   for (const member of members) { member.totals = canonical[member.athlete_id] ?? member.totals; member.signals = buildAthleteSignals(member) }
-  const totals = buildCoachTotals([], now)
+  const totals = buildCoachTotals([], now, timezone)
   for (const key of Object.keys(totals) as CoachRangeKey[]) {
     totals[key].meters = members.reduce((n,m)=>n+m.totals[key].meters,0)
     totals[key].km = Math.round(totals[key].meters/100)/10
@@ -652,7 +613,8 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
   }
   let challengeActivities: CoachActivity[] = []
   if (challenges?.length) {
-    const from = challenges.map(c=>c.start_date).sort()[0] + 'T00:00:00+07:00'
+    // A day early covers zones ahead of UTC; runs are matched on local dates below.
+    const from = addDays(challenges.map(c=>c.start_date).sort()[0], -1) + 'T00:00:00Z'
     const {data,error} = await supabaseAdmin.rpc('group_daily_context',{p_athletes:memberIds,p_from:from,p_to:now.toISOString()})
     if(error) throw error
     challengeActivities = data ?? []
@@ -663,7 +625,7 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     group: { id: groupId, name: group?.name ?? 'Group' },
     totals,
     members,
-    active_challenges: buildChallengeMetricsFromActivities({ challenges: challenges ?? [], activities: challengeActivities, memberIds, now }),
+    active_challenges: buildChallengeMetricsFromActivities({ challenges: challenges ?? [], activities: challengeActivities, memberIds, now, timezone }),
     signals: [],
   }
 

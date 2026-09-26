@@ -1,7 +1,7 @@
-import { zonedDateTime, addDays, validTimezone } from '@/lib/calendar'
+import { addDays } from '@/lib/calendar'
 import { supabaseAdmin } from '@/lib/supabase'
 export const SUMMARY_COLUMNS =
-  'id,start_date,distance,moving_time,average_speed,average_heartrate,suffer_score,run_type,run_type_manual,type,name,trainer:raw->trainer'
+  'id,start_date,start_date_local,distance,moving_time,average_speed,average_heartrate,suffer_score,run_type,run_type_manual,type,name,trainer:raw->trainer'
 export function decodeCursor(
   value: string | null,
 ): { date: string; id: number } | null {
@@ -21,8 +21,6 @@ export function decodeCursor(
   }
 }
 export async function listRuns(athleteId: number, params: URLSearchParams) {
-  const timezone = params.get('timezone') ?? 'Asia/Jakarta'
-  if (!validTimezone(timezone)) throw new Error('Invalid timezone')
   const cursor = decodeCursor(params.get('cursor'))
   const limit = Math.min(
     50,
@@ -40,6 +38,7 @@ export async function listRuns(athleteId: number, params: URLSearchParams) {
     q = q.or(
       `start_date.lt.${cursor.date},and(start_date.eq.${cursor.date},id.lt.${cursor.id})`,
     )
+  // Date filters match the day each run happened, where it happened.
   for (const key of ['from', 'to']) {
     const date = params.get(key)
     if (date) {
@@ -47,11 +46,8 @@ export async function listRuns(athleteId: number, params: URLSearchParams) {
         throw new Error('Invalid date')
       q =
         key === 'from'
-          ? q.gte('start_date', zonedDateTime(date + 'T00:00', timezone))
-          : q.lt(
-              'start_date',
-              zonedDateTime(addDays(date, 1) + 'T00:00', timezone),
-            )
+          ? q.gte('start_date_local', date)
+          : q.lt('start_date_local', addDays(date, 1))
     }
   }
   const type = params.get('run_type')

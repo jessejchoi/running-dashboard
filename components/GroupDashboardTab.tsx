@@ -1,10 +1,10 @@
 'use client'
-import { localDate, weekStart, zonedDateTime, addDays } from '@/lib/calendar'
+import { weekStart, addDays, runDay } from '@/lib/calendar'
 import { useState } from 'react'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { Flame, Trophy, Plus, X, Shield, ShieldOff, UserMinus } from 'lucide-react'
-import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles, getWeekStart, computeStreak } from '@/lib/utils'
+import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles, computeStreak } from '@/lib/utils'
 import { getBestChallengeEffort } from '@/lib/challengeUtils'
 import { useUnit } from '@/lib/unit-context'
 import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, formatTime } from '@/components/GroupShared'
@@ -29,6 +29,8 @@ interface Props {
   onUpdateMemberRole: (athleteId: number, role: 'admin' | 'member') => Promise<void>
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: BriefingMeta | null
+  /** The viewer's local date. Runs count on the local date they were run. */
+  today: string
 }
 
 // ── Leaderboard helpers ──────────────────────────────────────────────────────
@@ -36,15 +38,16 @@ interface Props {
 type LeaderRange = 'week' | 'month' | 'ytd' | '6m'
 type ChallengeType = 'group_distance' | 'weekly_quota' | 'fastest_effort' | 'elevation' | 'run_count'
 
-function getRangeStart(range: LeaderRange): Date {
-  const today=localDate()
-  const date=range==='week'?weekStart(today):range==='month'?today.slice(0,7)+'-01':range==='ytd'?today.slice(0,4)+'-01-01':addDays(today,-182)
-  return new Date(zonedDateTime(date+'T00:00','Asia/Jakarta'))
+function getRangeStart(range: LeaderRange, today: string): string {
+  return range === 'week' ? weekStart(today)
+    : range === 'month' ? today.slice(0, 7) + '-01'
+    : range === 'ytd' ? today.slice(0, 4) + '-01-01'
+    : addDays(today, -182)
 }
 
-function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members: Member[]) {
-  const cutoff = getRangeStart(range)
-  const filtered = runs.filter(r => new Date(r.start_date) >= cutoff)
+function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members: Member[], today: string) {
+  const cutoff = getRangeStart(range, today)
+  const filtered = runs.filter(r => runDay(r) >= cutoff)
   const totals: Record<number, { distance: number; count: number }> = {}
   for (const r of filtered) {
     if (!totals[r.athlete_id]) totals[r.athlete_id] = { distance: 0, count: 0 }
@@ -59,20 +62,23 @@ function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members:
       is_me: m.is_me,
       distance: totals[m.athlete_id]?.distance ?? 0,
       count: totals[m.athlete_id]?.count ?? 0,
-      streak: computeStreak(runs, m.athlete_id),
+      streak: computeStreak(runs, m.athlete_id, today),
     }))
     .sort((a, b) => b.distance - a.distance)
 }
 
 // ── Challenge helpers ────────────────────────────────────────────────────────
 
-function challengeStatus(c: Challenge): 'active' | 'upcoming' | 'past' {
-  const now = new Date()
-  const start = new Date(c.start_date)
-  const end = new Date(c.end_date)
-  if (now < start) return 'upcoming'
-  if (now > end)   return 'past'
+function challengeStatus(c: Challenge, today: string): 'active' | 'upcoming' | 'past' {
+  if (today < c.start_date) return 'upcoming'
+  if (today > c.end_date) return 'past'
   return 'active'
+}
+
+/** Challenge dates are inclusive local dates. */
+function inChallenge(r: LeaderboardRun, c: Challenge) {
+  const day = runDay(r)
+  return day >= c.start_date && day <= c.end_date
 }
 
 function computeChallengeProgress(
@@ -80,12 +86,7 @@ function computeChallengeProgress(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date+'T00:00:00+07:00')
-  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
-  const relevant = leaderboardRuns.filter(r => {
-    const d = new Date(r.start_date)
-    return d >= start && d <= end
-  })
+  const relevant = leaderboardRuns.filter(r => inChallenge(r, challenge))
   const totalMeters = relevant.reduce((sum, r) => sum + r.distance, 0)
   const byMember = members.map(m => ({
     athlete_id: m.athlete_id,
@@ -102,31 +103,20 @@ function computeWeeklyQuota(
   challenge: Challenge,
   members: Member[],
 ) {
-  const challengeStart = new Date(challenge.start_date+'T00:00:00+07:00')
-  const challengeEnd = new Date(challenge.end_date+'T23:59:59.999+07:00')
-  challengeEnd.setHours(23, 59, 59, 999)
   const weeklyMeters = (challenge.config.weekly_meters as number) ?? 0
 
-  const weeks: Date[] = []
-  const firstWeekStart = getWeekStart(challengeStart)
-  let cur = new Date(firstWeekStart)
-  while (cur <= challengeEnd) {
-    weeks.push(new Date(cur))
-    cur = new Date(cur.getTime() + 7 * 24 * 60 * 60 * 1000)
-  }
+  // Monday-start local weeks overlapping the challenge.
+  const weeks: string[] = []
+  for (let week = weekStart(challenge.start_date); week <= challenge.end_date; week = addDays(week, 7)) weeks.push(week)
 
   const byMember = members.map(m => {
-    const memberRuns = leaderboardRuns.filter(r =>
-      r.athlete_id === m.athlete_id &&
-      new Date(r.start_date) >= challengeStart &&
-      new Date(r.start_date) <= challengeEnd
-    )
+    const memberRuns = leaderboardRuns.filter(r => r.athlete_id === m.athlete_id && inChallenge(r, challenge))
     const weekResults = weeks.map(ws => {
-      const we = new Date(ws.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
+      const we = addDays(ws, 7)
       const total = memberRuns
         .filter(r => {
-          const d = new Date(r.start_date)
-          return d >= ws && d <= we
+          const day = runDay(r)
+          return day >= ws && day < we
         })
         .reduce((sum, r) => sum + r.distance, 0)
       return total >= weeklyMeters
@@ -142,12 +132,7 @@ function computeFastestEffort(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date+'T00:00:00+07:00')
-  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
-  const relevant = leaderboardRuns.filter(r => {
-    const d = new Date(r.start_date)
-    return d >= start && d <= end
-  })
+  const relevant = leaderboardRuns.filter(r => inChallenge(r, challenge))
 
   const byMember = members.map(m => {
     const memberRuns = relevant.filter(r => r.athlete_id === m.athlete_id)
@@ -173,12 +158,7 @@ function computeElevationProgress(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date+'T00:00:00+07:00')
-  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
-  const relevant = leaderboardRuns.filter(r => {
-    const d = new Date(r.start_date)
-    return d >= start && d <= end
-  })
+  const relevant = leaderboardRuns.filter(r => inChallenge(r, challenge))
   const totalElevation = relevant.reduce((sum, r) => sum + (r.total_elevation_gain ?? 0), 0)
   const byMember = members.map(m => ({
     athlete_id: m.athlete_id,
@@ -195,12 +175,7 @@ function computeRunCountProgress(
   challenge: Challenge,
   members: Member[],
 ) {
-  const start = new Date(challenge.start_date+'T00:00:00+07:00')
-  const end = new Date(challenge.end_date+'T23:59:59.999+07:00')
-  const relevant = leaderboardRuns.filter(r => {
-    const d = new Date(r.start_date)
-    return d >= start && d <= end
-  })
+  const relevant = leaderboardRuns.filter(r => inChallenge(r, challenge))
   const byMember = members.map(m => ({
     athlete_id: m.athlete_id,
     name: m.name,
@@ -211,11 +186,9 @@ function computeRunCountProgress(
   return { totalCount: relevant.reduce((n,r)=>n+(r.source_count??1),0), byMember }
 }
 
-function getLastMonthRange(now: Date) {
-  return {
-    start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-    end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
-  }
+function getLastMonthRange(today: string) {
+  const thisMonth = today.slice(0, 7) + '-01'
+  return { start: addDays(thisMonth, -1).slice(0, 7) + '-01', end: addDays(thisMonth, -1) }
 }
 
 function summarizePastChallenge(
@@ -296,7 +269,7 @@ function summarizePastChallenge(
 
 export default function GroupDashboardTab({
   group, leaderboardRuns, members, memberTrainingLoads, myRole, myAthleteId, initialChallenges,
-  onKickMember, onUpdateMemberRole, initialBriefing, initialBriefingMeta,
+  onKickMember, onUpdateMemberRole, initialBriefing, initialBriefingMeta, today,
 }: Props) {
   const { unit } = useUnit()
   const label = distanceUnitLabel(unit)
@@ -320,7 +293,7 @@ export default function GroupDashboardTab({
   const [generating, setGenerating] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
-  const board = computeLeaderboard(leaderboardRuns, leaderRange, members)
+  const board = computeLeaderboard(leaderboardRuns, leaderRange, members, today)
   const maxDist = Math.max(...board.map(e => e.distance), 1)
   const ranges: { key: LeaderRange; label: string }[] = [
     { key: 'week',  label: 'This Week' },
@@ -329,16 +302,13 @@ export default function GroupDashboardTab({
     { key: '6m',    label: 'Last 6 Months' },
   ]
 
-  const active   = challenges.filter(c => challengeStatus(c) === 'active')
-  const upcoming = challenges.filter(c => challengeStatus(c) === 'upcoming')
-  const past     = challenges.filter(c => challengeStatus(c) === 'past')
-  const lastMonthRange = getLastMonthRange(new Date())
+  const active   = challenges.filter(c => challengeStatus(c, today) === 'active')
+  const upcoming = challenges.filter(c => challengeStatus(c, today) === 'upcoming')
+  const past     = challenges.filter(c => challengeStatus(c, today) === 'past')
+  const lastMonthRange = getLastMonthRange(today)
   const lastMonthChallenge = [...past]
-    .filter(c => {
-      const end = new Date(c.end_date)
-          return end >= lastMonthRange.start && end <= lastMonthRange.end
-    })
-    .sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime())[0]
+    .filter(c => c.end_date >= lastMonthRange.start && c.end_date <= lastMonthRange.end)
+    .sort((a, b) => b.end_date.localeCompare(a.end_date))[0]
   const lastMonthSummary = lastMonthChallenge
     ? summarizePastChallenge(lastMonthChallenge, leaderboardRuns, members, unit)
     : null
@@ -500,11 +470,11 @@ export default function GroupDashboardTab({
   }
 
   function ChallengeCard({ c }: { c: Challenge }) {
-    const status = challengeStatus(c)
+    const status = challengeStatus(c, today)
     const isPast = status === 'past'
     const isUpcoming = status === 'upcoming'
-    const daysLeft = Math.ceil((new Date(c.end_date).getTime() - Date.now()) / 86400000)
-    const daysToStart = Math.ceil((new Date(c.start_date).getTime() - Date.now()) / 86400000)
+    const daysLeft = Math.round((Date.parse(c.end_date) - Date.parse(today)) / 86400000) + 1
+    const daysToStart = Math.round((Date.parse(c.start_date) - Date.parse(today)) / 86400000)
     const cType = c.challenge_type ?? 'group_distance'
 
     return (
@@ -524,7 +494,7 @@ export default function GroupDashboardTab({
               )}
             </div>
             <p className="text-[#6b7280] text-xs">
-              {format(new Date(c.start_date), 'MMM d')} – {format(new Date(c.end_date), 'MMM d, yyyy')}
+              {format(parseISO(c.start_date), 'MMM d')} – {format(parseISO(c.end_date), 'MMM d, yyyy')}
               {status === 'active' && ` · ${daysLeft}d left`}
               {isUpcoming && ` · starts in ${daysToStart}d`}
             </p>
@@ -610,7 +580,6 @@ export default function GroupDashboardTab({
         {cType === 'weekly_quota' && (() => {
           const weeklyMeters = (c.config.weekly_meters as number) ?? 0
           const { weeks, byMember } = computeWeeklyQuota(leaderboardRuns, c, members)
-          const now = new Date()
           return (
             <>
               <p className="text-xs text-[#6b7280] mb-3">
@@ -621,8 +590,8 @@ export default function GroupDashboardTab({
               ) : (
                 <div className="space-y-2.5">
                   {byMember.map(m => {
-                    const totalWeeks = weeks.filter(ws => ws <= now).length
-                    const hitCount = m.weekResults.filter((hit, i) => weeks[i] <= now && hit).length
+                    const totalWeeks = weeks.filter(ws => ws <= today).length
+                    const hitCount = m.weekResults.filter((hit, i) => weeks[i] <= today && hit).length
                     return (
                       <div key={m.athlete_id} className="flex items-center gap-2">
                         <Avatar name={m.name} pic={m.profile_pic} size={5} />
@@ -631,12 +600,12 @@ export default function GroupDashboardTab({
                         </span>
                         <div className="flex gap-1 flex-1">
                           {weeks.map((ws, i) => {
-                            const isFuture = ws > now
+                            const isFuture = ws > today
                             const hit = m.weekResults[i]
                             return (
                               <span
                                 key={i}
-                                title={`Week of ${format(ws, 'MMM d')}`}
+                                title={`Week of ${format(parseISO(ws), 'MMM d')}`}
                                 className={`w-4 h-4 rounded-full border text-[9px] flex items-center justify-center shrink-0 ${
                                   isFuture
                                     ? 'border-[#2a2a2a] bg-transparent'
@@ -953,7 +922,7 @@ export default function GroupDashboardTab({
                         )}
                       </div>
                       <p className="text-[10px] text-[#4b5563] font-mono">
-                        {format(new Date(lastMonthChallenge.start_date), 'MMM d')} – {format(new Date(lastMonthChallenge.end_date), 'MMM d, yyyy')}
+                        {format(parseISO(lastMonthChallenge.start_date), 'MMM d')} – {format(parseISO(lastMonthChallenge.end_date), 'MMM d, yyyy')}
                       </p>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-1 rounded shrink-0 ${lastMonthSummary.achieved ? 'text-emerald-400 bg-emerald-400/10' : 'text-[#9ca3af] bg-[#1a1a1a]'}`}>
@@ -1001,7 +970,7 @@ export default function GroupDashboardTab({
                                 )}
                               </div>
                               <p className="text-[10px] text-[#4b5563] font-mono">
-                                {format(new Date(c.start_date), 'MMM d')} – {format(new Date(c.end_date), 'MMM d, yyyy')}
+                                {format(parseISO(c.start_date), 'MMM d')} – {format(parseISO(c.end_date), 'MMM d, yyyy')}
                               </p>
                             </div>
                           </div>

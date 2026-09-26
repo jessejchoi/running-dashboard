@@ -5,14 +5,14 @@ import PlanSessionModal, {
   defaultConfig,
   type SessionConfig,
 } from './PlanSessionModal'
-import { localDate, addDays } from '@/lib/calendar'
+import { localDate, addDays, browserTimezone, DEFAULT_TIMEZONE } from '@/lib/calendar'
 import { type PlanSession, type TrainingPreferences } from '@/lib/planning'
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DEFAULTS: TrainingPreferences = {
   days: [1, 3, 5, 0],
   maxMinutes: 60,
   longRunDay: 0,
-  timezone: 'Asia/Jakarta',
+  timezone: DEFAULT_TIMEZONE,
   easyOnly: false,
   startingWeeklyKm: 0,
   autoAdapt: true,
@@ -34,6 +34,10 @@ export default function DurablePlan({ initial }: { initial: any }) {
     [drafts, setDrafts] = useState<
       { key: string; date: string; configs: SessionConfig[] }[]
     >([])
+  // A first plan defaults to where this browser is; set after mount so SSR markup matches.
+  useEffect(() => {
+    if (!initial.preferences) setPrefs(p => ({ ...p, timezone: browserTimezone() }))
+  }, [initial.preferences])
   useEffect(() => {
     const found: { key: string; date: string; configs: SessionConfig[] }[] = []
     try {

@@ -1,5 +1,4 @@
 'use client'
-import { localDate } from '@/lib/calendar'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import GoalCard from './GoalCard'
@@ -17,6 +16,8 @@ interface Props {
   unit?: DistanceUnit
   /** Section number shown in the eyebrow (dashboard only). */
   n?: string
+  /** The viewer's local date. */
+  today: string
 }
 
 export default function GoalsSection({
@@ -27,6 +28,7 @@ export default function GoalsSection({
   sourceCounts,
   unit = 'km',
   n,
+  today,
 }: Props) {
   const [goals, setGoals] = useState<UserGoal[]>(initialGoals)
   const [adding, setAdding] = useState(false)
@@ -97,7 +99,7 @@ export default function GoalsSection({
             key={goal.id}
             goal={{
               ...goal,
-              is_primary: primaryRace(goals, localDate())?.id === goal.id,
+              is_primary: primaryRace(goals, today)?.id === goal.id,
             }}
             estimate={bundle?.estimates.find(
               (e) => e.distanceKey === goal.distance_key,

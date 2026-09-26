@@ -14,10 +14,12 @@ export default async function DashboardRaceSection({
   athleteId,
   goals,
   unit,
+  today,
 }: {
   athleteId: number
   goals: UserGoal[]
   unit: DistanceUnit
+  today: string
 }) {
   const bundle = await dashboardEstimates(athleteId)
   return (
@@ -28,6 +30,7 @@ export default async function DashboardRaceSection({
         estimates={estimateValues(bundle)}
         unit={unit}
         n="08"
+        today={today}
       />
       <ExpectedEstimates estimates={bundle.estimates} deltas={bundle.deltas} n="09" />
     </div>

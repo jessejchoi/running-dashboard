@@ -2,28 +2,30 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { type Member, type Group } from './GroupShared'
-import { localDate } from '@/lib/calendar'
 export default function GroupPlansTab({
   group,
   members,
   initialPlans,
+  today,
 }: {
   group: Group
   members: Member[]
   myAthleteId: number
   initialPlans?: any[]
+  /** The viewer's local date. */
+  today: string
 }) {
   const [plans, setPlans] = useState<any[]>(initialPlans ?? []),
     [error, setError] = useState('')
   useEffect(() => {
-    fetch(`/api/groups/${group.id}/plans?today=${localDate()}`)
+    fetch(`/api/groups/${group.id}/plans?today=${today}`)
       .then(async (r) => {
         if (!r.ok) throw 0
         const b = await r.json()
         setPlans(b.plans ?? [])
       })
       .catch(() => setError('Could not load group plans'))
-  }, [group.id])
+  }, [group.id, today])
   return (
     <section className="card">
       <div className="flex justify-between mb-4">

@@ -9,6 +9,7 @@ import {
   resolvePersistedRunType,
   type PaceZones,
 } from './run-classification'
+import { addDays, localDate, runDay, stravaTimezone, DEFAULT_TIMEZONE, type DatedRun } from './calendar'
 import { buildTrainingPaceZones, type PaceProfileActivity } from './pace-profile'
 import { ingestActivityFeatures } from './analysis/ingest'
 
@@ -339,29 +340,51 @@ export interface TrainingLoadPoint {
   load: number
 }
 
+const DEFAULT_MAX_HR = 190
+const NO_HR_INTENSITY = 0.75
+
+// hrTSS: hours × IF² × 100, where IF = avg HR / threshold HR (~89% of max).
+// Strava's Relative Effort (suffer_score) is exponential in HR zone, so a
+// 45-minute easy run scores ~10 and the fatigue curve reads it as a rest day.
+export function runTrainingLoad(
+  run: { moving_time: number; average_heartrate?: number | null },
+  maxHr: number = DEFAULT_MAX_HR
+): number {
+  const hours = run.moving_time / 3600
+  const intensity = run.average_heartrate && run.average_heartrate > 0
+    ? run.average_heartrate / (maxHr * 0.89)
+    : NO_HR_INTENSITY
+  return Math.round(hours * intensity * intensity * 100)
+}
+
+// Columns to select from `activities` for calculateTrainingLoad.
+export const TRAINING_LOAD_COLUMNS = 'start_date,start_date_local,timezone,moving_time,average_heartrate'
+
 export function calculateTrainingLoad(
-  activities: { start_date: string; suffer_score?: number; distance: number; moving_time: number }[]
+  activities: (DatedRun & { moving_time: number; average_heartrate?: number | null; timezone?: string | null })[],
+  opts: { maxHr?: number | null; timezone?: string; today?: string } = {}
 ): TrainingLoadPoint[] {
   if (!activities.length) return []
 
+  // Each run lands on the calendar day where it was run (a 6am Jakarta run is
+  // 23:00 UTC the day before). "Today" is in the runner's current zone.
+  const latest = activities.reduce((a, b) => (b.start_date > a.start_date ? b : a))
+  const timezone = opts.timezone ?? stravaTimezone(latest.timezone) ?? DEFAULT_TIMEZONE
+  const maxHr = opts.maxHr && opts.maxHr > 0 ? opts.maxHr : DEFAULT_MAX_HR
   const dailyLoad: Record<string, number> = {}
   for (const a of activities) {
-    const date = a.start_date.split('T')[0]
-    const load = a.suffer_score && a.suffer_score > 0
-      ? a.suffer_score
-      : Math.round((a.moving_time / 60) * 0.8)
-    dailyLoad[date] = (dailyLoad[date] ?? 0) + load
+    const date = runDay(a, timezone)
+    dailyLoad[date] = (dailyLoad[date] ?? 0) + runTrainingLoad(a, maxHr)
   }
 
   const dates = Object.keys(dailyLoad).sort()
   if (!dates.length) return []
 
-  const start = new Date(dates[0])
-  const end = new Date()
+  // After flying west, the last run's local day can be ahead of today's.
+  const today = opts.today ?? localDate(new Date(), timezone)
+  const end = today > dates[dates.length - 1] ? today : dates[dates.length - 1]
   const allDates: string[] = []
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    allDates.push(d.toISOString().split('T')[0])
-  }
+  for (let d = dates[0]; d <= end; d = addDays(d, 1)) allDates.push(d)
 
   const ATL_DECAY = 1 / 7
   const CTL_DECAY = 1 / 42

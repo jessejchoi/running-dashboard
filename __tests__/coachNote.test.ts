@@ -41,8 +41,7 @@ const MOCK_CTX = {
   recent_runs: [{ type: 'easy', date: '2026-04-01', pace_per_km: '5:30', distance_km: 8 }],
   goals: [{ label: '5K', days_to_race: 30 }],
   this_week_km: 25,
-  streak: 3, streak_label: "Rhythm streak 3 weeks",
-  avg_weekly_km_4w: 40,
+    avg_weekly_km_4w: 40,
 }
 
 const MOCK_RUN = {
@@ -128,12 +127,11 @@ describe('generateCoachNote — opts injection', () => {
   })
 })
 
-describe('generateCoachNote — Rhythm streak wording', () => {
-  // Regression: the prompt used to say "streak N weeks" (any week with a run); it now
-  // passes Rhythm's label so the coach doesn't misread a fresh-start streak of 0.
-  it('describes the streak with the Rhythm label, not a raw week count', async () => {
-    const label = 'Rhythm streak 0 weeks (weeks in a row hitting their weekly runs target); Rhythm season week 1: everyone restarted from zero, so a short streak is expected, not a failure'
-    ;(buildAthleteContext as ReturnType<typeof vi.fn>).mockResolvedValue({ ...MOCK_CTX, ytd_km: 800, streak: 0, streak_label: label })
+describe('generateCoachNote — no streak in the prompt', () => {
+  // Regression: the prompt used to say "streak N weeks" from the old any-run streak,
+  // which no longer exists; the coach doesn't use streaks.
+  it('describes the week without a streak', async () => {
+    ;(buildAthleteContext as ReturnType<typeof vi.fn>).mockResolvedValue({ ...MOCK_CTX, ytd_km: 800 })
     mockFrom
       .mockReturnValueOnce(makeChain({ data: MOCK_RUN, error: null }))
       .mockReturnValueOnce(makeChain({ data: null, error: null }))
@@ -141,7 +139,7 @@ describe('generateCoachNote — Rhythm streak wording', () => {
     await generateCoachNote(1, 123, { force: true })
 
     const prompt = (claudeMessage as ReturnType<typeof vi.fn>).mock.calls[0][0].messages[0].content as string
-    expect(prompt).toContain(`YTD 800km, ${label}, avg weekly km (4w) 40km`)
-    expect(prompt).not.toMatch(/streak \d+ weeks,/)
+    expect(prompt).toContain('YTD 800km, avg weekly km (4w) 40km')
+    expect(prompt).not.toMatch(/streak/i)
   })
 })

@@ -4,7 +4,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { speedToPace } from '@/lib/utils'
 import { addDays, commonTimezone, localDate, runDay, weekStart, DEFAULT_TIMEZONE } from '@/lib/calendar'
 import { athleteTimezone, athleteTimezones } from '@/lib/timezone'
-import { loadRhythmSummaries, type RhythmSummaries } from '@/lib/rhythmData'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -76,10 +75,6 @@ export interface CoachAthleteMetrics {
     distance_km: number
     pace_per_km: string
   }>
-  /** Rhythm streak: consecutive weeks hitting their weekly runs target. 0 while Rhythm is off. */
-  streak: number
-  /** Weeks since Rhythm launched (1 = launch week), or null while Rhythm is off. */
-  rhythm_season_week: number | null
   goals: Array<{
     label: string
     distance_key: string
@@ -293,8 +288,6 @@ export function buildAthleteMetricsFromActivities(params: {
   now?: Date
   /** The athlete's current zone. */
   timezone?: string
-  /** From loadRhythmSummaries; omitted while Rhythm is off. */
-  rhythm?: { streak: number; seasonWeek: number } | null
 }): CoachAthleteMetrics {
   const now = params.now ?? new Date()
   const timezone = params.timezone ?? DEFAULT_TIMEZONE
@@ -314,8 +307,6 @@ export function buildAthleteMetricsFromActivities(params: {
     totals,
     run_type_mix_4w: runTypeMix(params.activities, totals.rolling_4w, timezone),
     recent_runs: recentRuns(params.activities, timezone),
-    streak: params.rhythm?.streak ?? 0,
-    rhythm_season_week: params.rhythm?.seasonWeek ?? null,
     goals,
     recent_debriefs: params.debriefs ?? [],
     signals: [],
@@ -501,23 +492,10 @@ export function buildCoachFactsSnapshot(metrics: CoachGroupMetrics | CoachAthlet
   }
 }
 
-// Coaching copy shouldn't fail because Rhythm couldn't load; the streak just reads as untracked.
-function coachRhythm(ids: number[]): Promise<RhythmSummaries | null> {
-  return loadRhythmSummaries(ids).catch(error => {
-    console.error('[coach] Rhythm unavailable', error)
-    return null
-  })
-}
-
-function rhythmFor(summaries: RhythmSummaries | null, athleteId: number) {
-  const result = summaries?.byAthlete[athleteId]
-  return result ? { streak: result.streak, seasonWeek: result.seasonWeek } : null
-}
-
 export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthleteMetrics> {
   const now = new Date()
   const timezone = await athleteTimezone(athleteId)
-  const [{ data: allRuns }, { data: tokenRow }, { data: goals }, { data: debriefs }, rhythm] = await Promise.all([
+  const [{ data: allRuns }, { data: tokenRow }, { data: goals }, { data: debriefs }] = await Promise.all([
     recentCoachRuns([athleteId]),
     supabaseAdmin
       .from('strava_tokens')
@@ -535,7 +513,6 @@ export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthle
       .eq('athlete_id', athleteId)
       .order('generated_at', { ascending: false })
       .limit(5),
-    coachRhythm([athleteId]),
   ])
 
   const activities = allRuns ?? []
@@ -548,7 +525,6 @@ export async function buildAthleteMetrics(athleteId: number): Promise<CoachAthle
     debriefs: debriefs ?? [],
     now,
     timezone,
-    rhythm: rhythmFor(rhythm, athleteId),
   })
   metrics.totals = totals[athleteId] ?? metrics.totals
   metrics.signals = buildAthleteSignals(metrics)
@@ -585,7 +561,7 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     }
   }
 
-  const [{ data: tokens }, { data: goals }, { data: activities }, { data: debriefs }, { data: challenges }, rhythm] = await Promise.all([
+  const [{ data: tokens }, { data: goals }, { data: activities }, { data: debriefs }, { data: challenges }] = await Promise.all([
     supabaseAdmin
       .from('strava_tokens')
       .select('athlete_id, athlete_name')
@@ -607,7 +583,6 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
       .eq('group_id', groupId)
       .lte('start_date', today)
       .gte('end_date', today),
-    coachRhythm(memberIds),
   ])
 
   const nameMap: Record<number, string> = {}
@@ -625,7 +600,6 @@ export async function buildGroupMetrics(groupId: string): Promise<CoachGroupMetr
     debriefs: (debriefs ?? []).filter(d => d.athlete_id === athleteId),
     now,
     timezone,
-    rhythm: rhythmFor(rhythm, athleteId),
   }))
   for (const member of members) { member.totals = canonical[member.athlete_id] ?? member.totals; member.signals = buildAthleteSignals(member) }
   const totals = buildCoachTotals([], now, timezone)

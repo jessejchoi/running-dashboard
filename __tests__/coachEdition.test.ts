@@ -14,7 +14,7 @@ import { GET, POST, PATCH, DELETE } from '@/app/api/groups/[id]/shared-runs/rout
 import { createQueryChain } from './helpers/supabase'
 
 const member = (athlete_id: number, name: string, extra: Partial<CoachContext['members'][number]> = {}) => ({
-  athlete_id, name, streak: 0, streak_label: "Rhythm streak 0 weeks", goals: [], current_estimates: [], this_week_km: 0, this_month_km: 0, ytd_km: 0,
+  athlete_id, name, goals: [], current_estimates: [], this_week_km: 0, this_month_km: 0, ytd_km: 0,
   rolling_4w_km: 0, rolling_12w_km: 0, run_count_this_week: 0, recent_runs: [], ...extra,
 })
 const run = (athlete_id: number, date: string, km: number, extra: Partial<EditionRun> = {}): EditionRun => ({

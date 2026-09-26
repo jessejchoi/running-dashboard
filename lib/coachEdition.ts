@@ -37,7 +37,6 @@ export interface MemberWeek {
   baseline_km: number
   quality_runs_4w: number
   runs_4w: number
-  streak_weeks: number
   next_race: { label: string; days: number; gap: string | null } | null
 }
 
@@ -185,7 +184,6 @@ function summarize(
     baseline_km: round1(meters(base) / 1000 / 4),
     quality_runs_4w: last4w.filter(r => QUALITY_TYPES.has(r.run_type ?? '')).length,
     runs_4w: last4w.length,
-    streak_weeks: member.streak ?? 0,
     next_race: nextGoal
       ? {
           label: nextGoal.label,

@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import RunTypeSelector from '@/components/RunTypeSelector'
 import RunSurfaceBadge from '@/components/RunSurfaceBadge'
 import { speedToPace, formatDuration, formatDistance, paceUnitLabel, toJakartaDate, type DistanceUnit } from '@/lib/utils'
-import { type RunType } from '@/lib/runtypes'
+import { RUN_TYPES, type RunType } from '@/lib/runtypes'
 import { isTreadmillRun } from '@/lib/run-classification/surface'
 
 interface Activity {
@@ -52,6 +52,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
           const isFast = paceSeconds <= 270
           const isTreadmill = isTreadmillRun(run)
           const isLast = i === runs.length - 1
+          const typeConfig = runTypes[run.id] ? RUN_TYPES[runTypes[run.id] as RunType] : null
 
           return (
             <div
@@ -72,14 +73,23 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                 {/* Date — links to detail */}
                 <Link
                   href={`/runs/${run.id}`}
-                  className="font-mono text-xs shrink-0 hover:text-white transition-colors w-10"
+                  className="font-mono text-xs shrink-0 whitespace-nowrap hover:text-white transition-colors w-12"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   {format(toJakartaDate(run.start_date), 'MMM d')}
                 </Link>
 
+                {/* Type dot — mobile only; the full selector pill is too wide to fit */}
+                {typeConfig && (
+                  <span
+                    className={`sm:hidden shrink-0 w-2 h-2 rounded-full ${typeConfig.color}`}
+                    style={{ background: 'currentColor' }}
+                    title={typeConfig.label}
+                  />
+                )}
+
                 {/* Type selector */}
-                <div className="shrink-0" onClick={e => e.stopPropagation()}>
+                <div className="shrink-0 hidden sm:block" onClick={e => e.stopPropagation()}>
                   <RunTypeSelector
                     activityId={run.id}
                     current={runTypes[run.id]}

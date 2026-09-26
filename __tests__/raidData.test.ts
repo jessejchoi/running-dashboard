@@ -66,12 +66,13 @@ describe('loadRaidState', () => {
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
-  it('marks HP provisional until the week before the raid is frozen', async () => {
+  it('fixes HP before the raid: the same before and after the week before it freezes', async () => {
     const counts = [3, 3, 3, 3, 3, 3, 3, 2]
     const tuesday = new Date(`${addDays(RAID, 1)}T05:00:00Z`)
     setup({ 1: { zone: ZONE, ledger: [], runs: runs(counts) }, 2: { zone: ZONE, ledger: [], runs: runs(counts) } })
     const live = (await loadRaidState(GROUP, tuesday))!
-    expect(live.state.raid?.hpProvisional).toBe(true)
+    // The first raid's HP rests on nothing but launch (everyone starts Unarmed), so it's settled.
+    expect(live.state.raid?.hpProvisional).toBe(false)
 
     const wednesday = new Date(`${addDays(RAID, 2)}T05:00:00Z`)
     const row = frozenLaunchRow(counts, wednesday)
@@ -80,8 +81,6 @@ describe('loadRaidState', () => {
       2: { zone: ZONE, ledger: [row], runs: runs(counts) },
     })
     const frozen = (await loadRaidState(GROUP, wednesday))!
-    expect(frozen.state.raid?.hpProvisional).toBe(false)
-    // The frozen row and the live fold agree, so HP doesn't move when the week freezes.
     expect(frozen.state.raid?.hp).toBe(live.state.raid?.hp)
   })
 

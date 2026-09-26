@@ -272,7 +272,7 @@ function Countdown({ view, avatars }: { view: RaidView; avatars: Avatars }) {
   return (
     <Frame view={view}>
       <Stage boss={state.nextBoss} tag={`Incoming · ${shortDate(state.firstRaidStart)}`} />
-      <HpBlock hp={hp} remaining={hp} chunk={0} right="Grows as you level" rightColor={C.text2} />
+      <HpBlock hp={hp} remaining={hp} chunk={0} right="Full HP" rightColor={C.text2} />
       <Banner text="Sharpen your weapons" right={`${plural(state.daysLeft, 'day')} left`} color={C.accent} bg="rgba(249,115,22,0.10)" />
       <Party title="The party · this week's targets" rows={thisWeekRows(view)} avatars={avatars} />
     </Frame>

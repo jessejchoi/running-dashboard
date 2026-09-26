@@ -15,8 +15,8 @@ import { LEVEL_CAP, isMiss, levelIfOn, redeemableLevel, tierFor, type LedgerRow,
  */
 
 export const RAID_WEEKS = 4
-/** Boss HP is this share of what the group would deal if everyone hit every week. */
-export const HP_FACTOR = 0.75
+/** Boss HP is this share of what the party would deal if everyone hit every week. */
+export const HP_FACTOR = 0.6
 export const MIN_HP = 4
 /** A member with no qualifying run in this many weeks is dormant: no attack, no block. */
 export const DORMANT_WEEKS = 8
@@ -67,7 +67,7 @@ export function bossFor(index: number, firstIndex: number): Boss {
   return BOSSES[(index - firstIndex) % BOSSES.length]
 }
 
-/** Starting HP: half of what everyone active at the raid's start would deal hitting all 4 weeks. */
+/** Starting HP: HP_FACTOR of what the party, entering the raid at `startLevels`, would deal hitting all 4 weeks. */
 export function bossHp(startLevels: number[]): number {
   let max = 0
   for (const s of startLevels) {
@@ -289,20 +289,27 @@ export interface RaidSummary {
   overkill: number
 }
 
-/** A whole raid as of `currentWeek`: weeks from `currentWeek` on haven't finished. */
 /**
- * HP for a raid starting on `start`, from everyone active then at their level
- * after the week before. Provisional while any of those weeks isn't frozen
- * (or hasn't finished: the incoming boss's HP is a projection).
+ * HP for a raid starting on `start`: the max damage over its 4 weeks if every
+ * active member hits every target from the week before on. It only depends on
+ * weeks that finished before that week began, so it's known (and fixed) a week
+ * ahead: missing the week before a raid doesn't change the boss. Provisional
+ * while those weeks aren't frozen.
  */
 export function raidHp(members: RaidMemberInput[], start: string): { hp: number; provisional: boolean } {
   const before = addDays(start, -WEEK)
-  const startWeeks = members.filter(m => isActive(m, start)).map(m => memberWeek(m, before))
+  const starters = members.filter(m => isActive(m, start))
   return {
-    hp: bossHp(startWeeks.map(w => w?.level ?? 0)),
-    provisional: startWeeks.some(w => w != null && !w.frozen),
+    // levelIfOn: the level after the week before, had they hit it.
+    hp: bossHp(starters.map(m => memberWeek(m, before)?.levelIfOn ?? 1)),
+    provisional: starters.some(m => {
+      const settled = memberWeek(m, addDays(before, -WEEK))
+      return settled != null && !settled.frozen
+    }),
   }
 }
+
+/** A whole raid as of `currentWeek`: weeks from `currentWeek` on haven't finished. */
 
 export function resolveRaid(members: RaidMemberInput[], index: number, firstIndex: number, raidLaunch: string, currentWeek: string): RaidSummary {
   const start = raidStart(index, raidLaunch)
@@ -358,7 +365,7 @@ export interface RaidState {
   /** Days left this week in the group's zone, counting today. */
   daysLeft: number
   firstRaidStart: string
-  /** Before the first raid: the incoming boss's HP if it arrived with today's weapons. */
+  /** Before the first raid: the incoming boss's HP, already fixed (see raidHp). */
   projectedHp: number | null
   /** The raid in progress, or null before the group's first raid. */
   raid: RaidSummary | null

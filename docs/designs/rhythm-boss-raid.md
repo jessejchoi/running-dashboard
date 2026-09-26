@@ -264,7 +264,7 @@ Run days and on-weeks use the accent fill. That's approved with the sprites (202
 - **6 bosses in v1** (Jesse): the original 3 plus Snooze Hydra, Monsoon Wyrm and Excuse Goblin King, taking turns from each group's first raid.
 - **Raid start stays `RHYTHM_LAUNCH_WEEK` + 7 days** (Mon 2026-09-28), no new env var. PR2 lands partway through raid 1; the ledger makes that resolve itself (Jesse: fine if it sorts itself out after the first week).
 - **Named shaming is on** (Jesse confirmed, open question 4).
-- **Boss HP is 75%** of the party's max 4-week damage, not 50%.
+- **Boss HP is 60%** of the party's max 4-week damage (50% → 75% → 60%), **forecast a week ahead**: it assumes everyone hits the week before the raid too, so it's fixed before that week starts and missing it doesn't change the boss.
 - **Share cards:** "This week" (boss on a glowing stage, segmented HP, status banner, each member's target pips) and "Last week recap" (damage hit, SLAIN / ESCAPED / BLOCKED stamps, the party's results, roasts, and a 4-week strip on the final recap).
 
 **Group week.** Mon–Sun in `commonTimezone(member zones)`. For group week W, each member contributes their state and weapon for their own week that starts on the same date. Being a few hours out of line across zones is acceptable.
@@ -296,12 +296,11 @@ Members who joined mid-week start the following week. Dormant members don't atta
   - Before the first raid, the Raid panel shows "First boss arrives Mon <date>" alongside everyone's current weapon.
   - No history is backfilled, so there's no "7 bosses slain" on launch day.
   - Check that `groups.created_at` exists in the SQL editor. The table was created outside the repo's migrations. If it doesn't exist, every group starts at `RAID_LAUNCH_WEEK`, and later groups start at the next boundary after their first member joined (`min(group_members.joined_at)`).
-- **Boss HP:** fixed at the raid's start as `max(4, round(0.75 × Σ over members active at the raid's start of Σ_{k=1..4} power(s_m + k)))`.
-  - That's 75% of the damage the group would deal if every member hit every week (raised from 50% by Jesse, 2026-09-26). It scales with group size and current weapons.
-  - Before a group's first raid, the Raid tab and countdown card show a projected HP from today's weapons.
-  - HP is computed from each member's **frozen ledger `level` for the week before the raid**, so it's stable once that week freezes.
-  - During the raid's first 2 days (Monday and Tuesday, before the Wednesday freeze), HP is computed from the live fold and marked provisional.
-  - HP deliberately includes members who later rest or go dormant. The 0.75 factor leaves some slack for that: attacks are all-or-nothing and misses cost tiers, so real damage runs well below the maximum (outside-voice finding, eng review).
+- **Boss HP:** `max(4, round(0.6 × Σ over members active at the raid's start of Σ_{k=1..4} power(s_m + k)))`, where `s_m` is the level the member would have after the week before the raid **if they hit it** (`levelIfOn`).
+  - That's 60% of the damage the group would deal if every member hit every week (Jesse, 2026-09-27: 75% was too high). It scales with group size and current weapons.
+  - Because it assumes the week before is hit, HP depends only on weeks that finished before that week began. It's known a full week ahead, shown on the Raid tab and countdown card, and never moves once shown.
+  - HP is provisional only while the weeks it rests on (through two weeks before the raid) aren't frozen, which is at most the first days of the week before.
+  - HP deliberately includes members who later rest or go dormant. The 0.6 factor leaves slack for that: attacks are all-or-nothing and misses cost tiers, so real damage runs well below the maximum (outside-voice finding, eng review).
 - **Boss:** v1 has 6 bosses, taking turns in order from each group's first raid: Humidity Golem, Traffic Kraken, Couch Lich, Snooze Hydra, Monsoon Wyrm, Excuse Goblin King. Each has a name, a pixel sprite and 2 taunt lines.
   - v2 grows the roster: Treadmill Mimic, Rest Day Troll.
 - **How it ends:** the boss is **slain** in the week cumulative damage reaches its HP. Damage in later weeks of the raid is shown as "overkill" for bragging rights. If HP is still above 0 after 4 weeks, the boss **escapes** and taunts the group on the card.
@@ -429,7 +428,7 @@ This all ships in PR1. PR2 needs no migration.
 
 
 1. ~~**Pixel-sprite style:**~~ Approved 2026-09-26, and recorded in DESIGN.md's decisions log. Weapons are 16×16 upright grids in `lib/sprites.ts`. Boss sprites in PR2 follow the same style.
-2. **HP factor 0.75:** tune after the first raid. If the first boss dies in week 2, raise it. If nobody has killed a boss after 2 raids, lower it.
+2. **HP factor 0.6:** tune after the first raid. If the first boss dies in week 2, raise it. If nobody has killed a boss after 2 raids, lower it.
 3. ~~**Qualifying floor:**~~ Replaced by a flat minimum run time: 15 minutes, then lowered to 10 (2026-09-26).
 4. ~~**Naming on cards:**~~ Confirmed by Jesse (2026-09-26): named shaming is on.
 
@@ -516,7 +515,7 @@ The existing deployment pipeline covers this: push to Vercel, paste migration 02
 4. Paste migration 024, deploy, set `RHYTHM_LAUNCH_WEEK` to the next Monday, then redeploy.
 5. Confirm the sprite style (for example with `/plan-design-review`) before drawing the 3 bosses.
 6. **PR2:** tasks T8–T9. That's `lib/raid.ts`, `lib/raidData.ts`, `lib/raidCopy.ts`, the Raid tab, the card route and the share button. Built 2026-09-26.
-7. After the first raid, tune the HP factor (it starts at 0.75). After 2 weeks, check the v2 gate (TODO-006).
+7. After the first raid, tune the HP factor (it starts at 0.6). After 2 weeks, check the v2 gate (TODO-006).
 
 ## What I noticed about how you think
 

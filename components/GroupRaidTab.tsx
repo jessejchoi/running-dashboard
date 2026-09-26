@@ -2,7 +2,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { format, parseISO } from 'date-fns'
 import { addDays } from '@/lib/calendar'
-import { tierNumber } from '@/lib/rhythm'
 import { HP_FACTOR, RAID_WEEKS, type RaidRosterEntry, type RaidSummary, type RaidWeekResult } from '@/lib/raid'
 import { attackHeadline, firstName, rallyNames, shareText, stillNeeded } from '@/lib/raidCopy'
 import type { RaidReport, RaidView } from '@/lib/raidData'
@@ -41,6 +40,30 @@ function HpBar({ hp, remaining, chunk }: { hp: number; remaining: number; chunk:
   )
 }
 
+function HpReadout({ value, hp }: { value: number; hp: number }) {
+  return (
+    <p className="flex items-baseline gap-1.5 mb-1.5">
+      <span className="stat-num font-bold text-white leading-none" style={{ fontSize: 32 }}>{value}</span>
+      <span className="font-mono text-[12px]" style={{ color: 'var(--text-2)' }}>/ {hp} HP</span>
+    </p>
+  )
+}
+
+/** A row of separate segments, `filled` of them lit. */
+function SegmentBar({ count, filled, color, label, mark = 0 }: { count: number; filled: number; color: string; label: string; mark?: number }) {
+  return (
+    <div className="flex mt-2" style={{ gap: 6 }} role="img" aria-label={label}>
+      {Array.from({ length: count }, (_, i) => {
+        const on = i < filled
+        return <div key={i} style={{ flex: 1, height: 8, borderRadius: 2, background: on ? color : 'var(--surface-3)', border: `1px solid ${on ? color : i < mark ? 'var(--accent)' : 'var(--border)'}` }} />
+      })}
+    </div>
+  )
+}
+
+/** Damage segments: one per point, grouped when the max is large so they stay readable. */
+const DAMAGE_SEGMENTS = 20
+
 function BossHero({ view }: { view: RaidView }) {
   const { state } = view
   const raid = state.raid
@@ -66,20 +89,19 @@ function BossHero({ view }: { view: RaidView }) {
           <h2 className="font-display font-bold uppercase text-white leading-none mt-1.5" style={{ fontSize: 'clamp(20px, 5vw, 26px)', letterSpacing: '-0.02em' }}>{boss.name}</h2>
           {raid ? (
             <div className="mt-3">
+              <HpReadout value={slain ? 0 : hpLeft} hp={raid.hp} />
               <HpBar hp={raid.hp} remaining={hpLeft} chunk={slain ? 0 : state.thisWeek.locked} />
               <p className="font-mono text-[11px] mt-1.5" style={{ color: 'var(--text-2)' }}>
                 {slain
                   ? `Down in week ${raid.slainWeek} · overkill ${raid.overkill}`
-                  : <>HP <b className="text-white">{hpLeft}</b>/{raid.hp}{state.thisWeek.locked > 0 && <> · <span style={{ color: 'var(--accent)' }}>{state.thisWeek.locked} locked this week</span></>}</>}
-                {' · ends '}{day(raid.end)}
+                  : state.thisWeek.locked > 0 && <><span style={{ color: 'var(--accent)' }}>{state.thisWeek.locked} locked this week</span> · </>}
+                {!slain && `ends ${day(raid.end)}`}
               </p>
             </div>
           ) : state.projectedHp != null && (
             <div className="mt-3">
+              <HpReadout value={state.projectedHp} hp={state.projectedHp} />
               <HpBar hp={state.projectedHp} remaining={state.projectedHp} chunk={0} />
-              <p className="font-mono text-[11px] mt-1.5" style={{ color: 'var(--text-2)' }}>
-                HP <b className="text-white">{state.projectedHp}</b> · grows as your weapons level up
-              </p>
             </div>
           )}
         </div>
@@ -89,15 +111,14 @@ function BossHero({ view }: { view: RaidView }) {
   )
 }
 
-/** Bosses slain, raids fought and days left, at the foot of the last-week card. */
+/** Bosses slain and raids fought, at the foot of the last-week card. */
 function RaidStats({ view }: { view: RaidView }) {
   const { state } = view
   return (
-    <div className="grid grid-cols-3 gap-2 mt-4">
+    <div className="grid grid-cols-2 gap-2 mt-4">
       {([
         ['Bosses slain', `${state.bossesSlain}`],
         ['Raids fought', `${state.raidsFought + (state.raid ? 1 : 0)}`],
-        ['Days left', `${state.daysLeft}`],
       ] as const).map(([label, value]) => (
         <div key={label} className="rounded-lg" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
           <Eyebrow>{label}</Eyebrow>
@@ -128,23 +149,22 @@ function AttackCard({ view }: { view: RaidView }) {
       <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
         <b className="stat-num text-white">{week.attackers.length}</b> of <b className="stat-num text-white">{week.eligible.length}</b> on target · a majority needs <b className="stat-num text-white">{week.majority}</b>
       </p>
-      <div className="flex gap-1 mt-2" role="img" aria-label={`${week.attackers.length} of ${week.majority} attackers needed`}>
-        {week.eligible.map((f, i) => {
-          const on = i < week.attackers.length
-          const fill = week.landed ? 'var(--success)' : on ? 'var(--accent)' : 'var(--surface-3)'
-          return <div key={f.athlete_id} style={{ flex: 1, height: 8, borderRadius: 2, background: fill, border: `1px solid ${on ? fill : i < week.majority ? 'var(--accent)' : 'var(--border)'}` }} />
-        })}
-      </div>
-      <div className="grid grid-cols-2 gap-2 mt-4">
-        <div className="rounded-lg" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
-          <Eyebrow>Current damage</Eyebrow>
-          <div className="stat-num font-bold leading-none mt-1.5" style={{ fontSize: 26, color: week.landed ? 'var(--success)' : 'var(--text-1)' }}>{week.locked}</div>
-        </div>
-        <div className="rounded-lg" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
-          <Eyebrow>Max damage</Eyebrow>
-          <div className="stat-num text-white font-bold leading-none mt-1.5" style={{ fontSize: 26 }}>{week.possible}</div>
-        </div>
-      </div>
+      <SegmentBar
+        count={week.eligible.length}
+        filled={week.attackers.length}
+        mark={week.majority}
+        color={week.landed ? 'var(--success)' : 'var(--accent)'}
+        label={`${week.attackers.length} of ${week.majority} attackers needed`}
+      />
+      <p className="text-[13px] mt-4" style={{ color: 'var(--text-2)' }}>
+        <b className="stat-num" style={{ color: week.landed ? 'var(--success)' : 'var(--text-1)' }}>{week.locked}</b> current damage · <b className="stat-num text-white">{week.possible}</b> max damage
+      </p>
+      <SegmentBar
+        count={Math.min(week.possible, DAMAGE_SEGMENTS)}
+        filled={week.possible ? Math.round((week.locked / week.possible) * Math.min(week.possible, DAMAGE_SEGMENTS)) : 0}
+        color={week.landed ? 'var(--success)' : 'var(--accent)'}
+        label={`${week.locked} of ${week.possible} max damage`}
+      />
       {week.attackers.length > 0 && (
         <div className="mt-4">
           <Eyebrow>Attacking</Eyebrow>
@@ -256,7 +276,7 @@ function RosterRow({ r, pic, me }: { r: RaidRosterEntry; pic: string | null; me:
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold text-white truncate">{firstName(r.name)}{me && <span className="font-normal" style={{ color: 'var(--text-muted)' }}> (you)</span>}</p>
         <p className="font-mono text-[10px] uppercase tracking-wider truncate" style={{ color: 'var(--text-2)' }}>
-          Lv {tierNumber(r.tier)} {r.tier.name} · ATK {r.tier.power}{upgrade && <span style={{ color: 'var(--accent)' }}> → {r.damageIfOn}</span>}
+          ATK {r.tier.power}{upgrade && <span style={{ color: 'var(--accent)' }}> → {r.damageIfOn}</span>}
         </p>
       </div>
       <div className="flex flex-col items-end gap-1 shrink-0">
@@ -347,7 +367,7 @@ function Rules() {
         <span className="font-mono text-[11px] group-open:rotate-45 transition-transform" style={{ color: 'var(--text-muted)' }}>+</span>
       </summary>
       <ul className="text-[13px] mt-3 space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-2)' }}>
-        <li>Each boss lasts {RAID_WEEKS} weeks (Mon–Sun). Its HP is set at the start: {Math.round(HP_FACTOR * 100)}% of the max damage the full party could deal across the {RAID_WEEKS} weeks.</li>
+        <li>Each boss lasts {RAID_WEEKS} weeks (Mon–Sun). Its HP is set the week before it arrives: {Math.round(HP_FACTOR * 100)}% of the max damage the full party could deal across the {RAID_WEEKS} weeks.</li>
         <li>Hit your weekly target to join the attack. It only lands if a majority of active members hit their targets.</li>
         <li>When it lands, every attacker deals their weapon&apos;s power (after this week&apos;s level up). Top damage is MVP.</li>
         <li>Miss your target and your weapon drops a level. Hit it the next week to win it back.</li>

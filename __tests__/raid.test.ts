@@ -75,11 +75,11 @@ describe('raid calendar', () => {
 })
 
 describe('bossHp', () => {
-  it('is 75% of the damage of everyone hitting all 4 weeks from their starting level', () => {
-    // Level 1 → 2,3,4,5 = Dagger, Dagger, Sword, Sword = 10 each: 30 × 0.75.
-    expect(bossHp([1, 1, 1])).toBe(23)
+  it('is 60% of the damage of everyone hitting all 4 weeks from their starting level', () => {
+    // Level 1 → 2,3,4,5 = Dagger, Dagger, Sword, Sword = 10 each: 30 × 0.6.
+    expect(bossHp([1, 1, 1])).toBe(18)
     // Level 10 → 11 (Axe 5), then capped Legendary 8 × 3 = 29.
-    expect(bossHp([10])).toBe(22)
+    expect(bossHp([10])).toBe(17)
   })
 
   it('never drops below the minimum', () => {
@@ -213,13 +213,28 @@ describe('resolveRaid', () => {
     const members = [1, 2, 3].map(id => member(id, `M${id}`, [...BASE, 3, 3, 3, 3, 3, 3], end))
     const raid = resolveRaid(members, 0, 0, RAID, '2026-11-09')
     expect(raid.boss.key).toBe('golem')
-    expect(raid.hp).toBe(23)
+    expect(raid.hp).toBe(18)
     // Damage per week: 6 (Dagger), 6 (Dagger), 9 (Sword), 9 (Sword).
     expect(raid.weeks.map(w => w.damage)).toEqual([6, 6, 9, 9])
     expect(raid.status).toBe('slain')
-    // 6 + 6 + 9 = 21 falls short of 23; week 4's 9 finishes it.
-    expect(raid.slainWeek).toBe(4)
-    expect(raid.overkill).toBe(7)
+    // 6 + 6 = 12 falls short of 18; week 3's 9 finishes it.
+    expect(raid.slainWeek).toBe(3)
+    expect(raid.overkill).toBe(12)
+  })
+
+  it('fixes HP a week ahead: missing the week before the raid doesn\'t change it', () => {
+    const hit = [1, 2].map(id => member(id, `M${id}`, [...BASE, 3, 3], end))
+    const missed = [1, 2].map(id => member(id, `M${id}`, [...BASE, 0, 3], end))
+    expect(resolveRaid(missed, 0, 0, RAID, '2026-11-09').hp).toBe(resolveRaid(hit, 0, 0, RAID, '2026-11-09').hp)
+  })
+
+  it('marks HP provisional until the weeks it rests on are frozen', () => {
+    const counts = [...BASE, 3, 3, 3, 3, 3, 3]
+    const open = [1, 2].map(id => member(id, `M${id}`, counts, end))
+    // Raid 2 starts Nov 9; its HP rests on the weeks through Oct 26.
+    expect(resolveRaid(open, 1, 0, RAID, '2026-11-09').hpProvisional).toBe(true)
+    const frozen = [1, 2].map(id => member(id, `M${id}`, counts, end, { frozenThrough: '2026-10-26' }))
+    expect(resolveRaid(frozen, 1, 0, RAID, '2026-11-09').hpProvisional).toBe(false)
   })
 
   it('lets the boss escape after 4 weeks', () => {
@@ -253,8 +268,8 @@ describe('computeRaid', () => {
     expect(state.raid).toBeNull()
     expect(state.firstRaidStart).toBe(RAID)
     expect(state.nextBoss.key).toBe('golem')
-    // Launch week on target makes Ana level 1: 2+2+3+3 = 10 × 0.75.
-    expect(state.projectedHp).toBe(8)
+    // Forecast as if Ana hits launch week (level 1): 2+2+3+3 = 10 × 0.6.
+    expect(state.projectedHp).toBe(6)
     expect(state.roster[0]).toMatchObject({ name: 'Ana', on: true, role: 'fighting' })
   })
 

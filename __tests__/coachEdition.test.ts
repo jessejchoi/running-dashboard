@@ -8,8 +8,8 @@ import { buildCoachContext, type CoachContext } from '@/lib/coachContext'
 import { claimJob, enqueueJob, finishJob } from '@/lib/jobs'
 import { claudeMessage } from '@/lib/claude'
 import { buildEditionPlan, editionWindow, type EditionRun } from '@/lib/coachEdition'
-import { allowedNumbers, grounded, resolveEdition } from '@/lib/coachEditionCopy'
-import { composeBriefing, getBriefing, groupCoachModelVersion, groupVersion, publicGroupTraining, runBriefingJob } from '@/lib/groupCoach'
+import { allowedNumbers, editionPrompt, grounded, resolveEdition } from '@/lib/coachEditionCopy'
+import { composeBriefing, editionCopyKey, getBriefing, groupCoachModelVersion, groupVersion, publicGroupTraining, runBriefingJob } from '@/lib/groupCoach'
 import { GET, POST, PATCH, DELETE } from '@/app/api/groups/[id]/shared-runs/route'
 import { createQueryChain } from './helpers/supabase'
 
@@ -196,15 +196,52 @@ describe('briefing jobs', () => {
       .toEqual([[1, 'mileage_monster'], [2, 'speed_demon']])
   })
 
+  it('stores the model copy with the fingerprint of its input', async () => {
+    vi.mocked(claimJob).mockResolvedValue({ id: 'job', scope: 'g', input_version: 'v', lease_token: 'l' } as any)
+    vi.mocked(supabaseAdmin.rpc).mockImplementation(((name: string) =>
+      Promise.resolve({ data: name === 'group_input_version' ? 'v' : false, error: null })) as any)
+    const ctx = makeCtx('2026-09-21', recapRuns)
+    vi.mocked(buildCoachContext).mockResolvedValue(ctx)
+    const copy = { headline: 'Budi ran 42 km. Discuss.', lines: [], mission: '', roll_call: [], award_captions: [] }
+    vi.mocked(claudeMessage).mockResolvedValue(JSON.stringify(copy))
+    vi.mocked(supabaseAdmin.from).mockReturnValue(createQueryChain({ data: null, error: null }) as any)
+    await runBriefingJob('job')
+    const content = vi.mocked(supabaseAdmin.rpc).mock.calls.find(c => c[0] === 'commit_briefing')![1] as any
+    expect(content.p_content.copy_cache).toEqual({ key: editionCopyKey(editionPrompt(buildEditionPlan(ctx, recapRuns), 'Track Rats')), copy })
+  })
+
+  it('reuses the stored copy instead of calling the model when the input is unchanged', async () => {
+    vi.mocked(claimJob).mockResolvedValue({ id: 'job', scope: 'g', input_version: 'v2', lease_token: 'l' } as any)
+    vi.mocked(supabaseAdmin.rpc).mockImplementation(((name: string) =>
+      Promise.resolve({ data: name === 'group_input_version' ? 'v2' : false, error: null })) as any)
+    // A recap ignores this week's runs, so a new Monday run leaves the model input untouched.
+    const before = makeCtx('2026-09-21', recapRuns)
+    const withNewRun = [...recapRuns, run(3, '2026-09-21', 7)]
+    const after = { ...makeCtx('2026-09-21', withNewRun), members: before.members.map(m => m.athlete_id === 3 ? { ...m, this_week_km: 7, run_count_this_week: 1 } : m) }
+    const key = editionCopyKey(editionPrompt(buildEditionPlan(before, recapRuns), 'Track Rats'))
+    expect(editionCopyKey(editionPrompt(buildEditionPlan(after, withNewRun), 'Track Rats'))).toBe(key)
+    const copy = { headline: 'Budi ran 42 km. Discuss.', lines: [], mission: '', roll_call: [], award_captions: [] }
+    vi.mocked(buildCoachContext).mockResolvedValue(after)
+    vi.mocked(supabaseAdmin.from).mockReturnValue(createQueryChain({ data: { content_json: { copy_cache: { key, copy } } }, error: null }) as any)
+    await runBriefingJob('job')
+    expect(claudeMessage).not.toHaveBeenCalled()
+    const content = vi.mocked(supabaseAdmin.rpc).mock.calls.find(c => c[0] === 'commit_briefing')![1] as any
+    expect(content.p_content.edition.headline).toBe('Budi ran 42 km. Discuss.')
+    expect(content.p_content.edition.ticker).toEqual({ km: 13, runs: 2 })
+    expect(content.p_content.copy_cache.key).toBe(key)
+  })
+
   it('falls back to templates when the model is unavailable', async () => {
     vi.mocked(claimJob).mockResolvedValue({ id: 'job', scope: 'g', input_version: 'v', lease_token: 'l' } as any)
     vi.mocked(supabaseAdmin.rpc).mockImplementation(((name: string) =>
       Promise.resolve({ data: name === 'group_input_version' ? 'v' : false, error: null })) as any)
     vi.mocked(buildCoachContext).mockResolvedValue(makeCtx('2026-09-24', recapRuns))
     vi.mocked(claudeMessage).mockRejectedValue(new Error('timeout'))
+    vi.mocked(supabaseAdmin.from).mockReturnValue(createQueryChain({ data: null, error: null }) as any)
     await runBriefingJob('job')
     const content = vi.mocked(supabaseAdmin.rpc).mock.calls.find(c => c[0] === 'commit_briefing')![1] as any
     expect(content.p_content.edition).toMatchObject({ mode: 'midweek', voice: 'template' })
+    expect(content.p_content.copy_cache).toBeUndefined()
     expect(supabaseAdmin.from).not.toHaveBeenCalledWith('group_member_awards')
   })
 })

@@ -34,6 +34,8 @@ export interface BriefingContent {
   }>
   group_momentum: 'rising' | 'steady' | 'dipping'
   coach_tip: string
+  /** The model's copy and the fingerprint of the input that produced it. */
+  copy_cache?: { key: string; copy: import('@/lib/coachEditionCopy').EditionCopy }
 }
 
 function cleanText(value: unknown, maxLen: number): string {

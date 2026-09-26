@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { activeModelVersion } from '@/lib/analysis/expected'
 import { buildCoachContext, type CoachContext } from '@/lib/coachContext'
@@ -106,7 +107,26 @@ export async function deterministicBriefing(groupId: string) {
   const plan = buildEditionPlan(ctx, ctx.runs ?? [])
   return { brief: composeBriefing(plan, ctx, null), plan, ctx }
 }
-async function writeEditionCopy(plan: EditionPlan, ctx: CoachContext): Promise<EditionCopy | null> {
+/** Fingerprint of everything the model sees; equal keys mean the copy would be written for the same input. */
+export function editionCopyKey(prompt: string) {
+  return createHash('sha256')
+    .update(JSON.stringify([EDITION_MODEL, EDITION_SYSTEM_PROMPT, EDITION_COPY_SCHEMA, prompt]))
+    .digest('hex')
+}
+/**
+ * Most syncs don't change the edition's facts (a recap ignores this week's runs), so the
+ * previous copy is reused whenever the model input is identical.
+ */
+async function writeEditionCopy(groupId: string, plan: EditionPlan, ctx: CoachContext): Promise<BriefingContent['copy_cache']> {
+  const prompt = editionPrompt(plan, ctx.group.name)
+  const key = editionCopyKey(prompt)
+  const { data: cached } = await supabaseAdmin
+    .from('group_coach_briefings')
+    .select('content_json')
+    .eq('group_id', groupId)
+    .maybeSingle()
+  const previous = (cached?.content_json as BriefingContent | undefined)?.copy_cache
+  if (previous?.key === key) return previous
   try {
     const raw = await claudeMessage({
       model: EDITION_MODEL,
@@ -116,12 +136,13 @@ async function writeEditionCopy(plan: EditionPlan, ctx: CoachContext): Promise<E
       timeoutMs: 30000,
       retries: 0,
       system: EDITION_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: editionPrompt(plan, ctx.group.name) }],
+      messages: [{ role: 'user', content: prompt }],
     })
-    return parseEditionCopy(raw)
+    const copy = parseEditionCopy(raw)
+    return copy ? { key, copy } : undefined
   } catch {
-    // Templated copy survives model outages and refusals.
-    return null
+    // Templated copy survives model outages and refusals; nothing is cached, so the next job retries.
+    return undefined
   }
 }
 export async function runBriefingJob(id: string) {
@@ -133,7 +154,8 @@ export async function runBriefingJob(id: string) {
       return
     }
     const { plan, ctx } = await deterministicBriefing(job.scope)
-    const brief = composeBriefing(plan, ctx, await writeEditionCopy(plan, ctx))
+    const copyCache = await writeEditionCopy(job.scope, plan, ctx)
+    const brief: BriefingContent = { ...composeBriefing(plan, ctx, copyCache?.copy ?? null), copy_cache: copyCache }
     const { data: committed, error } = await supabaseAdmin.rpc(
       'commit_briefing',
       {

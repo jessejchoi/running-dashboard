@@ -7,13 +7,16 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import OnboardingPage from '@/components/OnboardingPage'
+import Eyebrow from '@/components/Eyebrow'
+import NextRaceBlock from '@/components/NextRaceBlock'
 import { WeeklyMileageChart, TrainingLoadChart } from '@/components/DashboardCharts'
 import DashboardRaceSection from '@/components/DashboardRaceSection'
 import RecentRunsCard from '@/components/RecentRunsCard'
 import PrefetchGroup from '@/components/PrefetchGroup'
 import { formatDuration, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
-import { localDate, runDay, validTimezone, weekStart, DEFAULT_TIMEZONE } from '@/lib/calendar'
+import { addDays, localDate, runDay, validTimezone, weekStart, DEFAULT_TIMEZONE } from '@/lib/calendar'
+import { primaryRace, type UserGoal } from '@/lib/goals'
 import { format, parseISO } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
@@ -29,6 +32,7 @@ async function getFastData(athleteId: number) {
     { data: activities },
     { data: tokenData },
     { data: userProfile },
+    { data: goals },
     totalsByAthlete,
   ] = await Promise.all([
     supabaseAdmin
@@ -44,6 +48,12 @@ async function getFastData(athleteId: number) {
       .eq('athlete_id', athleteId)
       .single(),
     profileQuery,
+    // Small table; fetched here so the next-race block paints with the page.
+    supabaseAdmin
+      .from('user_goals')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .order('race_date'),
     profileQuery.then(({ data }) =>
       canonicalTotals([athleteId], getCoachRangeDefinitions(new Date(), profileTimezone(data)))),
   ])
@@ -53,10 +63,10 @@ async function getFastData(athleteId: number) {
     activities: activities ?? [],
     athlete: tokenData?.athlete_data,
     displayName: userProfile?.display_name ?? null,
-    hasMaxHr: !!userProfile?.max_hr,
     maxHr: (userProfile?.max_hr as number | null) ?? null,
     timezone: profileTimezone(userProfile),
     primaryGroupId: userProfile?.primary_group_id ?? null,
+    goals: (goals ?? []) as UserGoal[],
   }
 }
 
@@ -67,24 +77,29 @@ function profileTimezone(profile: { timezone?: string | null } | null) {
 /** Skeleton for the race estimates + goals section */
 function RaceSectionSkeleton() {
   return (
-    <div className="animate-pulse mb-3">
-      <div className="card" style={{ padding: '1.25rem' }}>
-        <div className="h-3 w-28 bg-[#1c1c1c] rounded mb-4" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-20 bg-[#1c1c1c] rounded-lg" />
-          ))}
-        </div>
+    <div className="animate-pulse my-3 space-y-3">
+      <div className="panel grid-cols-1 sm:grid-cols-3">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="cell h-40" />
+        ))}
       </div>
-      <div className="mt-3 grid gap-3">
-        {[...Array(2)].map((_, i) => (
-          <div key={i} className="h-24 bg-[#1c1c1c] rounded-xl" />
+      <div className="panel grid-cols-2 sm:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="cell h-24" />
         ))}
       </div>
     </div>
   )
 }
 
+function Readout({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="readout" style={{ '--rail': color } as React.CSSProperties}>
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--text-3)' }}>{label}</p>
+      <p className="stat-num text-xl sm:text-2xl font-bold mt-1" style={{ color: label === 'Form' ? color : undefined }}>{value}</p>
+    </div>
+  )
+}
 
 export default async function DashboardPage() {
   const cookieStore = cookies()
@@ -95,21 +110,37 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, hasMaxHr, primaryGroupId, totals, maxHr, timezone } = await getFastData(Number(athleteId))
+  const { activities, athlete, displayName, primaryGroupId, totals, goals, maxHr, timezone } = await getFastData(Number(athleteId))
   // Weeks and days are the runner's own: each run counts on the day it was run,
   // and "today" is in the zone of their latest run.
   const today = localDate(new Date(), timezone)
   // The chart shows 90 days; don't serialize the full history to the client.
   const trainingLoad = calculateTrainingLoad(activities, { maxHr, timezone, today }).slice(-100)
+  const load = trainingLoad[trainingLoad.length - 1]
   const runs = activities.map((a: any) => ({ ...a, day: runDay(a, timezone) }))
   const mileageRuns = runs.map(a => ({ day: a.day, distance: a.distance }))
 
   const thisWeek = weekStart(today)
   const weekTime = runs.filter(a => a.day >= thisWeek).reduce((s: number, a: any) => s + a.moving_time, 0)
   const weekDist = totals.week.meters
-  const yearStart = new Date(new Date().getFullYear(), 0, 1)
   const yearDist = totals.ytd.meters
   const unitLabel = distanceUnitLabel(unit)
+
+  // Average of the four completed weeks before this one.
+  const priorMeters = runs
+    .filter(a => a.day >= addDays(thisWeek, -28) && a.day < thisWeek)
+    .reduce((s: number, a: any) => s + a.distance, 0)
+  const fourWeekAvg = formatDistanceShort(priorMeters / 4, unit).split(' ')[0]
+
+  const nextRace = primaryRace(goals, today)
+  const formColor = !load ? 'var(--text-3)' : load.tsb >= 0 ? 'var(--success)' : 'var(--warning)'
+
+  const stats = [
+    { label: 'Week runs',  value: `${totals.week.source_count}`, unit: 'runs' },
+    { label: 'Week time',  value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
+    { label: 'This year',  value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel },
+    { label: 'Activities', value: `${totals.ytd.source_count}`, unit: 'this yr' },
+  ]
 
   return (
     <>
@@ -119,64 +150,73 @@ export default async function DashboardPage() {
       <main className="standalone-main max-w-6xl mx-auto px-3 sm:px-6 pt-8 sm:pt-20 pb-24 sm:pb-16">
 
         {/* Page header */}
-        <div className="mb-6 fade-up">
-          <h1 className="font-display font-extrabold uppercase" style={{ fontSize: 'clamp(28px, 6vw, 48px)', letterSpacing: '-0.02em' }}>
-            Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]} 👋
+        <div className="mb-5 sm:mb-7 fade-up">
+          <h1 className="font-display font-extrabold uppercase leading-[0.95]" style={{ fontSize: 'clamp(30px, 6vw, 44px)', letterSpacing: '-0.02em' }}>
+            Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]}
           </h1>
-          <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            {format(parseISO(today), 'EEE, MMM d')} · {totals.all_time.source_count} runs tracked
+          <p className="font-mono text-[11px] mt-3 uppercase tracking-[0.16em] flex gap-3" style={{ color: 'var(--text-3)' }}>
+            <span>{format(parseISO(today), 'EEE, MMM d')}</span>
+            <span style={{ color: 'var(--text-4)' }}>/</span>
+            <span>Wk {format(parseISO(today), 'I')}</span>
+            <span className="hidden sm:inline" style={{ color: 'var(--text-4)' }}>/</span>
+            <span className="hidden sm:inline">{totals.all_time.source_count} runs tracked</span>
           </p>
         </div>
 
-        {/* ── Bento Row 1: Weekly chart + mini stats ── */}
-        <div className="grid grid-cols-12 gap-3 mb-3">
+        {/* ── Row 1: next race + weekly distance, stats band ── */}
+        <div className="panel grid-cols-12 mb-3 fade-up">
+          <NextRaceBlock
+            athleteId={Number(athleteId)}
+            goal={nextRace}
+            unit={unit}
+            className="col-span-12 md:col-span-5"
+          />
 
-          {/* Weekly Mileage — hero chart card */}
-          <div className="col-span-12 md:col-span-7 card glow-orange fade-up" style={{ padding: '1.25rem' }}>
-            <div className="flex items-start justify-between mb-1">
-              <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Weekly Distance</p>
-            </div>
-            <div className="stat-num font-bold leading-none text-white mb-4" style={{ fontSize: 'clamp(32px, 5vw, 44px)' }}>
+          <div className="cell col-span-12 md:col-span-7">
+            <Eyebrow n="01" label="Weekly distance" right={`4-wk avg ${fourWeekAvg}`} />
+            <div className="stat-num font-bold leading-none mb-4" style={{ fontSize: 'clamp(34px, 5vw, 46px)', letterSpacing: '-0.02em' }}>
               {formatDistanceShort(weekDist, unit).split(' ')[0]}
-              <span className="font-normal ml-1.5" style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>{unitLabel}</span>
+              <span className="font-normal ml-1.5 uppercase" style={{ fontSize: 14, color: 'var(--text-3)' }}>{unitLabel}</span>
             </div>
-            <div style={{ height: 160 }}>
-              <WeeklyMileageChart activities={mileageRuns} today={today} />
+            <div style={{ height: 150 }}>
+              <WeeklyMileageChart activities={mileageRuns} today={today} weeks={12} />
             </div>
           </div>
 
-          {/* Mini stats — 2×2 */}
-          <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
-            {[
-              { label: 'Week runs',  value: `${totals.week.source_count}`, unit: 'runs' },
-              { label: 'Week time',  value: weekTime > 0 ? formatDuration(weekTime) : '--', unit: '' },
-              { label: 'This year',  value: formatDistanceShort(yearDist, unit).split(' ')[0], unit: unitLabel },
-              { label: 'Activities', value: `${totals.ytd.source_count}`, unit: 'this yr' },
-            ].map((s, i) => (
-              <div key={i} className="card fade-up" style={{ animationDelay: `${60 + i * 50}ms`, padding: '0.875rem 1rem' }}>
-                <p className="font-mono text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
-                <div className="stat-num text-2xl font-bold leading-none text-white">
-                  {s.value}
-                  {s.unit && <span className="font-normal ml-1" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.unit}</span>}
-                </div>
+          {stats.map((s, i) => (
+            <div key={s.label} className="cell col-span-6 md:col-span-3">
+              <Eyebrow n={`0${i + 2}`} label={s.label} />
+              <div className="stat-num text-xl sm:text-[26px] font-bold leading-none">
+                {s.value}
+                {s.unit && <span className="font-normal ml-1" style={{ fontSize: 11, color: 'var(--text-3)' }}>{s.unit}</span>}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
 
         {/* Training Load */}
-        {trainingLoad.length > 0 && (
-          <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
-            <p className="font-mono text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Training Load</p>
-            <div style={{ height: 160 }}>
-              <TrainingLoadChart data={trainingLoad} days={90} />
+        {trainingLoad.length > 0 && load && (
+          <div className="panel grid-cols-12 mb-3 fade-up">
+            <div className="cell col-span-12 md:col-span-3">
+              <Eyebrow n="06" label="Training load" />
+              <div className="flex md:flex-col gap-4 md:gap-5">
+                <Readout label="Fitness" value={load.ctl.toFixed(0)} color="var(--accent)" />
+                <Readout label="Fatigue" value={load.atl.toFixed(0)} color="#52525b" />
+                <Readout label="Form" value={`${load.tsb > 0 ? '+' : load.tsb < 0 ? '−' : ''}${Math.abs(load.tsb).toFixed(0)}`} color={formColor} />
+              </div>
+            </div>
+            <div className="cell col-span-12 md:col-span-9">
+              <Eyebrow label="90 days" className="hidden md:flex" />
+              <div style={{ height: 150 }}>
+                <TrainingLoadChart data={trainingLoad} days={90} />
+              </div>
             </div>
           </div>
         )}
 
         {/* ── Race Goals + Estimates (deferred) ── */}
         <Suspense fallback={<RaceSectionSkeleton />}>
-          <DashboardRaceSection athleteId={Number(athleteId)} unit={unit} hasMaxHr={hasMaxHr} today={today} />
+          <DashboardRaceSection athleteId={Number(athleteId)} goals={goals} unit={unit} today={today} />
         </Suspense>
 
         {/* ── Recent Runs ── */}

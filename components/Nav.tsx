@@ -1,14 +1,14 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Activity, RefreshCw, Users, Settings } from 'lucide-react'
+import { RefreshCw, Settings } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import SettingsDrawer from './SettingsDrawer'
 import RunDashWordmark from './RunDashWordmark'
 
 const navItems = [
-  { href: '/',       label: 'Dashboard', icon: Activity },
-  { href: '/groups', label: 'Group',     icon: Users },
+  { href: '/',       label: 'Dashboard' },
+  { href: '/groups', label: 'Group' },
 ]
 
 export default function Nav() {
@@ -54,10 +54,10 @@ export default function Nav() {
     <>
       {/* ── Desktop top nav ───────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 hidden sm:block" style={{ background: 'rgba(8,8,8,0.85)', backdropFilter: 'blur(16px) saturate(180%)', WebkitBackdropFilter: 'blur(16px) saturate(180%)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-14">
+        <div className="max-w-6xl mx-auto px-6 flex items-center h-14">
           <RunDashWordmark markClassName="h-7 w-auto" textClassName="text-xl" />
-          <div className="flex items-center gap-1">
-            {navItems.map(({ href, label, icon: Icon }) => {
+          <div className="flex items-center gap-6 self-stretch mr-auto ml-10">
+            {navItems.map(({ href, label }) => {
               const active = path === href || (href !== '/' && path.startsWith(href)) || (href === '/groups' && path.startsWith('/group/'))
               const loading = pendingHref === href && isPending
               return (
@@ -66,16 +66,15 @@ export default function Nav() {
                   href={href}
                   prefetch={true}
                   onClick={() => handleNavClick(href)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-150"
+                  className="flex items-center h-full font-mono text-[11px] font-bold uppercase tracking-[0.14em] transition-colors duration-150 border-b-2 -mb-px"
                   style={{
-                    color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
-                    background: active || loading ? 'var(--accent-muted)' : 'transparent',
+                    color: active || loading ? 'var(--text-1)' : 'var(--text-muted)',
+                    borderColor: active || loading ? 'var(--accent)' : 'transparent',
                     opacity: loading ? 0.75 : 1,
                     WebkitTapHighlightColor: 'transparent',
                     touchAction: 'manipulation',
                   }}
                 >
-                  <Icon size={14} />
                   {label}
                 </Link>
               )
@@ -85,10 +84,10 @@ export default function Nav() {
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="flex items-center gap-2 px-3 py-2 text-xs rounded-md transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] rounded-md transition-all disabled:opacity-50"
               style={{ color: syncMsg && !syncing ? 'var(--success)' : 'var(--text-muted)', border: '1px solid var(--border)' }}
             >
-              <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
+              <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
               {syncing ? 'Syncing…' : syncMsg ?? 'Sync Strava'}
             </button>
             <button
@@ -153,7 +152,7 @@ export default function Nav() {
               href={href}
               prefetch={true}
               onClick={() => handleNavClick(href)}
-              className="px-6 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-150"
+              className="px-6 py-2 rounded-full font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition-all duration-150"
               style={{
                 color: active || loading ? 'var(--orange)' : 'var(--text-muted)',
                 background: active || loading ? 'rgba(249,115,22,0.12)' : 'transparent',

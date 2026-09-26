@@ -1,5 +1,5 @@
 'use client'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { metersToKm, metersToMiles, distanceUnitLabel } from '@/lib/utils'
 import { addDays, weekStart } from '@/lib/calendar'
 import { useUnit } from '@/lib/unit-context'
@@ -25,6 +25,31 @@ function CustomTooltip({ active, payload, label, unitLabel }: any) {
       <div className="text-[#6b7280] mb-1">{label}</div>
       <div className="font-mono text-white font-bold">{payload[0].value.toFixed(1)} {unitLabel}</div>
     </div>
+  )
+}
+
+const SEG = 4 // segment height, px
+const SEG_GAP = 2
+
+/** Timing-display bar: a stack of 4px segments; the top segment is lit on past weeks. */
+function SegmentedBar({ x, y, width, height, payload }: any) {
+  if (!height || height <= 0) return null
+  const count = Math.max(1, Math.round(height / (SEG + SEG_GAP)))
+  const bottom = y + height
+  const current = payload?.isCurrentWeek
+  return (
+    <g>
+      {Array.from({ length: count }, (_, k) => (
+        <rect
+          key={k}
+          x={x}
+          y={bottom - (k + 1) * (SEG + SEG_GAP) + SEG_GAP}
+          width={width}
+          height={SEG}
+          fill={current ? '#f97316' : k === count - 1 ? '#3f3f46' : '#232323'}
+        />
+      ))}
+    </g>
   )
 }
 
@@ -54,26 +79,20 @@ export default function WeeklyMileageChart({ activities, today, weeks = 16 }: Pr
     // Explicit pixel height on a plain div — Recharts recommended pattern
     <div style={{ width: '100%', height: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} barSize={14} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+        <BarChart data={data} barCategoryGap="18%" margin={{ top: 4, right: 14, left: 0, bottom: 0 }}>
           <XAxis
             dataKey="week"
-            tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+            tick={{ fill: '#4b5563', fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}
+            ticks={data.filter((_, i) => (data.length - 1 - i) % 4 === 0).map(d => d.week)}
+            tickFormatter={(v: string) => (v === data[data.length - 1].week ? 'THIS WK' : v.toUpperCase())}
             axisLine={false}
             tickLine={false}
-            interval={3}
+            interval={0}
           />
-          <YAxis
-            tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-            axisLine={false}
-            tickLine={false}
-          />
+          <YAxis hide domain={[0, (max: number) => max * 1.08]} />
           <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-          <ReferenceLine y={avg} stroke="#f97316" strokeDasharray="4 4" strokeOpacity={0.5} strokeWidth={1} />
-          <Bar dataKey="km" radius={[3, 3, 0, 0]}>
-            {data.map((entry, i) => (
-              <Cell key={i} fill={entry.isCurrentWeek ? '#f97316' : entry.km > avg ? '#3a3a3a' : '#242424'} />
-            ))}
-          </Bar>
+          <ReferenceLine y={avg} stroke="#f97316" strokeDasharray="3 4" strokeOpacity={0.45} strokeWidth={1} />
+          <Bar dataKey="km" shape={<SegmentedBar />} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>

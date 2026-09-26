@@ -24,7 +24,7 @@ beforeAll(async () => {
   await db.exec(
     "insert into background_jobs(kind,scope,input_version) values('adapt','70','1:2026-09-26')",
   )
-  const retirePlans = readFileSync('supabase/migration_024.sql', 'utf8')
+  const retirePlans = readFileSync('supabase/migration_025.sql', 'utf8')
   await db.exec(retirePlans)
   await db.exec(retirePlans)
   await db.query('insert into groups(id,name) values($1,$2)', [

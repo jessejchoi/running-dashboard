@@ -41,8 +41,7 @@ const MOCK_CTX = {
   recent_runs: [{ type: 'easy', date: '2026-04-01', pace_per_km: '5:30', distance_km: 8 }],
   goals: [{ label: '5K', days_to_race: 30 }],
   this_week_km: 25,
-  streak: 3,
-  avg_weekly_km_4w: 40,
+    avg_weekly_km_4w: 40,
 }
 
 const MOCK_RUN = {
@@ -125,5 +124,22 @@ describe('generateCoachNote — opts injection', () => {
     const result = await generateCoachNote(1, 123)
     expect(result).toBe('cached')
     expect(claudeMessage).not.toHaveBeenCalled()
+  })
+})
+
+describe('generateCoachNote — no streak in the prompt', () => {
+  // Regression: the prompt used to say "streak N weeks" from the old any-run streak,
+  // which no longer exists; the coach doesn't use streaks.
+  it('describes the week without a streak', async () => {
+    ;(buildAthleteContext as ReturnType<typeof vi.fn>).mockResolvedValue({ ...MOCK_CTX, ytd_km: 800 })
+    mockFrom
+      .mockReturnValueOnce(makeChain({ data: MOCK_RUN, error: null }))
+      .mockReturnValueOnce(makeChain({ data: null, error: null }))
+
+    await generateCoachNote(1, 123, { force: true })
+
+    const prompt = (claudeMessage as ReturnType<typeof vi.fn>).mock.calls[0][0].messages[0].content as string
+    expect(prompt).toContain('YTD 800km, avg weekly km (4w) 40km')
+    expect(prompt).not.toMatch(/streak/i)
   })
 })

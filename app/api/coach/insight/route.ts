@@ -51,7 +51,7 @@ ${JSON.stringify(ctx.facts, null, 2)}
 Coach signals:
 ${JSON.stringify(ctx.signals, null, 2)}
 Recent runs (last ~4 weeks): ${JSON.stringify(ctx.recent_runs.slice(0, 20), null, 2)}
-This week: ${ctx.this_week_km}km, YTD: ${ctx.ytd_km}km, streak: ${ctx.streak} weeks, avg weekly km (4w): ${ctx.avg_weekly_km_4w}km
+This week: ${ctx.this_week_km}km, YTD: ${ctx.ytd_km}km, avg weekly km (4w): ${ctx.avg_weekly_km_4w}km
 Goals: ${JSON.stringify(ctx.goals.map(g => ({ label: g.label, days_to_race: g.days_to_race })))}`
 
   let content: string

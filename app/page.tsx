@@ -9,6 +9,7 @@ import Nav from '@/components/Nav'
 import OnboardingPage from '@/components/OnboardingPage'
 import { WeeklyMileageChart, TrainingLoadChart } from '@/components/DashboardCharts'
 import DashboardRaceSection from '@/components/DashboardRaceSection'
+import DashboardRhythmSection from '@/components/DashboardRhythmSection'
 import RecentRunsCard from '@/components/RecentRunsCard'
 import PrefetchGroup from '@/components/PrefetchGroup'
 import { formatDuration, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
@@ -163,6 +164,11 @@ export default async function DashboardPage() {
             ))}
           </div>
         </div>
+
+        {/* ── Rhythm (deferred; nothing renders while it's off) ── */}
+        <Suspense fallback={null}>
+          <DashboardRhythmSection athleteId={Number(athleteId)} today={today} />
+        </Suspense>
 
         {/* Training Load */}
         {trainingLoad.length > 0 && (

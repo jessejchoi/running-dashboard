@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: vi.fn(), rpc: vi.fn() } }))
 import { format } from 'date-fns'
 import { commonTimezone, latestRunTimezone, runDay, runWallTime } from '@/lib/calendar'
-import { computeStreak } from '@/lib/utils'
+import { countRuns } from '@/lib/rhythm'
 import { buildChallengeMetricsFromActivities, buildCoachTotals } from '@/lib/coachMetrics'
 
 // 9pm Sunday Sep 6 in Los Angeles is 04:00 Monday Sep 7 UTC (11am Sep 7 in Jakarta).
@@ -51,9 +51,9 @@ describe('zone pickers', () => {
 describe('local weeks', () => {
   it('counts a Sunday-night run in the week it was run', () => {
     // Sep 7 is a Monday. In UTC or Jakarta this run would open the new week.
-    const runs = [{ ...laSundayNight, athlete_id: 1 }]
-    expect(computeStreak(runs, 1, '2026-09-13')).toBe(1)
-    expect(computeStreak(runs, 1, '2026-09-20')).toBe(0)
+    const runs = [{ ...laSundayNight, moving_time: 1800 }]
+    expect(countRuns(runs, '2026-08-31', 'Asia/Jakarta')).toBe(1)
+    expect(countRuns(runs, '2026-09-07', 'Asia/Jakarta')).toBe(0)
   })
 
   it('totals the viewer\'s week on each run\'s local date', () => {

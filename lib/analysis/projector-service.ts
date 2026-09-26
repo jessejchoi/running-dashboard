@@ -9,6 +9,7 @@ import { raceClockEvidence, performanceCutoff, type EvidenceStreams, RACE_DISTAN
 import { canonicalRaceDistanceKey, fitPerformanceCorpus } from './cpCorpus'
 import { raceCalibrationEnabled, marathonEnduranceEnabled } from './personalization'
 import { loadAthleteCalibration } from './calibration-service'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 /**
  * Orchestrates the new race-time engine: CP fit + features + conditions →
@@ -17,16 +18,12 @@ import { loadAthleteCalibration } from './calibration-service'
  */
 
 const RECENT_TRAINING_DAYS = 60
-const PAGE_SIZE = 500
-
 // Explicit pagination avoids PostgREST's 1,000-row truncation as history grows.
 async function pages(query: () => any): Promise<any[]> {
-  const rows: any[] = []
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data, error } = await query().range(offset, offset + PAGE_SIZE - 1)
-    if (error) throw new Error(`Performance evidence read failed: ${error.code}`)
-    rows.push(...(data ?? []))
-    if (!data || data.length < PAGE_SIZE) return rows
+  try {
+    return await fetchAllPages(query)
+  } catch (error: any) {
+    throw new Error(`Performance evidence read failed: ${error?.code}`)
   }
 }
 

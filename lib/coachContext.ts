@@ -10,7 +10,6 @@ export interface CoachContext {
   members: Array<{
     athlete_id: number
     name: string
-    streak: number
     goals: Array<{
       label: string
       distance_key: string
@@ -62,7 +61,6 @@ export async function buildCoachContext(groupId: string): Promise<CoachContext> 
     members: metrics.members.map(member => ({
       athlete_id: member.athlete_id,
       name: member.name,
-      streak: member.streak,
       goals: member.goals.map(goal => ({
         label: goal.label,
         distance_key: goal.distance_key,
@@ -119,7 +117,6 @@ export interface AthleteContext {
   rolling_4w_km: number
   rolling_12w_km: number
   run_count_this_week: number
-  streak: number
   avg_weekly_km_4w: number
 }
 
@@ -147,7 +144,6 @@ export async function buildAthleteContext(athleteId: number): Promise<AthleteCon
     rolling_4w_km: metrics.totals.rolling_4w.km,
     rolling_12w_km: metrics.totals.rolling_12w.km,
     run_count_this_week: metrics.totals.week.source_count,
-    streak: metrics.streak,
     avg_weekly_km_4w: Math.round((metrics.totals.rolling_4w.km / 4) * 10) / 10,
   }
 }

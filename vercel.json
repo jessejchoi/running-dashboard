@@ -1,5 +1,7 @@
 {
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "crons": [
     {
       "path": "/api/cron/sync",
@@ -8,6 +10,10 @@
     {
       "path": "/api/cron/generate-challenges",
       "schedule": "0 1 1 * *"
+    },
+    {
+      "path": "/api/cron/rhythm-freeze",
+      "schedule": "30 17 * * *"
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { recentCoachRuns, canonicalTotals } from '@/lib/coachData'
 import { getGroupLatestEstimates } from '@/lib/latestEstimates'
 import { supabaseAdmin } from '@/lib/supabase'
-import { computeStreak, speedToPace } from '@/lib/utils'
+import { speedToPace } from '@/lib/utils'
 import { addDays, commonTimezone, localDate, runDay, weekStart, DEFAULT_TIMEZONE } from '@/lib/calendar'
 import { athleteTimezone, athleteTimezones } from '@/lib/timezone'
 
@@ -75,7 +75,6 @@ export interface CoachAthleteMetrics {
     distance_km: number
     pace_per_km: string
   }>
-  streak: number
   goals: Array<{
     label: string
     distance_key: string
@@ -302,14 +301,12 @@ export function buildAthleteMetricsFromActivities(params: {
     days_to_race: daysToRace(g.race_date, today),
     gap_secs: g.current_secs == null ? null : g.current_secs - g.target_secs,
   }))
-  const athleteRuns = params.activities.filter(a => a.athlete_id === params.athlete_id && isRun(a))
   const metricsWithoutSignals = {
     athlete_id: params.athlete_id,
     name: params.name,
     totals,
     run_type_mix_4w: runTypeMix(params.activities, totals.rolling_4w, timezone),
     recent_runs: recentRuns(params.activities, timezone),
-    streak: computeStreak(athleteRuns, params.athlete_id, today),
     goals,
     recent_debriefs: params.debriefs ?? [],
     signals: [],

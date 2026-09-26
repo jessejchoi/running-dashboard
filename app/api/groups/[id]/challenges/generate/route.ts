@@ -103,7 +103,6 @@ ${JSON.stringify({
     ytd_km: m.ytd_km,
     rolling_4w_km: m.rolling_4w_km,
     this_week_km: m.this_week_km,
-    streak: m.streak,
   })),
   active_challenges: ctx.active_challenges,
 }, null, 2)}`

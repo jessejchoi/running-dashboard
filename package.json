@@ -11,6 +11,7 @@
     "evaluate:personalization": "vite-node --config vitest.config.ts scripts/evaluate-personalization.ts",
     "evaluate:estimates": "vite-node --config vitest.config.ts scripts/evaluate-estimates.ts",
     "export:evaluation": "vite-node --config vitest.config.ts scripts/export-evaluation.ts",
+    "rhythm:rebuild": "vite-node --config vitest.config.ts scripts/rebuild-rhythm.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

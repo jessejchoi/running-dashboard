@@ -68,8 +68,7 @@ describe('coach insight route', () => {
       name: 'Jesse',
       recent_runs: [],
       this_week_km: 30,
-      streak: 2,
-      avg_weekly_km_4w: 40,
+            avg_weekly_km_4w: 40,
       goals: [],
     })
     ;(claudeMessage as ReturnType<typeof vi.fn>).mockResolvedValue('   ')
@@ -79,6 +78,28 @@ describe('coach insight route', () => {
 
     expect(response.status).toBe(503)
     expect(json.error).toBe('Coach is unavailable.')
+  })
+
+  it('leaves streaks out of the insight prompt', async () => {
+    // Regression: the prompt used to read "streak: N weeks" from the old any-run streak.
+    queueSupabaseTables(
+      mockFrom,
+      createQueryChain({ data: null }),
+      createQueryChain({ error: null }),
+      createQueryChain({ error: null }),
+    )
+    ;(buildAthleteContext as ReturnType<typeof vi.fn>).mockResolvedValue({
+      name: 'Jesse', facts: {}, signals: [], recent_runs: [], goals: [],
+      this_week_km: 30, ytd_km: 900, avg_weekly_km_4w: 40,
+    })
+    ;(claudeMessage as ReturnType<typeof vi.fn>).mockResolvedValue('Solid week.')
+
+    const response = await getInsight()
+
+    expect(response.status).toBe(200)
+    const prompt = (claudeMessage as ReturnType<typeof vi.fn>).mock.calls[0][0].messages[0].content as string
+    expect(prompt).toContain('This week: 30km, YTD: 900km, avg weekly km (4w): 40km')
+    expect(prompt).not.toMatch(/streak/i)
   })
 })
 

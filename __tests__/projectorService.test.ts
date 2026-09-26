@@ -62,3 +62,15 @@ it('uses full elapsed race time when no official result or usable stream exists'
   expect(streamQuery.chain.select.mock.calls[0][0]).not.toContain('latlng')
   expect(streamQuery.chain.eq).toHaveBeenCalledWith('athlete_id', 7)
 })
+
+it('keeps the "Performance evidence read failed: <code>" error after moving to the shared pager', async () => {
+  // Regression: pagination moved to lib/fetchAllPages; callers still see the wrapped code.
+  vi.mocked(supabaseAdmin.from).mockImplementation(table => {
+    const chain = createQueryChain({ data: table === 'user_profiles' ? { max_hr: 195 } : [], error: null })
+    if (table === 'activity_best_efforts') {
+      chain.then.mockImplementation((resolve: any) => Promise.resolve({ data: null, error: { code: '57014' } }).then(resolve))
+    }
+    return chain as any
+  })
+  await expect(fitForAthlete(7)).rejects.toThrow('Performance evidence read failed: 57014')
+})

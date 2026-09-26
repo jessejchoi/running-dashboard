@@ -75,3 +75,49 @@ Deferred work tracked here. One item per entry.
 **Effort:** M (human: ~3 days) → S (CC+gstack: ~45 min)
 **Priority:** P3 (gated)
 **Depends on:** PR2 (Boss Raid) shipped, plus the sharing gate above
+
+---
+
+## TODO-007: Rhythm stretch goals and a mileage-based target
+
+**What:** Two optional additions to Rhythm's automatic weekly target, which is set from the 6-week average of 15-minute-plus runs, rounding up while fading:
+1. **+1 stretch:** a runner opts in to one extra run on top of their target that week, for extra rewards. That could be bonus weapon progress, or bonus damage once Boss Raid exists.
+2. **Mileage target:** target weekly distance in place of the number of runs, either as an alternative mode or a second track.
+
+**Why:** Jesse, 2026-09-26: start simple with the automatic run-count target, and add these later.
+
+**Pros:** Gives consistent runners something to push for beyond holding their rhythm. A mileage target suits runners who do fewer, longer runs.
+
+**Cons:** Both reintroduce the user-set state that the simplification removed. A mileage target reopens the junk-miles question and needs its own anti-fade rounding.
+
+**Context:** The target rule lives in `targetFromAverage()` and `foldWeek()` in `lib/rhythm.ts`. The design is in `docs/designs/rhythm-boss-raid.md`, under "Weekly target". The stretch would need an opt-in row per week (like `rhythm_rest_weeks`) and a `stretch` column on `rhythm_weeks`. Bump `RHYTHM_RULES_VERSION` if the fold changes.
+
+**Effort:** M (human: ~2 days) → S (CC+gstack: ~30 min)
+**Priority:** P3
+**Depends on:** PR1 (Rhythm + Weapon) shipped
+
+---
+
+## TODO-008: Rhythm rest weeks (manual and race)
+
+**What:** Weeks that pause Rhythm entirely. In a rest week your weapon and streak hold, and the week is skipped when computing the 6-week average. Two kinds:
+1. **Manual:** a "Rest week" toggle for the current week only, at most 1 in any 4 weeks. Setting it on a Sunday is allowed, like a streak freeze.
+2. **Race:** the race week and the week after it, recorded when a race goal is saved, and only if the race week hasn't started yet.
+
+**Why:** Deferred from PR1 (Jesse, 2026-09-26: "no rest week! that can be for later"). Until this ships, a race or taper week counts like any other week and can cost a weapon tier.
+
+**Pros:** Stops a taper or a sick week from hurting your weapon, and adds a strategic lever for the future Boss Raid (resting members neither attack nor block).
+
+**Cons:** Adds a table, an API, goal-route hooks, and edge cases in the fold (redemption across a rest week, rest weeks in the average).
+
+**Context:** The full design lives in `docs/designs/rhythm-boss-raid.md` under the rest-week sections, which are marked deferred. The earlier implementation was removed before PR1 landed:
+- the `rhythm_rest_weeks` table
+- `app/api/rhythm/rest-week`
+- `setManualRestWeek`, `clearManualRestWeek` and `addRaceRestWeeks` in `lib/rhythmLedger.ts`
+- a `rest` state in `foldWeek` that carries the level and any pending redemption
+
+Known gaps from the eng review: goals saved before launch need a backfill, and creating then deleting future race goals can hand out extra rest weeks. Bump `RHYTHM_RULES_VERSION` and run the rebuild script when this ships.
+
+**Effort:** M (human: ~2 days) → S (CC+gstack: ~40 min)
+**Priority:** P2
+**Depends on:** PR1 (Rhythm + Weapon) shipped

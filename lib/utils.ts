@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx'
+import { addDays, localDate, runDay, weekStart, type DatedRun } from './calendar'
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
@@ -91,6 +92,27 @@ export function getWeekStart(date: Date): Date {
 export function isoWeek(date: Date): string {
   const w = getWeekStart(date)
   return w.toISOString().split('T')[0]
+}
+
+/**
+ * Weekly run streak: consecutive Mon–Sun weeks with at least one run, counting
+ * back from this week or last. Each run counts in the week where it was run;
+ * `today` is the viewer's local date.
+ */
+export function computeStreak(
+  runs: Array<DatedRun & { athlete_id: number }>,
+  athleteId: number,
+  today = localDate(),
+): number {
+  const weeks = new Set(runs.filter(r => r.athlete_id === athleteId).map(r => weekStart(runDay(r))))
+  const thisWeek = weekStart(today)
+  let week = weeks.has(thisWeek) ? thisWeek : addDays(thisWeek, -7)
+  let streak = 0
+  while (weeks.has(week)) {
+    streak++
+    week = addDays(week, -7)
+  }
+  return streak
 }
 
 // ─── Goal progress ────────────────────────────────────────────────────────────

@@ -317,8 +317,8 @@ describe('computeRaid', () => {
       ['Budi', 'fighting', false],
       ['Ghost', 'dormant', false],
     ])
-    expect(roster[0]).toMatchObject({ level: 3, damageIfOn: 2 })
-    expect(roster[1]).toMatchObject({ level: 2, needed: 3, damageIfOn: 2 })
+    expect(roster[0]).toMatchObject({ level: 3, tier: { power: 2 } })
+    expect(roster[1]).toMatchObject({ level: 2, needed: 3, tier: { power: 2 } })
   })
 })
 

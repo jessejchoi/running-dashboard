@@ -349,8 +349,6 @@ export interface RaidRosterEntry {
   /** Their weapon now: upgraded once this week is on. */
   tier: Tier
   level: number
-  /** Damage they deal this week by hitting their target. */
-  damageIfOn: number
   runs: number
   target: number
   needed: number
@@ -438,14 +436,13 @@ export function computeRaid({ members, groupZone, createdDay, rhythmLaunchWeek, 
       name: m.name,
       tier: tierFor(level),
       level,
-      damageIfOn: fighter?.powerIfOn ?? power(on ? level : w?.levelIfOn ?? level),
       runs: w?.runs ?? 0,
       target: w?.target ?? 1,
       needed: Math.max(0, (w?.target ?? 1) - (w?.runs ?? 0)),
       on,
       role: fighter ? 'fighting' : m.joinedDay >= week ? 'new' : 'dormant',
     }
-  }).sort((a, b) => Number(a.role !== 'fighting') - Number(b.role !== 'fighting') || Number(b.on) - Number(a.on) || b.damageIfOn - a.damageIfOn || byName(a, b))
+  }).sort((a, b) => Number(a.role !== 'fighting') - Number(b.role !== 'fighting') || Number(b.on) - Number(a.on) || b.level - a.level || byName(a, b))
 
   return {
     today,

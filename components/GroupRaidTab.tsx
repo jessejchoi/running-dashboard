@@ -266,7 +266,6 @@ function RosterRow({ r, pic, me }: { r: RaidRosterEntry; pic: string | null; me:
     : r.role === 'new' ? { text: 'Next week', color: 'var(--text-2)', bg: 'var(--surface-2)' }
     : r.on ? { text: 'Attacking ✓', color: 'var(--success)', bg: 'var(--success-bg)' }
     : { text: `${plural(r.needed, 'run')} to go`, color: 'var(--accent)', bg: 'var(--accent-muted)' }
-  const upgrade = r.role === 'fighting' && !r.on && r.damageIfOn !== r.tier.power
   return (
     <div className="flex items-center gap-2.5 sm:gap-3 py-2.5" style={{ borderTop: '1px solid var(--border)', opacity: faded ? 0.5 : 1 }}>
       <Avatar name={r.name} pic={pic} size={8} />
@@ -276,7 +275,7 @@ function RosterRow({ r, pic, me }: { r: RaidRosterEntry; pic: string | null; me:
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold text-white truncate">{firstName(r.name)}{me && <span className="font-normal" style={{ color: 'var(--text-muted)' }}> (you)</span>}</p>
         <p className="font-mono text-[10px] uppercase tracking-wider truncate" style={{ color: 'var(--text-2)' }}>
-          ATK {r.tier.power}{upgrade && <span style={{ color: 'var(--accent)' }}> → {r.damageIfOn}</span>}
+          ATK {r.tier.power}
         </p>
       </div>
       <div className="flex flex-col items-end gap-1 shrink-0">

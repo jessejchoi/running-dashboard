@@ -331,7 +331,7 @@ function buildBeats(members: MemberWeek[], ctx: CoachContext, mode: EditionMode,
   const ghosts = members.filter(m => m.runs === 0)
   if (ghosts.length && ghosts.length < members.length) {
     const names = ghosts.slice(0, 3).map(m => m.first_name)
-    const facts = { names: names.join(', '), count: ghosts.length }
+    const facts = { names: names.join(', ') }
     beats.push({
       key: 'ghost',
       names,
@@ -371,7 +371,7 @@ function buildRollCall(members: MemberWeek[], leaderName: string | undefined, mo
                       : 'steady'
       const templates: Record<RollCallState, string[]> = {
         ghost: ['0 runs. Your shoes filed a missing-person report.', 'Nothing logged. We\'re calling it a very committed rest week.'],
-        leader: ['Top of the board. Act like you\'ve been here before.', '{km} km and the bragging rights that come with it.'],
+        leader: ['Top of the board. Act like you\'ve been here before.', 'Most on the board, and the bragging rights that come with it.'],
         spike: ['{km} km against a usual {usual_km}. Enjoy it, then take an easy week.'],
         comeback: ['{runs} runs after a blank week. The comeback is on.'],
         race: ['{race} in {race_days} days. Protect the legs.'],

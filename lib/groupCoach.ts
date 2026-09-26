@@ -1,14 +1,23 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { activeModelVersion } from '@/lib/analysis/expected'
-import { buildCoachContext } from '@/lib/coachContext'
+import { buildCoachContext, type CoachContext } from '@/lib/coachContext'
 import { buildGroupEngagement } from '@/lib/coachEngagement'
-import { type BriefingContent } from '@/lib/coachOutputs'
+import type { BriefingContent, CoachEdition } from '@/lib/coachOutputs'
 import { AWARD_CATEGORIES } from '@/lib/awards'
 import { enqueueJob, claimJob, finishJob } from '@/lib/jobs'
 import { claudeMessage } from '@/lib/claude'
-import { buildWeeklyEdition } from '@/lib/weeklyEdition'
+import { buildEditionPlan, firstName, type EditionPlan } from '@/lib/coachEdition'
+import {
+  EDITION_COPY_SCHEMA,
+  EDITION_SYSTEM_PROMPT,
+  editionPrompt,
+  parseEditionCopy,
+  resolveEdition,
+  type EditionCopy,
+} from '@/lib/coachEditionCopy'
 import { localDate, weekStart } from '@/lib/calendar'
-export const GROUP_COACH_VERSION = 'weekly-edition-v1'
+const EDITION_MODEL = 'claude-opus-5'
+export const GROUP_COACH_VERSION = 'weekly-edition-v2'
 export function groupCoachModelVersion() { return `${activeModelVersion()}:${GROUP_COACH_VERSION}` }
 export async function groupVersion(groupId: string) {
   const { data, error } = await supabaseAdmin.rpc('group_input_version', {
@@ -49,95 +58,71 @@ export async function publicGroupTraining(groupId: string) {
     previous_focus: memoryResult.data ?? null,
   }
 }
-export async function deterministicBriefing(groupId: string) {
-  const [ctx, training] = await Promise.all([
-    buildCoachContext(groupId),
-    publicGroupTraining(groupId),
-  ])
-  const engagement = buildGroupEngagement(ctx)
-  const completed = training.plans.filter(
-      (p) => p.status === 'completed',
-    ).length,
-    planned = training.plans.length
-  const previous = training.previous_focus
-  const progress = previous?.evidence?.completed as number | undefined
-  const follow =
-    previous &&
-    previous.evidence?.week === weekStart(ctx.today) &&
-    typeof progress === 'number'
-      ? `${Math.max(0, completed - progress)} more planned sessions completed since the last check-in.`
-      : planned ? `${completed} of ${planned} planned sessions completed this week.`
-        : 'No personal workouts scheduled this week yet.'
-  const candidateMembers = ctx.members
-    .filter((m) => m.run_count_this_week > 0)
-    .sort((a, b) => a.athlete_id - b.athlete_id)
-  const selected = candidateMembers.length
-    ? candidateMembers[
-        Math.floor(Date.parse(ctx.today) / 86400000) % candidateMembers.length
-      ]
-    : null
-  const memberStory = selected
-    ? `${selected.name.split(' ')[0]} has ${selected.run_count_this_week} runs this week; their recent baseline is ${(selected.rolling_4w_km / 4).toFixed(1)} km per week.`
-    : ''
-  const edition = buildWeeklyEdition(ctx, training.plans)
-  const next = 'Follow your own plan this week. Different cities, same accountability.'
-  const brief: BriefingContent = {
-    weekly_summary: [`${edition.total_runs} runs and ${edition.total_km.toFixed(1)} km across the group this week so far.`, follow, memberStory].filter(Boolean).join(' '),
-    weekly_edition: edition,
-    storylines: [
-      {
-        label: 'Follow-through',
-        angle: follow,
-        evidence: `${completed} completed / ${planned} planned`,
-      },
-      ...(selected
-        ? [
-            {
-              label: 'Personal consistency',
-              angle: memberStory,
-              evidence: `${selected.run_count_this_week} recorded runs`,
-            },
-          ]
-        : []),
-    ],
-    team_focus: next,
-    challenge_nudge: engagement.challenge_nudge,
-    risks: engagement.risks,
-    ask_prompts: [
-      'How did my week compare with my plan?',
-      'What should I focus on next?',
-      'What should my next training week look like?',
-      'Who made consistent progress?',
-    ],
-    shoutouts: engagement.award_candidates.map((a) => ({
+/** Assemble the stored briefing from the plan and whatever model copy survived grounding. */
+export function composeBriefing(plan: EditionPlan, ctx: CoachContext, copy: EditionCopy | null): BriefingContent {
+  const resolved = resolveEdition(plan, copy, ctx.members.map(m => firstName(m.name)))
+  const byId = new Map(plan.roll_call.map(r => [r.athlete_id, r]))
+  const stats = new Map(ctx.members.map(m => [m.athlete_id, m]))
+  const km = (id: number) => Number(byId.get(id)?.facts.km ?? 0)
+  const runs = (id: number) => Number(byId.get(id)?.facts.runs ?? 0)
+  const edition: CoachEdition = {
+    mode: plan.mode,
+    week_start: plan.week_start,
+    week_end: plan.week_end,
+    as_of: plan.as_of,
+    total_km: plan.total_km,
+    total_runs: plan.total_runs,
+    ticker: plan.ticker,
+    headline: resolved.headline,
+    lines: resolved.lines,
+    mission: resolved.mission,
+    roll_call: resolved.roll_call.map(r => ({
+      athlete_id: r.athlete_id,
+      name: stats.get(r.athlete_id)?.name ?? byId.get(r.athlete_id)?.name ?? '',
+      km: km(r.athlete_id),
+      runs: runs(r.athlete_id),
+      line: r.line,
+    })),
+    voice: resolved.model_lines === 0 ? 'template' : resolved.model_lines === resolved.total_lines ? 'model' : 'mixed',
+  }
+  return {
+    weekly_summary: [resolved.headline, ...resolved.lines].join(' '),
+    edition,
+    ask_prompts: buildGroupEngagement(ctx).ask_prompts,
+    shoutouts: plan.awards.map(a => ({
+      athlete_id: a.athlete_id,
       athlete_name: a.athlete_name,
       award_key: a.award_key,
       award_label: AWARD_CATEGORIES[a.award_key]?.label ?? 'Coach pick',
-      caption: a.evidence,
+      caption: resolved.award_captions[a.award_key] ?? a.fallback,
     })),
-    group_momentum: ctx.signals.some((s) => s.key === 'group_momentum_rising')
-      ? 'rising'
-      : ctx.signals.some((s) => s.key === 'group_momentum_dipping')
-        ? 'dipping'
-        : 'steady',
-    coach_tip: next,
-  }
-  return {
-    brief,
-    training,
-    ctx,
-    evidence: { completed, planned, week: weekStart(ctx.today) },
+    group_momentum: plan.momentum,
+    coach_tip: resolved.mission,
   }
 }
-// Generated style cannot modify facts: the model may select only a reviewed closing.
-export const COACH_CLOSINGS = [
-  'Consistency gets a vote too.',
-  'Save the heroics for race day.',
-  'The easy pace committee approves.',
-  'See you at the next start line.',
-]
-export function groundedCopy(copy: string, _source: string) {
-  return COACH_CLOSINGS.includes(copy.trim())
+export async function deterministicBriefing(groupId: string) {
+  const ctx = await buildCoachContext(groupId)
+  const plan = buildEditionPlan(ctx, ctx.runs ?? [])
+  return { brief: composeBriefing(plan, ctx, null), plan, ctx }
+}
+async function writeEditionCopy(plan: EditionPlan, ctx: CoachContext): Promise<EditionCopy | null> {
+  try {
+    const raw = await claudeMessage({
+      model: EDITION_MODEL,
+      max_tokens: 4000,
+      effort: 'low',
+      jsonSchema: EDITION_COPY_SCHEMA as unknown as Record<string, unknown>,
+      fallbacks: true,
+      timeoutMs: 30000,
+      retries: 0,
+      system: EDITION_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: editionPrompt(plan, ctx.group.name) }],
+    })
+    return parseEditionCopy(raw)
+  } catch {
+    // Templated copy survives model outages and refusals.
+    return null
+  }
 }
 export async function runBriefingJob(id: string) {
   const job = await claimJob(id)
@@ -147,25 +132,8 @@ export async function runBriefingJob(id: string) {
       await finishJob(job)
       return
     }
-    const { brief, training, ctx, evidence } = await deterministicBriefing(
-      job.scope,
-    )
-    try {
-      const copy = await claudeMessage({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 40,
-        timeoutMs: 7000,
-        retries: 0,
-        system:
-          'Choose exactly one friendly closing from this list. Return its exact text, with no additions: ' +
-          COACH_CLOSINGS.join(' | '),
-        messages: [{ role: 'user', content: brief.weekly_summary }],
-      })
-      if (groundedCopy(copy, brief.weekly_summary))
-        brief.weekly_summary += ` ${copy.trim()}`
-    } catch {
-      /* deterministic copy survives model outages */
-    }
+    const { plan, ctx } = await deterministicBriefing(job.scope)
+    const brief = composeBriefing(plan, ctx, await writeEditionCopy(plan, ctx))
     const { data: committed, error } = await supabaseAdmin.rpc(
       'commit_briefing',
       {
@@ -175,30 +143,27 @@ export async function runBriefingJob(id: string) {
         p_job: job.id,
         p_lease: job.lease_token,
         p_content: brief,
-        p_focus: brief.team_focus,
-        p_evidence: evidence,
+        p_focus: brief.coach_tip,
+        p_evidence: { mode: plan.mode, week: plan.week_start, total_km: plan.total_km },
       },
     )
     if (error) throw error
-    if (committed) {
-      // Awards retain stable athlete identity; first-name collisions cannot choose a winner.
-      const rows = brief.shoutouts.flatMap((s) => {
-        const matches = ctx.members.filter(
-          (m) => m.name.split(' ')[0] === s.athlete_name,
-        )
-        return matches.length === 1
-          ? [
-              {
-                group_id: job.scope,
-                athlete_id: matches[0].athlete_id,
-                award_key: s.award_key,
-                award_label: s.award_label,
-                week_start: weekStart(ctx.today),
-                caption: s.caption,
-              },
-            ]
-          : []
-      })
+    // Only finished weeks enter the trophy case; a late sync replaces that week's winners.
+    if (committed && plan.mode === 'recap') {
+      const { error: clearError } = await supabaseAdmin
+        .from('group_member_awards')
+        .delete()
+        .eq('group_id', job.scope)
+        .eq('week_start', plan.week_start)
+      if (clearError) throw clearError
+      const rows = brief.shoutouts.map(s => ({
+        group_id: job.scope,
+        athlete_id: s.athlete_id,
+        award_key: s.award_key,
+        award_label: s.award_label,
+        week_start: plan.week_start,
+        caption: s.caption,
+      }))
       if (rows.length)
         await supabaseAdmin.from('group_member_awards').upsert(rows, {
           onConflict: 'group_id,athlete_id,award_key,week_start',
@@ -224,7 +189,7 @@ export async function getBriefing(groupId: string) {
       refreshing: false,
     }
   await enqueueJob('briefing', groupId, version)
-  if (cache?.content_json?.weekly_edition)
+  if (cache?.content_json?.edition)
     return {
       briefing: cache.content_json,
       cached: true,

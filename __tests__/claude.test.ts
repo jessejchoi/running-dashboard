@@ -142,3 +142,30 @@ describe('claudeStream', () => {
     expect(stream).toBe(fakeStream)
   })
 })
+
+describe('claudeMessage request options', () => {
+  beforeEach(() => {
+    getMocks().mockCreate.mockReset()
+  })
+
+  it('sends effort, a JSON schema and default fallbacks, and returns only text blocks', async () => {
+    const { mockCreate } = getMocks()
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '{"ok":true}' }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 10 },
+    })
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } } }
+    const result = await claudeMessage({ ...DEFAULT_PARAMS, effort: 'low', jsonSchema: schema, fallbacks: true })
+    expect(result).toBe('{"ok":true}')
+    const [body, options] = mockCreate.mock.calls[0]
+    expect(body).toMatchObject({ output_config: { effort: 'low', format: { type: 'json_schema', schema } }, fallbacks: 'default' })
+    expect(options.headers).toEqual({ 'anthropic-beta': 'server-side-fallback-2026-07-01' })
+  })
+
+  it('throws on a refusal instead of returning partial text', async () => {
+    const { mockCreate } = getMocks()
+    mockCreate.mockResolvedValueOnce({ content: [], stop_reason: 'refusal', usage: { input_tokens: 10 } })
+    await expect(claudeMessage({ ...DEFAULT_PARAMS, retries: 0 })).rejects.toThrow('refused')
+  })
+})

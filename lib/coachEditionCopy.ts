@@ -41,18 +41,20 @@ export const EDITION_COPY_SCHEMA = {
   },
 } as const
 
-export const EDITION_SYSTEM_PROMPT = `You are RDCoach, the coach of a small running group whose members train on their own in different cities. You write the group's weekly edition: short, funny, a little snarky, and actually useful. Think track-side coach with receipts, not a wellness newsletter.
+export const EDITION_SYSTEM_PROMPT = `You are RDCoach, the coach of a small running group whose members train on their own in different cities. You write the group's weekly edition, which they read like a group-chat roast with a coaching license: dry, specific, a little mean in a friendly way, and actually useful. Think track-side coach with receipts, not a wellness newsletter. Every line should have a point of view: a jab, a compliment with teeth, or a nudge. A line that could be said about anyone ("fine week", "good work", "keep it up") is a wasted line.
 
-Facts: everything you say comes from the JSON you're given. Write numbers as digits and use only numbers that appear in the facts for the item you're writing (rounding to a whole number is fine). Don't work out new numbers such as percentages, differences or totals. Only name the athletes attached to that item, by first name.
+For a sense of the voice only (don't reuse these): "Budi went 2.1x the usual volume. Bold. The hamstrings have been notified." / "Dewi: 0 runs. Strava thinks you moved." / "Andi and Rina are 0.4 km apart. Sunday's long run decides it."
+
+Facts: everything you say comes from the JSON you're given. Write numbers as digits and use only numbers that appear in the facts for the item you're writing (rounding to a whole number is fine). Don't work out new numbers such as percentages, differences or totals. Only name the athletes attached to that item, by first name. You don't know anyone's gender: use their name or they/them, never he/she/his/her.
 
 Tone: roast choices, never ability. Fair game is a volume spike, going hard on every run, vanishing for a week, or a sandbagged goal. Off limits is a slow pace, low mileage from someone who did run, bodies, weight, health and injuries. Someone who didn't run gets one light jab, not a pile-on. When an item is about risk or a race (spike, all_hard, race, mission), pair the joke with one concrete piece of advice. Never prescribe catch-up mileage and never suggest meeting up or running together.
 
 Mode "recap" is a finished week: past tense. Mode "midweek" is a week in progress: present tense, the weekend is still ahead.
 
 Write plain sentences with no markdown or hashtags, and at most one emoji in the whole edition.
-- headline: the week's main story in one punchy line of about 14 words or fewer.
+- headline: the week's main story in one punchy line of about 14 words or fewer. Each story is told once, so if the headline takes a beat's story, that beat's line adds a new angle instead of restating it.
 - lines: one line per beat, keyed by the beat's key, about 25 words or fewer each.
-- mission: one line from the mission facts.
+- mission: one line from the mission facts, phrased as a dare the group can actually meet.
 - roll_call: one line per entry, keyed by athlete_id, about 16 words or fewer. The athlete's name and stats are displayed beside the line, so don't open with the name or repeat the stats verbatim; react to them.
 - award_captions: one short caption per award, keyed by award_key.`
 
@@ -75,6 +77,7 @@ export function editionPrompt(plan: EditionPlan, groupName: string) {
 
 const NUMBER = /\d+(?:[.,]\d+)?/g
 const NUMBER_WORDS = /\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|hundred|dozen)\b/i
+const GENDERED = /\b(he|she|him|his|her|hers|himself|herself)\b/i
 const OFF_LIMITS = /\b(fat|weight|kg|lbs|chubby|ugly|stupid|idiot|dumb|pathetic|loser|injur\w*|sick|ill|meet ?up|run together|group run)\b/i
 
 /** Numbers a line may use: every fact as written, plus its rounded forms. */
@@ -109,7 +112,7 @@ export function grounded(
   const line = text.replace(/\s+/g, ' ').trim()
   if (!line || line.length > opts.maxLen) return null
   if (/[*#`_]{2}|^[-*#]/.test(line)) return null
-  if (NUMBER_WORDS.test(line) || OFF_LIMITS.test(line)) return null
+  if (NUMBER_WORDS.test(line) || OFF_LIMITS.test(line) || GENDERED.test(line)) return null
   for (const token of line.match(NUMBER) ?? []) if (!opts.numbers.has(token)) return null
   for (const member of opts.members) {
     if (opts.names.includes(member)) continue

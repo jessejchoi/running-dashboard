@@ -1,8 +1,7 @@
 'use client'
-import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow, parseISO } from 'date-fns'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
 
@@ -56,7 +55,8 @@ function MomentumBadge({ momentum }: { momentum: 'rising' | 'steady' | 'dipping'
 
 function ShoutoutCard({ shoutout, members }: { shoutout: BriefingContent['shoutouts'][0]; members: Member[] }) {
   const firstName = shoutout.athlete_name.split(' ')[0]
-  const member = members.find(m => m.name.split(' ')[0].toLowerCase() === firstName.toLowerCase())
+  const member = members.find(m => m.athlete_id === shoutout.athlete_id)
+    ?? members.find(m => m.name.split(' ')[0].toLowerCase() === firstName.toLowerCase())
   const emoji = isValidAwardKey(shoutout.award_key) ? AWARD_CATEGORIES[shoutout.award_key].emoji : '🏆'
   return (
     <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
@@ -84,7 +84,7 @@ const COACH_CHIPS = [
 ]
 
 export default function GroupCoachTab({ groupId, myRole, members, minimal = false, initialBriefing, initialBriefingMeta }: Props) {
-  const [briefing, setBriefing] = useState<BriefingContent | null>(initialBriefing?.weekly_edition ? initialBriefing : null)
+  const [briefing, setBriefing] = useState<BriefingContent | null>(initialBriefing?.edition ? initialBriefing : null)
   const [briefingLoading, setBriefingLoading] = useState(false)
   const [briefingError, setBriefingError] = useState(false)
   const [briefingMeta, setBriefingMeta] = useState<BriefingMeta | null>(initialBriefingMeta ?? null)
@@ -177,66 +177,106 @@ export default function GroupCoachTab({ groupId, myRole, members, minimal = fals
   if (!briefing) return null
 
   const coachChips = briefing.ask_prompts?.length ? briefing.ask_prompts : COACH_CHIPS
+  const edition = briefing.edition
+  const recap = edition?.mode === 'recap'
+  const lines = minimal ? edition?.lines.slice(0, 3) : edition?.lines
+  const day = (d: string) => format(parseISO(d), 'MMM d')
 
   return (
     <div className="space-y-4 fade-up">
 
-      {/* Coach Briefing */}
+      {/* Coach edition */}
       <div className="card overflow-visible">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display font-bold text-lg text-[var(--text-1)]">Coach · Weekly edition</span>
+            <span className="font-mono text-[11px] uppercase tracking-widest text-[var(--text-3)]">
+              Coach · {recap ? 'Last week\u2019s recap' : 'Midweek check-in'}
+            </span>
             <MomentumBadge momentum={briefing.group_momentum} />
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {briefingMeta && (
-              <span className="text-[10px] text-[#4b5563]">
-                {briefingMeta.cached ? 'Cached · ' : ''}
+              <span className="text-[10px] text-[var(--text-3)]">
                 {formatDistanceToNow(new Date(briefingMeta.generated_at), { addSuffix: true })}
               </span>
             )}
             <button
               onClick={() => fetchBriefing(true)}
               className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[var(--text-3)] hover:text-[var(--accent)] transition-colors"
-              title="Refresh weekly edition"
-              aria-label="Refresh weekly edition"
+              title="Refresh Coach"
+              aria-label="Refresh Coach"
             >
               <RefreshCw size={13} />
             </button>
           </div>
         </div>
-        {briefing.weekly_edition && (
-          <p className="font-mono text-[11px] text-[var(--text-3)] mb-3">
-            Week of {briefing.weekly_edition.week_start} · Through {briefing.weekly_edition.as_of} · Jakarta week
+        {edition && (
+          <p className="font-mono text-[11px] text-[var(--text-3)] tabular-nums">
+            {day(edition.week_start)} – {day(recap ? edition.week_end : edition.as_of)} · {edition.total_km.toFixed(1)} km · {edition.total_runs} runs
           </p>
         )}
-        <p className="text-[var(--text-2)] text-[13px] leading-6 break-words overflow-visible pb-0.5">
-          {briefing.weekly_summary}
-        </p>
-        {!minimal && briefing.weekly_edition && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-            {briefing.weekly_edition.members.map(member => (
-              <article key={member.athlete_id} className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-4">
-                <h3 className="font-display text-lg font-bold break-words">{member.name}</h3>
-                <p className="font-mono text-sm mt-2">{member.km.toFixed(1)} km · {member.runs} runs this week</p>
-                <p className="text-xs text-[var(--text-3)] mt-2">4-week average: {member.baseline_weekly_km.toFixed(1)} km/week</p>
-                <p className="text-sm text-[var(--text-2)] mt-2">
-                  {member.planned ? `${member.completed} of ${member.planned} workouts through today completed.` : 'No workouts scheduled through today.'}
-                </p>
-                <p className="text-sm text-[var(--text-2)] mt-2">{member.next_focus}</p>
-              </article>
+
+        <h2 className="font-display font-bold text-[20px] leading-tight text-[var(--text-1)] mt-3 break-words">
+          {edition?.headline ?? briefing.weekly_summary}
+        </h2>
+
+        {lines && lines.length > 0 && (
+          <ul className="mt-3">
+            {lines.map((line, i) => (
+              <li key={i} className="text-[13px] leading-6 text-[var(--text-2)] py-2 border-t border-[var(--border)] first:border-t-0 break-words">
+                {line}
+              </li>
             ))}
+          </ul>
+        )}
+
+        {edition?.mission && (
+          <div className="mt-3 rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-muted)] px-3 py-2.5">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-[var(--accent)] mb-0.5">Mission</div>
+            <p className="text-[13px] leading-6 text-[var(--text-1)] break-words">{edition.mission}</p>
           </div>
         )}
-        {!minimal && briefing.challenge_nudge && <p className="text-sm text-[var(--text-2)] mt-4">{briefing.challenge_nudge}</p>}
-        {!minimal && briefing.risks?.map((risk, i) => <p key={i} className="text-sm text-[var(--warning)] mt-2">{risk}</p>)}
-        {!minimal && <Link href="/plan" className="rd-button inline-flex items-center mt-4">Build your personal week →</Link>}
+
+        {recap && edition?.ticker && (
+          <p className="font-mono text-[11px] text-[var(--text-3)] mt-3 tabular-nums">
+            This week so far · {edition.ticker.km.toFixed(1)} km · {edition.ticker.runs} runs
+          </p>
+        )}
+
+        {!minimal && edition && edition.roll_call.length > 0 && (
+          <div className="mt-5">
+            <h3 className="font-mono text-[10px] uppercase tracking-widest text-[var(--text-3)] mb-1">Roll call</h3>
+            <ul>
+              {edition.roll_call.map(entry => {
+                const member = members.find(m => m.athlete_id === entry.athlete_id)
+                return (
+                  <li key={entry.athlete_id} className="flex gap-3 py-2.5 border-t border-[var(--border)] first:border-t-0">
+                    <div className="shrink-0 pt-0.5">
+                      <Avatar name={member?.name ?? entry.name} pic={member?.profile_pic ?? null} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-sm font-semibold text-[var(--text-1)] truncate">{entry.name.split(' ')[0]}</span>
+                        <span className="font-mono text-[11px] text-[var(--text-3)] tabular-nums shrink-0">
+                          {entry.km.toFixed(1)} km · {entry.runs} {entry.runs === 1 ? 'run' : 'runs'}
+                        </span>
+                      </div>
+                      <p className="text-[13px] leading-5 text-[var(--text-2)] mt-0.5 break-words">{entry.line}</p>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* This Week's Awards */}
       {briefing.shoutouts.length > 0 && (
         <div>
-          <h3 className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>This Week&rsquo;s Awards</h3>
+          <h3 className="font-mono text-[10px] uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
+            {recap ? 'Last week\u2019s awards' : 'Awards race · so far'}
+          </h3>
           <div className="grid sm:grid-cols-2 gap-3">
             {briefing.shoutouts.map((s, i) => (
               <ShoutoutCard key={i} shoutout={s} members={members} />

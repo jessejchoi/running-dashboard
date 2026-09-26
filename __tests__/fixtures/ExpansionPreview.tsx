@@ -130,14 +130,23 @@ let plan: any = {
 }
 const coachMembers = ['Alex Rivera', 'Morgan Lee', 'Sam Chen', 'Taylor Kim'].map((name, i) => ({ athlete_id: i + 1, name, profile_pic: null }))
 const briefing = {
-  weekly_summary: '16 runs and 168.0 km across the group this week so far. 8 of 12 planned sessions completed. The easy pace committee approves.',
-  weekly_edition: {
-    week_start: '2026-09-07', as_of: '2026-09-13', total_runs: 16, total_km: 168,
-    members: coachMembers.map((m, i) => ({ ...m, km: 30 + i * 8, runs: 4, baseline_weekly_km: 35 + i * 8, completed: 2, planned: 3, next_focus: i === 0 ? 'Autumn half marathon: 28 days away. Review your personal plan for the next session.' : 'Review the next session in your personal plan; missed workouts do not need catch-up mileage.' })),
+  weekly_summary: 'Alex ran 54.0 km. Everyone else combined: 114.0. Discuss.',
+  edition: {
+    mode: 'recap' as const, week_start: '2026-09-07', week_end: '2026-09-13', as_of: '2026-09-13',
+    total_km: 168, total_runs: 16, ticker: { km: 12.4, runs: 3 },
+    headline: 'Alex ran 54.0 km. Everyone else combined: 114.0. Discuss.',
+    lines: [
+      'Alex is at 54.0 km against a usual 30.0. Bold. The hamstrings have been notified. Easy week next.',
+      'Morgan edged Sam by 0.6 km. Revenge is being planned as we speak.',
+      'Taylor: Autumn half marathon in 28 days. Last real block. Nail the long run, keep the easy days easy.',
+    ],
+    mission: "This week's number to beat: 168.0 km as a group. Easy runs count. Hero runs count less than you think.",
+    roll_call: coachMembers.map((m, i) => ({ athlete_id: m.athlete_id, name: m.name, km: [54, 38.6, 38, 37.4][i], runs: 4, line: ['Top of the board. Act like you\'ve been here before.', 'Above the usual 32.0. Quietly building.', '4 runs, no drama. Coach approves.', 'Autumn half marathon in 28 days. Protect the legs.'][i] })),
+    voice: 'template' as const,
   },
-  shoutouts: [], group_momentum: 'steady' as const,
-  coach_tip: 'Different cities, same accountability.',
-  ask_prompts: ['How did my week compare with my plan?', 'What should my next training week look like?'],
+  shoutouts: [], group_momentum: 'rising' as const,
+  coach_tip: "This week's number to beat: 168.0 km as a group.",
+  ask_prompts: ['Give us a 48-hour mission', 'Roast the leaderboard'],
 }
 const runs = Array.from({ length: 50 }, (_, i) => ({
   id: 100 + i,

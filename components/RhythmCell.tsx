@@ -70,7 +70,7 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
             {hit ? ' ✓' : ` · ${thisWeek.needed} to go`}
           </p>
         </div>
-        <div className="flex gap-1" role="img" aria-label={`${thisWeek.runs} of ${target} target runs this week`}>
+        <div className="flex gap-2" role="img" aria-label={`${thisWeek.runs} of ${target} target runs this week`}>
           {Array.from({ length: target }, (_, i) => {
             const done = hit || i < thisWeek.runs
             const fill = hit ? 'var(--success)' : done ? 'var(--accent)' : 'var(--surface-3)'

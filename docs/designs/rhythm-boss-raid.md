@@ -97,7 +97,7 @@ Each runner gets one row per week in `rhythm_weeks`. Once a row is **frozen**, i
   - `scripts/rebuild-rhythm.ts [athleteId|--all]` deletes the athlete's rows and refolds them from launch week, using their full run history through `fetchAllPages`.
   - For a rule fix or retune: bump the version, deploy, then run the rebuild. The loader logs a warning when it reads rows with an older `rules_version`.
 - **Freezing:** a week freezes once 2 days have passed since it ended, in the runner's own zone. For a Jakarta runner, that's Wednesday 00:00. The grace period absorbs late watch and Strava uploads. Once frozen, a row is final.
-- **Who freezes weeks:** `freezeRhythmWeeks(athleteId)` in `lib/rhythmLedger.ts`.
+- **Who freezes weeks:** `freezeRhythmWeeks(ids)` in `lib/rhythmLedger.ts`, or `freezeLoadedWeeks(inputs)` when the inputs are already loaded (the dashboard reuses what it just read). **A runner is only frozen once their Strava history import is `complete`** (or they predate the importer). Freezing mid-import would lock in weeks with missing runs (ship review, 2026-09-26).
   - It's idempotent: it folds forward from the latest frozen row and upserts every week that's ready to freeze.
   - **It runs in its own daily cron, `/api/cron/rhythm-freeze`, over ALL athletes** that have a Strava token (outside-voice finding #3). It doesn't live inside `/api/cron/sync`, for two reasons:
     - `next_sync_athletes()` returns only the 20 least-recently-synced athletes (`supabase/migration_021.sql:284`).
@@ -105,16 +105,17 @@ Each runner gets one row per week in `rhythm_weeks`. Once a row is **frozen**, i
   - The route uses the same `CRON_SECRET` check as `app/api/cron/sync/route.ts`. It's scheduled in `vercel.json` at `30 17 * * *` (00:30 Jakarta). Before adding it, check that the Vercel plan allows a third cron.
   - `loadRaidState(groupId)` also calls `freezeRhythmWeeks` for **every member** who is behind, before it computes anything. Members who have stopped opening the app, the ones who are fading, are frozen whenever anyone views the group.
   - It's also called on a runner's own dashboard load when their rows are behind. All three callers are safe because the freeze is idempotent.
-- **Reads are bounded while the freezer keeps up:** a runner's last 26 frozen rows, plus their runs from the last ~14 weeks. The 14 weeks cover the open weeks plus the 12-week duration floor.
-  - To be precise, the run window starts **12 weeks before the first unfrozen week**. If freezing falls behind for a runner (the cron skipped them and they haven't opened their dashboard), the live fold still comes out correct. It just reads more runs until the next freeze catches up.
-- **Before launch:** the first freeze reads about 20 weeks of runs from before launch, only to compute launch week's suggested target (8 weeks of counts, each with its own 12-week floor).
+- **Reads are bounded while the freezer keeps up:** a runner's frozen rows from the last 30 weeks, plus their runs from 6 weeks before the first unfrozen week, which is what the 6-week average needs.
+  - If freezing falls behind for a runner (the cron skipped them and they haven't opened their dashboard), the live fold still comes out correct. It just reads more runs until the next freeze catches up.
+- **Before launch:** the first freeze reads 6 weeks of runs from before launch, only to compute launch week's target from the 6-week average.
 - **What the ledger provides:** the Monday battle report and boss HP read frozen rows directly. That covers last week's attackers and power, and everyone's weapon at the start of the raid. Until last week freezes on Wednesday, the report and HP are marked **provisional** on screen.
 - **Rows are inspectable:** you can open `rhythm_weeks` in Supabase and see exactly why someone is on a Dagger.
 
-**Ledger table.** `rhythm_weeks(athlete_id bigint, week_start date, qualifying_runs int, target int, target_source text check (target_source in ('stored','provisional')), suggested int, state text check (state in ('on','short','zero','rest')), level int check (level between 0 and 12), level_before_miss int, redeemed boolean not null default false, rules_version int not null, frozen_at timestamptz not null default now(), primary key (athlete_id, week_start))`.
+**Ledger table.** `rhythm_weeks(athlete_id bigint, week_start date, runs int, avg_runs numeric(4,2), target int, state text check (state in ('on','short','zero')), level int check (level between 0 and 12), level_before_miss int, redeemed boolean not null default false, streak int not null, rules_version int not null, frozen_at timestamptz not null default now(), primary key (athlete_id, week_start))`.
 
 - `level` is capped at 12. Anything above that is Legendary either way.
-- `suggested` is stored per week, so the provisional target (the highest suggestion over the last 26 weeks) comes straight from ledger rows.
+- `target` and `avg_runs` are stored per week, so the "round up while fading" rule and the average come straight from ledger rows.
+- `streak` is stored per week, so the dashboard never has to walk back through a long streak.
 
 Two things are accepted and never retroactively applied to frozen weeks:
 
@@ -123,35 +124,30 @@ Two things are accepted and never retroactively applied to frozen weeks:
 
 ### Individual: Rhythm + Weapon
 
-**Qualifying run.** A run counts toward Rhythm for week W when all of these hold:
+**Counted run** (simplified after eng review, 2026-09-26). A run counts toward Rhythm when:
 
 - It's a run activity. The activities query filters `.eq('type', 'Run')`, the same as every existing run query.
-- It isn't `excluded_from_analysis`.
-- Its `moving_time` is at least `max(15 min, 50% × median run moving_time over the 12 weeks ending the day before W starts)`.
+- Its `moving_time` is **at least 15 minutes**. That's one fixed rule, and it blocks junk runs.
+- Runs excluded from race analysis **still count** (Jesse's decision). The analysis toggle is about pace data only, and a run you showed up for is a run.
+- Doubles count: each run counts separately.
 
-Because the floor for week W only looks at data from before W, it stays fixed for that week. The floor blocks junk miles, and treadmill runs count.
+**Weekly target** (simplified after eng review, 2026-09-26, and set automatically for everyone). Nobody sets their target by hand.
 
-**Target history.** A new table, `rhythm_targets(athlete_id bigint, effective_week date, target int check (target between 1 and 14), created_at timestamptz default now(), primary key (athlete_id, effective_week))`.
+- **Average** for week W: the number of counted runs per week, averaged over the **6 finished weeks before W**. Pre-launch weeks are counted from runs.
+- **Target** for W:
+  - When the average is **below last week's target**, meaning you're fading, **round up**.
+  - Otherwise, round to the nearest whole number. Half rounds up.
+  - The minimum is 1. `targetFromAverage()` in `lib/rhythm.ts` implements this.
+- **Example:** the average slides 3.8 → 3.6 → 3.4 → 3.2 → 3.0. The target goes 4 → 4 → 4 → 4 → 3. The target only drops once the average actually reaches the lower number, which takes roughly 6 straight weeks at the lower level. A plateau at 3.2 keeps the target at 4.
+- **Going up:** an average of 4.5 against a target of 4 gives 5.
+- Removed with this change:
+  - the `rhythm_targets` table and `PUT /api/rhythm/target`
+  - the SettingsDrawer field
+  - "Lock it in" and "Bump"
+  - the provisional ratchet, and the 50%-of-median floor
+- Later, tracked as TODO-007: an opt-in +1 stretch run for extra rewards, and targeting mileage instead of run count.
 
-- The target for week W is the row with the latest `effective_week` that is on or before W.
-- **Setting or raising** the target takes effect this week.
-- **Lowering** the target takes effect next week. This stops someone dropping their target on Saturday to make the attack land. The UI says "Takes effect Monday".
-- **Suggested target** for W: the median number of qualifying runs per week over the 8 completed non-rest weeks before W, rounded, with a minimum of 1.
-- **No stored target yet:** the provisional target for W is the **highest** weekly suggestion over the 26 weeks before W, counting only weeks from launch onward. These are the ledger's `suggested` values. For launch week itself, it's that week's own suggestion.
-  - It only goes up in the short term, so an unset target still catches a fade.
-  - The cell shows the label "suggested" until the user taps "Lock it in" or sets a value in SettingsDrawer.
-  - No background job writes targets.
-- **Bump prompt:** if the median of the last 4 completed weeks is higher than the stored target, the cell offers "You've been at 5. Bump your Rhythm to 5?"
-
-**Rest weeks.** A rest week pauses everything. You don't attack, you don't block the attack, and your weapon and streak stay where they are.
-
-- **Race rest weeks** are the week containing a `user_goals.race_date` and the week after it.
-  - They're written to `rhythm_rest_weeks` with `reason = 'race'` when the goal is saved, and only if the race week hasn't started yet. The write happens in the goals create and update routes.
-  - They're kept if the goal is later deleted, and they don't count toward the manual limit.
-- **Manual rest weeks** can only be set for the current week, and cleared while it's in progress.
-  - They're limited to 1 per 4 weeks, counting the current week and the 3 before it, and counting only rows where `reason = 'manual'`. The limit is enforced in the API.
-  - Setting one on a Sunday to save a week is allowed on purpose. It works like a Duolingo streak freeze.
-- Stored in `rhythm_rest_weeks(athlete_id bigint, week_start date, reason text not null check (reason in ('race','manual')), created_at timestamptz default now(), primary key (athlete_id, week_start))`.
+**Rest weeks: deferred to later** (Jesse, 2026-09-26: "no rest week! that can be for later"). PR1 has no rest weeks of any kind: no manual toggle and no automatic race weeks. A race or taper week counts like any other week. The design for both is kept in TODO-008. Everything below that mentions `rest`, rest weeks or "non-rest" weeks describes that later version. In PR1, every week is `on`, `short` or `zero`, and each rule applies to all weeks.
 
 **Completed-week states**
 
@@ -209,9 +205,8 @@ A week that is `short` or `zero` counts as a **miss**.
 
 ```
  lib/rhythmData.ts  loadRhythmInputs(athleteIds)       ← dashboard, group page, card route
-   ├─ 4 queries total, whatever the group size, each .in('athlete_id', ids), in parallel:
-   │   rhythm_weeks, runs, rhythm_targets, rhythm_rest_weeks. Plus the existing
-   │   athleteTimezones(ids).
+   ├─ 3 queries total, whatever the group size, each .in('athlete_id', ids):
+   │   athleteTimezones and rhythm_weeks in parallel, then runs.
    │   Every query goes through fetchAllPages() from a new shared lib/fetchAllPages.ts.
    │   lib/coachData.ts:17 and lib/analysis/projector-service.ts adopt it too, replacing
    │   their own copies of the same loop (.range() until a short page), so the
@@ -219,15 +214,14 @@ A week that is `short` or `zero` counts as a **miss**.
    │   The runs query uses the earliest window any member needs; each member's rows are
    │   then trimmed to their own window in TS.
    └─ returns RhythmInputs per athlete
- lib/rhythmLedger.ts freezeRhythmWeeks(athleteId)      ← daily cron, and dashboard load when behind
+ lib/rhythmLedger.ts freezeRhythmWeeks(ids) / freezeLoadedWeeks(inputs) ← daily cron, dashboard catch-up
    └─ loads inputs → rhythm.foldWeeks() over weeks ready to freeze → upsert rhythm_weeks
  lib/rhythm.ts       pure rules, no DB
-   ├─ qualifyingFloor(runs, week)   qualifyingRuns(runs, week)
-   ├─ suggestTarget(ledger, runs, week)   targetForWeek(targets, ledger, week)
-   ├─ weekState(...)                foldWeek(prevRows, weekInput) → LedgerRow
-   ├─ foldWeeks(fromRow, weeks)     used by BOTH the freezer and the live view
-   └─ computeRhythm({ ledger, recentRuns, targets, restWeeks, today }) →
-        { target, targetSource, bumpTo, thisWeek: { runs, needed, daysLeft }, status,
+   ├─ countRuns(runs, week)         targetFromAverage(avg, previousTarget)
+   ├─ foldWeek(history, week) → LedgerRow   weeksToFreeze(inputs, launch, today)
+   │   used by BOTH the freezer and the live view
+   └─ computeRhythm({ zone, ledger, runs, restWeeks }, launch, now) →
+        { target, avgRuns, thisWeek: { runs, needed, daysLeft, runDays }, status,
           streak, fadeWeeks, weapon: { tier, power, level, nextTier, weeksToNext,
           redeemAvailable }, history }  (history covers the last 12 weeks)
 ```
@@ -242,15 +236,14 @@ A week that is `short` or `zero` counts as a **miss**.
 - A small weapon sprite with its tier name and "2 more weeks → Sword".
 - The streak count.
 - A 12-week history strip.
-- "Lock it in", "Bump" and "Rest week" actions when they apply.
+- No actions: the target is automatic and rest weeks are deferred, so there's nothing to set.
 
-No solid orange fill.
+Run days and on-weeks use the accent fill. That's approved with the sprites (2026-09-26); the old "no solid orange fill" rule came from the parked timing-chip redesign.
 
 **API.**
 
-- `PUT /api/rhythm/target {target}` validates that the target is an integer from 1 to 14, then upserts `rhythm_targets`. Setting or raising takes effect this week; lowering takes effect next week. The Rhythm cell ("Lock it in", "Bump") and SettingsDrawer both call it.
-  - `PATCH /api/settings` is **not** touched. It overwrites every profile field on each call (`app/api/settings/route.ts:42`), so sending only the target through it would wipe the rest of the profile.
-- `POST`/`DELETE /api/rhythm/rest-week` applies to the current week only.
+- The target has no API. It's computed, never set.
+- None in PR1.
 
 ### Group: Boss Raid
 
@@ -383,8 +376,6 @@ It supports two kinds:
 This all ships in PR1. PR2 needs no migration.
 
 - `create table if not exists rhythm_weeks (...)`, as above, with an index on `(athlete_id, week_start desc)`, which the primary key covers.
-- `create table if not exists rhythm_targets (...)`, as above.
-- `create table if not exists rhythm_rest_weeks (...)`, as above.
 
 ## Phasing (decided in eng review: two PRs, same total scope)
 
@@ -392,10 +383,8 @@ This all ships in PR1. PR2 needs no migration.
 
 - `lib/rhythm.ts`, `lib/rhythmLedger.ts`, `lib/rhythmData.ts`
 - migration 024
-- the freeze step in `/api/cron/sync`
+- its own daily cron, `/api/cron/rhythm-freeze`, over every athlete (not part of `/api/cron/sync`)
 - the dashboard Rhythm cell with weapon sprites. `lib/sprites.ts` starts here, with the 5 weapons.
-- the target and rest-week APIs, and the settings field
-- race rest-week writes in the goals routes
 - **Retire `computeStreak` (decided in eng review).** There are 2 calculation sites and about 6 consumers.
   - `lib/coachMetrics.ts:312` switches to the Rhythm streak. `buildCoachAthleteMetrics` gains a `rhythmStreak` input from `loadRhythmInputs`.
   - `components/GroupDashboardTab.tsx:65` switches to the Rhythm streak. The group page passes it in as a prop.
@@ -425,9 +414,9 @@ This all ships in PR1. PR2 needs no migration.
 ## Open Questions
 
 
-1. **Pixel-sprite style:** orange-on-black 16×16 sprites are a new visual element for DESIGN.md. Confirm the direction before they're drawn. `/design-consultation` or a quick mockup could settle it.
+1. ~~**Pixel-sprite style:**~~ Approved 2026-09-26, and recorded in DESIGN.md's decisions log. Weapons are 16×16 upright grids in `lib/sprites.ts`. Boss sprites in PR2 follow the same style.
 2. **HP factor 0.5:** tune after the first raid. If the first boss dies in week 2, raise it. If nobody has killed a boss after 2 raids, lower it.
-3. **Qualifying floor:** `max(15 min, 50% of median)` needs a backtest against real group data.
+3. ~~**Qualifying floor:**~~ Replaced by a flat 15-minute minimum (2026-09-26).
 4. **Naming on cards:** named shaming is the point in a friend group, but confirm the group is into it (Next Steps, step 1).
 
 ## Success Criteria
@@ -436,12 +425,6 @@ This all ships in PR1. PR2 needs no migration.
 - A battle report gets posted in the group WhatsApp without being prompted within the first 2 weeks. This is the gate for v2.
 - The group kills at least 1 of its first 2 bosses.
 - `npx tsc --noEmit` stays clean. `lib/rhythm.ts` and `lib/raid.ts` have unit tests in `__tests__/` covering:
-  - lowering the target mid-week
-  - a rest week set on Sunday
-  - the 1-in-4 rest limit
-  - race-week auto rest
-  - an unset target during a fade
-  - a race goal added mid-week (no rest granted)
   - redemption after one miss compared with a second consecutive miss
   - alternating hit and miss weeks, which must not climb and must show `fade`
   - redemption at most once per 4 weeks
@@ -451,7 +434,6 @@ This all ships in PR1. PR2 needs no migration.
   - a failed attack with no MVP
   - shame slots overflowing past 3
   - tier drops from every tier
-  - a rest week in between a miss and the redemption week
   - majority with rest members excluded
   - `n = 0`
   - mixed zones
@@ -469,10 +451,8 @@ Route and loader tests use the existing mocked-Supabase helpers (`__tests__/help
 | File | PR | Asserts |
 |---|---|---|
 | `__tests__/rhythm.test.ts` | 1 | every pure-rule case in the list above |
-| `__tests__/rhythmLedger.test.ts` | 1 | seeding launch week from ~20 weeks of pre-launch runs; idempotent re-run; per-zone grace boundary; a frozen row never rewritten after a late sync |
+| `__tests__/rhythmData.test.ts` (freezing) | 1 | idempotent insert-ignore; waits for a complete history import; the cron covers every athlete and reports failed batches; clock-pinned |
 | `__tests__/rhythmData.test.ts` | 1 | a runner with more than 1,000 rows is fully loaded across `.range()` pages; paging ends on a short page; the run window starts 12 weeks before the first unfrozen week |
-| `__tests__/rhythmRoutes.test.ts` | 1 | target: 401; rejects 0, 15 and non-integers; a raise takes effect this week and a lower one next week; a same-week re-save upserts. Rest week: 401; current week only; the 1-in-4 limit counts manual rows only; DELETE clears only a manual row for the current week |
-| `__tests__/goalsRestWeeks.test.ts` | 1 | a future race writes 2 `race` rows; a race in the current week writes none; deleting the goal keeps the rows |
 | `__tests__/coachMetrics.test.ts` (update) | 1 | **REGRESSION:** `streak` is now the Rhythm streak; a 4 → 1 runs/week fade reads 0, not 9 |
 | `__tests__/coachEdition.test.ts` (update) | 1 | **REGRESSION:** fixtures' `streak_weeks` follow the new meaning |
 | `__tests__/raid.test.ts` | 2 | every raid-rule case in the list above |
@@ -482,13 +462,12 @@ Route and loader tests use the existing mocked-Supabase helpers (`__tests__/help
 
 **Manual QA** (written to the eng-review test plan):
 
-- "Lock it in", "Bump" and the rest-week toggle, including a double tap and the visible limit error.
 - Sharing on iOS Safari and Android Chrome, with `navigator.share` both present and absent.
 - The card rendered with real avatars.
 
 ## Distribution Plan
 
-The existing deployment pipeline covers this: push to Vercel, paste migration 024 into the Supabase SQL editor. No new cron.
+The existing deployment pipeline covers this: push to Vercel, paste migration 024 into the Supabase SQL editor. There's one new Vercel cron, `/api/cron/rhythm-freeze`. `RHYTHM_LAUNCH_WEEK` is set to the Monday of the deploy week (Jesse, ship review), so Rhythm is live straight away.
 
 ## Dependencies
 
@@ -518,7 +497,6 @@ The existing deployment pipeline covers this: push to Vercel, paste migration 02
    - `lib/rhythm.ts`, with a fixture from your own history that shows a real fade.
    - The ledger: migration 024, the freeze cron and the rebuild script.
    - The loader, behind the feature flag.
-   - The target and rest-week routes.
    - Retiring `computeStreak` with the "fresh start" framing.
    - The Rhythm card and weapon sprites.
 4. Paste migration 024, deploy, set `RHYTHM_LAUNCH_WEEK` to the next Monday, then redeploy.
@@ -561,7 +539,6 @@ The existing deployment pipeline covers this: push to Vercel, paste migration 02
 | `loadRhythmInputs` | migration 024 not pasted yet (`42P01`) | rhythmData | feature off, error logged | no Rhythm card, no crash |
 | freeze cron | an athlete is skipped | rhythmLedger | own loop, plus freezing on dashboard and group load | correct numbers |
 | `foldWeek` | a rule bug gets frozen into history | rhythm | `rules_version` + the rebuild script | fixed after a rebuild |
-| target route | the profile gets clobbered | rhythmRoutes | a dedicated route | profile intact |
 | card route | a non-member fetches the card | raidCard | 403 | error |
 | card route | an avatar fetch hangs | raidCard | 2-second budget, then initials | initials on the card |
 | battle report | a late upload flips the result after it's shared | — | "provisional" label | **an accepted risk, not a silent failure** |

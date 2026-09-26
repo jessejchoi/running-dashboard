@@ -1,4 +1,5 @@
 // Shared types and micro-components for Group page
+import { initials } from '@/lib/utils'
 
 export interface Goal {
   id: string
@@ -108,10 +109,9 @@ export function Avatar({ name, pic, size = 8 }: { name: string; pic: string | nu
   if (pic) {
     return <img src={pic} alt={name} style={{ width: px, height: px }} className="rounded-full object-cover shrink-0" />
   }
-  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
     <div style={{ width: px, height: px }} className="rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs shrink-0">
-      {initials}
+      {initials(name)}
     </div>
   )
 }

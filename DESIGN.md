@@ -228,3 +228,4 @@ inner stats: surface-2 bg, rgba(255,255,255,0.05) border
 | 2026-03-17 | Single orange accent | Restrained palette — orange is high-energy, athletic, distinctive; second accent would dilute it |
 | 2026-03-17 | fadeUp 300ms (from 400ms) | Tighter animation feels snappier in a performance context |
 | 2026-09-26 | Pixel-art weapon sprites for Rhythm | 16×16 upright grids in orange `#f97316` and steel `#a1a1aa` / `#52525b` on dark surfaces, drawn with `shape-rendering: crispEdges` (`lib/sprites.ts`, `components/WeaponSprite.tsx`). Retro timing-chip feel, and a collectible look for the weapon tiers. Approved by Jesse. |
+| 2026-09-26 | Boss sprites and share cards for Boss Raid | Six 16×16 bosses in the same orange/steel palette as the weapons (`lib/sprites.ts`, `BossSprite` in `components/WeaponSprite.tsx`). Share cards are 1080×1350 PNGs from `next/og` using Syne + Space Mono (`lib/og-fonts/`); DM Sans isn't embedded, so body copy on cards is Space Mono. |

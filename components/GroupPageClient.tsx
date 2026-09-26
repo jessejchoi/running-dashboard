@@ -1,11 +1,12 @@
 'use client'
 import BackgroundWork from './BackgroundWork'
 import { useState, useEffect, useRef } from 'react'
-import { Target, Activity, BarChart2 } from 'lucide-react'
+import { Target, Activity, BarChart2, Swords } from 'lucide-react'
 import { type Group, type Member, type Run, type LeaderboardRun, type Challenge, type TrainingLoad } from '@/components/GroupShared'
 import GroupDashboardTab from '@/components/GroupDashboardTab'
 import GroupFeedTab from '@/components/GroupFeedTab'
 import GroupGoalsTab from '@/components/GroupGoalsTab'
+import GroupRaidTab from '@/components/GroupRaidTab'
 import GroupPageHeader from '@/components/GroupPageHeader'
 import type { BriefingContent } from '@/lib/coachOutputs'
 
@@ -34,7 +35,7 @@ export default function GroupPageClient({
   initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, today,
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'raid' | 'feed' | 'goals'>('dashboard')
   const [memberEstimates, setMemberEstimates] = useState(initialMemberEstimates)
   const [pendingEstimates, setPendingEstimates] = useState(() => members.filter(m => !(m.athlete_id in initialMemberEstimates)).map(m => m.athlete_id))
   const [estimateError, setEstimateError] = useState(false)
@@ -159,6 +160,7 @@ export default function GroupPageClient({
       <div className="flex gap-0 mb-6 border-b border-[#1c1c1c] fade-up">
         {([
           { key: 'dashboard', label: 'Home',  icon: BarChart2 },
+          { key: 'raid',      label: 'Raid',  icon: Swords },
           { key: 'goals',     label: 'Goals', icon: Target },
           { key: 'feed',      label: 'Runs',  icon: Activity },
         ] as const).map(({ key, label: tabLabel, icon: Icon }) => (
@@ -194,6 +196,9 @@ export default function GroupPageClient({
           today={today}
         />
       </div>
+
+      {/* ── Boss Raid tab (loads when opened) ─────────────────────────────── */}
+      {tab === 'raid' && <GroupRaidTab groupId={group.id} myAthleteId={myAthleteId} />}
 
       {/* ── Feed tab ──────────────────────────────────────────────────────── */}
       <div className={tab !== 'feed' ? 'hidden' : ''}>

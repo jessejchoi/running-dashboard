@@ -46,21 +46,9 @@ Deferred work tracked here. One item per entry.
 
 ---
 
-## TODO-005: Route/integration test infrastructure
+## ~~TODO-005: Route/integration test infrastructure~~
 
-**What:** Create `__tests__/helpers/supabase.ts` — a Supabase mock helper that stubs `supabaseAdmin` responses so route handlers can be tested without a live DB.
-
-**Why:** Currently impossible to write unit tests for any API route. Every new route (insight, peek, coach-note PATCH, briefing awards) has zero test coverage by default. This is the one-time investment that unlocks route testing for all future work.
-
-**Pros:** Enables route-level unit tests. Catches auth bypass, 403/404 edge cases, cache logic. Pays forward on every future route.
-
-**Cons:** Initial setup cost. Mocks can drift from real Supabase behavior — needs occasional sync.
-
-**Context:** Identified in AI features overhaul eng review (2026-04-04). Vitest is already the test runner (`vitest run`). The pattern from `claude.test.ts` (vi.mock + mockResolvedValue) directly applies. Existing `__tests__/` directory has 2 files; this would be the 3rd.
-
-**Effort:** M (human: ~1 day) → S (CC+gstack: ~20 min)
-**Priority:** P2
-**Depends on:** Nothing — fully independent
+**Done 2026-04-13** (`526422a`). `__tests__/helpers/supabase.ts` provides `createQueryChain` and `queueSupabaseTables`, and 10 test files use it for route-level tests.
 
 ---
 

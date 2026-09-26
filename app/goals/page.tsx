@@ -9,6 +9,8 @@ import ExpectedEstimates from '@/components/ExpectedEstimates'
 import { loadEstimates, estimateValues } from '@/lib/estimates'
 import { trainingGoals } from '@/lib/trainingGoals'
 import { type DistanceUnit } from '@/lib/utils'
+import { localDate } from '@/lib/calendar'
+import { athleteTimezone } from '@/lib/timezone'
 export default async function GoalsPage() {
   const id = await getAthleteId()
   if (!id) redirect('/')
@@ -21,6 +23,7 @@ export default async function GoalsPage() {
     loadEstimates(Number(id), { allowStaleDay: true }),
     trainingGoals(Number(id)),
   ])
+  const today = localDate(new Date(), await athleteTimezone(Number(id)))
   return (
     <>
       <Nav />
@@ -33,6 +36,7 @@ export default async function GoalsPage() {
           bundle={bundle}
           estimates={estimateValues(bundle)}
           unit={(cookies().get('unit_pref')?.value ?? 'km') as DistanceUnit}
+          today={today}
         />
         <TrainingGoals initial={weekly} />
         <ExpectedEstimates estimates={bundle.estimates} />

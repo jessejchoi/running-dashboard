@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { claudeMessage } from '@/lib/claude'
+import { localDate, weekStart } from '@/lib/calendar'
+import { athleteTimezone } from '@/lib/timezone'
 
 const PEEK_CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 
@@ -44,15 +46,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   // Compute fresh peek data
   // Get all members and their this-week distances
-  const nowUtc = Date.now()
-  const jakartaOffset = 7 * 60 * 60 * 1000
-  const nowJakarta = new Date(nowUtc + jakartaOffset)
-  const dayOfWeek = nowJakarta.getUTCDay()
-  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-  const mondayJakarta = new Date(nowJakarta)
-  mondayJakarta.setUTCDate(mondayJakarta.getUTCDate() - daysSinceMonday)
-  mondayJakarta.setUTCHours(0, 0, 0, 0)
-  const weekStartUtc = new Date(mondayJakarta.getTime() - jakartaOffset).toISOString()
+  // This week in the viewer's zone; runs count on the local day they were run.
+  const thisWeek = weekStart(localDate(new Date(), await athleteTimezone(numericAthleteId)))
 
   const { data: groupMembers } = await supabaseAdmin
     .from('group_members')
@@ -68,7 +63,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .from('activities')
     .select('athlete_id, distance')
     .in('athlete_id', memberIds)
-    .gte('start_date', weekStartUtc)
+    .gte('start_date_local', thisWeek)
 
   const distByMember: Record<number, number> = {}
   for (const r of weekRuns ?? []) {

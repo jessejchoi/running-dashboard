@@ -1,12 +1,13 @@
 import { supabaseAdmin } from '@/lib/supabase'
 export async function recentCoachRuns(ids: number[]) {
   const rows: any[] = []
-  const cutoff = new Date(Date.now() - 84 * 86400000).toISOString()
+  // Two spare days: ranges below are local dates, which can sit up to a day off UTC.
+  const cutoff = new Date(Date.now() - 86 * 86400000).toISOString()
   for (let offset = 0; ; offset += 500) {
     const { data, error } = await supabaseAdmin
       .from('activities')
       .select(
-        'id,athlete_id,start_date,distance,moving_time,average_speed,average_heartrate,run_type,type,total_elevation_gain',
+        'id,athlete_id,start_date,start_date_local,distance,moving_time,average_speed,average_heartrate,run_type,type,total_elevation_gain',
       )
       .in('athlete_id', ids)
       .eq('type', 'Run')

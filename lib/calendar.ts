@@ -59,3 +59,70 @@ export function zonedDateTime(value: string, zone: string): string {
     )
   return new Date(instant).toISOString()
 }
+
+// Used only when nothing better is known about where someone runs.
+export const DEFAULT_TIMEZONE = 'Asia/Jakarta'
+
+/** Strava labels activity zones as "(GMT+07:00) Asia/Jakarta". */
+export function stravaTimezone(value?: string | null): string | null {
+  const zone = value?.split(' ').pop()
+  return zone && validTimezone(zone) ? zone : null
+}
+
+export interface DatedRun {
+  start_date: string
+  start_date_local?: string | null
+  raw?: { start_date_local?: string } | null
+}
+
+function localStart(run: DatedRun): string | null {
+  return run.start_date_local ?? run.raw?.start_date_local ?? null
+}
+
+/** The calendar day a run happened on, in the place it was run. */
+export function runDay(run: DatedRun, fallbackZone = DEFAULT_TIMEZONE): string {
+  return localStart(run)?.slice(0, 10) ?? localDate(new Date(run.start_date), fallbackZone)
+}
+
+/**
+ * A run's wall-clock start time as a Date in the runtime's own zone, so
+ * date-fns `format` prints the time on the runner's watch wherever it renders.
+ */
+export function runWallTime(run: DatedRun, fallbackZone = DEFAULT_TIMEZONE): Date {
+  const local = localStart(run)
+  if (local) return new Date(local.slice(0, 19))
+  const wall = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: fallbackZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).format(new Date(run.start_date))
+  return new Date(wall.replace(' ', 'T'))
+}
+
+/** The zone most members run in, for group views with no single viewer. */
+export function commonTimezone(zones: Array<string | null | undefined>): string {
+  const counts = new Map<string, number>()
+  for (const zone of zones) if (zone) counts.set(zone, (counts.get(zone) ?? 0) + 1)
+  let best = DEFAULT_TIMEZONE, bestCount = 0
+  for (const [zone, count] of Array.from(counts)) if (count > bestCount) [best, bestCount] = [zone, count]
+  return best
+}
+
+/** The browser's zone, for form defaults. */
+export function browserTimezone(): string {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return validTimezone(zone) ? zone : DEFAULT_TIMEZONE
+  } catch {
+    return DEFAULT_TIMEZONE
+  }
+}
+
+/** The zone of the most recent run that recorded one. */
+export function latestRunTimezone(runs: Array<{ start_date: string; timezone?: string | null }>): string {
+  let latest: { start_date: string; zone: string } | null = null
+  for (const run of runs) {
+    const zone = stravaTimezone(run.timezone)
+    if (zone && (!latest || run.start_date > latest.start_date)) latest = { start_date: run.start_date, zone }
+  }
+  return latest?.zone ?? DEFAULT_TIMEZONE
+}

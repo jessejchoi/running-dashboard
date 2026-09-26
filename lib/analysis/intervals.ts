@@ -3,6 +3,7 @@ import { calcVdot, formatPace, formatTime } from './formatting'
 import { DISTANCE_KM, riegelProject } from './riegel'
 import { DEFAULT_MAX_HR, driftPenaltyMultiplier } from './physiology'
 import { computeRepDrift, intervalPositionMultiplier, newRepCorrection, processLaps } from './laps'
+import { runDay } from '@/lib/calendar'
 const INTERVAL_CONFIDENCE: Record<DistanceKey, number> = { '5k': 0.85, '10k': 0.70, 'hm': 0.50, 'fm': 0.30 }
 // ─── Interval session analysis (redesigned) ──────────────────────────────────
 
@@ -40,7 +41,7 @@ function buildEstimate(
   const estimatedPaceSec = weightedPaceSum / totalWeight
   const estimatedSecs = Math.max(840, Math.min(3000, estimatedPaceSec * 5))
   const avgCorrection = repEfforts.reduce((s, e) => s + e.correctionFactor, 0) / repEfforts.length
-  const date = activity.start_date.split('T')[0]
+  const date = runDay(activity)
 
   // Rep-to-rep drift (applies penalty to HM/FM estimates)
   const repDrift = computeRepDrift(repEfforts, totalWorkSecs + totalRestSecs)

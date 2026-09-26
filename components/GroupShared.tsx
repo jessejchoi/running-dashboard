@@ -27,6 +27,7 @@ export interface Run {
   athlete_id: number
   name: string
   start_date: string
+  start_date_local?: string | null
   distance: number
   moving_time: number
   average_speed: number
@@ -50,6 +51,8 @@ export interface LeaderboardRun {
   distance: number
   moving_time: number
   start_date: string
+  /** Local date (daily aggregates) or wall-clock start where the run happened. */
+  start_date_local?: string | null
   suffer_score?: number | null
   average_speed?: number
   run_type?: string | null

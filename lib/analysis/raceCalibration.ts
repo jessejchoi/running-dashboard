@@ -5,6 +5,7 @@ import { project } from './projector'
 import { calibrateRaceResults, normalizedRaceSeconds, marathonTraining, type CalibrationObservation } from './personalization'
 import { performanceCutoff, RACE_DISTANCE_METERS } from './performanceEvidence'
 import type { DistanceKey } from '@/lib/goals'
+import { runDay, latestRunTimezone } from '@/lib/calendar'
 
 /** Full elapsed/official race results only; GPS best segments remain constraints,
  * never equality labels for calibration. Unknown effort cannot teach a slower max. */
@@ -41,11 +42,11 @@ export function preRaceProjection(corpus: PerformanceCorpus, asOf: Date, useMara
   if (!fit || fit.fitQuality === 'low') return null
   const prior = corpus.runs.filter(r => !r.excluded_from_analysis && Date.parse(r.start_date) < asOf.getTime())
   const recent = prior.filter(r => Date.parse(r.start_date) >= asOf.getTime() - 60 * 86400000)
-  if (recent.length < 3 || new Set(recent.map(r => r.start_date.slice(0, 10))).size < 3) return null
+  if (recent.length < 3 || new Set(recent.map(r => runDay(r))).size < 3) return null
   const weather = new Map<number, number | null>(Array.from(corpus.conditions.entries()).map(([id, c]) => [id, c.wbgt_approx_c]))
   const drift = extractQualifiedDrift(recent, weather)
   return project({ fit, features: { aerobic: extractAerobic(recent), endurance: extractEndurance(recent, 60), form: extractForm(recent, asOf.getTime()),
-    drift, marathonTraining: marathonTraining(prior, asOf, 'Asia/Jakarta', drift), windowDays: 60 }, useMarathonEndurance, calibration })
+    drift, marathonTraining: marathonTraining(prior, asOf, latestRunTimezone(prior), drift), windowDays: 60 }, useMarathonEndurance, calibration })
 }
 
 export function calibrationObservations(corpus: PerformanceCorpus, asOf: Date, useMarathonEndurance = false): CalibrationObservation[] {

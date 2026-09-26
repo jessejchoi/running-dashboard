@@ -1,6 +1,7 @@
 import { type DistanceKey, type RaceEstimate, type RaceResultAnalysis } from './types'
 import { DISTANCE_KM, riegelProject } from './riegel'
 import { STANDARD_RACE_DISTANCES, detectRace } from '@/lib/run-classification'
+import { runDay } from '@/lib/calendar'
 
 export function detectAndAnalyzeRace(activity: {
   id: number
@@ -21,7 +22,7 @@ export function detectAndAnalyzeRace(activity: {
     km: detection.matchedDistanceKm,
   }
 
-  const date = activity.start_date.split('T')[0]
+  const date = runDay(activity)
   const raceTimeSecs = activity.moving_time
 
   const raceEstimates: RaceEstimate[] = [

@@ -25,11 +25,13 @@ interface Props {
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: { cached: boolean; generated_at: string } | null
   memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
+  /** The viewer's local date. */
+  today: string
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, isPrimaryGroup = false, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {},
+  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, today,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'feed' | 'goals'>('dashboard')
@@ -189,6 +191,7 @@ export default function GroupPageClient({
           onUpdateMemberRole={updateMemberRole}
           initialBriefing={initialBriefing}
           initialBriefingMeta={initialBriefingMeta}
+          today={today}
         />
       </div>
 

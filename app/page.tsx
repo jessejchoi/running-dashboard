@@ -11,14 +11,20 @@ import { WeeklyMileageChart, TrainingLoadChart } from '@/components/DashboardCha
 import DashboardRaceSection from '@/components/DashboardRaceSection'
 import RecentRunsCard from '@/components/RecentRunsCard'
 import PrefetchGroup from '@/components/PrefetchGroup'
-import { formatDuration, isoWeek, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
+import { formatDuration, formatDistanceShort, distanceUnitLabel, type DistanceUnit } from '@/lib/utils'
 import { calculateTrainingLoad } from '@/lib/strava'
-import { format } from 'date-fns'
+import { localDate, runDay, validTimezone, weekStart, DEFAULT_TIMEZONE } from '@/lib/calendar'
+import { format, parseISO } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
 
 /** Fast path: only what's needed for the above-the-fold content. */
 async function getFastData(athleteId: number) {
+  const profileQuery = supabaseAdmin
+    .from('user_profiles')
+    .select('display_name, max_hr, primary_group_id, timezone')
+    .eq('athlete_id', athleteId)
+    .maybeSingle()
   const [
     { data: activities },
     { data: tokenData },
@@ -27,7 +33,7 @@ async function getFastData(athleteId: number) {
   ] = await Promise.all([
     supabaseAdmin
       .from('activities')
-      .select('id,start_date,distance,moving_time,suffer_score,run_type,run_type_manual,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain')
+      .select('id,start_date,start_date_local,timezone,distance,moving_time,suffer_score,run_type,run_type_manual,type,name,average_heartrate,average_speed,average_cadence,total_elevation_gain')
       .eq('athlete_id', athleteId)
       .eq('type', 'Run')
       .order('start_date', { ascending: false })
@@ -37,12 +43,9 @@ async function getFastData(athleteId: number) {
       .select('athlete_data')
       .eq('athlete_id', athleteId)
       .single(),
-    supabaseAdmin
-      .from('user_profiles')
-      .select('display_name, max_hr, primary_group_id')
-      .eq('athlete_id', athleteId)
-      .maybeSingle(),
-    canonicalTotals([athleteId], getCoachRangeDefinitions()),
+    profileQuery,
+    profileQuery.then(({ data }) =>
+      canonicalTotals([athleteId], getCoachRangeDefinitions(new Date(), profileTimezone(data)))),
   ])
 
   return {
@@ -51,8 +54,14 @@ async function getFastData(athleteId: number) {
     athlete: tokenData?.athlete_data,
     displayName: userProfile?.display_name ?? null,
     hasMaxHr: !!userProfile?.max_hr,
+    maxHr: (userProfile?.max_hr as number | null) ?? null,
+    timezone: profileTimezone(userProfile),
     primaryGroupId: userProfile?.primary_group_id ?? null,
   }
+}
+
+function profileTimezone(profile: { timezone?: string | null } | null) {
+  return validTimezone(profile?.timezone) ? profile!.timezone! : DEFAULT_TIMEZONE
 }
 
 /** Skeleton for the race estimates + goals section */
@@ -86,15 +95,18 @@ export default async function DashboardPage() {
     return <OnboardingPage />
   }
 
-  const { activities, athlete, displayName, hasMaxHr, primaryGroupId, totals } = await getFastData(Number(athleteId))
+  const { activities, athlete, displayName, hasMaxHr, primaryGroupId, totals, maxHr, timezone } = await getFastData(Number(athleteId))
+  // Weeks and days are the runner's own: each run counts on the day it was run,
+  // and "today" is in the zone of their latest run.
+  const today = localDate(new Date(), timezone)
   // The chart shows 90 days; don't serialize the full history to the client.
-  const trainingLoad = calculateTrainingLoad(activities).slice(-100)
-  const mileageRuns = activities.map((a: any) => ({ start_date: a.start_date, distance: a.distance }))
+  const trainingLoad = calculateTrainingLoad(activities, { maxHr, timezone, today }).slice(-100)
+  const runs = activities.map((a: any) => ({ ...a, day: runDay(a, timezone) }))
+  const mileageRuns = runs.map(a => ({ day: a.day, distance: a.distance }))
 
-  const thisWeek = isoWeek(new Date())
-  const weekActivities = activities.filter((a: any) => isoWeek(new Date(a.start_date)) === thisWeek)
+  const thisWeek = weekStart(today)
+  const weekTime = runs.filter(a => a.day >= thisWeek).reduce((s: number, a: any) => s + a.moving_time, 0)
   const weekDist = totals.week.meters
-  const weekTime = weekActivities.reduce((s: number, a: any) => s + a.moving_time, 0)
   const yearStart = new Date(new Date().getFullYear(), 0, 1)
   const yearDist = totals.ytd.meters
   const unitLabel = distanceUnitLabel(unit)
@@ -112,7 +124,7 @@ export default async function DashboardPage() {
             Hey, {(displayName ?? athlete?.firstname ?? 'Runner').split(' ')[0]} 👋
           </h1>
           <p className="font-mono text-xs mt-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            {format(new Date(), 'EEE, MMM d')} · {totals.all_time.source_count} runs tracked
+            {format(parseISO(today), 'EEE, MMM d')} · {totals.all_time.source_count} runs tracked
           </p>
         </div>
 
@@ -129,7 +141,7 @@ export default async function DashboardPage() {
               <span className="font-normal ml-1.5" style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>{unitLabel}</span>
             </div>
             <div style={{ height: 160 }}>
-              <WeeklyMileageChart activities={mileageRuns} />
+              <WeeklyMileageChart activities={mileageRuns} today={today} />
             </div>
           </div>
 
@@ -164,7 +176,7 @@ export default async function DashboardPage() {
 
         {/* ── Race Goals + Estimates (deferred) ── */}
         <Suspense fallback={<RaceSectionSkeleton />}>
-          <DashboardRaceSection athleteId={Number(athleteId)} unit={unit} hasMaxHr={hasMaxHr} />
+          <DashboardRaceSection athleteId={Number(athleteId)} unit={unit} hasMaxHr={hasMaxHr} today={today} />
         </Suspense>
 
         {/* ── Recent Runs ── */}

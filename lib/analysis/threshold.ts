@@ -3,6 +3,7 @@ import { calcVdot, formatPace, formatTime } from './formatting'
 import { riegelProject } from './riegel'
 import { DEFAULT_MAX_HR, driftPenaltyMultiplier } from './physiology'
 import { computeRepDrift, processLaps, restOnlyCorrection } from './laps'
+import { runDay } from '@/lib/calendar'
 const DANIELS_CONTINUOUS = 0.907
 const DANIELS_STRUCTURED = 0.92
 export const THRESHOLD_TO_10K = 0.96
@@ -57,7 +58,7 @@ function buildThresholdEstimate(
   const rawThresholdPace = weightedRawPaceSum / totalWeight
   const estimatedSecs = Math.max(840, Math.min(3000, estimatedPaceSec * 5))
   const avgCorrection = repEfforts.reduce((s, e) => s + e.correctionFactor, 0) / repEfforts.length
-  const date = activity.start_date.split('T')[0]
+  const date = runDay(activity)
 
   // Rep-to-rep drift (applies penalty to HM/FM estimates)
   const repDrift = computeRepDrift(repEfforts, totalWorkSecs + totalRestSecs)
@@ -183,7 +184,7 @@ export function analyzeThresholdSession(activity: {
   const ratio = continuousDanielsRatio(activity.average_heartrate, effectiveMaxHr)
   const fiveKPaceSec = paceSec * ratio
   const estimatedSecs = Math.max(840, Math.min(3000, fiveKPaceSec * 5))
-  const date = activity.start_date.split('T')[0]
+  const date = runDay(activity)
 
   // Direct estimates for longer distances
   const raceEstimates: RaceEstimate[] = [

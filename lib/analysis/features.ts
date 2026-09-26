@@ -1,5 +1,6 @@
 import { analyzeEasyRun } from './easyRuns'
 import { analysisWeightForActivity } from '@/lib/run-classification'
+import { latestRunTimezone } from '@/lib/calendar'
 
 /**
  * Feature extractors for the new race projector.
@@ -277,7 +278,7 @@ export async function loadAthleteFeatures(
   const rows: RunRow[] = []
   for (let offset = 0; ; offset += 500) {
     const { data, error } = await supabaseAdmin.from('activities')
-      .select('id, start_date, distance, moving_time, average_speed, average_heartrate, suffer_score, splits, laps, run_type, trainer:raw->trainer, sport_type:raw->sport_type, excluded_from_analysis, total_elevation_gain, is_race')
+      .select('id, start_date, start_date_local, timezone, distance, moving_time, average_speed, average_heartrate, suffer_score, splits, laps, run_type, trainer:raw->trainer, sport_type:raw->sport_type, excluded_from_analysis, total_elevation_gain, is_race')
       .eq('athlete_id', athleteId).eq('type', 'Run').gte('start_date', cutoffISO).lt('start_date', asOf.toISOString())
       .order('start_date').order('id').range(offset, offset + 499)
     if (error) throw new Error(`Training evidence read failed: ${error.code}`)
@@ -295,6 +296,6 @@ export async function loadAthleteFeatures(
   return {
     aerobic: extractAerobic(runs), endurance: extractEndurance(runs, windowDays),
     form: extractForm(runs, asOf.getTime()), drift,
-    marathonTraining: marathonTraining(rows, asOf, 'Asia/Jakarta', drift), windowDays,
+    marathonTraining: marathonTraining(rows, asOf, latestRunTimezone(rows), drift), windowDays,
   }
 }

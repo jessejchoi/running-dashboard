@@ -8,7 +8,8 @@ import RunSurfaceBadge from '@/components/RunSurfaceBadge'
 import SplitsChart from '@/components/SplitsChart'
 import { buildLapSegments } from '@/lib/lapUtils'
 import HRChart from '@/components/HRChart'
-import { speedToPace, formatDuration, toJakartaDate, formatDistance, paceUnitLabel, aggregateToMileSplits, type DistanceUnit } from '@/lib/utils'
+import { speedToPace, formatDuration, formatDistance, paceUnitLabel, aggregateToMileSplits, type DistanceUnit } from '@/lib/utils'
+import { runWallTime } from '@/lib/calendar'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -30,7 +31,7 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
       .from('activities')
       // Only what this page renders: the HR series (not every GPS stream) and
       // the two raw flags the treadmill badge needs, not the whole payload.
-      .select('id,name,start_date,distance,moving_time,average_speed,total_elevation_gain,average_cadence,suffer_score,average_heartrate,max_heartrate,run_type,run_type_manual,detail_synced,splits,laps,hr_stream:streams->heartrate,time_stream:streams->time,trainer:raw->trainer,sport_type:raw->>sport_type')
+      .select('id,name,start_date,start_date_local,distance,moving_time,average_speed,total_elevation_gain,average_cadence,suffer_score,average_heartrate,max_heartrate,run_type,run_type_manual,detail_synced,splits,laps,hr_stream:streams->heartrate,time_stream:streams->time,trainer:raw->trainer,sport_type:raw->>sport_type')
       .eq('id', params.id)
       .single(),
     supabaseAdmin
@@ -84,7 +85,7 @@ export default async function RunDetailPage({ params, searchParams }: { params: 
               <h1 className="font-display font-extrabold uppercase mb-2" style={{ fontSize: 'clamp(22px, 5vw, 40px)', letterSpacing: '-0.02em' }}>{run.name}</h1>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                  {format(toJakartaDate(run.start_date), 'EEE, MMM d yyyy · h:mm a')}
+                  {format(runWallTime(run), 'EEE, MMM d yyyy · h:mm a')}
                 </p>
                 {isTreadmill && <RunSurfaceBadge run={surface} />}
               </div>

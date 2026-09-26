@@ -4,6 +4,7 @@ import { riegelProject } from './riegel'
 import { DEFAULT_MAX_HR, computeCardiacDrift, driftPenaltyMultiplier } from './physiology'
 import { type SteadyWindow, type TimedSplit, buildTimedSplits, extractSteadyWindow, wavg } from './steadyWindows'
 import { THRESHOLD_CONFIDENCE, THRESHOLD_TO_10K, THRESHOLD_TO_HM, continuousDanielsRatio } from './threshold'
+import { runDay } from '@/lib/calendar'
 // ─── Long run analyzer ───────────────────────────────────────────────────────
 
 // ─── Fast block detection ─────────────────────────────────────────────────────
@@ -254,7 +255,7 @@ export function analyzeLongRun(activity: {
   run_type?: string
 }, maxHr: number = DEFAULT_MAX_HR): LongRunAnalysis | null {
   const distKm      = activity.distance / 1000
-  const date        = activity.start_date.split('T')[0]
+  const date        = runDay(activity)
   const baselinePace = activity.average_speed ? 1000 / activity.average_speed : 999
   if (!activity.average_heartrate) return null
 

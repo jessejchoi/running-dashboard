@@ -10,7 +10,7 @@
 
 ## Aesthetic Direction
 - **Direction:** Industrial / Retro-Futuristic
-- **Decoration level:** Intentional — dark surfaces and orange accent carry the atmosphere; subtle grain or razor-thin dividers only; no gradients, no rounded blobs
+- **Decoration level:** Intentional — dark surfaces and orange accent carry the atmosphere; a faint 4px dot grain on the page and 1px rules between panel cells; no gradients, no rounded blobs
 - **Mood:** Feels like a timing-chip readout or a track coach's analytics terminal. Precise, focused, high-energy. A performance tool — not a wellness app.
 
 ---
@@ -19,7 +19,9 @@
 - **Approach:** Bento grid — asymmetric grid where card size signals importance
 - **Desktop grid:** 12-column, gap 12px, max content width 1100px
 - **Mobile grid:** 2-column (key stats full-width `span 12`, small stats `span 6`), gap 8px, horizontal page padding 12px
-- **Card placement examples:** Weekly mileage → large (7 col); race estimates → medium (5 col); pace/load/goals → equal thirds (4 col each)
+- **Card placement examples:** Next race (orange) → 5 col + weekly distance → 7 col; stats → four equal cells; training load → 3 col readouts + 9 col chart
+- **Panels (timing-chip):** Related cells share one bordered `.panel` and are split by 1px `--rule` lines instead of floating as separate cards. Each cell starts with a numbered mono `.eyebrow` (`01 WEEKLY DISTANCE`). Use `grid-cols-*` on the panel to set columns.
+- **One orange block:** The dashboard has exactly one solid `--accent` surface, the next-race countdown (`.race-block`), with black text. Nothing else gets a solid orange fill.
 - **Glass treatment:** Reserved for elements that float above scrolling content only:
   - Desktop nav bar
   - Mobile bottom nav
@@ -39,6 +41,7 @@
 | `--surface-3` | `#0f0f0f` | Inputs, inner containers |
 | `--border` | `#2a2a2a` | Default borders |
 | `--border-hover` | `#383838` | Hovered borders |
+| `--rule` | `#222222` | 1px rules between panel cells |
 | `--accent` | `#f97316` | Brand orange — primary interactive |
 | `--accent-dim` | `#ea580c` | Accent hover state |
 | `--accent-muted` | `rgba(249,115,22,0.10)` | Active nav bg, focus rings |
@@ -46,6 +49,7 @@
 | `--text-1` | `#f0f0f0` | Primary text |
 | `--text-2` | `#a1a1aa` | Secondary text |
 | `--text-3` | `#6b7280` | Muted / labels / meta |
+| `--text-4` | `#3f3f46` | Eyebrow numbers, separators |
 | `--success` | `#22c55e` | Easy runs, positive deltas |
 | `--warning` | `#eab308` | Tempo/threshold runs, fatigue warnings |
 | `--error` | `#ef4444` | Errors, negative deltas |
@@ -128,10 +132,10 @@ Hierarchical — not uniform. Smaller elements are sharper; larger containers ar
 
 | Element | Radius |
 |---|---|
-| Chips / badges | `4px` |
+| Chips / badges | `3–4px` |
 | Buttons | `6px` |
 | Inputs | `8px` |
-| Cards | `12px` |
+| Cards / panels | `8px` |
 | Modals / glass | `16px` |
 
 ---
@@ -186,13 +190,25 @@ padding-top: calc(14px + env(safe-area-inset-top));
 
 ## Component Conventions
 
-**Stat card (key metric):**
+**Stat cell (key metric):**
 ```
-eyebrow    — Space Mono 10px uppercase, text-3
-big number — Space Mono 42px/32px, text-1, tabular-nums
-delta chip — Space Mono 11px, success/error bg, border-radius 4px
-chart      — bars or sparkline, accent for current week
-box-shadow — 0 0 40px var(--accent-glow)  ← glow-orange class
+eyebrow    — .eyebrow: Space Mono 10px uppercase, 0.16em, text-3; number in text-4
+big number — Space Mono 46px/34px, text-1, tabular-nums
+chart      — segmented bars (4px blocks, 2px gaps); past weeks #232323 with a lit
+             #3f3f46 top block, current week solid accent; dashed accent avg line
+```
+
+**Readout rail (training load):**
+```
+.readout — 2px left rule in the series colour, mono label, 24px mono value
+fitness → accent, fatigue → #52525b (dashed line), form → warning/success by sign
+```
+
+**Next-race block:**
+```
+.race-block — solid accent, #0a0a0a text, faint distance watermark (Syne 800, 7% black)
+days       — Syne 800, clamp(84px, 11vw, 116px)
+row        — Estimate / To find / Per km, split by 20% black rules
 ```
 
 **Run type badge:**
@@ -227,3 +243,5 @@ inner stats: surface-2 bg, rgba(255,255,255,0.05) border
 | 2026-03-17 | 4px base unit | Finer control for data-dense layouts without going to 8px rigidity |
 | 2026-03-17 | Single orange accent | Restrained palette — orange is high-energy, athletic, distinctive; second accent would dilute it |
 | 2026-03-17 | fadeUp 300ms (from 400ms) | Tighter animation feels snappier in a performance context |
+| 2026-09-26 | Timing-chip refresh: joined panels, 8px radius, numbered eyebrows, segmented bars | Chosen from 3 directions (design-shotgun). Leans harder into the "timing-chip readout" direction instead of changing it |
+| 2026-09-26 | One solid-orange next-race block | Borrowed from the "Race Day" direction. Gives the dashboard a single focal point tied to the actual goal |

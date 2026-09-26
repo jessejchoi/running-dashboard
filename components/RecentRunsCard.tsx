@@ -7,6 +7,7 @@ import RunSurfaceBadge from '@/components/RunSurfaceBadge'
 import { speedToPace, formatDuration, formatDistance, paceUnitLabel, toJakartaDate, type DistanceUnit } from '@/lib/utils'
 import { RUN_TYPES, type RunType } from '@/lib/runtypes'
 import { isTreadmillRun } from '@/lib/run-classification/surface'
+import Eyebrow from '@/components/Eyebrow'
 
 interface Activity {
   id: number
@@ -37,32 +38,29 @@ export default function RecentRunsCard({ runs, unit }: Props) {
   if (runs.length === 0) return null
 
   return (
-    <section className="mt-6 mb-3">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-base text-[#6b7280] uppercase tracking-widest">Recent Runs</h2>
-        <Link href="/runs" prefetch={true} className="font-mono text-xs text-[#f97316] hover:text-orange-400 transition-colors">
-          View all →
-        </Link>
+    <section className="panel grid-cols-1 mt-3 mb-3 fade-up">
+      <div className="cell" style={{ paddingBottom: 6 }}>
+        <Eyebrow
+          n="10"
+          label="Recent runs"
+          right={<Link href="/runs" prefetch={true} className="inline-flex items-center min-h-[32px]">View all →</Link>}
+          className="!mb-0"
+        />
       </div>
-      <div className="card fade-up" style={{ padding: '1.25rem' }}>
-
-      <div className="flex flex-col">
-        {runs.map((run, i) => {
+        {runs.map((run) => {
           const paceSeconds = run.average_speed ? 1000 / run.average_speed : 999
           const isFast = paceSeconds <= 270
           const isTreadmill = isTreadmillRun(run)
-          const isLast = i === runs.length - 1
           const typeConfig = runTypes[run.id] ? RUN_TYPES[runTypes[run.id] as RunType] : null
 
           return (
             <div
               key={run.id}
-              className="rounded-lg transition-colors duration-100"
+              className="cell transition-colors duration-100"
               style={{
-                background: hoveredId === run.id ? 'var(--surface-2)' : 'transparent',
-                borderBottom: isLast ? 'none' : '1px solid var(--border)',
-                margin: '0 -0.5rem',
-                padding: '0.625rem 0.5rem',
+                background: hoveredId === run.id ? 'var(--surface-2)' : undefined,
+                paddingTop: 11,
+                paddingBottom: 11,
               }}
               onMouseEnter={() => setHoveredId(run.id)}
               onMouseLeave={() => setHoveredId(null)}
@@ -73,7 +71,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                 {/* Date — links to detail */}
                 <Link
                   href={`/runs/${run.id}`}
-                  className="font-mono text-xs shrink-0 whitespace-nowrap hover:text-white transition-colors w-12"
+                  className="font-mono text-[11px] uppercase tracking-[0.08em] shrink-0 whitespace-nowrap hover:text-white transition-colors w-14"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   {format(toJakartaDate(run.start_date), 'MMM d')}
@@ -101,7 +99,7 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                 {/* Run name */}
                 <Link
                   href={`/runs/${run.id}`}
-                  className="text-sm text-white truncate flex-1 min-w-0 hover:text-orange-400 transition-colors"
+                  className="text-sm font-medium text-white truncate flex-1 min-w-0 hover:text-orange-400 transition-colors"
                 >
                   {run.name}
                 </Link>
@@ -110,38 +108,37 @@ export default function RecentRunsCard({ runs, unit }: Props) {
                 {/* Stats — right aligned */}
                 <div className="flex items-center gap-4 shrink-0 ml-auto">
                   {/* Distance */}
-                  <span className="font-mono text-sm font-bold" style={{ color: 'var(--orange)' }}>
-                    {formatDistance(run.distance, unit)}
+                  <span className="stat-num text-sm font-bold text-right sm:w-20" style={{ color: 'var(--text-1)' }}>
+                    {formatDistance(run.distance, unit).split(' ')[0]}
+                    <span className="font-normal text-[10px] uppercase ml-1" style={{ color: 'var(--text-3)' }}>{formatDistance(run.distance, unit).split(' ')[1]}</span>
                   </span>
 
                   {/* Pace */}
                   <span
-                    className="font-mono text-xs font-bold hidden sm:block"
+                    className="font-mono text-xs hidden sm:block w-20 text-right"
                     style={{ color: isFast ? 'var(--success)' : 'var(--text-2)' }}
                   >
                     {speedToPace(run.average_speed, unit)}{paceUnitLabel(unit)}
                   </span>
 
                   {/* Duration */}
-                  <span className="font-mono text-xs hidden md:block" style={{ color: 'var(--text-2)' }}>
+                  <span className="font-mono text-xs hidden md:block w-16 text-right" style={{ color: 'var(--text-2)' }}>
                     {formatDuration(run.moving_time)}
                   </span>
 
                   {/* HR */}
                   {run.average_heartrate ? (
-                    <span className="font-mono text-xs hidden lg:block" style={{ color: 'var(--text-muted)' }}>
+                    <span className="font-mono text-xs hidden lg:block w-16 text-right" style={{ color: 'var(--text-muted)' }}>
                       {Math.round(run.average_heartrate)} bpm
                     </span>
                   ) : (
-                    <span className="font-mono text-xs hidden lg:block" style={{ color: 'var(--text-3)' }}>—</span>
+                    <span className="font-mono text-xs hidden lg:block w-16 text-right" style={{ color: 'var(--text-3)' }}>—</span>
                   )}
                 </div>
               </div>
             </div>
           )
         })}
-      </div>
-      </div>
     </section>
   )
 }

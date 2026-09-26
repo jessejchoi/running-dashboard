@@ -46,8 +46,20 @@ describe('RhythmCell', () => {
     expect(markup).toContain('Your level')
     expect(markup).toMatch(/Level<\/p><div[^>]*>4<\/div><p[^>]*>Sword/)
     expect(markup).toMatch(/Attack<\/p><div[^>]*>3<\/div>/)
-    expect(markup).toMatch(/Streak<\/p><div[^>]*>5<\/div><p[^>]*>weeks/)
+    // The streak sits inside a flame, like Strava's streak badge.
+    expect(markup).toContain('aria-label="5-week streak"')
+    expect(markup).toMatch(/Streak<\/p><p[^>]*>weeks<\/p>/)
     expect(markup).not.toContain('Season')
+  })
+
+  it('lights the streak flame once there is a streak, and greys it out at 0', () => {
+    const lit = html(result({ streak: 12 }))
+    expect(lit).toContain('aria-label="12-week streak"')
+    expect(lit).toContain('fill="var(--accent)"')
+    const cold = html(result({ streak: 0 }))
+    expect(cold).toContain('aria-label="0-week streak"')
+    expect(cold).toContain('fill="var(--surface-3)"')
+    expect(html(result({ streak: 1 }))).toMatch(/Streak<\/p><p[^>]*>week<\/p>/)
   })
 
   it('draws one bar per target run, orange as they happen, and all green once the target is hit', () => {

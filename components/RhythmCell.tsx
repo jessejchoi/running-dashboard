@@ -1,5 +1,6 @@
 import { FADE_MISSES, FADE_WINDOW_WEEKS, tierNumber, type RhythmResult } from '@/lib/rhythm'
 import WeaponSprite from '@/components/WeaponSprite'
+import StreakFlame from '@/components/StreakFlame'
 
 const LABEL = 'font-mono text-[10px] uppercase tracking-widest'
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
@@ -23,7 +24,6 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
   const stats: Array<[string, string, string]> = [
     ['Level', `${level}`, weapon.tier.name],
     ['Attack', `${weapon.tier.power}`, 'power'],
-    ['Streak', `${rhythm.streak}`, rhythm.streak === 1 ? 'week' : 'weeks'],
   ]
 
   return (
@@ -52,6 +52,13 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
               <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-2)' }}>{sub}</p>
             </div>
           ))}
+          <div className="rounded-lg min-w-0 flex items-center justify-between gap-1" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
+            <div className="min-w-0">
+              <p className={LABEL} style={{ color: 'var(--text-muted)' }}>Streak</p>
+              <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-2)' }}>{rhythm.streak === 1 ? 'week' : 'weeks'}</p>
+            </div>
+            <StreakFlame weeks={rhythm.streak} size={46} />
+          </div>
         </div>
       </div>
 

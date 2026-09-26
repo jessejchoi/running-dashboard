@@ -22,7 +22,7 @@ describe('buildGroupEngagement', () => {
         {
           athlete_id: 1,
           name: 'Jesse Choi',
-          streak: 3,
+          streak: 3, streak_label: "Rhythm streak 3 weeks",
           goals: [],
           current_estimates: [],
           this_week_km: 22,
@@ -65,7 +65,7 @@ describe('buildGroupEngagement', () => {
         {
           athlete_id: 1,
           name: 'Mina Kim',
-          streak: 1,
+          streak: 1, streak_label: "Rhythm streak 1 weeks",
           goals: [],
           current_estimates: [],
           this_week_km: 30,
@@ -79,7 +79,7 @@ describe('buildGroupEngagement', () => {
         {
           athlete_id: 2,
           name: 'Jesse Choi',
-          streak: 0,
+          streak: 0, streak_label: "Rhythm streak 0 weeks",
           goals: [],
           current_estimates: [],
           this_week_km: 0,

@@ -1,5 +1,6 @@
 import { buildAthleteMetrics, buildCoachFactsSnapshot, buildGroupMetrics, type CoachMetricTotal, type CoachSignal } from '@/lib/coachMetrics'
 import type { EditionRun } from '@/lib/coachEdition'
+import { rhythmStreakLabel } from '@/lib/rhythm'
 
 export interface CoachContext {
   group: { name: string }
@@ -11,6 +12,8 @@ export interface CoachContext {
     athlete_id: number
     name: string
     streak: number
+    /** How prompts should describe the streak (framed as a fresh start in Rhythm's first month). */
+    streak_label: string
     goals: Array<{
       label: string
       distance_key: string
@@ -63,6 +66,7 @@ export async function buildCoachContext(groupId: string): Promise<CoachContext> 
       athlete_id: member.athlete_id,
       name: member.name,
       streak: member.streak,
+      streak_label: rhythmStreakLabel(member.streak, member.rhythm_season_week),
       goals: member.goals.map(goal => ({
         label: goal.label,
         distance_key: goal.distance_key,
@@ -120,6 +124,8 @@ export interface AthleteContext {
   rolling_12w_km: number
   run_count_this_week: number
   streak: number
+  /** How prompts should describe the streak (framed as a fresh start in Rhythm's first month). */
+  streak_label: string
   avg_weekly_km_4w: number
 }
 
@@ -148,6 +154,7 @@ export async function buildAthleteContext(athleteId: number): Promise<AthleteCon
     rolling_12w_km: metrics.totals.rolling_12w.km,
     run_count_this_week: metrics.totals.week.source_count,
     streak: metrics.streak,
+    streak_label: rhythmStreakLabel(metrics.streak, metrics.rhythm_season_week),
     avg_weekly_km_4w: Math.round((metrics.totals.rolling_4w.km / 4) * 10) / 10,
   }
 }

@@ -7,12 +7,14 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 import {
+  buildAthleteMetricsFromActivities,
   buildChallengeMetricsFromActivities,
   buildCoachTotals,
   buildGroupSignals,
   getCoachRangeDefinitions,
   type CoachActivity,
 } from '@/lib/coachMetrics'
+import { rhythmStreakLabel } from '@/lib/rhythm'
 
 const NOW = new Date('2026-05-13T18:00:00Z') // Thu May 14 in Jakarta
 
@@ -174,5 +176,35 @@ describe('group signals', () => {
 
     expect(signals[0].key).toBe('group_momentum_rising')
     expect(signals[0].evidence).toContain('120.0km')
+  })
+})
+
+describe('athlete streak (Rhythm)', () => {
+  // Regression: the streak used to count weeks with at least one run, so a runner
+  // who slid from 4 runs a week to 1 kept a long streak. It now comes from Rhythm.
+  const fadingRuns: CoachActivity[] = Array.from({ length: 9 }, (_, i) => ({
+    athlete_id: 1,
+    type: 'Run',
+    start_date: new Date(Date.parse('2026-03-10T00:00:00Z') + i * 7 * 86400000).toISOString(),
+    distance: 5000,
+    moving_time: 1800,
+  }))
+  const base = { athlete_id: 1, name: 'Runner One', activities: fadingRuns, goals: [], now: NOW }
+
+  it('ignores weekly run history and uses the Rhythm streak', () => {
+    const metrics = buildAthleteMetricsFromActivities({ ...base, rhythm: { streak: 0, seasonWeek: 3 } })
+    expect(metrics.streak).toBe(0)
+    expect(metrics.rhythm_season_week).toBe(3)
+  })
+
+  it('reads 0 and untracked while Rhythm is off', () => {
+    const metrics = buildAthleteMetricsFromActivities(base)
+    expect(metrics.streak).toBe(0)
+    expect(metrics.rhythm_season_week).toBeNull()
+    expect(rhythmStreakLabel(metrics.streak, metrics.rhythm_season_week)).toBe('weekly streak not tracked yet')
+  })
+
+  it('passes a live streak through', () => {
+    expect(buildAthleteMetricsFromActivities({ ...base, rhythm: { streak: 7, seasonWeek: 9 } }).streak).toBe(7)
   })
 })

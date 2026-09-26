@@ -101,7 +101,7 @@ Canonical coach facts:
 ${JSON.stringify(ctx.facts, null, 2)}
 Coach signals:
 ${JSON.stringify(ctx.signals, null, 2)}
-Athlete context: this week ${ctx.this_week_km}km, YTD ${ctx.ytd_km}km, streak ${ctx.streak} weeks, avg weekly km (4w) ${ctx.avg_weekly_km_4w}km${effortContext}${noteContext}`
+Athlete context: this week ${ctx.this_week_km}km, YTD ${ctx.ytd_km}km, ${ctx.streak_label}, avg weekly km (4w) ${ctx.avg_weekly_km_4w}km${effortContext}${noteContext}`
 
   let content: string
   try {

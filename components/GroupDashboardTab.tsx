@@ -4,10 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { Flame, Trophy, Plus, X, Shield, ShieldOff, UserMinus } from 'lucide-react'
-import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles, computeStreak } from '@/lib/utils'
+import { speedToPace, paceUnitLabel, distanceUnitLabel, metersToMiles } from '@/lib/utils'
 import { getBestChallengeEffort } from '@/lib/challengeUtils'
+import { FRESH_START_WEEKS } from '@/lib/rhythm'
 import { useUnit } from '@/lib/unit-context'
-import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, formatTime } from '@/components/GroupShared'
+import { Avatar, RunTypeDot, type Group, type Member, type LeaderboardRun, type Challenge, type TrainingLoad, type MemberRhythm, formatTime } from '@/components/GroupShared'
 import GroupCoachTab from '@/components/GroupCoachTab'
 import GroupMessageBoard from '@/components/GroupMessageBoard'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
@@ -29,6 +30,8 @@ interface Props {
   onUpdateMemberRole: (athleteId: number, role: 'admin' | 'member') => Promise<void>
   initialBriefing?: BriefingContent | null
   initialBriefingMeta?: BriefingMeta | null
+  /** Rhythm streaks for the leaderboard flame; null while Rhythm is off. */
+  memberRhythm: MemberRhythm | null
   /** The viewer's local date. Runs count on the local date they were run. */
   today: string
 }
@@ -45,7 +48,7 @@ function getRangeStart(range: LeaderRange, today: string): string {
     : addDays(today, -182)
 }
 
-function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members: Member[], today: string) {
+function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members: Member[], today: string, rhythm: MemberRhythm | null) {
   const cutoff = getRangeStart(range, today)
   const filtered = runs.filter(r => runDay(r) >= cutoff)
   const totals: Record<number, { distance: number; count: number }> = {}
@@ -62,7 +65,7 @@ function computeLeaderboard(runs: LeaderboardRun[], range: LeaderRange, members:
       is_me: m.is_me,
       distance: totals[m.athlete_id]?.distance ?? 0,
       count: totals[m.athlete_id]?.count ?? 0,
-      streak: computeStreak(runs, m.athlete_id, today),
+      streak: rhythm?.streaks[m.athlete_id] ?? 0,
     }))
     .sort((a, b) => b.distance - a.distance)
 }
@@ -269,7 +272,7 @@ function summarizePastChallenge(
 
 export default function GroupDashboardTab({
   group, leaderboardRuns, members, memberTrainingLoads, myRole, myAthleteId, initialChallenges,
-  onKickMember, onUpdateMemberRole, initialBriefing, initialBriefingMeta, today,
+  onKickMember, onUpdateMemberRole, initialBriefing, initialBriefingMeta, memberRhythm, today,
 }: Props) {
   const { unit } = useUnit()
   const label = distanceUnitLabel(unit)
@@ -293,7 +296,9 @@ export default function GroupDashboardTab({
   const [generating, setGenerating] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
-  const board = computeLeaderboard(leaderboardRuns, leaderRange, members, today)
+  const board = computeLeaderboard(leaderboardRuns, leaderRange, members, today, memberRhythm)
+  // Everyone restarts at zero when Rhythm launches, so show the flame from week 1 during the first month.
+  const flameFrom = memberRhythm && memberRhythm.seasonWeek <= FRESH_START_WEEKS ? 1 : 2
   const maxDist = Math.max(...board.map(e => e.distance), 1)
   const ranges: { key: LeaderRange; label: string }[] = [
     { key: 'week',  label: 'This Week' },
@@ -836,7 +841,7 @@ export default function GroupDashboardTab({
                         <span className={`text-xs font-bold truncate ${entry.is_me ? 'text-white' : 'text-[#d1d5db]'}`}>
                           {entry.is_me ? 'You' : entry.name.split(' ')[0]}
                         </span>
-                        {entry.streak >= 2 && (
+                        {entry.streak >= flameFrom && (
                           <span className="flex items-center gap-0.5 text-orange-400 text-[10px] font-bold shrink-0">
                             <Flame size={10} />{entry.streak}w
                           </span>

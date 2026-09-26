@@ -88,6 +88,12 @@ export interface Challenge {
   created_by_coach: boolean
 }
 
+/** Each member's Rhythm streak, and how many weeks Rhythm has been live. Null while Rhythm is off. */
+export interface MemberRhythm {
+  streaks: Record<number, number>
+  seasonWeek: number
+}
+
 export interface TrainingLoad {
   ctl: number
   atl: number

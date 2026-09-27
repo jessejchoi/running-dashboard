@@ -141,8 +141,27 @@ function RaidStats({ view }: { view: RaidView }) {
   )
 }
 
+/** Before the first raid: no attack yet, just what the first one will take. */
+function AttackPreview({ view }: { view: RaidView }) {
+  const { state } = view
+  const week = state.thisWeek
+  return (
+    <div className="card fade-up col-span-12 md:col-span-7" style={{ padding: '1.25rem' }}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <Eyebrow>Attack status</Eyebrow>
+        <Chip color="var(--text-2)" bg="var(--surface-2)">Starts {day(state.firstRaidStart)}</Chip>
+      </div>
+      <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
+        The first attack lands if <b className="stat-num text-white">{week.majority}</b> of <b className="stat-num text-white">{week.eligible.length}</b> hit their target that week.
+      </p>
+      <SegmentBar count={week.eligible.length} filled={0} mark={week.majority} color="var(--accent)" label={`${week.majority} of ${week.eligible.length} needed for the first attack`} />
+    </div>
+  )
+}
+
 function AttackCard({ view }: { view: RaidView }) {
   const { state } = view
+  if (!state.raid) return <AttackPreview view={view} />
   const week = state.thisWeek
   const pending = stillNeeded(week, state.daysLeft)
   const need = Math.max(0, week.majority - week.attackers.length)
@@ -272,11 +291,11 @@ function ReportCard({ report, view }: { report: RaidReport | null; view: RaidVie
   )
 }
 
-function RosterRow({ r, pic, me }: { r: RaidRosterEntry; pic: string | null; me: boolean }) {
+function RosterRow({ r, pic, me, inRaid }: { r: RaidRosterEntry; pic: string | null; me: boolean; inRaid: boolean }) {
   const faded = r.role !== 'fighting'
   const chip = r.role === 'dormant' ? { text: 'Dormant', color: 'var(--text-muted)', bg: 'var(--surface-2)' }
     : r.role === 'new' ? { text: 'Next week', color: 'var(--text-2)', bg: 'var(--surface-2)' }
-    : r.on ? { text: 'Attacking ✓', color: 'var(--success)', bg: 'var(--success-bg)' }
+    : r.on ? { text: inRaid ? 'Attacking ✓' : 'Target hit ✓', color: 'var(--success)', bg: 'var(--success-bg)' }
     : { text: `${plural(r.needed, 'run')} to go`, color: 'var(--accent)', bg: 'var(--accent-muted)' }
   return (
     <div className="flex items-center gap-2.5 sm:gap-3 py-2.5" style={{ borderTop: '1px solid var(--border)', opacity: faded ? 0.5 : 1 }}>
@@ -316,7 +335,7 @@ function Roster({ view, myAthleteId }: { view: RaidView; myAthleteId: number }) 
       </div>
       <div>
         {view.state.roster.map(r => (
-          <RosterRow key={r.athlete_id} r={r} pic={view.members[r.athlete_id]?.pic ?? null} me={r.athlete_id === myAthleteId} />
+          <RosterRow key={r.athlete_id} r={r} pic={view.members[r.athlete_id]?.pic ?? null} me={r.athlete_id === myAthleteId} inRaid={view.state.raid != null} />
         ))}
       </div>
     </div>

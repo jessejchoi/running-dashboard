@@ -260,7 +260,8 @@ function thisWeekRows(view: RaidView): PartyRow[] {
     runs: r.runs,
     target: r.target,
     on: r.on,
-    status: r.role === 'dormant' ? 'zzz' : r.role === 'new' ? 'next wk' : r.on ? 'in' : `${r.needed} to go`,
+    // Before the first raid there's no attack to be "in" yet: hitting only levels the weapon.
+    status: r.role === 'dormant' ? 'zzz' : r.role === 'new' ? 'next wk' : r.on ? (view.state.raid ? 'in' : 'hit') : `${r.needed} to go`,
     statusColor: r.role !== 'fighting' ? C.text3 : r.on ? C.success : C.accent,
     faded: r.role !== 'fighting',
   }))

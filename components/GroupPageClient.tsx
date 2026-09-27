@@ -28,13 +28,13 @@ interface Props {
   memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
   /** The viewer's local date. */
   today: string
-  /** Tab to open on (from ?tab=). */
+  /** Tab to open on (from ?tab=); Raid unless ?tab=dashboard. */
   initialTab?: 'dashboard' | 'raid'
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, isPrimaryGroup = false, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, today, initialTab = 'dashboard',
+  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, today, initialTab = 'raid',
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<'dashboard' | 'raid' | 'feed' | 'goals'>(initialTab)

@@ -23,7 +23,7 @@ export default async function GroupsPage({ searchParams }: { searchParams: { tab
   if (groupIds.length > 0) {
     const primaryGroupId = userProfile?.primary_group_id
     const targetId = groupIds.includes(primaryGroupId ?? '') ? primaryGroupId! : groupIds[0]
-    redirect(`/group/${targetId}${searchParams.tab === 'raid' ? '?tab=raid' : ''}`)
+    redirect(`/group/${targetId}${searchParams.tab === 'dashboard' ? '?tab=dashboard' : ''}`)
   }
 
   // No groups — show empty state + create flow

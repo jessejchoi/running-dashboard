@@ -192,7 +192,7 @@ export default async function GroupPage({ params, searchParams }: { params: { id
         initialBriefingMeta={initialBriefingMeta}
         memberEstimates={memberEstimates}
         today={todayStr}
-        initialTab={searchParams.tab === 'raid' ? 'raid' : 'dashboard'}
+        initialTab={searchParams.tab === 'dashboard' ? 'dashboard' : 'raid'}
       />
     </div>
   )

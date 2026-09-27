@@ -28,14 +28,16 @@ interface Props {
   memberEstimates?: Record<number, Record<string, number>>   // server-side snapshot cache (initial paint)
   /** The viewer's local date. */
   today: string
+  /** Tab to open on (from ?tab=). */
+  initialTab?: 'dashboard' | 'raid'
 }
 
 export default function GroupPageClient({
   group, members, recentRuns, leaderboardRuns, initialChallenges, myRole, inviteUrl, myAthleteId, isPrimaryGroup = false, memberTrainingLoads, allGroups,
-  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, today,
+  initialBriefing, initialBriefingMeta, memberEstimates: initialMemberEstimates = {}, today, initialTab = 'dashboard',
 }: Props) {
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<'dashboard' | 'raid' | 'feed' | 'goals'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'raid' | 'feed' | 'goals'>(initialTab)
   const [memberEstimates, setMemberEstimates] = useState(initialMemberEstimates)
   const [pendingEstimates, setPendingEstimates] = useState(() => members.filter(m => !(m.athlete_id in initialMemberEstimates)).map(m => m.athlete_id))
   const [estimateError, setEstimateError] = useState(false)

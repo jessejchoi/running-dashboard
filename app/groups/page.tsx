@@ -7,7 +7,7 @@ import GroupsPageClient from '@/components/GroupsPageClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function GroupsPage() {
+export default async function GroupsPage({ searchParams }: { searchParams: { tab?: string } }) {
   const athleteId = await getAthleteId()
   if (!athleteId) redirect('/')
 
@@ -23,7 +23,7 @@ export default async function GroupsPage() {
   if (groupIds.length > 0) {
     const primaryGroupId = userProfile?.primary_group_id
     const targetId = groupIds.includes(primaryGroupId ?? '') ? primaryGroupId! : groupIds[0]
-    redirect(`/group/${targetId}`)
+    redirect(`/group/${targetId}${searchParams.tab === 'raid' ? '?tab=raid' : ''}`)
   }
 
   // No groups — show empty state + create flow

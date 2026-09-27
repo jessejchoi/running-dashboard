@@ -20,7 +20,7 @@ function formatGoalTime(secs: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default async function GroupPage({ params }: { params: { id: string } }) {
+export default async function GroupPage({ params, searchParams }: { params: { id: string }; searchParams: { tab?: string } }) {
   const athleteId = await getAthleteId()
   if (!athleteId) redirect('/')
 
@@ -192,6 +192,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         initialBriefingMeta={initialBriefingMeta}
         memberEstimates={memberEstimates}
         today={todayStr}
+        initialTab={searchParams.tab === 'raid' ? 'raid' : 'dashboard'}
       />
     </div>
   )

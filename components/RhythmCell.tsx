@@ -29,7 +29,7 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
   return (
     <div className="card fade-up mb-3" style={{ padding: '1.25rem' }}>
       <div className="flex items-center justify-between mb-4" style={{ minHeight: 24 }}>
-        <p className={LABEL} style={{ color: 'var(--text-muted)' }}>Your level</p>
+        <p className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Boss Raid</p>
         {weapon.leveledUp && (
           <span className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent)', background: 'var(--accent-muted)', border: '1px solid var(--accent)', padding: '4px 8px', borderRadius: 4 }}>
             ▲ Level up!

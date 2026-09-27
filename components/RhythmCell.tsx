@@ -52,12 +52,10 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
               <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-2)' }}>{sub}</p>
             </div>
           ))}
-          <div className="rounded-lg min-w-0 flex items-center justify-between gap-1" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
-            <div className="min-w-0">
-              <p className={LABEL} style={{ color: 'var(--text-muted)' }}>Streak</p>
-              <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-2)' }}>{rhythm.streak === 1 ? 'week' : 'weeks'}</p>
-            </div>
-            <StreakFlame weeks={rhythm.streak} size={46} />
+          <div className="rounded-lg min-w-0" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
+            <p className={LABEL} style={{ color: 'var(--text-muted)' }}>Streak</p>
+            <div className="mt-1"><StreakFlame weeks={rhythm.streak} size={30} /></div>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-2)' }}>{rhythm.streak === 1 ? 'week' : 'weeks'}</p>
           </div>
         </div>
       </div>

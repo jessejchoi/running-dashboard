@@ -128,7 +128,7 @@ describe('situation', () => {
   })
   const state = (thisWeek: RaidWeekResult, r: RaidSummary | null, daysLeft = 4): RaidState => ({
     today: '2026-10-22', week: '2026-10-19', daysLeft, firstRaidStart: '2026-10-12', projectedHp: null, raid: r, previous: null,
-    thisWeek, lastWeek: null, recentWeeks: [], roster: [], bossesSlain: 0, raidsFought: 0, nextBoss: BOSSES[1],
+    thisWeek, lastWeek: null, recentWeeks: [], roster: [], bossesSlain: 0, raidsFought: 0, nextBoss: BOSSES[1], upNext: null,
   })
 
   it('counts down before the first raid', () => {

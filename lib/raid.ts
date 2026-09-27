@@ -379,6 +379,8 @@ export interface RaidState {
   raidsFought: number
   /** The boss after the current one (or the first one, before any raid). */
   nextBoss: Boss
+  /** In a raid's final week: the next boss, when it arrives, and its HP (already fixed, see raidHp). */
+  upNext: { boss: Boss; start: string; hp: number } | null
 }
 
 export interface ComputeRaidInput {
@@ -426,6 +428,11 @@ export function computeRaid({ members, groupZone, createdDay, rhythmLaunchWeek, 
   }
   if (raid?.status === 'slain') bossesSlain++
 
+  const nextStart = raidStart(index + 1, launch)
+  const upNext = raid && raid.weeks.length === RAID_WEEKS
+    ? { boss: bossFor(index + 1, first), start: nextStart, hp: raidHp(members, nextStart).hp }
+    : null
+
   const roster = members.map((m): RaidRosterEntry => {
     const fighter = thisWeek.eligible.find(f => f.athlete_id === m.athlete_id)
     const w = memberWeek(m, week)
@@ -459,5 +466,6 @@ export function computeRaid({ members, groupZone, createdDay, rhythmLaunchWeek, 
     bossesSlain,
     raidsFought,
     nextBoss: bossFor(inRaid ? index + 1 : first, first),
+    upNext,
   }
 }

@@ -1,53 +1,16 @@
 'use client'
-import { useEffect, useState, type ReactNode } from 'react'
-import { format, parseISO } from 'date-fns'
+import { useEffect, useState } from 'react'
 import { addDays } from '@/lib/calendar'
-import { HP_FACTOR, RAID_WEEKS, type RaidRosterEntry, type RaidSummary, type RaidWeekResult } from '@/lib/raid'
-import { attackHeadline, firstName, rallyNames, shareText, stillNeeded } from '@/lib/raidCopy'
-import type { RaidReport, RaidView } from '@/lib/raidData'
+import { HP_FACTOR, RAID_WEEKS, type RaidRosterEntry } from '@/lib/raid'
+import { firstName, rallyNames, shareText, stillNeeded } from '@/lib/raidCopy'
+import type { RaidView } from '@/lib/raidData'
 import { Avatar } from '@/components/GroupShared'
-import WeaponSprite, { BossSprite } from '@/components/WeaponSprite'
+import WeaponSprite from '@/components/WeaponSprite'
 import ShareCardButton from '@/components/ShareCardButton'
-
-const LABEL = 'font-mono text-[10px] uppercase tracking-widest'
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
-const day = (d: string) => format(parseISO(d), 'EEE MMM d')
+import RaidTimeline from '@/components/RaidTimeline'
+import { Chip, Eyebrow, day, plural } from '@/components/raidUi'
 
 type Load = { status: 'loading' } | { status: 'off' } | { status: 'error' } | { status: 'ready'; view: RaidView }
-
-function Eyebrow({ children, color = 'var(--text-muted)' }: { children: ReactNode; color?: string }) {
-  return <p className={LABEL} style={{ color }}>{children}</p>
-}
-
-function Chip({ children, color, bg }: { children: ReactNode; color: string; bg: string }) {
-  return (
-    <span className="font-mono text-[10px] font-bold uppercase tracking-wider shrink-0" style={{ color, background: bg, padding: '4px 8px', borderRadius: 4 }}>
-      {children}
-    </span>
-  )
-}
-
-/** Remaining HP in orange, this week's locked damage as a lighter chunk. */
-function HpBar({ hp, remaining, chunk }: { hp: number; remaining: number; chunk: number }) {
-  const pct = (n: number) => `${Math.max(0, Math.min(100, (n / Math.max(hp, 1)) * 100))}%`
-  const after = Math.max(0, remaining - chunk)
-  return (
-    <div className="flex w-full overflow-hidden" style={{ height: 12, borderRadius: 4, background: 'var(--surface-3)', border: '1px solid var(--border)' }}
-      role="img" aria-label={`${remaining} of ${hp} HP left${chunk ? `, ${Math.min(chunk, remaining)} damage locked this week` : ''}`}>
-      <div style={{ width: pct(after), background: 'var(--accent)' }} />
-      <div style={{ width: pct(Math.min(chunk, remaining)), background: 'rgba(249,115,22,0.35)' }} />
-    </div>
-  )
-}
-
-function HpReadout({ value, hp }: { value: number; hp: number }) {
-  return (
-    <p className="flex items-baseline gap-1.5 mb-1.5">
-      <span className="stat-num font-bold text-white leading-none" style={{ fontSize: 32 }}>{value}</span>
-      <span className="font-mono text-[12px]" style={{ color: 'var(--text-2)' }}>/ {hp} HP</span>
-    </p>
-  )
-}
 
 /** A row of separate segments, `filled` of them lit. */
 function SegmentBar({ count, filled, color, label, mark = 0 }: { count: number; filled: number; color: string; label: string; mark?: number }) {
@@ -64,89 +27,12 @@ function SegmentBar({ count, filled, color, label, mark = 0 }: { count: number; 
 /** Damage segments: one per point, grouped when the max is large so they stay readable. */
 const DAMAGE_SEGMENTS = 20
 
-function BossHero({ view }: { view: RaidView }) {
-  const { state } = view
-  const raid = state.raid
-  const boss = raid?.boss ?? state.nextBoss
-  const hpLeft = raid ? Math.max(0, raid.hp - raid.damage) : 0
-  const slain = raid?.status === 'slain'
-  const provisional = raid?.hpProvisional || state.thisWeek.provisional
-
-  return (
-    <div className="card fade-up col-span-12" style={{ padding: '1.25rem' }}>
-      <div className="flex items-center gap-4 sm:gap-5">
-        <div className="shrink-0 rounded-lg flex items-center justify-center" style={{ width: 104, height: 104, background: 'var(--surface-3)', border: `1px solid ${slain ? 'var(--border)' : 'var(--accent)'}`, opacity: slain ? 0.4 : 1 }}>
-          <BossSprite boss={boss} size={84} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <Eyebrow color="var(--accent)">
-              {raid ? `Raid #${raid.number} · Week ${raid.weeks.length}/${RAID_WEEKS}` : `Arrives ${day(state.firstRaidStart)}`}
-            </Eyebrow>
-            {slain && <Chip color="var(--accent)" bg="var(--accent-muted)">Slain</Chip>}
-            {!slain && provisional && <Chip color="var(--warning)" bg="var(--warning-bg)">Provisional</Chip>}
-          </div>
-          <h2 className="font-display font-bold uppercase text-white leading-none mt-1.5" style={{ fontSize: 'clamp(20px, 5vw, 26px)', letterSpacing: '-0.02em' }}>{boss.name}</h2>
-          {raid ? (
-            <div className="mt-3">
-              <HpReadout value={slain ? 0 : hpLeft} hp={raid.hp} />
-              <HpBar hp={raid.hp} remaining={hpLeft} chunk={slain ? 0 : state.thisWeek.locked} />
-              <p className="font-mono text-[11px] mt-1.5" style={{ color: 'var(--text-2)' }}>
-                {slain
-                  ? `Down in week ${raid.slainWeek} · overkill ${raid.overkill}`
-                  : state.thisWeek.locked > 0 && <><span style={{ color: 'var(--accent)' }}>{state.thisWeek.locked} locked this week</span> · </>}
-                {!slain && `ends ${day(raid.end)}`}
-              </p>
-            </div>
-          ) : state.projectedHp != null && (
-            <div className="mt-3">
-              <HpReadout value={state.projectedHp} hp={state.projectedHp} />
-              <HpBar hp={state.projectedHp} remaining={state.projectedHp} chunk={0} />
-            </div>
-          )}
-        </div>
-      </div>
-      {raid && <p className="text-[14px] mt-4 leading-snug" style={{ color: 'var(--text-1)' }}>{view.summary}</p>}
-      {state.upNext && (
-        <div className="flex items-center gap-3 mt-4 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px dashed var(--accent)', padding: '8px 12px' }}>
-          <BossSprite boss={state.upNext.boss} size={32} />
-          <div className="flex-1 min-w-0">
-            <Eyebrow color="var(--accent)">Next up</Eyebrow>
-            <p className="text-[13px] font-semibold text-white truncate">{state.upNext.boss.name}</p>
-          </div>
-          <p className="font-mono text-[11px] text-right shrink-0" style={{ color: 'var(--text-2)' }}>
-            <b className="text-white">{state.upNext.hp}</b> HP<br />arrives {day(state.upNext.start)}
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Bosses slain and raids fought, at the foot of the last-week card. */
-function RaidStats({ view }: { view: RaidView }) {
-  const { state } = view
-  return (
-    <div className="grid grid-cols-2 gap-2 mt-4">
-      {([
-        ['Bosses slain', `${state.bossesSlain}`],
-        ['Raids fought', `${state.raidsFought + (state.raid ? 1 : 0)}`],
-      ] as const).map(([label, value]) => (
-        <div key={label} className="rounded-lg" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
-          <Eyebrow>{label}</Eyebrow>
-          <div className="stat-num text-white font-bold leading-none mt-1.5" style={{ fontSize: 22 }}>{value}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /** Before the first raid: no attack yet, just what the first one will take. */
 function AttackPreview({ view }: { view: RaidView }) {
   const { state } = view
   const week = state.thisWeek
   return (
-    <div className="card fade-up col-span-12 md:col-span-7" style={{ padding: '1.25rem' }}>
+    <div className="card fade-up col-span-12" style={{ padding: '1.25rem' }}>
       <div className="flex items-center justify-between gap-2 mb-3">
         <Eyebrow>Attack status</Eyebrow>
         <Chip color="var(--text-2)" bg="var(--surface-2)">Starts {day(state.firstRaidStart)}</Chip>
@@ -172,7 +58,7 @@ function AttackCard({ view }: { view: RaidView }) {
     : { text: `Needs ${need} more`, color: 'var(--accent)', bg: 'var(--accent-muted)' }
 
   return (
-    <div className="card fade-up col-span-12 md:col-span-7" style={{ padding: '1.25rem' }}>
+    <div className="card fade-up col-span-12" style={{ padding: '1.25rem' }}>
       <div className="flex items-center justify-between gap-2 mb-3">
         <Eyebrow>Attack status</Eyebrow>
         <Chip color={status.color} bg={status.bg}>{status.text}</Chip>
@@ -213,80 +99,6 @@ function AttackCard({ view }: { view: RaidView }) {
           <span style={{ color: 'var(--accent)' }}>Still in reach:</span> {rallyNames(pending)} · {plural(state.daysLeft, 'day')} left
         </p>
       )}
-    </div>
-  )
-}
-
-function WeekPips({ raid }: { raid: RaidSummary }) {
-  return (
-    <div className="flex gap-1.5 mt-3">
-      {Array.from({ length: RAID_WEEKS }, (_, i) => {
-        const w: RaidWeekResult | undefined = raid.weeks[i]
-        const done = w && !w.open
-        const color = !done ? 'var(--text-muted)' : w.landed ? 'var(--success)' : 'var(--error)'
-        return (
-          <div key={i} className="flex-1 rounded-md text-center" style={{ background: 'var(--surface-2)', padding: '6px 4px', border: `1px solid ${w?.open ? 'var(--accent)' : 'transparent'}` }}>
-            <p className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Wk {i + 1}</p>
-            <p className="stat-num font-bold text-[13px] mt-0.5" style={{ color }}>{!w ? '–' : w.open ? '…' : w.landed ? w.damage : '✕'}</p>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function ReportCard({ report, view }: { report: RaidReport | null; view: RaidView }) {
-  const raid = view.state.raid
-  if (!report) {
-    return (
-      <div className="card fade-up col-span-12 md:col-span-5" style={{ padding: '1.25rem' }}>
-        <Eyebrow>Last week</Eyebrow>
-        <p className="text-[13px] mt-2" style={{ color: 'var(--text-2)' }}>No battle yet. The first recap lands {day(addDays(view.state.firstRaidStart, 7))}.</p>
-        {raid && <WeekPips raid={raid} />}
-        <RaidStats view={view} />
-      </div>
-    )
-  }
-  const { week, shame } = report
-  const ended = report.raid.status !== 'active' && report.raidWeek === RAID_WEEKS
-  const slainNow = report.raid.slainWeek === report.raidWeek
-  return (
-    <div className="card fade-up col-span-12 md:col-span-5" style={{ padding: '1.25rem' }}>
-      <div className="flex items-center justify-between gap-2">
-        <Eyebrow>Last week · raid #{report.raid.number} wk {report.raidWeek}</Eyebrow>
-        {week.provisional && <Chip color="var(--warning)" bg="var(--warning-bg)">Provisional</Chip>}
-      </div>
-      <p className="font-display font-bold uppercase leading-none mt-2" style={{ fontSize: 20, color: week.landed ? 'var(--success)' : 'var(--error)' }}>{attackHeadline(week)}</p>
-      {slainNow && <p className="text-[13px] mt-1.5" style={{ color: 'var(--accent)' }}>The {report.raid.boss.name} fell!</p>}
-      {ended && report.raid.status === 'escaped' && (
-        <p className="text-[13px] mt-1.5" style={{ color: 'var(--text-2)' }}>The {report.raid.boss.name} escaped: <i>&ldquo;{report.taunt}&rdquo;</i></p>
-      )}
-      {week.mvp && (
-        <div className="flex items-center gap-2.5 mt-3 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--accent)', padding: '8px 10px' }}>
-          <Avatar name={week.mvp.name} pic={view.members[week.mvp.athlete_id]?.pic ?? null} size={8} />
-          <div className="flex-1 min-w-0">
-            <Eyebrow color="var(--accent)">MVP</Eyebrow>
-            <p className="text-[13px] font-semibold text-white truncate">{firstName(week.mvp.name)} · {week.mvp.power} dmg</p>
-          </div>
-          <WeaponSprite tier={week.mvp.tier} size={28} />
-        </div>
-      )}
-      {shame.entries.length > 0 && (
-        <div className="mt-3 space-y-2.5">
-          {shame.entries.map(e => (
-            <div key={e.athlete_id} className="flex gap-2.5">
-              <Avatar name={e.name} pic={view.members[e.athlete_id]?.pic ?? null} size={7} />
-              <div className="min-w-0">
-                <p className="text-[13px] text-white leading-snug">{e.line}</p>
-                <p className="text-[12px] leading-snug mt-0.5" style={{ color: 'var(--accent)' }}>{e.wayBack}</p>
-              </div>
-            </div>
-          ))}
-          {shame.overflow > 0 && <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>+{shame.overflow} others</p>}
-        </div>
-      )}
-      <WeekPips raid={raid && !ended ? raid : report.raid} />
-      <RaidStats view={view} />
     </div>
   )
 }
@@ -410,20 +222,22 @@ function Rules() {
 export function RaidSkeleton() {
   return (
     <div className="grid grid-cols-12 gap-2 sm:gap-3" aria-busy="true">
-      {[180, 200, 200, 240].map((h, i) => (
-        <div key={i} className={`card col-span-12 ${i === 1 ? 'md:col-span-7' : i === 2 ? 'md:col-span-5' : ''} animate-pulse`} style={{ height: h }} />
+      {[240, 200, 240].map((h, i) => (
+        <div key={i} className="card col-span-12 animate-pulse" style={{ height: h }} />
       ))}
     </div>
   )
 }
 
-/** The group's Boss Raid tab: the boss, this week's attack, last week's battle, the party and share cards. */
+/** The group's Boss Raid tab: the raid timeline, this week's attack, the party and share cards. */
 export default function GroupRaidTab({ groupId, myAthleteId }: { groupId: string; myAthleteId: number }) {
   const [load, setLoad] = useState<Load>({ status: 'loading' })
 
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/groups/${groupId}/raid`)
+    // `?raidAt=YYYY-MM-DD` on the page previews a future week (the API honors it in local development only).
+    const at = new URLSearchParams(window.location.search).get('raidAt')
+    fetch(`/api/groups/${groupId}/raid${at ? `?at=${encodeURIComponent(at)}` : ''}`)
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
       .then(data => { if (!cancelled) setLoad(data.enabled ? { status: 'ready', view: data.view } : { status: 'off' }) })
       .catch(() => { if (!cancelled) setLoad({ status: 'error' }) })
@@ -443,9 +257,8 @@ export default function GroupRaidTab({ groupId, myAthleteId }: { groupId: string
   const { view } = load
   return (
     <div className="grid grid-cols-12 gap-2 sm:gap-3">
-      <BossHero view={view} />
+      <RaidTimeline view={view} />
       <AttackCard view={view} />
-      <ReportCard report={view.report} view={view} />
       <Roster view={view} myAthleteId={myAthleteId} />
       <ShareCards view={view} />
       <Rules />

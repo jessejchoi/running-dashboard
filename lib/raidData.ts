@@ -55,7 +55,12 @@ function earlyWeeks(input: RhythmInputs, launchWeek: string): Record<string, num
  * Everything the Raid tab and the share card show, from one load. Returns
  * null while Rhythm is off (unset launch week, or migration 024 missing).
  */
-export async function loadRaidState(groupId: string, now = new Date()): Promise<RaidView | null> {
+export async function loadRaidState(
+  groupId: string,
+  now = new Date(),
+  /** `freeze: false` for a simulated `now`: never lock in weeks that haven't really happened. */
+  { freeze = true }: { freeze?: boolean } = {},
+): Promise<RaidView | null> {
   const launchWeek = rhythmLaunchWeek()
   if (!launchWeek) return null
 
@@ -109,8 +114,10 @@ export async function loadRaidState(groupId: string, now = new Date()): Promise<
   })
 
   // Safety net for the daily freeze: members who stopped opening the app are frozen here.
-  await freezeLoadedWeeks(inputs, launchWeek, now)
-    .catch(error => console.error('[raid] Rhythm freeze failed', error))
+  if (freeze) {
+    await freezeLoadedWeeks(inputs, launchWeek, now)
+      .catch(error => console.error('[raid] Rhythm freeze failed', error))
+  }
 
   return { groupId, groupName: group.name, zone, state, members, summary: situation(state), report: report(state, groupId) }
 }

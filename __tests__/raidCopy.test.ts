@@ -124,10 +124,10 @@ describe('rally and headlines', () => {
 describe('situation', () => {
   const raid = (overrides: Partial<RaidSummary> = {}): RaidSummary => ({
     index: 0, number: 1, boss: GOLEM, start: '2026-10-12', end: '2026-11-08', hp: 20, hpProvisional: false,
-    weeks: [], damage: 4, status: 'active', slainWeek: null, overkill: 0, ...overrides,
+    weeks: [], damage: 4, status: 'active', slainWeek: null, overkill: 0, mvp: null, ...overrides,
   })
   const state = (thisWeek: RaidWeekResult, r: RaidSummary | null, daysLeft = 4): RaidState => ({
-    today: '2026-10-22', week: '2026-10-19', daysLeft, firstRaidStart: '2026-10-12', projectedHp: null, raid: r, previous: null,
+    today: '2026-10-22', week: '2026-10-19', daysLeft, firstRaidStart: '2026-10-12', projectedHp: null, raid: r, previous: null, history: [],
     thisWeek, lastWeek: null, recentWeeks: [], roster: [], bossesSlain: 0, raidsFought: 0, nextBoss: BOSSES[1], upNext: null,
   })
 

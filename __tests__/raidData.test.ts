@@ -146,4 +146,26 @@ describe('GET /api/groups/[id]/raid', () => {
     expect(body.enabled).toBe(true)
     expect(body.view.groupId).toBe(GROUP)
   })
+
+  const future = () => new NextRequest(`http://localhost/api/groups/${GROUP}/raid?at=2026-12-22`)
+
+  it('previews a future day in local development, without freezing anything', async () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.mocked(getAthleteId).mockResolvedValueOnce('1')
+    vi.mocked(groupRole).mockResolvedValueOnce('member')
+    setup({ 1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    const body = await (await raidRoute(future(), { params: { id: GROUP } })).json()
+    expect(body.view.state.week).toBe('2026-12-21')
+    expect(freezeLoadedWeeks).not.toHaveBeenCalled()
+    vi.unstubAllEnvs()
+  })
+
+  it('ignores ?at= outside local development', async () => {
+    vi.mocked(getAthleteId).mockResolvedValueOnce('1')
+    vi.mocked(groupRole).mockResolvedValueOnce('member')
+    setup({ 1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    const body = await (await raidRoute(future(), { params: { id: GROUP } })).json()
+    expect(body.view.state.week).not.toBe('2026-12-21')
+    expect(freezeLoadedWeeks).toHaveBeenCalled()
+  })
 })

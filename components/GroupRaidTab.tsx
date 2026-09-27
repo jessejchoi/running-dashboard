@@ -107,6 +107,18 @@ function BossHero({ view }: { view: RaidView }) {
         </div>
       </div>
       {raid && <p className="text-[14px] mt-4 leading-snug" style={{ color: 'var(--text-1)' }}>{view.summary}</p>}
+      {state.upNext && (
+        <div className="flex items-center gap-3 mt-4 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px dashed var(--accent)', padding: '8px 12px' }}>
+          <BossSprite boss={state.upNext.boss} size={32} />
+          <div className="flex-1 min-w-0">
+            <Eyebrow color="var(--accent)">Next up</Eyebrow>
+            <p className="text-[13px] font-semibold text-white truncate">{state.upNext.boss.name}</p>
+          </div>
+          <p className="font-mono text-[11px] text-right shrink-0" style={{ color: 'var(--text-2)' }}>
+            <b className="text-white">{state.upNext.hp}</b> HP<br />arrives {day(state.upNext.start)}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

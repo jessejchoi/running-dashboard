@@ -292,6 +292,18 @@ describe('computeRaid', () => {
     expect(state.recentWeeks.map(w => w.week)).toEqual([RAID])
   })
 
+  it('announces the next boss and its HP only in the final week of a raid', () => {
+    const counts = [...BASE, 3, 3, 3, 3, 3, 3]
+    const week3 = at('2026-10-28')
+    expect(input([1, 2, 3].map(id => member(id, `M${id}`, counts, week3)), week3).upNext).toBeNull()
+
+    const week4 = at('2026-11-04')
+    const state = input([1, 2, 3].map(id => member(id, `M${id}`, counts, week4)), week4)
+    // Through Oct 26 everyone is at level 4; hitting Nov 2 too makes 5, so the
+    // raid's 4 weeks are Sword, Axe, Axe, Axe = 18 each: 54 × 0.6.
+    expect(state.upNext).toEqual({ boss: BOSSES[1], start: '2026-11-09', hp: 32 })
+  })
+
   it('keeps the finished raid as "previous" for the Monday after it ends, and counts slain bosses', () => {
     const now = at('2026-11-10')
     const members = [1, 2, 3].map(id => member(id, `M${id}`, [...BASE, 3, 3, 3, 3, 3, 3], now))

@@ -168,6 +168,13 @@ describe('raidWeek', () => {
     expect(week.blockers).toEqual([])
   })
 
+  it('keeps the current week open even when everyone is dormant', () => {
+    const ghost = member(1, 'Ghost', [0, 0, 0, 0, 0, 0, 0, 0, 0], now)
+    // `now` is in the week of Oct 19: still in progress, though nobody can fight.
+    expect(raidWeek([ghost], '2026-10-19').open).toBe(true)
+    expect(raidWeek([ghost], RAID).open).toBe(false)
+  })
+
   it('projects the open week: locked from attackers so far, possible if everyone hits', () => {
     const mid = at('2026-10-21')
     const week2 = addDays(RAID, 7)
@@ -302,6 +309,32 @@ describe('computeRaid', () => {
     // Through Oct 26 everyone is at level 4; hitting Nov 2 too makes 5, so the
     // raid's 4 weeks are Sword, Axe, Axe, Axe = 18 each: 54 × 0.6.
     expect(state.upNext).toEqual({ boss: BOSSES[1], start: '2026-11-09', hp: 32 })
+  })
+
+  it('lists finished raids newest first, each with its top damage dealer', () => {
+    const now = at('2026-12-09') // raid 3, week 1
+    const members = [
+      member(1, 'Zed', [...BASE, ...Array(10).fill(3)], now),
+      member(2, 'Ana', [...BASE, 3, 3, 3, 3, 3, 0, 3, 3, 3, 3], now),
+    ]
+    const state = input(members, now)
+    expect(state.raid?.number).toBe(3)
+    expect(state.history.map(r => r.number)).toEqual([2, 1])
+    // Raid 1: both hit every week and deal the same (2+2+3+3 = 10); a tie goes by name.
+    expect(state.history[1].mvp).toEqual({ athlete_id: 2, name: 'Ana', damage: 10 })
+    // Raid 2: Ana missed a week, so Zed dealt more.
+    expect(state.history[0].mvp?.name).toBe('Zed')
+  })
+
+  it("doesn't credit damage from failed attacks to the raid MVP", () => {
+    const now = at('2026-11-10')
+    // Ana hits alone while the others miss: her attacks never land.
+    const members = [
+      member(1, 'Ana', [...BASE, 3, 3, 3, 3, 3], now),
+      member(2, 'Budi', [...BASE, 3, 0, 0, 0, 0], now),
+      member(3, 'Sari', [...BASE, 3, 0, 0, 0, 0], now),
+    ]
+    expect(input(members, now).history[0].mvp).toBeNull()
   })
 
   it('keeps the finished raid as "previous" for the Monday after it ends, and counts slain bosses', () => {

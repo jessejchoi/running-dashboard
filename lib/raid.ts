@@ -214,11 +214,12 @@ export function raidWeek(members: RaidMemberInput[], week: string): RaidWeekResu
   let open = false, provisional = false
   for (const m of members) {
     const w = memberWeek(m, week)
+    // Anyone's week in progress keeps it open, even with nobody eligible to fight.
+    open ||= w?.open ?? false
     if (!w || !isActive(m, week)) {
       if (m.joinedDay < week) dormant.push({ athlete_id: m.athlete_id, name: m.name })
       continue
     }
-    open ||= w.open
     provisional ||= !w.open && !w.frozen
     const on = w.state === 'on'
     const tier = tierFor(w.level)
@@ -287,6 +288,22 @@ export interface RaidSummary {
   /** The raid week (1–4) the boss fell in. */
   slainWeek: number | null
   overkill: number
+  /** Most landed damage over the raid's finished weeks; ties go by name. */
+  mvp: { athlete_id: number; name: string; damage: number } | null
+}
+
+/** The raid's top damage dealer across its finished weeks (landed attacks only). */
+export function raidMvp(weeks: RaidWeekResult[]): RaidSummary['mvp'] {
+  const totals = new Map<number, { athlete_id: number; name: string; damage: number }>()
+  for (const w of weeks) {
+    if (w.open || !w.landed) continue
+    for (const f of w.attackers) {
+      const t = totals.get(f.athlete_id) ?? { athlete_id: f.athlete_id, name: f.name, damage: 0 }
+      t.damage += f.power
+      totals.set(f.athlete_id, t)
+    }
+  }
+  return Array.from(totals.values()).sort((a, b) => b.damage - a.damage || a.name.localeCompare(b.name))[0] ?? null
 }
 
 /**
@@ -340,6 +357,7 @@ export function resolveRaid(members: RaidMemberInput[], index: number, firstInde
     status: slainWeek != null ? 'slain' : finished === RAID_WEEKS ? 'escaped' : 'active',
     slainWeek,
     overkill: slainWeek != null ? damage - hp : 0,
+    mvp: raidMvp(weeks),
   }
 }
 
@@ -369,6 +387,8 @@ export interface RaidState {
   raid: RaidSummary | null
   /** The raid that just ended, while its final week is still "last week". */
   previous: RaidSummary | null
+  /** Finished raids, newest first (up to RAID_LOOKBACK). */
+  history: RaidSummary[]
   thisWeek: RaidWeekResult
   /** Last week's attack, when it was part of a raid. */
   lastWeek: RaidWeekResult | null
@@ -418,15 +438,14 @@ export function computeRaid({ members, groupZone, createdDay, rhythmLaunchWeek, 
     if (wi >= first && w >= firstRaidStart) recentWeeks.push(findWeek(w) ?? raidWeek(members, w))
   }
 
-  // Past raids for the trophy count, newest RAID_LOOKBACK only.
-  let bossesSlain = 0, raidsFought = 0
+  // Past raids, newest first (RAID_LOOKBACK at most): the timeline and the trophy count.
+  const history: RaidSummary[] = []
   const done = inRaid ? index : first
-  for (let i = Math.max(first, done - RAID_LOOKBACK); i < done; i++) {
-    raidsFought++
-    const past = i === previous?.index ? previous : resolveRaid(members, i, first, launch, week)
-    if (past.status === 'slain') bossesSlain++
+  for (let i = done - 1; i >= Math.max(first, done - RAID_LOOKBACK); i--) {
+    history.push(i === previous?.index ? previous : resolveRaid(members, i, first, launch, week))
   }
-  if (raid?.status === 'slain') bossesSlain++
+  const raidsFought = history.length
+  const bossesSlain = history.filter(r => r.status === 'slain').length + (raid?.status === 'slain' ? 1 : 0)
 
   const nextStart = raidStart(index + 1, launch)
   const upNext = raid && raid.weeks.length === RAID_WEEKS
@@ -459,6 +478,7 @@ export function computeRaid({ members, groupZone, createdDay, rhythmLaunchWeek, 
     projectedHp: inRaid ? null : raidHp(members, firstRaidStart).hp,
     raid,
     previous,
+    history,
     thisWeek,
     lastWeek,
     recentWeeks,

@@ -384,12 +384,12 @@ It supports two kinds:
 
 **Raid tab** (as built). On its own group tab:
 
-- **Boss:** sprite, name, raid # and week x/4, HP bar with this week's locked damage, a one-line summary of the situation, and bosses slain / raids fought / days left.
-- **This week's attack:** attackers against the majority needed, locked vs possible damage, who's attacking, and who can still make it ("Budi (1 run), Sari (2 runs)").
-- **Last week:** the result, MVP, the shame lines with their way back, and a week-by-week strip for the raid.
-- **The party:** each member's level, weapon and ATK (with the ATK they'd hit for this week), runs against target, and attacking / runs to go / dormant.
-- **Share cards** (report and rally, or the countdown before the first raid), and a collapsible "How the raid works".
-- Before a group's first raid the same tab shows the arrival countdown and a practice round.
+- **Raid timeline** (`components/RaidTimeline.tsx`, Jesse, 2026-09-27): a short vertically scrolling area at the top. Past raids are one-line slivers (oldest at the top: status, damage vs HP, raid MVP); the current boss is the main card (sprite, HP, locked damage, summary, and a "Last week" row); in a raid's final week a "Next up" sliver sits below it. It opens scrolled to the current boss with the previous result peeking in above, which is how a boss slain in week 4 still gets its moment on the Monday the next one arrives. Bosses slain and raid count sit in its header.
+- **Raid pop-up:** tapping a sliver or the "Last week" row opens the raid's story: outcome, raid MVP (most landed damage), a week strip, and each week's result, MVP and roasts. Only last week's roasts carry a way back; older ones are history. It replaces the old Last week card.
+- **Attack status:** attackers against the majority needed, current vs max damage, who's attacking, and who can still make it ("Budi (1 run), Sari (2 runs)"). Before the first raid it only says when the first attack starts and what it needs.
+- **The party:** each member's weapon and current ATK, runs against target, and attacking / runs to go / dormant ("Target hit" before the first raid).
+- **Share cards** (this week and last week's recap, or the countdown before the first raid), and a collapsible "How the raid works".
+- Local development only: `?raidAt=YYYY-MM-DD` on the group page previews the raid on that day; the API never freezes weeks for a simulated date.
 
 ### Migration: `supabase/migration_024.sql` (pasted manually)
 

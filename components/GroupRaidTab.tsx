@@ -38,9 +38,9 @@ function AttackPreview({ view }: { view: RaidView }) {
         <Chip color="var(--text-2)" bg="var(--surface-2)">Starts {day(state.firstRaidStart)}</Chip>
       </div>
       <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
-        The first attack lands if <b className="stat-num text-white">{week.majority}</b> of <b className="stat-num text-white">{week.eligible.length}</b> hit their target that week.
+        The attack lands if <b className="stat-num text-white">{week.majority}</b> of <b className="stat-num text-white">{week.eligible.length}</b> hit their target that week.
       </p>
-      <SegmentBar count={week.eligible.length} filled={0} mark={week.majority} color="var(--accent)" label={`${week.majority} of ${week.eligible.length} needed for the first attack`} />
+      <SegmentBar count={week.eligible.length} filled={0} mark={week.majority} color="var(--accent)" label={`${week.majority} of ${week.eligible.length} needed for the attack`} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react'
 import { format, formatDistanceToNow, parseISO } from 'date-fns'
 import type { BriefingContent } from '@/app/api/groups/[id]/coach/briefing/route'
 import { AWARD_CATEGORIES, isValidAwardKey } from '@/lib/awards'
+import { initials } from '@/lib/utils'
 
 interface Member {
   athlete_id: number
@@ -31,10 +32,9 @@ function Avatar({ name, pic }: { name: string; pic: string | null }) {
   if (pic) {
     return <img src={pic} alt={name} className="w-8 h-8 rounded-full object-cover" />
   }
-  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   return (
     <div className="w-8 h-8 rounded-full bg-[#f97316]/20 flex items-center justify-center text-[#f97316] font-bold text-xs">
-      {initials}
+      {initials(name)}
     </div>
   )
 }

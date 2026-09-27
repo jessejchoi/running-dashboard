@@ -1,8 +1,10 @@
 import type { TierKey } from '@/lib/rhythm'
+import type { BossKey } from '@/lib/raid'
 
 /*
- * 16×16 pixel weapons, drawn upright with the grip at the bottom. Each grid row
- * is one line of pixels: '.' empty, 'o' orange accent, 's' steel, 'd' steel shadow.
+ * 16×16 pixel weapons (drawn upright with the grip at the bottom) and raid
+ * bosses. Each grid row is one line of pixels: '.' empty, 'o' orange accent,
+ * 's' steel, 'd' steel shadow.
  */
 export const SPRITE_SIZE = 16
 export const SPRITE_COLORS = { o: '#f97316', s: '#a1a1aa', d: '#52525b' } as const
@@ -125,18 +127,143 @@ const GRIDS: Record<TierKey, string[]> = {
   ],
 }
 
-export function weaponPixels(tier: TierKey): Pixel[] {
-  const pixels: Pixel[] = []
-  GRIDS[tier].forEach((row, y) => {
+const BOSS_GRIDS: Record<BossKey, string[]> = {
+  // Humidity Golem: a stone brute steaming in the heat
+  golem: [
+    '...o......o.....',
+    '....o......o....',
+    '...o..dddddd....',
+    '.....dssssssd...',
+    '....dsoossoosd..',
+    '....dssssssssd..',
+    '....dssddddssd..',
+    '..dddssssssssddd',
+    '.dsssddssssddsss',
+    '.dssd.dssssd.dss',
+    '.dsd..dssssd..ds',
+    '..o...dssssd...o',
+    '......dsddsd....',
+    '.....dssd.dssd..',
+    '.....dssd.dssd..',
+    '....ddddd.ddddd.',
+  ],
+  // Traffic Kraken: tentacles tipped with brake lights
+  kraken: [
+    '......dddd......',
+    '....ddssssdd....',
+    '...dssssssssd...',
+    '..dssssssssssd..',
+    '..dsoossssoosd..',
+    '..dsoossssoosd..',
+    '..dssssssssssd..',
+    '...dssddddssd...',
+    '...dssssssssd...',
+    '..dsd.dssd.dsd..',
+    '.dsd..dssd..dsd.',
+    '.dsd.dsd.dsd.dsd',
+    'dsd..dsd..dsd.ds',
+    'od...do....od..o',
+    '.....o......o...',
+    '................',
+  ],
+  // Couch Lich: a crowned skull sunk into an orange couch
+  lich: [
+    '..o..o....o..o..',
+    '..oooooooooooo..',
+    '...ssssssssss...',
+    '..ssssssssssss..',
+    '..sddsssssddss..',
+    '..sdodssssdods..',
+    '..ssssssddssss..',
+    '...ssssssssss...',
+    '....sdsdsdsds...',
+    '.....ssssss.....',
+    'dddd.dsssd..dddd',
+    'dood.dsssd..dood',
+    'dooooooooooooood',
+    'dooooooooooooood',
+    'dddddddddddddddd',
+    '.d............d.',
+  ],
+  // Snooze Hydra: three heads, all hitting snooze
+  hydra: [
+    '.dsd........dsd.',
+    'dsosd......dsosd',
+    'dssss.dsd.sssssd',
+    '.dds.dsosd.sdd..',
+    '..ds.dssss.sd...',
+    '..ds..dds..sd...',
+    '..dss..ds.ssd...',
+    '...dss.ds.sd....',
+    '....dssssssd....',
+    '...dssssssssd...',
+    '..dssssssssssd..',
+    '..dssddddddssd..',
+    '..dssssssssssd..',
+    '...dssd..dssd...',
+    '...ddd....ddd...',
+    '................',
+  ],
+  // Monsoon Wyrm: a serpent coiled in the rain
+  wyrm: [
+    '.o....o.....o...',
+    '...o.....o....o.',
+    '..........dsssd.',
+    '.o.......dssoosd',
+    '........dssssssd',
+    '..o.....dsddddd.',
+    '.......dssd..o..',
+    '..dddddssd......',
+    '.dssssssd....o..',
+    'dssd........o...',
+    'dssd..ddddd.....',
+    '.dsssssssssd....',
+    '..ddddddddssd...',
+    '..o.......dssd..',
+    '....dssssssssd..',
+    '.....ddddddddo..',
+  ],
+  // Excuse Goblin King: big ears, bigger crown
+  goblin: [
+    '...o..o..o..o...',
+    '...oooooooooo...',
+    '....dssssssd....',
+    'd..dssssssssd..d',
+    'sd.dssssssssd.ds',
+    '.sdsoodsdoodssd.',
+    '..dssssssssssd..',
+    '...dssddddssd...',
+    '...dsosssosd....',
+    '....dssssssd....',
+    '.....dddddd.....',
+    '....oooooooo....',
+    '...oooooooooo...',
+    '..dooooooooood..',
+    '..do.oooooo.od..',
+    '....dd....dd....',
+  ],
+}
+
+function pixels(grid: string[]): Pixel[] {
+  const result: Pixel[] = []
+  grid.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       const c = row[x]
-      if (c !== '.') pixels.push({ x, y, color: c as Color })
+      if (c !== '.') result.push({ x, y, color: c as Color })
     }
   })
-  return pixels
+  return result
+}
+
+export function weaponPixels(tier: TierKey): Pixel[] {
+  return pixels(GRIDS[tier])
+}
+
+export function bossPixels(boss: BossKey): Pixel[] {
+  return pixels(BOSS_GRIDS[boss])
 }
 
 /** Every grid must be exactly 16×16 using the known colors (checked in tests). */
 export function spriteGrids() {
-  return GRIDS
+  return { ...GRIDS, ...BOSS_GRIDS }
 }

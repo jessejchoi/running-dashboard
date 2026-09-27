@@ -94,6 +94,11 @@ export function isoWeek(date: Date): string {
   return w.toISOString().split('T')[0]
 }
 
+/** Up to two initials for an avatar fallback: "Budi Santoso" → "BS". */
+export function initials(name: string): string {
+  return name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
+}
+
 /**
  * Weekly run streak: consecutive Mon–Sun weeks with at least one run, counting
  * back from this week or last. Each run counts in the week where it was run;

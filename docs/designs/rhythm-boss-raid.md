@@ -255,6 +255,18 @@ Run days and on-weeks use the accent fill. That's approved with the sprites (202
 
 ### Group: Boss Raid
 
+**As built in PR2 (2026-09-26).** Reconciled with what PR1 actually shipped, then with Jesse's PR2 feedback:
+
+- **No rest weeks.** Every active member is eligible every week, and rest-related rules below apply only once TODO-008 lands.
+- **The Coach, the leaderboard and the dashboard card are untouched.** The Coach doesn't use Rhythm or streaks, the leaderboard flame stays the any-run `computeStreak`, and the "Your level" card is unchanged. Nothing in the raid shows a streak number; the Rhythm streak is only an MVP tie-break.
+- **Player-facing levels everywhere:** "Level 3 · Dagger" and ATK (power), matching the dashboard card. Internal 0–12 levels only feed the HP formula.
+- **Its own tab.** The group page gets a **Raid** tab (`components/GroupRaidTab.tsx`) instead of a panel on Home. It loads from `GET /api/groups/[id]/raid` when opened, so the group page's two query batches are unchanged.
+- **6 bosses in v1** (Jesse): the original 3 plus Snooze Hydra, Monsoon Wyrm and Excuse Goblin King, taking turns from each group's first raid.
+- **Raid start stays `RHYTHM_LAUNCH_WEEK` + 7 days** (Mon 2026-09-28), no new env var. PR2 lands partway through raid 1; the ledger makes that resolve itself (Jesse: fine if it sorts itself out after the first week).
+- **Named shaming is on** (Jesse confirmed, open question 4).
+- **Boss HP is 60%** of the party's max 4-week damage (50% → 75% → 60%), **forecast a week ahead**: it assumes everyone hits the week before the raid too, so it's fixed before that week starts and missing it doesn't change the boss.
+- **Share cards:** "This week" (boss on a glowing stage, segmented HP, status banner, each member's target pips) and "Last week recap" (damage hit, SLAIN / ESCAPED / BLOCKED stamps, the party's results, roasts, and a 4-week strip on the final recap).
+
 **Group week.** Mon–Sun in `commonTimezone(member zones)`. For group week W, each member contributes their state and weapon for their own week that starts on the same date. Being a few hours out of line across zones is acceptable.
 
 **Active members for week W.** A member is active for W when both hold:
@@ -266,7 +278,7 @@ Members who joined mid-week start the following week. Dormant members don't atta
 
 **Weekly attack.**
 
-- **Eligible:** active members who are not on a rest week. Their count is `n`.
+- **Eligible:** active members (not on a rest week, once rest weeks exist). Their count is `n`.
 - **Attackers:** eligible members whose week is `on`.
 - **The attack lands** when `attackers ≥ floor(n/2) + 1` (a strict majority), as long as `n ≥ 1`.
 - **Damage when it lands:** the sum of every attacker's weapon power *after* this week's upgrade. Otherwise the damage is 0.
@@ -284,13 +296,13 @@ Members who joined mid-week start the following week. Dormant members don't atta
   - Before the first raid, the Raid panel shows "First boss arrives Mon <date>" alongside everyone's current weapon.
   - No history is backfilled, so there's no "7 bosses slain" on launch day.
   - Check that `groups.created_at` exists in the SQL editor. The table was created outside the repo's migrations. If it doesn't exist, every group starts at `RAID_LAUNCH_WEEK`, and later groups start at the next boundary after their first member joined (`min(group_members.joined_at)`).
-- **Boss HP:** fixed at the raid's start as `max(4, round(0.5 × Σ over members active at the raid's start of Σ_{k=1..4} power(s_m + k)))`.
-  - That's 50% of the damage the group would deal if every member hit every week. It scales with group size and current weapons.
-  - HP is computed from each member's **frozen ledger `level` for the week before the raid**, so it's stable once that week freezes.
-  - During the raid's first 2 days (Monday and Tuesday, before the Wednesday freeze), HP is computed from the live fold and marked provisional.
-  - HP deliberately includes members who later rest or go dormant. The 0.5 factor is the slack for that: attacks are all-or-nothing and misses cost tiers, so real damage runs well below the maximum (outside-voice finding, eng review).
-- **Boss:** v1 has 3 bosses, taking turns in order by `raid_index`: Humidity Golem, Traffic Kraken, Couch Lich. Each has a name, a pixel sprite and 2 taunt lines.
-  - v2 grows the roster: Snooze Hydra, Monsoon Wyrm, Excuse Goblin King, Treadmill Mimic, Rest Day Troll.
+- **Boss HP:** `max(4, round(0.6 × Σ over members active at the raid's start of Σ_{k=1..4} power(s_m + k)))`, where `s_m` is the level the member would have after the week before the raid **if they hit it** (`levelIfOn`).
+  - That's 60% of the damage the group would deal if every member hit every week (Jesse, 2026-09-27: 75% was too high). It scales with group size and current weapons.
+  - Because it assumes the week before is hit, HP depends only on weeks that finished before that week began. It's known a full week ahead, shown on the Raid tab and countdown card, and never moves once shown.
+  - HP is provisional only while the weeks it rests on (through two weeks before the raid) aren't frozen, which is at most the first days of the week before.
+  - HP deliberately includes members who later rest or go dormant. The 0.6 factor leaves slack for that: attacks are all-or-nothing and misses cost tiers, so real damage runs well below the maximum (outside-voice finding, eng review).
+- **Boss:** v1 has 6 bosses, taking turns in order from each group's first raid: Humidity Golem, Traffic Kraken, Couch Lich, Snooze Hydra, Monsoon Wyrm, Excuse Goblin King. Each has a name, a pixel sprite and 2 taunt lines.
+  - v2 grows the roster: Treadmill Mimic, Rest Day Troll.
 - **How it ends:** the boss is **slain** in the week cumulative damage reaches its HP. Damage in later weeks of the raid is shown as "overkill" for bragging rights. If HP is still above 0 after 4 weeks, the boss **escapes** and taunts the group on the card.
 - **Raid history:** computed from members' frozen ledger rows. It looks back at most 13 raids (a year) for the "bosses slain" count.
   - For that lookback, the group loader reads `rhythm_weeks` rows back to the oldest raid start, at most 52 rows per member.
@@ -311,7 +323,7 @@ Reads are bounded: at most 52 ledger rows and about 14 weeks of runs per member.
 | Situation | Tone | Example |
 |---|---|---|
 | Missed, but the attack landed | gentle | "Sari watched the fight from the bench." |
-| Weapon dropped a tier | gentle, pointed | "Budi's Sword shattered. Back to a Dagger." |
+| Weapon dropped a tier | gentle, pointed | "Budi's Sword shattered. Back to Level 3 · Dagger." |
 | Blocker (the attack failed) | aggressive | "The Couch Lich lives because of Budi and Sari." |
 
 **Every shaming line is followed by a way back**, and the wording has to be true for that person:
@@ -363,21 +375,21 @@ It supports two kinds:
 
 **Fonts.** Syne Bold and Space Mono Regular TTFs are committed to `lib/og-fonts/` and read with `fs.readFile(path.join(process.cwd(), 'lib/og-fonts/...'))`. They're listed in `experimental.outputFileTracingIncludes` in `next.config.js` so Vercel bundles them.
 
-**Avatars.** Pre-fetched into data URIs with `AbortController` and a 2-second total budget. The fallback is initials, matching `Avatar` in `components/GroupShared.tsx`.
+**Avatars.** Pre-fetched into data URIs with `AbortController` and a 2-second total budget. The fallback is initials, matching `Avatar` in `components/GroupShared.tsx`. Only PNG and baseline JPEG are embedded: Satori throws on progressive JPEG mid-render, which took the whole card down in testing.
 
-**Share button.** "Share battle report" on Mondays and Tuesdays, and "Share rally" for the rest of the week. It's on the group page's Dashboard tab.
+**Share button.** Each card on the Raid tab has a preview plus **Share** and **Download** buttons (`components/ShareCardButton.tsx`). The battle report leads on Mondays and Tuesdays, the rally the rest of the week.
 
 1. It first tries `navigator.share({ files: [png] })`.
 2. If that isn't available, it falls back to downloading the PNG and opening a `wa.me/?text=` link with a one-line summary.
 
-**Raid panel.** On the group Dashboard tab:
+**Raid tab** (as built). On its own group tab:
 
-- The boss sprite, name and HP bar.
-- Week x/4.
-- This week's attackers so far compared with what's needed.
-- Everyone's weapon.
-- Last week's result.
-- The share button.
+- **Boss:** sprite, name, raid # and week x/4, HP bar with this week's locked damage, a one-line summary of the situation, and bosses slain / raids fought / days left.
+- **This week's attack:** attackers against the majority needed, locked vs possible damage, who's attacking, and who can still make it ("Budi (1 run), Sari (2 runs)").
+- **Last week:** the result, MVP, the shame lines with their way back, and a week-by-week strip for the raid.
+- **The party:** each member's level, weapon and ATK (with the ATK they'd hit for this week), runs against target, and attacking / runs to go / dormant.
+- **Share cards** (report and rally, or the countdown before the first raid), and a collapsible "How the raid works".
+- Before a group's first raid the same tab shows the arrival countdown and a practice round.
 
 ### Migration: `supabase/migration_024.sql` (pasted manually)
 
@@ -401,24 +413,24 @@ This all ships in PR1. PR2 needs no migration.
 **PR2: Boss Raid (group).** It builds on PR1's ledger.
 
 - `lib/raid.ts`, `lib/raidData.ts`, `lib/raidCopy.ts`
-- 3 boss sprites
-- the Raid panel, as a new `components/RaidPanel.tsx`. `GroupDashboardTab.tsx` is already 1,351 lines, so it only gains a mount line.
+- 6 boss sprites
+- the Raid tab, as a new `components/GroupRaidTab.tsx` mounted from `GroupPageClient` (Jesse, 2026-09-26: a separate tab rather than a panel on Home). `GroupDashboardTab.tsx` is untouched.
 - the report and rally card route, the fonts, and the share button (`components/ShareCardButton.tsx`)
 - One shared `initials()` helper used by `GroupShared`'s `Avatar` and by the card route's avatar fallback. That avoids a fourth copy of the initials logic, which is already duplicated in `GroupChallengesCard`, `GroupLeaderboard` and `GroupShared`.
 
 **v2 (only after cards actually get shared).**
 
-- Coach integration: `rhythm` and `weapon` on `CoachAthleteMetrics`, and `raid` on the group metrics, so the Coach edition writes the battle copy. Also a `bosskiller` award for the MVP of the killing blow.
-- Weapon icons on `GroupLeaderboard`.
+- ~~Coach integration~~ and ~~weapon icons on `GroupLeaderboard`~~: both conflict with PR1 decisions (the Coach doesn't use Rhythm or streaks; a level badge on the leaderboard was tried and reverted). Needs a fresh decision from Jesse before either comes back.
+- A `bosskiller` award for the MVP of the killing blow.
 - A trophy wall of slain bosses.
 
 ## Open Questions
 
 
 1. ~~**Pixel-sprite style:**~~ Approved 2026-09-26, and recorded in DESIGN.md's decisions log. Weapons are 16×16 upright grids in `lib/sprites.ts`. Boss sprites in PR2 follow the same style.
-2. **HP factor 0.5:** tune after the first raid. If the first boss dies in week 2, raise it. If nobody has killed a boss after 2 raids, lower it.
-3. ~~**Qualifying floor:**~~ Replaced by a flat 15-minute minimum (2026-09-26).
-4. **Naming on cards:** named shaming is the point in a friend group, but confirm the group is into it (Next Steps, step 1).
+2. **HP factor 0.6:** tune after the first raid. If the first boss dies in week 2, raise it. If nobody has killed a boss after 2 raids, lower it.
+3. ~~**Qualifying floor:**~~ Replaced by a flat minimum run time: 15 minutes, then lowered to 10 (2026-09-26).
+4. ~~**Naming on cards:**~~ Confirmed by Jesse (2026-09-26): named shaming is on.
 
 ## Success Criteria
 
@@ -454,11 +466,11 @@ Route and loader tests use the existing mocked-Supabase helpers (`__tests__/help
 | `__tests__/rhythm.test.ts` | 1 | every pure-rule case in the list above |
 | `__tests__/rhythmData.test.ts` (freezing) | 1 | idempotent insert-ignore; waits for a complete history import; the cron covers every athlete and reports failed batches; clock-pinned |
 | `__tests__/rhythmData.test.ts` | 1 | a runner with more than 1,000 rows is fully loaded across `.range()` pages; paging ends on a short page; the run window starts 12 weeks before the first unfrozen week |
-| `__tests__/coachMetrics.test.ts` (update) | 1 | **REGRESSION:** `streak` is now the Rhythm streak; a 4 → 1 runs/week fade reads 0, not 9 |
-| `__tests__/coachEdition.test.ts` (update) | 1 | **REGRESSION:** fixtures' `streak_weeks` follow the new meaning |
+| ~~`__tests__/coachMetrics.test.ts` (update)~~ | 1 | Dropped: the Coach keeps the original streak (PR1 reversal) |
+| ~~`__tests__/coachEdition.test.ts` (update)~~ | 1 | Dropped, same reason |
 | `__tests__/raid.test.ts` | 2 | every raid-rule case in the list above |
-| `__tests__/raidData.test.ts` | 2 | `loadRaidState` gives the panel and the card identical numbers; HP from frozen rows, and provisional before the Wednesday freeze |
-| `__tests__/raidCard.test.ts` | 2 | 401; 403 for non-members; a bad `?kind` returns 400; an avatar timeout falls back to initials; the pre-first-raid state |
+| `__tests__/raidData.test.ts` | 2 | HP from frozen rows, and provisional before the Wednesday freeze; catch-up freeze; the raid API route (401/403/off) |
+| `__tests__/raidCard.test.ts` | 2 | 401; 403 for non-members; a bad `?kind` returns 400; an avatar timeout falls back to initials; undrawable images rejected; the pre-first-raid state renders |
 | `__tests__/raidCopy.test.ts` | 2 | the redemption line only when `redeemAvailable`, otherwise the comeback line; no 3rd consecutive shaming; never shames rest or dormant members; overflow past 3 slots |
 
 **Manual QA** (written to the eng-review test plan):
@@ -498,12 +510,12 @@ The existing deployment pipeline covers this: push to Vercel, paste migration 02
    - `lib/rhythm.ts`, with a fixture from your own history that shows a real fade.
    - The ledger: migration 024, the freeze cron and the rebuild script.
    - The loader, behind the feature flag.
-   - Retiring `computeStreak` with the "fresh start" framing.
+   - ~~Retiring `computeStreak` with the "fresh start" framing.~~ Reversed: the any-run streak stays on the leaderboard and in the Coach.
    - The Rhythm card and weapon sprites.
 4. Paste migration 024, deploy, set `RHYTHM_LAUNCH_WEEK` to the next Monday, then redeploy.
 5. Confirm the sprite style (for example with `/plan-design-review`) before drawing the 3 bosses.
-6. **PR2:** tasks T8–T9. That's `lib/raid.ts`, `lib/raidData.ts`, `lib/raidCopy.ts`, the Raid panel, the card route and the share button.
-7. After the first raid, tune the HP factor (it starts at 0.5). After 2 weeks, check the v2 gate (TODO-006).
+6. **PR2:** tasks T8–T9. That's `lib/raid.ts`, `lib/raidData.ts`, `lib/raidCopy.ts`, the Raid tab, the card route and the share button. Built 2026-09-26.
+7. After the first raid, tune the HP factor (it starts at 0.6). After 2 weeks, check the v2 gate (TODO-006).
 
 ## What I noticed about how you think
 

@@ -74,9 +74,14 @@ export interface RhythmInputs {
   runs: RhythmRun[]
 }
 
+/** A tier's place in TIERS, by key so tiers that went through JSON still match. */
+export function tierIndex(tier: Pick<Tier, 'key'>): number {
+  return TIERS.findIndex(t => t.key === tier.key)
+}
+
 /** The level players see: 1 for Unarmed up to 6 for Legendary. */
-export function tierNumber(tier: Tier): number {
-  return TIERS.indexOf(tier) + 1
+export function tierNumber(tier: Pick<Tier, 'key'>): number {
+  return tierIndex(tier) + 1
 }
 
 export function tierFor(level: number): Tier {
@@ -91,13 +96,13 @@ export function dropOneTier(level: number): number {
   return index <= 0 ? 0 : TIERS[index - 1].min
 }
 
-const isMiss = (state: WeekState) => state === 'short' || state === 'zero'
+export const isMiss = (state: WeekState) => state === 'short' || state === 'zero'
 
 /**
  * The weapon level a runner can win back this week: set when last week was a
  * redeemable miss and no redemption happened in the last 4 weeks.
  */
-function redeemableLevel(history: LedgerRow[]): number | null {
+export function redeemableLevel(history: LedgerRow[]): number | null {
   const prev = history[history.length - 1]
   if (!prev || !isMiss(prev.state) || prev.level_before_miss == null) return null
   return history.slice(-REDEEM_COOLDOWN_WEEKS).some(r => r.redeemed) ? null : prev.level_before_miss
@@ -167,6 +172,13 @@ export function foldWeek(history: LedgerRow[], week: string, ctx: FoldContext, u
   return { ...base, level: dropped, level_before_miss: redeemable ? level : null, redeemed: false, streak: 0 }
 }
 
+/** The level a runner reaches if the week after `history` is on: redemption, or one step up. */
+export function levelIfOn(history: LedgerRow[]): number {
+  const pending = redeemableLevel(history)
+  if (pending != null) return pending
+  return Math.min(LEVEL_CAP, (history[history.length - 1]?.level ?? 0) + 1)
+}
+
 export function currentWeek(zone: string, now = new Date()): string {
   return weekStart(localDate(now, zone))
 }
@@ -231,7 +243,17 @@ export interface RhythmResult {
 
 const weeksBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / (WEEK * 86400000))
 
-export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = new Date()): RhythmResult | null {
+export interface RhythmTimeline {
+  today: string
+  week: string
+  /** Every finished week in the window: frozen rows, then live-folded ones. */
+  history: LedgerRow[]
+  /** This week so far. */
+  current: LedgerRow
+}
+
+/** Frozen rows plus the live fold through today, or null before launch. */
+export function foldTimeline(inputs: RhythmInputs, launchWeek: string, now = new Date()): RhythmTimeline | null {
   const today = localDate(now, inputs.zone)
   const week = weekStart(today)
   if (week < launchWeek) return null
@@ -241,7 +263,13 @@ export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = ne
   for (let w = firstOpenWeek(inputs.ledger, launchWeek); w < week; w = addDays(w, WEEK)) {
     history.push(foldWeek(history, w, ctx))
   }
-  const current = foldWeek(history, week, ctx, today)
+  return { today, week, history, current: foldWeek(history, week, ctx, today) }
+}
+
+export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = new Date()): RhythmResult | null {
+  const timeline = foldTimeline(inputs, launchWeek, now)
+  if (!timeline) return null
+  const { today, week, history, current } = timeline
   const last = history[history.length - 1]
 
   // Weapon as of the last finished week, upgraded once this week is on.

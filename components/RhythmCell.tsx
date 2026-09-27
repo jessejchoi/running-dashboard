@@ -46,23 +46,13 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
           <WeaponSprite tier={weapon.tier} size={52} />
         </div>
         <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
-          {stats.map(([name, value, sub]) => {
-            const body = (
-              <>
-                <p className={LABEL} style={{ color: 'var(--text-muted)' }}>{name}</p>
-                <div className="stat-num text-white font-bold leading-none mt-1.5" style={{ fontSize: 26 }}>{value}</div>
-                <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-2)' }}>{sub}</p>
-              </>
-            )
-            const style = { background: 'var(--surface-2)', padding: '8px 10px' }
-            return name === 'Level' ? (
-              <Link key={name} href="/groups?tab=raid" aria-label={`Level ${value}: open the Raid tab`} className="rounded-lg min-w-0 block border border-transparent hover:border-[var(--accent)] transition-colors" style={style}>
-                {body}
-              </Link>
-            ) : (
-              <div key={name} className="rounded-lg min-w-0 border border-transparent" style={style}>{body}</div>
-            )
-          })}
+          {stats.map(([name, value, sub]) => (
+            <Link key={name} href="/groups?tab=raid" aria-label={`${name} ${value}: open the Raid tab`} className="rounded-lg min-w-0 block border border-transparent hover:border-[var(--accent)] transition-colors" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
+              <p className={LABEL} style={{ color: 'var(--text-muted)' }}>{name}</p>
+              <div className="stat-num text-white font-bold leading-none mt-1.5" style={{ fontSize: 26 }}>{value}</div>
+              <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-2)' }}>{sub}</p>
+            </Link>
+          ))}
           <div className="rounded-lg min-w-0 border border-transparent" style={{ background: 'var(--surface-2)', padding: '8px 10px' }}>
             <p className={LABEL} style={{ color: 'var(--text-muted)' }}>Streak</p>
             <div className="mt-1"><StreakFlame weeks={rhythm.streak} size={30} /></div>

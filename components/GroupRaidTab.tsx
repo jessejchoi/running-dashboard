@@ -88,7 +88,7 @@ function AttackCard({ view }: { view: RaidView }) {
           <div className="flex flex-wrap gap-1.5 mt-2">
             {week.attackers.map(f => (
               <span key={f.athlete_id} className="inline-flex items-center gap-1.5 rounded-md text-[12px]" style={{ background: 'var(--surface-2)', padding: '4px 8px 4px 4px', color: 'var(--text-1)' }}>
-                <WeaponSprite tier={f.tier} size={18} /> {firstName(f.name)} <span className="font-mono text-[11px]" style={{ color: 'var(--accent)' }}>{f.power}</span>
+                <WeaponSprite tier={f.tierBefore} size={18} /> {firstName(f.name)} <span className="font-mono text-[11px]" style={{ color: 'var(--accent)' }}>{f.power}</span>
               </span>
             ))}
           </div>
@@ -211,7 +211,7 @@ function Rules() {
       <ul className="text-[13px] mt-3 space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-2)' }}>
         <li>Each boss lasts {RAID_WEEKS} weeks (Mon–Sun). Its HP is set the week before it arrives: {Math.round(HP_FACTOR * 100)}% of the max damage the full party could deal across the {RAID_WEEKS} weeks.</li>
         <li>Hit your weekly target to join the attack. It only lands if a majority of active members hit their targets.</li>
-        <li>When it lands, every attacker deals their weapon&apos;s power (after this week&apos;s level up). Top damage is MVP.</li>
+        <li>When it lands, every attacker deals the power of the weapon they started the week with. A level up counts from the next week. Top damage is MVP.</li>
         <li>Miss your target and your weapon drops a level. Hit it the next week to win it back.</li>
         <li>Members with no runs in 8 weeks are dormant: they don&apos;t attack and don&apos;t block. New members join the fight the week after they join.</li>
       </ul>

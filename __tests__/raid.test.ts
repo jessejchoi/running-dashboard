@@ -76,10 +76,10 @@ describe('raid calendar', () => {
 
 describe('bossHp', () => {
   it('is 60% of the damage of everyone hitting all 4 weeks from their starting level', () => {
-    // Level 1 → 2,3,4,5 = Dagger, Dagger, Sword, Sword = 10 each: 30 × 0.6.
-    expect(bossHp([1, 1, 1])).toBe(18)
-    // Level 10 → 11 (Axe 5), then capped Legendary 8 × 3 = 29.
-    expect(bossHp([10])).toBe(17)
+    // Levels 1,2,3,4 = Stick, Dagger, Dagger, Sword = 8 each: 24 × 0.6.
+    expect(bossHp([1, 1, 1])).toBe(14)
+    // Levels 10, 11 (Axe 5), then capped Legendary 8 × 2 = 26.
+    expect(bossHp([10])).toBe(16)
   })
 
   it('never drops below the minimum', () => {
@@ -91,7 +91,7 @@ describe('raidWeek', () => {
   const now = at('2026-10-21') // Wednesday of raid week 2
   const allOn = [...BASE, 3, 3, 3]
 
-  it('lands on a strict majority and deals each attacker\'s upgraded power', () => {
+  it('lands on a strict majority and deals the power each attacker brought into the week', () => {
     const members = [
       member(1, 'Ana', allOn, now),
       member(2, 'Budi', allOn, now),
@@ -101,8 +101,8 @@ describe('raidWeek', () => {
     expect(week.majority).toBe(2)
     expect(week.attackers.map(f => f.name)).toEqual(['Ana', 'Budi'])
     expect(week.landed).toBe(true)
-    // Launch week took them to level 1; this week's hit makes it level 2, a Dagger.
-    expect(week.damage).toBe(4)
+    // Launch week took them to level 1, a Stick; this week's level up counts from next week.
+    expect(week.damage).toBe(2)
     expect(week.blockers).toEqual([])
     expect(week.eligible.find(f => f.name === 'Sari')).toMatchObject({ state: 'short', dropped: true, redeemNext: true })
   })
@@ -132,7 +132,7 @@ describe('raidWeek', () => {
     const manual = (id: number, name: string, rows: LedgerRow[]): RaidMemberInput => ({
       athlete_id: id, name, joinedDay: '2026-01-01', history: rows, current: { ...row('2026-10-19', rows[1].level, 0), runs: 0, state: 'zero' }, frozenThrough: null,
     })
-    const tie = raidWeek([manual(1, 'Ana', [row(LAUNCH, 2, 1), row(RAID, 3, 1)]), manual(2, 'Zed', [row(LAUNCH, 1, 5), row(RAID, 2, 6)])], RAID)
+    const tie = raidWeek([manual(1, 'Ana', [row(LAUNCH, 2, 1), row(RAID, 3, 1)]), manual(2, 'Zed', [row(LAUNCH, 2, 5), row(RAID, 3, 6)])], RAID)
     expect(tie.mvp?.name).toBe('Zed')
   })
 
@@ -186,7 +186,7 @@ describe('raidWeek', () => {
     const week = raidWeek(members, week2)
     expect(week.open).toBe(true)
     expect(week.attackers.map(f => f.name)).toEqual(['Ana'])
-    // Level 2 → 3 is still a Dagger (power 2) for everyone.
+    // Everyone enters the week at level 2, a Dagger (power 2).
     expect(week.locked).toBe(2)
     expect(week.possible).toBe(6)
     expect(week.landed).toBe(false)
@@ -220,13 +220,13 @@ describe('resolveRaid', () => {
     const members = [1, 2, 3].map(id => member(id, `M${id}`, [...BASE, 3, 3, 3, 3, 3, 3], end))
     const raid = resolveRaid(members, 0, 0, RAID, '2026-11-09')
     expect(raid.boss.key).toBe('golem')
-    expect(raid.hp).toBe(18)
-    // Damage per week: 6 (Dagger), 6 (Dagger), 9 (Sword), 9 (Sword).
-    expect(raid.weeks.map(w => w.damage)).toEqual([6, 6, 9, 9])
+    expect(raid.hp).toBe(14)
+    // Damage per week: 3 (Stick), 6 (Dagger), 6 (Dagger), 9 (Sword).
+    expect(raid.weeks.map(w => w.damage)).toEqual([3, 6, 6, 9])
     expect(raid.status).toBe('slain')
-    // 6 + 6 = 12 falls short of 18; week 3's 9 finishes it.
+    // 3 + 6 = 9 falls short of 14; week 3's 6 finishes it.
     expect(raid.slainWeek).toBe(3)
-    expect(raid.overkill).toBe(12)
+    expect(raid.overkill).toBe(10)
   })
 
   it('fixes HP a week ahead: missing the week before the raid doesn\'t change it', () => {
@@ -250,7 +250,7 @@ describe('resolveRaid', () => {
       member(2, 'Budi', [...BASE, 3, 3, 0, 0, 0, 0], end),
     ]
     const raid = resolveRaid(members, 0, 0, RAID, '2026-11-09')
-    expect(raid.damage).toBe(4)
+    expect(raid.damage).toBe(2)
     expect(raid.status).toBe('escaped')
     expect(raid.slainWeek).toBeNull()
   })
@@ -261,7 +261,7 @@ describe('resolveRaid', () => {
     expect(raid.status).toBe('active')
     expect(raid.weeks).toHaveLength(2)
     expect(raid.weeks[1].open).toBe(true)
-    expect(raid.damage).toBe(2)
+    expect(raid.damage).toBe(1)
   })
 })
 
@@ -275,8 +275,8 @@ describe('computeRaid', () => {
     expect(state.raid).toBeNull()
     expect(state.firstRaidStart).toBe(RAID)
     expect(state.nextBoss.key).toBe('golem')
-    // Forecast as if Ana hits launch week (level 1): 2+2+3+3 = 10 × 0.6.
-    expect(state.projectedHp).toBe(6)
+    // Forecast as if Ana hits launch week (level 1): 1+2+2+3 = 8 × 0.6.
+    expect(state.projectedHp).toBe(5)
     expect(state.roster[0]).toMatchObject({ name: 'Ana', on: true, role: 'fighting' })
   })
 
@@ -307,8 +307,8 @@ describe('computeRaid', () => {
     const week4 = at('2026-11-04')
     const state = input([1, 2, 3].map(id => member(id, `M${id}`, counts, week4)), week4)
     // Through Oct 26 everyone is at level 4; hitting Nov 2 too makes 5, so the
-    // raid's 4 weeks are Sword, Axe, Axe, Axe = 18 each: 54 × 0.6.
-    expect(state.upNext).toEqual({ boss: BOSSES[1], start: '2026-11-09', hp: 32 })
+    // raid's 4 weeks are Sword, Sword, Axe, Axe = 16 each: 48 × 0.6.
+    expect(state.upNext).toEqual({ boss: BOSSES[1], start: '2026-11-09', hp: 29 })
   })
 
   it('lists finished raids newest first, each with its top damage dealer', () => {
@@ -320,8 +320,8 @@ describe('computeRaid', () => {
     const state = input(members, now)
     expect(state.raid?.number).toBe(3)
     expect(state.history.map(r => r.number)).toEqual([2, 1])
-    // Raid 1: both hit every week and deal the same (2+2+3+3 = 10); a tie goes by name.
-    expect(state.history[1].mvp).toEqual({ athlete_id: 2, name: 'Ana', damage: 10 })
+    // Raid 1: both hit every week and deal the same (1+2+2+3 = 8); a tie goes by name.
+    expect(state.history[1].mvp).toEqual({ athlete_id: 2, name: 'Ana', damage: 8 })
     // Raid 2: Ana missed a week, so Zed dealt more.
     expect(state.history[0].mvp?.name).toBe('Zed')
   })
@@ -362,7 +362,8 @@ describe('computeRaid', () => {
       ['Budi', 'fighting', false],
       ['Ghost', 'dormant', false],
     ])
-    expect(roster[0]).toMatchObject({ level: 3, tier: { power: 2 } })
+    // Ana's hit this week shows as a level up from next week.
+    expect(roster[0]).toMatchObject({ level: 2, tier: { power: 2 } })
     expect(roster[1]).toMatchObject({ level: 2, needed: 3, tier: { power: 2 } })
   })
 })

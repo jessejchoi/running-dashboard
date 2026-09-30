@@ -9,8 +9,8 @@ import { LEVEL_CAP, isMiss, levelIfOn, redeemableLevel, tierFor, type LedgerRow,
  *   │ hype week     │ raid 0: boss 1 ─────────────│ raid 1: boss 2 ──│ ...
  *
  * Each week, a strict majority of active members must hit their Rhythm target
- * for the attack to land. When it lands, every attacker deals their weapon's
- * power (after this week's upgrade). The boss is slain once landed damage
+ * for the attack to land. When it lands, every attacker deals the power of the
+ * weapon they brought into the week (this week's upgrade counts from next week). The boss is slain once landed damage
  * reaches its HP, and escapes if it's still standing after 4 weeks.
  */
 
@@ -71,7 +71,7 @@ export function bossFor(index: number, firstIndex: number): Boss {
 export function bossHp(startLevels: number[]): number {
   let max = 0
   for (const s of startLevels) {
-    for (let k = 1; k <= RAID_WEEKS; k++) max += power(Math.min(LEVEL_CAP, s + k))
+    for (let k = 0; k < RAID_WEEKS; k++) max += power(Math.min(LEVEL_CAP, s + k))
   }
   return Math.max(MIN_HP, Math.round(HP_FACTOR * max))
 }
@@ -172,7 +172,7 @@ export interface RaidFighter {
   tier: Tier
   level: number
   tierBefore: Tier
-  /** Damage they deal if the attack lands: power after the upgrade, or 0 while not on. */
+  /** Damage they deal if the attack lands: their weapon going into the week, or 0 while not on. */
   power: number
   /** Damage they would deal by hitting their target. */
   powerIfOn: number
@@ -234,8 +234,8 @@ export function raidWeek(members: RaidMemberInput[], week: string): RaidWeekResu
       tier,
       level: w.level,
       tierBefore,
-      power: on ? tier.power : 0,
-      powerIfOn: power(on ? w.level : w.levelIfOn),
+      power: on ? tierBefore.power : 0,
+      powerIfOn: tierBefore.power,
       streak: w.streak,
       dropped: !w.open && isMiss(w.state) && tier.power < tierBefore.power,
       redeemNext: !w.open && w.redeemNext,
@@ -364,7 +364,7 @@ export function resolveRaid(members: RaidMemberInput[], index: number, firstInde
 export interface RaidRosterEntry {
   athlete_id: number
   name: string
-  /** Their weapon now: upgraded once this week is on. */
+  /** The weapon they fight with this week: this week's upgrade shows from next week. */
   tier: Tier
   level: number
   runs: number
@@ -456,7 +456,7 @@ export function computeRaid({ members, groupZone, createdDay, rhythmLaunchWeek, 
     const fighter = thisWeek.eligible.find(f => f.athlete_id === m.athlete_id)
     const w = memberWeek(m, week)
     const on = w?.state === 'on'
-    const level = w ? (on ? w.level : w.levelBefore) : m.history[m.history.length - 1]?.level ?? 0
+    const level = w ? w.levelBefore : m.history[m.history.length - 1]?.level ?? 0
     return {
       athlete_id: m.athlete_id,
       name: m.name,

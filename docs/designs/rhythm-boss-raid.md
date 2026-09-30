@@ -281,12 +281,12 @@ Members who joined mid-week start the following week. Dormant members don't atta
 - **Eligible:** active members (not on a rest week, once rest weeks exist). Their count is `n`.
 - **Attackers:** eligible members whose week is `on`.
 - **The attack lands** when `attackers ≥ floor(n/2) + 1` (a strict majority), as long as `n ≥ 1`.
-- **Damage when it lands:** the sum of every attacker's weapon power *after* this week's upgrade. Otherwise the damage is 0.
+- **Damage when it lands:** the sum of every attacker's weapon power *going into* the week. This week's upgrade counts from next week, so the numbers are known before anyone runs (Jesse, 2026-09-30: post-upgrade damage was hard to predict). Otherwise the damage is 0.
 - **Blockers:** in a week where the attack fails, the eligible members who missed.
 - **MVP:** only when the attack lands. The attacker with the highest power wins; ties go to the longer Rhythm streak, then to name, alphabetically. A failed attack has no MVP, and the card leads with the blockers.
 - **Projected damage** (this week): shown as two numbers.
-  - **Locked:** the sum of `power(s+1)` over attackers so far.
-  - **Possible:** the sum of `power(s+1)` over all eligible members. This is what the attack would deal if everyone still needing runs hits.
+  - **Locked:** the sum of `power(s)` over attackers so far.
+  - **Possible:** the sum of `power(s)` over all eligible members. This is what the attack would deal if everyone still needing runs hits.
 
 **Raids.**
 
@@ -296,7 +296,7 @@ Members who joined mid-week start the following week. Dormant members don't atta
   - Before the first raid, the Raid panel shows "First boss arrives Mon <date>" alongside everyone's current weapon.
   - No history is backfilled, so there's no "7 bosses slain" on launch day.
   - Check that `groups.created_at` exists in the SQL editor. The table was created outside the repo's migrations. If it doesn't exist, every group starts at `RAID_LAUNCH_WEEK`, and later groups start at the next boundary after their first member joined (`min(group_members.joined_at)`).
-- **Boss HP:** `max(4, round(0.6 × Σ over members active at the raid's start of Σ_{k=1..4} power(s_m + k)))`, where `s_m` is the level the member would have after the week before the raid **if they hit it** (`levelIfOn`).
+- **Boss HP:** `max(4, round(0.6 × Σ over members active at the raid's start of Σ_{k=0..3} power(s_m + k)))`, where `s_m` is the level the member would enter the raid with after the week before **if they hit it** (`levelIfOn`).
   - That's 60% of the damage the group would deal if every member hit every week (Jesse, 2026-09-27: 75% was too high). It scales with group size and current weapons.
   - Because it assumes the week before is hit, HP depends only on weeks that finished before that week began. It's known a full week ahead, shown on the Raid tab and countdown card, and never moves once shown.
   - HP is provisional only while the weeks it rests on (through two weeks before the raid) aren't frozen, which is at most the first days of the week before.

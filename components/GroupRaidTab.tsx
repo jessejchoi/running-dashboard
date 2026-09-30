@@ -26,6 +26,8 @@ function SegmentBar({ count, filled, color, label, mark = 0 }: { count: number; 
 
 /** Damage segments: one per point, grouped when the max is large so they stay readable. */
 const DAMAGE_SEGMENTS = 20
+/** Width per run in the roster's target pips, so a 6-run target is twice as long as a 3-run one. */
+const RUN_PIP = 8
 
 /** Before the first raid: no attack yet, just what the first one will take. */
 function AttackPreview({ view }: { view: RaidView }) {
@@ -124,7 +126,7 @@ function RosterRow({ r, pic, me, inRaid }: { r: RaidRosterEntry; pic: string | n
       <div className="flex flex-col items-end gap-1 shrink-0">
         <Chip color={chip.color} bg={chip.bg}>{chip.text}</Chip>
         <div className="flex items-center gap-1.5">
-          <div className="flex gap-0.5" style={{ width: 48 }} role="img" aria-label={`${r.runs} of ${r.target} runs this week`}>
+          <div className="flex gap-0.5" style={{ width: r.target * RUN_PIP }} role="img" aria-label={`${r.runs} of ${r.target} runs this week`}>
             {Array.from({ length: r.target }, (_, i) => {
               const done = r.on || i < r.runs
               const fill = r.on ? 'var(--success)' : done ? 'var(--accent)' : 'var(--surface-3)'

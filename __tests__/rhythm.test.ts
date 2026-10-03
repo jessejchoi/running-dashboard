@@ -178,7 +178,8 @@ describe('computeRhythm', () => {
   it('counts this week toward the streak and weapon once it is on', () => {
     const runs = weeks(PRE, [...history, 3, 3])
     const result = computeRhythm(inputs(runs), LAUNCH, at(addDays(LAUNCH, 7 + 3)))!
-    expect(result).toMatchObject({ status: 'on', streak: 2, weapon: { level: 2, tier: { key: 'dagger' } } })
+    // The Dagger from this week's hit waits for Monday; it's the Stick until then.
+    expect(result).toMatchObject({ status: 'on', streak: 2, weapon: { level: 1, tier: { key: 'stick' }, upcomingLevel: 2, upgradeComing: true } })
   })
 
   it('reports a fade when 2 of the last 3 weeks were missed', () => {
@@ -227,21 +228,26 @@ describe('computeRhythm', () => {
 })
 
 describe('level-up and progress to the next level', () => {
-  it('flags a level-up only in the week the weapon changes tier', () => {
-    // Launch week on target: Unarmed → Stick (a new tier).
-    const first = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 3])), LAUNCH, at(addDays(LAUNCH, 5)))!
-    expect(first.weapon).toMatchObject({ leveledUp: true, tier: { key: 'stick' }, tierWeeksDone: 0, tierWeeksTotal: 1 })
-    // Second on-week: Stick → Dagger.
-    const second = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 3, 3])), LAUNCH, at(addDays(LAUNCH, 12)))!
-    expect(second.weapon).toMatchObject({ leveledUp: true, tier: { key: 'dagger' }, tierWeeksDone: 0, tierWeeksTotal: 2 })
-    // Third on-week stays a Dagger (1 of 2 weeks toward Sword): no level-up.
-    const third = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 3, 3, 3])), LAUNCH, at(addDays(LAUNCH, 19)))!
-    expect(third.weapon).toMatchObject({ leveledUp: false, tier: { key: 'dagger' }, tierWeeksDone: 1, tierWeeksTotal: 2 })
+  const on = (n: number) => [...Array(6).fill(3), ...Array(n).fill(3)]
+
+  it('holds a hit as pending until the week ends, then shows the new weapon as a level-up all week', () => {
+    // Launch week on target: still Unarmed, with the Stick waiting for Monday.
+    const first = computeRhythm(inputs(weeks(PRE, on(1))), LAUNCH, at(addDays(LAUNCH, 5)))!
+    expect(first.weapon).toMatchObject({ leveledUp: false, tier: { key: 'unarmed' }, upcomingLevel: 1, upgradeComing: true, tierWeeksDone: 0, tierWeeksPending: 1, tierWeeksTotal: 1 })
+    // The next week: the Stick arrives (a level-up), and this week's hit queues the Dagger.
+    const second = computeRhythm(inputs(weeks(PRE, on(2))), LAUNCH, at(addDays(LAUNCH, 12)))!
+    expect(second.weapon).toMatchObject({ leveledUp: true, tier: { key: 'stick' }, upcomingLevel: 2, upgradeComing: true })
+    // The Dagger arrives; this week's hit is 1 of 2 weeks toward the Sword, no new tier yet.
+    const third = computeRhythm(inputs(weeks(PRE, on(3))), LAUNCH, at(addDays(LAUNCH, 19)))!
+    expect(third.weapon).toMatchObject({ leveledUp: true, tier: { key: 'dagger' }, upcomingLevel: 3, upgradeComing: false, tierWeeksDone: 0, tierWeeksPending: 1, tierWeeksTotal: 2 })
+    // Still a Dagger: no level-up this week, and this week's hit completes the Sword.
+    const fourth = computeRhythm(inputs(weeks(PRE, on(4))), LAUNCH, at(addDays(LAUNCH, 26)))!
+    expect(fourth.weapon).toMatchObject({ leveledUp: false, tier: { key: 'dagger' }, upgradeComing: true, tierWeeksDone: 1, tierWeeksPending: 1, tierWeeksTotal: 2 })
   })
 
-  it('does not flag a level-up while the target is still open', () => {
+  it('has nothing pending while the target is still open', () => {
     const r = computeRhythm(inputs(weeks(PRE, [3, 3, 3, 3, 3, 3, 1])), LAUNCH, at(addDays(LAUNCH, 2)))!
-    expect(r.weapon).toMatchObject({ leveledUp: false, tier: { key: 'unarmed' }, tierWeeksDone: 0, tierWeeksTotal: 1 })
+    expect(r.weapon).toMatchObject({ leveledUp: false, tier: { key: 'unarmed' }, upcomingLevel: null, upgradeComing: false, tierWeeksDone: 0, tierWeeksPending: 0, tierWeeksTotal: 1 })
   })
 })
 

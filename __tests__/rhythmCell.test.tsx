@@ -29,7 +29,7 @@ function result(overrides: Partial<RhythmResult> = {}): RhythmResult {
     status: 'building',
     streak: 1,
     fadeWeeks: 0,
-    weapon: { tier: tier('stick'), level: 1, nextTier: tier('dagger'), weeksToNext: 1, tierWeeksDone: 0, tierWeeksTotal: 1, leveledUp: false, redeemAvailable: false, redeemTier: null },
+    weapon: { tier: tier('stick'), level: 1, nextTier: tier('dagger'), weeksToNext: 1, tierWeeksDone: 0, tierWeeksTotal: 1, tierWeeksPending: 0, upcomingLevel: null, upgradeComing: false, leveledUp: false, redeemAvailable: false, redeemTier: null },
     history: [{ week: '2026-10-05', state: 'on', runs: 3, target: 3 }],
     unfrozenWeeks: 0,
     ...overrides,
@@ -43,7 +43,7 @@ describe('RhythmCell', () => {
 
   it('shows level, attack power and streak as numbers', () => {
     const markup = html(result({ streak: 5, weapon: { ...result().weapon, tier: tier('sword'), level: 5, nextTier: tier('axe'), weeksToNext: 2, tierWeeksDone: 1, tierWeeksTotal: 3 } }))
-    expect(markup).toContain('Your level')
+    expect(markup).toContain('Boss Raid')
     expect(markup).toMatch(/Level<\/p><div[^>]*>4<\/div><p[^>]*>Sword/)
     expect(markup).toMatch(/Attack<\/p><div[^>]*>3<\/div>/)
     // The streak sits inside a flame, like Strava's streak badge.
@@ -86,6 +86,20 @@ describe('RhythmCell', () => {
     expect(markup).toContain('1/2 wks')
     expect(markup).toContain('aria-label="Sword"')
     expect(markup).toMatch(/Lv <!-- -->4|Lv 4/)
+  })
+
+  it("keeps the weapon until the week ends and shows this week's hit as pending at the bottom", () => {
+    const hit = { status: 'on' as const, thisWeek: { runs: 3, needed: 0, daysLeft: 3, runDays: [WEEK] } }
+    const queued = html(result({ ...hit, weapon: { ...result().weapon, tier: tier('dagger'), level: 3, nextTier: tier('sword'), tierWeeksDone: 1, tierWeeksTotal: 2, tierWeeksPending: 1, upcomingLevel: 4, upgradeComing: true } }))
+    expect(queued).toMatch(/Attack<\/p><div[^>]*>2<\/div>/) // still the Dagger's power
+    expect(queued).toContain('Level up Mon')
+    expect(queued).toContain('2/2 wks')
+    expect(queued).toMatch(/plus this week(&#x27;|')s hit from Monday/)
+    expect(queued).toContain('border:1px dashed var(--accent)')
+
+    const partial = html(result({ ...hit, weapon: { ...result().weapon, tier: tier('dagger'), level: 2, nextTier: tier('sword'), tierWeeksDone: 0, tierWeeksTotal: 2, tierWeeksPending: 1, upcomingLevel: 3 } }))
+    expect(partial).toContain('Next level')
+    expect(partial).toContain('1/2 wks')
   })
 
   it('adds a note only when the week needs attention, and shows Max level at Legendary', () => {

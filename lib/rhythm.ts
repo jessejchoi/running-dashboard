@@ -231,7 +231,13 @@ export interface RhythmResult {
     /** On-target weeks done and needed within the current tier, toward the next one. */
     tierWeeksDone: number
     tierWeeksTotal: number
-    /** This week's target was hit and it moved the runner up a tier. */
+    /** Weeks this week's hit adds toward the next tier once the week ends (0 until it's on). */
+    tierWeeksPending: number
+    /** The level this week's hit brings next Monday, or null until it's on. */
+    upcomingLevel: number | null
+    /** This week's hit moves the weapon up a tier next Monday. */
+    upgradeComing: boolean
+    /** The weapon moved up a tier when this week began. */
     leveledUp: boolean
     redeemAvailable: boolean
     redeemTier: Tier | null
@@ -272,11 +278,12 @@ export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = ne
   const { today, week, history, current } = timeline
   const last = history[history.length - 1]
 
-  // Weapon as of the last finished week, upgraded once this week is on.
-  const shown = current.state === 'on' ? current : last
-  const level = shown?.level ?? 0
+  // The weapon carried into this week, which is what the raid fights with. This
+  // week's hit only upgrades it once the week ends.
+  const level = last?.level ?? 0
   const tier = tierFor(level)
   const nextTier = TIERS[TIERS.indexOf(tier) + 1] ?? null
+  const upcomingLevel = current.state === 'on' ? current.level : null
   const redeemLevel = current.state === 'on' ? null : redeemableLevel(history)
   const redeemAvailable = redeemLevel != null
 
@@ -318,7 +325,10 @@ export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = ne
       weeksToNext: nextTier ? nextTier.min - level : null,
       tierWeeksDone: nextTier ? level - tier.min : 0,
       tierWeeksTotal: nextTier ? nextTier.min - tier.min : 0,
-      leveledUp: current.state === 'on' && TIERS.indexOf(tier) > TIERS.indexOf(tierFor(last?.level ?? 0)),
+      tierWeeksPending: nextTier && upcomingLevel != null ? Math.max(0, Math.min(nextTier.min, upcomingLevel) - level) : 0,
+      upcomingLevel,
+      upgradeComing: upcomingLevel != null && TIERS.indexOf(tierFor(upcomingLevel)) > TIERS.indexOf(tier),
+      leveledUp: last != null && TIERS.indexOf(tier) > TIERS.indexOf(tierFor(history[history.length - 2]?.level ?? 0)),
       redeemAvailable,
       redeemTier: redeemLevel != null ? tierFor(redeemLevel) : null,
     },

@@ -87,12 +87,12 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
       <div className="mt-4 pt-3 flex items-center gap-3" style={{ borderTop: '1px solid var(--border)' }}>
         {weapon.nextTier ? (
           <>
-            <p className={LABEL} style={{ color: weapon.upgradeComing ? 'var(--accent)' : 'var(--text-muted)' }}>{weapon.upgradeComing ? 'Level up Mon' : 'Next level'}</p>
+            <p className={LABEL} style={{ color: weapon.upgradeComing ? 'var(--success)' : 'var(--text-muted)' }}>{weapon.upgradeComing ? 'Level up Mon' : 'Next level'}</p>
             <div className="flex gap-1 flex-1" role="img" aria-label={`${weapon.tierWeeksDone} of ${weapon.tierWeeksTotal} weeks on target toward level ${level + 1}${pending ? `, plus this week's hit from Monday` : ''}`}>
               {Array.from({ length: weapon.tierWeeksTotal }, (_, i) => {
-                // Done weeks solid, this week's hit dashed until the week ends.
+                // Done weeks orange; this week's hit green, ahead of the weapon changing on Monday.
                 const style = i < weapon.tierWeeksDone ? { background: 'var(--accent)', border: '1px solid var(--accent)' }
-                  : i < progress ? { background: 'var(--accent-muted)', border: '1px dashed var(--accent)' }
+                  : i < progress ? { background: 'var(--success)', border: '1px solid var(--success)' }
                   : { background: 'var(--surface-3)', border: '1px solid var(--border)' }
                 return <div key={i} style={{ flex: 1, height: 8, borderRadius: 2, ...style }} />
               })}
@@ -101,7 +101,7 @@ export default function RhythmCell({ rhythm }: { rhythm: RhythmResult }) {
               {progress}/{weapon.tierWeeksTotal} wks
             </span>
             <div className="flex items-center gap-1.5 shrink-0">
-              <div className="rounded flex items-center justify-center" style={{ width: 26, height: 26, background: 'var(--surface-3)', border: `1px ${weapon.upgradeComing ? 'solid' : 'dashed'} var(--accent)` }}>
+              <div className="rounded flex items-center justify-center" style={{ width: 26, height: 26, background: 'var(--surface-3)', border: weapon.upgradeComing ? '1px solid var(--success)' : '1px dashed var(--accent)' }}>
                 <WeaponSprite tier={weapon.nextTier} size={18} />
               </div>
               <span className="font-mono text-[11px]" style={{ color: 'var(--text-1)' }}>Lv {level + 1}</span>

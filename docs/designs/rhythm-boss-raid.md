@@ -230,7 +230,7 @@ A week that is `short` or `zero` counts as a **miss**.
 
 **UI (card design A, "stat sheet", chosen 2026-09-26).** The dashboard gets a "Your level" `.card` (`components/RhythmCell.tsx`), styled from the pre-refresh DESIGN.md on `main`. Players see **level numbers 1–6** (Unarmed = 1 up to Legendary = 6), not the internal 0–12 weapon level.
 
-- The weapon, Level and Attack only change when a week ends, matching the raid's pre-upgrade damage (Jesse, 2026-10-03). A hit this week shows at the bottom as a dashed pending segment on the next-level bar, labeled "Level up Mon" when it completes a tier.
+- The weapon, Level and Attack only change when a week ends, matching the raid's pre-upgrade damage (Jesse, 2026-10-03). A hit this week shows at the bottom as a green segment on the next-level bar; when it completes a tier, the label reads "Level up Mon" and the next weapon gets a green box.
 - A **LEVEL UP!** badge shows all week in the week the new weapon arrives.
 - Three stat tiles show **Level** (number and weapon name), **Attack** (power) and **Streak** (weeks).
 - "This week" reads "X done · target Y runs", above a bar with one segment per target run. Segments turn orange as runs happen, and **all turn green once the target is hit**; extra runs don't add segments.

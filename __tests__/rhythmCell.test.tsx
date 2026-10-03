@@ -95,7 +95,10 @@ describe('RhythmCell', () => {
     expect(queued).toContain('Level up Mon')
     expect(queued).toContain('2/2 wks')
     expect(queued).toMatch(/plus this week(&#x27;|')s hit from Monday/)
-    expect(queued).toContain('border:1px dashed var(--accent)')
+    // This week's hit is a green segment, and the weapon it unlocks gets a green box.
+    const nextLevel = queued.slice(queued.indexOf('toward level'))
+    expect(nextLevel.split('background:var(--success);border:1px solid var(--success)').length - 1).toBe(1)
+    expect(queued).toMatch(/border:1px solid var\(--success\)"><svg[^>]*aria-label="Sword"/)
 
     const partial = html(result({ ...hit, weapon: { ...result().weapon, tier: tier('dagger'), level: 2, nextTier: tier('sword'), tierWeeksDone: 0, tierWeeksTotal: 2, tierWeeksPending: 1, upcomingLevel: 3 } }))
     expect(partial).toContain('Next level')

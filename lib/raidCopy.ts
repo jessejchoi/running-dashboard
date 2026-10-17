@@ -178,7 +178,7 @@ export function situation(state: RaidState): string {
     if (thisWeek.locked >= hpLeft) return `${attackers} of ${thisWeek.eligible.length} on target: this attack finishes the ${boss} on Sunday.`
     return `Attack locked in: ${attackers} of ${thisWeek.eligible.length} on target, ${thisWeek.locked} damage so far. The ${boss} has ${hpLeft} HP left${finalWeek ? ' in its last week' : ''}.`
   }
-  const need = thisWeek.majority - attackers
+  const need = thisWeek.required - attackers
   if (stillNeeded(thisWeek, daysLeft).length < need) {
     return `The attack can't land this week anymore. The ${boss} holds at ${hpLeft} HP${finalWeek ? ' and escapes on Sunday' : ''}.`
   }

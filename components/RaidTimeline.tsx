@@ -155,10 +155,10 @@ function WeekStory({ week, index, raid, roasts, current, view }: {
       </div>
       {slainHere && <p className="text-[13px] mt-1.5" style={{ color: 'var(--accent)' }}>The {raid.boss.name} fell this week!</p>}
       {week.open ? (
-        <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-2)' }}>{week.attackers.length} of {week.eligible.length} on target so far · {week.majority} needed</p>
+        <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-2)' }}>{week.attackers.length} of {week.eligible.length} on target so far · {week.required} needed</p>
       ) : (
         <>
-          <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-2)' }}>{week.attackers.length} of {week.eligible.length} on target · {week.majority} needed</p>
+          <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-2)' }}>{week.attackers.length} of {week.eligible.length} on target · {week.required} needed</p>
           {week.mvp && (
             <div className="flex items-center gap-2 mt-2">
               <Avatar name={week.mvp.name} pic={view.members[week.mvp.athlete_id]?.pic ?? null} size={6} />

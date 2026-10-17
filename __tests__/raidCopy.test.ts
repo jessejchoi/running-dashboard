@@ -20,10 +20,10 @@ const miss = (id: number, name: string, overrides: Partial<RaidFighter> = {}) =>
 
 function week(weekStart: string, eligible: RaidFighter[], overrides: Partial<RaidWeekResult> = {}): RaidWeekResult {
   const attackers = eligible.filter(f => f.state === 'on')
-  const majority = Math.floor(eligible.length / 2) + 1
-  const landed = attackers.length >= majority
+  const required = Math.round(eligible.length / 2)
+  const landed = attackers.length >= required
   return {
-    week: weekStart, open: false, eligible, dormant: [], attackers, majority, landed,
+    week: weekStart, open: false, eligible, dormant: [], attackers, required, landed,
     damage: landed ? attackers.reduce((s, f) => s + f.power, 0) : 0,
     blockers: landed ? [] : eligible.filter(f => f.state !== 'on'),
     mvp: landed ? attackers[0] : null,

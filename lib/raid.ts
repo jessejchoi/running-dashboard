@@ -8,7 +8,7 @@ import { LEVEL_CAP, isMiss, levelIfOn, redeemableLevel, tierFor, type LedgerRow,
  *   rhythm launch   raid launch (+1 week)          +4 weeks          +8 weeks
  *   │ hype week     │ raid 0: boss 1 ─────────────│ raid 1: boss 2 ──│ ...
  *
- * Each week, a strict majority of active members must hit their Rhythm target
+ * Each week, half the active members (rounded, halves up) must hit their Rhythm target
  * for the attack to land. When it lands, every attacker deals the power of the
  * weapon they brought into the week (this week's upgrade counts from next week). The boss is slain once landed damage
  * reaches its HP, and escapes if it's still standing after 4 weeks.
@@ -189,8 +189,8 @@ export interface RaidWeekResult {
   eligible: RaidFighter[]
   dormant: Array<{ athlete_id: number; name: string }>
   attackers: RaidFighter[]
-  /** Attackers needed to land: a strict majority of the eligible. */
-  majority: number
+  /** Attackers needed to land: half the eligible, rounded (halves round up). */
+  required: number
   /** Landed (open week: would land if the week ended now). */
   landed: boolean
   damage: number
@@ -244,8 +244,8 @@ export function raidWeek(members: RaidMemberInput[], week: string): RaidWeekResu
   eligible.sort(byName)
   dormant.sort(byName)
   const attackers = eligible.filter(f => f.state === 'on')
-  const majority = Math.floor(eligible.length / 2) + 1
-  const landed = eligible.length > 0 && attackers.length >= majority
+  const required = Math.round(eligible.length / 2)
+  const landed = eligible.length > 0 && attackers.length >= required
   const locked = attackers.reduce((sum, f) => sum + f.power, 0)
   const mvp = landed
     ? [...attackers].sort((a, b) => b.power - a.power || b.streak - a.streak || byName(a, b))[0]
@@ -256,7 +256,7 @@ export function raidWeek(members: RaidMemberInput[], week: string): RaidWeekResu
     eligible,
     dormant,
     attackers,
-    majority,
+    required,
     landed,
     damage: landed ? locked : 0,
     blockers: !open && !landed ? eligible.filter(f => isMiss(f.state)) : [],

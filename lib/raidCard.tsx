@@ -285,7 +285,7 @@ function Rally({ view, avatars }: { view: RaidView; avatars: Avatars }) {
   const raid = state.raid!
   const week = state.thisWeek
   const hpLeft = Math.max(0, raid.hp - raid.damage)
-  const need = Math.max(0, week.majority - week.attackers.length)
+  const need = Math.max(0, week.required - week.attackers.length)
   const blocked = !week.landed && stillNeeded(week, state.daysLeft).length < need
   const slain = raid.status === 'slain'
   const banner = slain ? { text: 'Overkill round', color: C.accent, bg: 'rgba(249,115,22,0.10)' }

@@ -91,14 +91,14 @@ describe('raidWeek', () => {
   const now = at('2026-10-21') // Wednesday of raid week 2
   const allOn = [...BASE, 3, 3, 3]
 
-  it('lands on a strict majority and deals the power each attacker brought into the week', () => {
+  it('lands when half the group hits (rounded up from 1.5) and deals the power each attacker brought into the week', () => {
     const members = [
       member(1, 'Ana', allOn, now),
       member(2, 'Budi', allOn, now),
       member(3, 'Sari', [...BASE, 3, 1, 3], now),
     ]
     const week = raidWeek(members, RAID)
-    expect(week.majority).toBe(2)
+    expect(week.required).toBe(2)
     expect(week.attackers.map(f => f.name)).toEqual(['Ana', 'Budi'])
     expect(week.landed).toBe(true)
     // Launch week took them to level 1, a Stick; this week's level up counts from next week.
@@ -107,7 +107,7 @@ describe('raidWeek', () => {
     expect(week.eligible.find(f => f.name === 'Sari')).toMatchObject({ state: 'short', dropped: true, redeemNext: true })
   })
 
-  it('fails without a majority: no damage, no MVP, and the misses are blockers', () => {
+  it('fails short of half the group: no damage, no MVP, and the misses are blockers', () => {
     const members = [
       member(1, 'Ana', allOn, now),
       member(2, 'Budi', [...BASE, 3, 0, 3], now),
@@ -118,6 +118,18 @@ describe('raidWeek', () => {
     expect(week.damage).toBe(0)
     expect(week.mvp).toBeNull()
     expect(week.blockers.map(f => f.name)).toEqual(['Budi', 'Sari'])
+  })
+
+  it('needs half the group, rounded, so an even group lands with exactly half', () => {
+    const sizes = [1, 2, 3, 4, 5, 6].map(n => raidWeek(Array.from({ length: n }, (_, i) => member(i + 1, `M${i}`, allOn, now)), RAID).required)
+    expect(sizes).toEqual([1, 1, 2, 2, 3, 3])
+    const week = raidWeek([
+      member(1, 'Ana', allOn, now),
+      member(2, 'Budi', allOn, now),
+      member(3, 'Lee', [...BASE, 3, 0, 3], now),
+      member(4, 'Sari', [...BASE, 3, 1, 3], now),
+    ], RAID)
+    expect(week).toMatchObject({ required: 2, landed: true, damage: 2 })
   })
 
   it('picks the MVP by power, then streak, then name', () => {

@@ -40,9 +40,9 @@ function AttackPreview({ view }: { view: RaidView }) {
         <Chip color="var(--text-2)" bg="var(--surface-2)">Starts {day(state.firstRaidStart)}</Chip>
       </div>
       <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
-        The attack lands if <b className="stat-num text-white">{week.majority}</b> of <b className="stat-num text-white">{week.eligible.length}</b> hit their target that week.
+        The attack lands if <b className="stat-num text-white">{week.required}</b> of <b className="stat-num text-white">{week.eligible.length}</b> hit their target that week.
       </p>
-      <SegmentBar count={week.eligible.length} filled={0} mark={week.majority} color="var(--accent)" label={`${week.majority} of ${week.eligible.length} needed for the attack`} />
+      <SegmentBar count={week.eligible.length} filled={0} mark={week.required} color="var(--accent)" label={`${week.required} of ${week.eligible.length} needed for the attack`} />
     </div>
   )
 }
@@ -52,7 +52,7 @@ function AttackCard({ view }: { view: RaidView }) {
   if (!state.raid) return <AttackPreview view={view} />
   const week = state.thisWeek
   const pending = stillNeeded(week, state.daysLeft)
-  const need = Math.max(0, week.majority - week.attackers.length)
+  const need = Math.max(0, week.required - week.attackers.length)
   const blocked = !week.landed && pending.length < need
   const status = !week.eligible.length ? { text: 'No fighters yet', color: 'var(--text-2)', bg: 'var(--surface-2)' }
     : week.landed ? { text: 'Attack locked in', color: 'var(--success)', bg: 'var(--success-bg)' }
@@ -66,14 +66,14 @@ function AttackCard({ view }: { view: RaidView }) {
         <Chip color={status.color} bg={status.bg}>{status.text}</Chip>
       </div>
       <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
-        <b className="stat-num text-white">{week.attackers.length}</b> of <b className="stat-num text-white">{week.eligible.length}</b> on target · a majority needs <b className="stat-num text-white">{week.majority}</b>
+        <b className="stat-num text-white">{week.attackers.length}</b> of <b className="stat-num text-white">{week.eligible.length}</b> on target · the attack needs <b className="stat-num text-white">{week.required}</b>
       </p>
       <SegmentBar
         count={week.eligible.length}
         filled={week.attackers.length}
-        mark={week.majority}
+        mark={week.required}
         color={week.landed ? 'var(--success)' : 'var(--accent)'}
-        label={`${week.attackers.length} of ${week.majority} attackers needed`}
+        label={`${week.attackers.length} of ${week.required} attackers needed`}
       />
       <p className="text-[13px] mt-4" style={{ color: 'var(--text-2)' }}>
         <b className="stat-num" style={{ color: week.landed ? 'var(--success)' : 'var(--text-1)' }}>{week.locked}</b> current damage · <b className="stat-num text-white">{week.possible}</b> max damage
@@ -212,7 +212,7 @@ function Rules() {
       </summary>
       <ul className="text-[13px] mt-3 space-y-1.5 list-disc pl-4" style={{ color: 'var(--text-2)' }}>
         <li>Each boss lasts {RAID_WEEKS} weeks (Mon–Sun). Its HP is set the week before it arrives: {Math.round(HP_FACTOR * 100)}% of the max damage the full party could deal across the {RAID_WEEKS} weeks.</li>
-        <li>Hit your weekly target to join the attack. It only lands if a majority of active members hit their targets.</li>
+        <li>Hit your weekly target to join the attack. It only lands if half the active members (rounded up when odd) hit their targets.</li>
         <li>When it lands, every attacker deals the power of the weapon they started the week with. A level up counts from the next week. Top damage is MVP.</li>
         <li>Miss your target and your weapon drops a level. Hit it the next week to win it back.</li>
         <li>Members with no runs in 8 weeks are dormant: they don&apos;t attack and don&apos;t block. New members join the fight the week after they join.</li>

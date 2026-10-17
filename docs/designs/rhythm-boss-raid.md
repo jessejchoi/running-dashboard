@@ -17,7 +17,7 @@ The group's banter lives in a **WhatsApp group**, not in RunDash. RunDash is whe
 ## What Makes This Cool
 
 - **Your consistency becomes a weapon.** Hit your own weekly Rhythm and your weapon upgrades, from Stick to Dagger, Sword, Axe and Legendary. Individual progress is something you can see and collect, not just a number.
-- **The group fights a boss together.** Each week a majority must hit their Rhythm for the group's attack to land. Everyone who showed up deals damage with their weapon. A 4-week raid gives every week a stake and the month a storyline: slay the Humidity Golem, or watch it escape.
+- **The group fights a boss together.** Each week half the group must hit their Rhythm for the group's attack to land. Everyone who showed up deals damage with their weapon. A 4-week raid gives every week a stake and the month a storyline: slay the Humidity Golem, or watch it escape.
 - **A fade gets noticed by your friends, not by an algorithm.** The Monday battle report names the MVP and the people who let the boss live, and gives them a way to redeem themselves. It's built to be posted in WhatsApp.
 
 ## Constraints
@@ -281,7 +281,7 @@ Members who joined mid-week start the following week. Dormant members don't atta
 
 - **Eligible:** active members (not on a rest week, once rest weeks exist). Their count is `n`.
 - **Attackers:** eligible members whose week is `on`.
-- **The attack lands** when `attackers ≥ floor(n/2) + 1` (a strict majority), as long as `n ≥ 1`.
+- **The attack lands** when `attackers ≥ round(n/2)` (half the group, halves rounding up), as long as `n ≥ 1` (Jesse, 2026-10-17: was a strict majority, `floor(n/2) + 1`).
 - **Damage when it lands:** the sum of every attacker's weapon power *going into* the week. This week's upgrade counts from next week, so the numbers are known before anyone runs (Jesse, 2026-09-30: post-upgrade damage was hard to predict). Otherwise the damage is 0.
 - **Blockers:** in a week where the attack fails, the eligible members who missed.
 - **MVP:** only when the attack lands. The attacker with the highest power wins; ties go to the longer Rhythm streak, then to name, alphabetically. A failed attack has no MVP, and the card leads with the blockers.
@@ -387,7 +387,7 @@ It supports two kinds:
 
 - **Raid timeline** (`components/RaidTimeline.tsx`, Jesse, 2026-09-27): a short vertically scrolling area at the top. Past raids are one-line slivers (oldest at the top: status, damage vs HP, raid MVP); the current boss is the main card (sprite, HP, locked damage, summary, and a "Last week" row); in a raid's final week a "Next up" sliver sits below it. It opens scrolled to the current boss with the previous result peeking in above, which is how a boss slain in week 4 still gets its moment on the Monday the next one arrives. Bosses slain and raid count sit in its header.
 - **Raid pop-up:** tapping a sliver or the "Last week" row opens the raid's story: outcome, raid MVP (most landed damage), a week strip, and each week's result, MVP and roasts. Only last week's roasts carry a way back; older ones are history. It replaces the old Last week card.
-- **Attack status:** attackers against the majority needed, current vs max damage, who's attacking, and who can still make it ("Budi (1 run), Sari (2 runs)"). Before the first raid it only says when the first attack starts and what it needs.
+- **Attack status:** attackers against the number needed, current vs max damage, who's attacking, and who can still make it ("Budi (1 run), Sari (2 runs)"). Before the first raid it only says when the first attack starts and what it needs.
 - **The party:** each member's weapon and current ATK, runs against target, and attacking / runs to go / dormant ("Target hit" before the first raid).
 - **Share cards** (this week and last week's recap, or the countdown before the first raid), and a collapsible "How the raid works".
 - Local development only: `?raidAt=YYYY-MM-DD` on the group page previews the raid on that day; the API never freezes weeks for a simulated date.

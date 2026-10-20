@@ -5,6 +5,7 @@ import {
   BOSSES,
   bossFor,
   bossHp,
+  hpFactor,
   computeRaid,
   firstRaidIndex,
   isActive,
@@ -75,11 +76,17 @@ describe('raid calendar', () => {
 })
 
 describe('bossHp', () => {
-  it('is 60% of the damage of everyone hitting all 4 weeks from their starting level', () => {
-    // Levels 1,2,3,4 = Stick, Dagger, Dagger, Sword = 8 each: 24 × 0.6.
-    expect(bossHp([1, 1, 1])).toBe(14)
+  it('is 30% of the damage of everyone hitting all 4 weeks from their starting level', () => {
+    // Levels 1,2,3,4 = Stick, Dagger, Dagger, Sword = 8 each: 24 × 0.3.
+    expect(bossHp([1, 1, 1])).toBe(7)
     // Levels 10, 11 (Axe 5), then capped Legendary 8 × 2 = 26.
-    expect(bossHp([10])).toBe(16)
+    expect(bossHp([10])).toBe(8)
+    expect(bossHp([1, 1, 1], 0.6)).toBe(14)
+  })
+
+  it('keeps 60% for bosses that arrived by Oct 20, 2026, and uses 30% after', () => {
+    expect(hpFactor('2026-10-19')).toBe(0.6)
+    expect(hpFactor('2026-10-26')).toBe(0.3)
   })
 
   it('never drops below the minimum', () => {
@@ -319,8 +326,8 @@ describe('computeRaid', () => {
     const week4 = at('2026-11-04')
     const state = input([1, 2, 3].map(id => member(id, `M${id}`, counts, week4)), week4)
     // Through Oct 26 everyone is at level 4; hitting Nov 2 too makes 5, so the
-    // raid's 4 weeks are Sword, Sword, Axe, Axe = 16 each: 48 × 0.6.
-    expect(state.upNext).toEqual({ boss: BOSSES[1], start: '2026-11-09', hp: 29 })
+    // raid's 4 weeks are Sword, Sword, Axe, Axe = 16 each: 48 × 0.3 (a boss after Oct 20).
+    expect(state.upNext).toEqual({ boss: BOSSES[1], start: '2026-11-09', hp: 14 })
   })
 
   it('lists finished raids newest first, each with its top damage dealer', () => {

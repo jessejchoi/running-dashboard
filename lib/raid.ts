@@ -16,7 +16,14 @@ import { LEVEL_CAP, isMiss, levelIfOn, redeemableLevel, tierFor, type LedgerRow,
 
 export const RAID_WEEKS = 4
 /** Boss HP is this share of what the party would deal if everyone hit every week. */
-export const HP_FACTOR = 0.6
+export const HP_FACTOR = 0.3
+/** Bosses that arrived on or before this day keep the 60% they started with, so HP never moves mid-raid. */
+const EARLY_HP = { through: '2026-10-20', factor: 0.6 }
+
+/** The HP share for a raid starting on `start`. */
+export function hpFactor(start: string): number {
+  return start <= EARLY_HP.through ? EARLY_HP.factor : HP_FACTOR
+}
 export const MIN_HP = 4
 /** A member with no qualifying run in this many weeks is dormant: no attack, no block. */
 export const DORMANT_WEEKS = 8
@@ -67,13 +74,13 @@ export function bossFor(index: number, firstIndex: number): Boss {
   return BOSSES[(index - firstIndex) % BOSSES.length]
 }
 
-/** Starting HP: HP_FACTOR of what the party, entering the raid at `startLevels`, would deal hitting all 4 weeks. */
-export function bossHp(startLevels: number[]): number {
+/** Starting HP: `factor` of what the party, entering the raid at `startLevels`, would deal hitting all 4 weeks. */
+export function bossHp(startLevels: number[], factor = HP_FACTOR): number {
   let max = 0
   for (const s of startLevels) {
     for (let k = 0; k < RAID_WEEKS; k++) max += power(Math.min(LEVEL_CAP, s + k))
   }
-  return Math.max(MIN_HP, Math.round(HP_FACTOR * max))
+  return Math.max(MIN_HP, Math.round(factor * max))
 }
 
 export interface RaidMemberInput {
@@ -318,7 +325,7 @@ export function raidHp(members: RaidMemberInput[], start: string): { hp: number;
   const starters = members.filter(m => isActive(m, start))
   return {
     // levelIfOn: the level after the week before, had they hit it.
-    hp: bossHp(starters.map(m => memberWeek(m, before)?.levelIfOn ?? 1)),
+    hp: bossHp(starters.map(m => memberWeek(m, before)?.levelIfOn ?? 1), hpFactor(start)),
     provisional: starters.some(m => {
       const settled = memberWeek(m, addDays(before, -WEEK))
       return settled != null && !settled.frozen

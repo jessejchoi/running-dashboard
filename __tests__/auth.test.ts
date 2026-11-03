@@ -3,7 +3,8 @@ vi.mock('next/headers', () => ({ cookies: vi.fn() }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: vi.fn() } }))
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getAthleteId, sessionHash } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { getAthleteId, renewSession, sessionHash, SESSION_COOKIE, SESSION_SECONDS } from '@/lib/auth'
 import { createQueryChain } from './helpers/supabase'
 beforeEach(() => {
   vi.clearAllMocks()
@@ -33,6 +34,37 @@ describe('server sessions', () => {
       createQueryChain({ data: null }) as any,
     )
     expect(await getAthleteId()).toBeUndefined()
+  })
+})
+
+describe('session renewal', () => {
+  const token = 'c'.repeat(64)
+  beforeEach(() => {
+    vi.mocked(cookies).mockReturnValue({ get: () => ({ value: token }) } as any)
+  })
+  it('slides a live session forward and re-issues the cookie', async () => {
+    const chain = createQueryChain({ data: [{ token_hash: sessionHash(token) }], error: null })
+    vi.mocked(supabaseAdmin.from).mockReturnValue(chain as any)
+    const response = NextResponse.json({ ok: true })
+    const before = Date.now()
+    await renewSession(response)
+    const [{ expires_at }] = chain.update.mock.calls[0]
+    expect(Date.parse(expires_at)).toBeGreaterThanOrEqual(before + SESSION_SECONDS * 1000)
+    expect(chain.eq).toHaveBeenCalledWith('token_hash', sessionHash(token))
+    // Only a session that is still valid can be extended.
+    expect(chain.gt).toHaveBeenCalledWith('expires_at', expect.any(String))
+    expect(response.cookies.get(SESSION_COOKIE)?.value).toBe(token)
+  })
+  it('leaves the cookie alone when no live session needed renewing', async () => {
+    vi.mocked(supabaseAdmin.from).mockReturnValue(createQueryChain({ data: [], error: null }) as any)
+    const response = NextResponse.json({ ok: true })
+    await renewSession(response)
+    expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined()
+  })
+  it('never touches the database for a malformed cookie', async () => {
+    vi.mocked(cookies).mockReturnValue({ get: () => ({ value: '123' }) } as any)
+    await renewSession(NextResponse.json({ ok: true }))
+    expect(supabaseAdmin.from).not.toHaveBeenCalled()
   })
 })
 

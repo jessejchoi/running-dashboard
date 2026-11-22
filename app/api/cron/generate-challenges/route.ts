@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+// Cron jobs read only the request object, which doesn't stop Next.js caching their
+// fetches: force every request in the job to run fresh.
+export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 // Runs on the 1st of each month. Generates one coach challenge per group.

@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { syncActivities } from '@/lib/strava'
 
+// Cron jobs read only the request object, which doesn't stop Next.js caching their
+// fetches: force every request in the job to run fresh.
+export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // seconds (requires Vercel Pro; free plan caps at 10s)
 
 export async function GET(request: NextRequest) {

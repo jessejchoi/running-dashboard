@@ -75,7 +75,7 @@ box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
 - **Display / H1:** Syne 700–800, uppercase, `letter-spacing: -0.02em`, `line-height: 0.95`
 - **Body:** DM Sans 400/500/600
 - **Data / Tables / Stats:** Space Mono 400/700, `font-variant-numeric: tabular-nums`
-- **Loading:** Google Fonts CDN — already configured in `app/layout.tsx`
+- **Loading:** self-hosted latin woff2 files from Google Fonts in `app/fonts/`, loaded with `next/font/local` in `app/layout.tsx` (builds never fetch from Google)
 
 **Scale:**
 

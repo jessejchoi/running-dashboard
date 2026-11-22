@@ -1,27 +1,35 @@
 import type { Metadata } from 'next'
 import StandaloneDetector from '@/components/StandaloneDetector'
-import { Syne, Space_Mono, DM_Sans } from 'next/font/google'
+import localFont from 'next/font/local'
 import { cookies } from 'next/headers'
 import { UnitProvider } from '@/lib/unit-context'
 import type { DistanceUnit } from '@/lib/utils'
 import './globals.css'
 
-const displayFont = Syne({
-  subsets: ['latin'],
+// Self-hosted Google Fonts (latin subset), so builds never fetch from Google:
+// a changed Google response once left the page and its CSS with mismatched font
+// class names after a partly cached Vercel build. Syne and DM Sans are variable.
+const displayFont = localFont({
+  src: './fonts/Syne-latin.woff2',
   variable: '--font-display',
-  weight: ['700', '800'],
+  weight: '700 800',
+  display: 'swap',
 })
 
-const bodyFont = DM_Sans({
-  subsets: ['latin'],
+const bodyFont = localFont({
+  src: './fonts/DMSans-latin.woff2',
   variable: '--font-body',
-  weight: ['400', '500', '600'],
+  weight: '400 600',
+  display: 'swap',
 })
 
-const monoFont = Space_Mono({
-  subsets: ['latin'],
+const monoFont = localFont({
+  src: [
+    { path: './fonts/SpaceMono-Regular-latin.woff2', weight: '400' },
+    { path: './fonts/SpaceMono-Bold-latin.woff2', weight: '700' },
+  ],
   variable: '--font-mono',
-  weight: ['400', '700'],
+  display: 'swap',
 })
 
 export const viewport = {

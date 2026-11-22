@@ -1,4 +1,4 @@
-import { getAthleteId } from '@/lib/auth'
+import { getAthleteId, isCronRequest } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -11,8 +11,7 @@ import { persistCoachAuditEvent } from '@/lib/coachMetrics'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   // Auth: cookie-based for manual calls, CRON_SECRET header for cron
-  const authHeader = req.headers.get('authorization')
-  const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`
+  const isCron = isCronRequest(req)
 
   if (!isCron) {
     const athleteId = await getAthleteId()

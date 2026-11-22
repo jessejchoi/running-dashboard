@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { isCronRequest } from '@/lib/auth'
 
 // Cron jobs read only the request object, which doesn't stop Next.js caching their
 // fetches: force every request in the job to run fresh.
@@ -8,8 +9,7 @@ export const maxDuration = 60
 
 // Runs on the 1st of each month. Generates one coach challenge per group.
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

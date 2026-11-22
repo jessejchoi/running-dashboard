@@ -1,6 +1,7 @@
 import { queueAthleteWork, runWorker } from '@/lib/worker'
 import { startHistory } from '@/lib/history'
 import { NextRequest, NextResponse } from 'next/server'
+import { isCronRequest } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { syncActivities } from '@/lib/strava'
 
@@ -11,8 +12,7 @@ export const maxDuration = 60 // seconds (requires Vercel Pro; free plan caps at
 
 export async function GET(request: NextRequest) {
   // Verify the request is from Vercel Cron (or an authorized caller)
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

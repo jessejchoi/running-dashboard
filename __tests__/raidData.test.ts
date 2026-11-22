@@ -2,19 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: vi.fn() } }))
 vi.mock('@/lib/rhythmData', () => ({ rhythmLaunchWeek: vi.fn(), loadRhythmInputs: vi.fn() }))
-vi.mock('@/lib/rhythmLedger', () => ({ freezeLoadedWeeks: vi.fn(async () => 0) }))
 vi.mock('@/lib/auth', () => ({ getAthleteId: vi.fn() }))
 vi.mock('@/lib/groupAccess', () => ({ groupRole: vi.fn() }))
 
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { loadRhythmInputs, rhythmLaunchWeek } from '@/lib/rhythmData'
-import { freezeLoadedWeeks } from '@/lib/rhythmLedger'
 import { getAthleteId } from '@/lib/auth'
 import { groupRole } from '@/lib/groupAccess'
 import { createQueryChain } from '@/__tests__/helpers/supabase'
 import { addDays } from '@/lib/calendar'
-import { foldTimeline, type LedgerRow, type RhythmInputs, type RhythmRun } from '@/lib/rhythm'
+import { type RhythmInputs, type RhythmRun } from '@/lib/rhythm'
 import { loadRaidState } from '@/lib/raidData'
 import { GET as raidRoute } from '@/app/api/groups/[id]/raid/route'
 
@@ -47,15 +45,9 @@ function setup(inputs: Record<number, RhythmInputs>, pics: Record<number, string
   vi.mocked(loadRhythmInputs).mockResolvedValue(inputs)
 }
 
-/** Launch week as a frozen ledger row, taken from the live fold. */
-function frozenLaunchRow(counts: number[], now: Date): LedgerRow {
-  return foldTimeline({ zone: ZONE, ledger: [], runs: runs(counts) }, LAUNCH, now)!.history[0]
-}
-
 beforeEach(() => {
   mockFrom.mockReset()
   vi.mocked(rhythmLaunchWeek).mockReturnValue(LAUNCH)
-  vi.mocked(freezeLoadedWeeks).mockClear()
 })
 afterEach(() => { vi.restoreAllMocks() })
 
@@ -66,31 +58,24 @@ describe('loadRaidState', () => {
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
-  it('fixes HP before the raid: the same before and after the week before it freezes', async () => {
+  it('fixes HP before the raid: the same before and after the week before it settles', async () => {
     const counts = [3, 3, 3, 3, 3, 3, 3, 2]
-    const tuesday = new Date(`${addDays(RAID, 1)}T05:00:00Z`)
-    setup({ 1: { zone: ZONE, ledger: [], runs: runs(counts) }, 2: { zone: ZONE, ledger: [], runs: runs(counts) } })
-    const live = (await loadRaidState(GROUP, tuesday))!
+    setup({ 1: { zone: ZONE, runs: runs(counts) }, 2: { zone: ZONE, runs: runs(counts) } })
+    const live = (await loadRaidState(GROUP, new Date(`${addDays(RAID, 1)}T05:00:00Z`)))!
     // The first raid's HP rests on nothing but launch (everyone starts Unarmed), so it's settled.
     expect(live.state.raid?.hpProvisional).toBe(false)
 
-    const wednesday = new Date(`${addDays(RAID, 2)}T05:00:00Z`)
-    const row = frozenLaunchRow(counts, wednesday)
-    setup({
-      1: { zone: ZONE, ledger: [row], runs: runs(counts) },
-      2: { zone: ZONE, ledger: [row], runs: runs(counts) },
-    })
-    const frozen = (await loadRaidState(GROUP, wednesday))!
-    expect(frozen.state.raid?.hp).toBe(live.state.raid?.hp)
+    setup({ 1: { zone: ZONE, runs: runs(counts) }, 2: { zone: ZONE, runs: runs(counts) } })
+    const settled = (await loadRaidState(GROUP, new Date(`${addDays(RAID, 2)}T05:00:00Z`)))!
+    expect(settled.state.raid?.hp).toBe(live.state.raid?.hp)
   })
 
-  it('loads a year of ledger rows, catches up the freeze, and names the view', async () => {
-    const now = new Date(`${addDays(RAID, 2)}T05:00:00Z`)
-    const inputs = { 1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3, 3]) } }
-    setup(inputs, { 1: 'avatar/athlete/large.png' })
+  it('treats a week as settled once its grace period passes, and names the view', async () => {
+    const now = new Date(`${addDays(RAID, 2)}T05:00:00Z`) // Wednesday: launch week has settled
+    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 3]) } }, { 1: 'avatar/athlete/large.png' })
     const view = (await loadRaidState(GROUP, now))!
-    expect(vi.mocked(loadRhythmInputs).mock.calls[0][3]).toEqual({ ledgerWeeks: 62 })
-    expect(freezeLoadedWeeks).toHaveBeenCalledWith(inputs, LAUNCH, now)
+    expect(vi.mocked(loadRhythmInputs)).toHaveBeenCalledWith([1], LAUNCH)
+    expect(mockFrom).not.toHaveBeenCalledWith('rhythm_weeks')
     expect(view.groupName).toBe('Jakarta Pacers')
     expect(view.zone).toBe(ZONE)
     // Strava's relative placeholder isn't a usable image.
@@ -98,19 +83,12 @@ describe('loadRaidState', () => {
     expect(view.summary).toMatch(/Humidity Golem/)
   })
 
-  it('still answers when the catch-up freeze fails', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.mocked(freezeLoadedWeeks).mockRejectedValueOnce(new Error('db down'))
-    setup({ 1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
-    expect(await loadRaidState(GROUP, new Date(`${RAID}T05:00:00Z`))).not.toBeNull()
-  })
-
   it('builds last week\'s report with its shame list', async () => {
     const now = new Date(`${addDays(RAID, 8)}T05:00:00Z`) // Tuesday of raid week 2
     setup({
-      1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3, 3, 3]) },
-      2: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3, 3, 3]) },
-      3: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3, 0, 3]) },
+      1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 3, 3]) },
+      2: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 3, 3]) },
+      3: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 0, 3]) },
     })
     const view = (await loadRaidState(GROUP, now))!
     expect(view.report?.raidWeek).toBe(1)
@@ -141,7 +119,7 @@ describe('GET /api/groups/[id]/raid', () => {
   it('returns the view', async () => {
     vi.mocked(getAthleteId).mockResolvedValueOnce('1')
     vi.mocked(groupRole).mockResolvedValueOnce('member')
-    setup({ 1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
     const body = await (await raidRoute(req(), { params: { id: GROUP } })).json()
     expect(body.enabled).toBe(true)
     expect(body.view.groupId).toBe(GROUP)
@@ -149,23 +127,21 @@ describe('GET /api/groups/[id]/raid', () => {
 
   const future = () => new NextRequest(`http://localhost/api/groups/${GROUP}/raid?at=2026-12-22`)
 
-  it('previews a future day in local development, without freezing anything', async () => {
+  it('previews a future day in local development', async () => {
     vi.stubEnv('NODE_ENV', 'development')
     vi.mocked(getAthleteId).mockResolvedValueOnce('1')
     vi.mocked(groupRole).mockResolvedValueOnce('member')
-    setup({ 1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
     const body = await (await raidRoute(future(), { params: { id: GROUP } })).json()
     expect(body.view.state.week).toBe('2026-12-21')
-    expect(freezeLoadedWeeks).not.toHaveBeenCalled()
     vi.unstubAllEnvs()
   })
 
   it('ignores ?at= outside local development', async () => {
     vi.mocked(getAthleteId).mockResolvedValueOnce('1')
     vi.mocked(groupRole).mockResolvedValueOnce('member')
-    setup({ 1: { zone: ZONE, ledger: [], runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
     const body = await (await raidRoute(future(), { params: { id: GROUP } })).json()
     expect(body.view.state.week).not.toBe('2026-12-21')
-    expect(freezeLoadedWeeks).toHaveBeenCalled()
   })
 })

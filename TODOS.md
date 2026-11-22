@@ -88,7 +88,7 @@ Deferred work tracked here. One item per entry.
 
 **Cons:** Both reintroduce the user-set state that the simplification removed. A mileage target reopens the junk-miles question and needs its own anti-fade rounding.
 
-**Context:** The target rule lives in `targetFromAverage()` and `foldWeek()` in `lib/rhythm.ts`. The design is in `docs/designs/rhythm-boss-raid.md`, under "Weekly target". The stretch would need an opt-in row per week (like `rhythm_rest_weeks`) and a `stretch` column on `rhythm_weeks`. Bump `RHYTHM_RULES_VERSION` if the fold changes.
+**Context:** The target rule lives in `targetFromAverage()` and `foldWeek()` in `lib/rhythm.ts`. The design is in `docs/designs/rhythm-boss-raid.md`, under "Weekly target". The stretch would need an opt-in row per week (like `rhythm_rest_weeks`), read into the live fold.
 
 **Effort:** M (human: ~2 days) → S (CC+gstack: ~30 min)
 **Priority:** P3
@@ -111,10 +111,10 @@ Deferred work tracked here. One item per entry.
 **Context:** The full design lives in `docs/designs/rhythm-boss-raid.md` under the rest-week sections, which are marked deferred. The earlier implementation was removed before PR1 landed:
 - the `rhythm_rest_weeks` table
 - `app/api/rhythm/rest-week`
-- `setManualRestWeek`, `clearManualRestWeek` and `addRaceRestWeeks` in `lib/rhythmLedger.ts`
+- `setManualRestWeek`, `clearManualRestWeek` and `addRaceRestWeeks` (in the since-removed `lib/rhythmLedger.ts`)
 - a `rest` state in `foldWeek` that carries the level and any pending redemption
 
-Known gaps from the eng review: goals saved before launch need a backfill, and creating then deleting future race goals can hand out extra rest weeks. Bump `RHYTHM_RULES_VERSION` and run the rebuild script when this ships.
+Known gaps from the eng review: goals saved before launch need a backfill, and creating then deleting future race goals can hand out extra rest weeks. Rhythm weeks are folded live from runs (no frozen ledger since 2026-11-22), so rest weeks would apply retroactively unless stored with their own date.
 
 **Effort:** M (human: ~2 days) → S (CC+gstack: ~40 min)
 **Priority:** P2

@@ -69,6 +69,8 @@ Also dropped during brainstorming: XP and levels, badge collections and run bing
 
 ### Key design choice: a weekly ledger, frozen after a grace period (decided in eng review)
 
+> **Superseded (2026-11-22).** The frozen ledger is gone. On Nov 17–18 the freeze locked every runner's Nov 9 week as zero runs while their runs were already stored, and a frozen row could never be corrected. Every week is now folded from the runs in `activities` on each load (`loadRhythmInputs` reads runs from 6 weeks before launch; `foldTimeline` folds from launch week). The 2-day grace period survives only to mark recent weeks **provisional** in the raid (`lastSettledWeek`). `lib/rhythmLedger.ts`, `/api/cron/rhythm-freeze`, `scripts/rebuild-rhythm.ts` and `RHYTHM_RULES_VERSION` were removed; the `rhythm_weeks` table is no longer read or written. The rest of this section is kept as history.
+
 Each runner gets one row per week in `rhythm_weeks`. Once a row is **frozen**, it's never rewritten. Only the weeks that are still open get computed live from runs.
 
 ```

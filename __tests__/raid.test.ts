@@ -36,15 +36,15 @@ function runs(counts: number[], zone = ZONE): RhythmRun[] {
 interface MemberOptions {
   joined?: string
   zone?: string
-  frozenThrough?: string | null
+  settledThrough?: string | null
 }
 
 /** A member whose weeks are folded from `counts` (per week from PRE) as of `now`. */
-function member(id: number, name: string, counts: number[], now: Date, { joined = '2026-01-01', zone = ZONE, frozenThrough = null }: MemberOptions = {}): RaidMemberInput {
+function member(id: number, name: string, counts: number[], now: Date, { joined = '2026-01-01', zone = ZONE, settledThrough = null }: MemberOptions = {}): RaidMemberInput {
   const all = runs(counts, zone)
-  const timeline = foldTimeline({ zone, ledger: [], runs: all }, LAUNCH, now)!
+  const timeline = foldTimeline({ zone, runs: all }, LAUNCH, now)!
   const earlyWeeks = Object.fromEntries(counts.slice(0, 6).map((n, i) => [addDays(PRE, i * 7), n]))
-  return { athlete_id: id, name, joinedDay: joined, history: timeline.history, current: timeline.current, frozenThrough, earlyWeeks }
+  return { athlete_id: id, name, joinedDay: joined, history: timeline.history, current: timeline.current, settledThrough, earlyWeeks }
 }
 
 // Six pre-launch weeks at 3 runs sets everyone's target to 3.
@@ -146,10 +146,10 @@ describe('raidWeek', () => {
     expect(raidWeek([member(1, 'Zed', allOn, now), member(2, 'Ana', [...BASE, 0, 3, 3], now)], RAID).mvp?.name).toBe('Zed')
     // Equal power (both Daggers): the longer streak wins.
     const row = (week_start: string, level: number, streak: number): LedgerRow => ({
-      week_start, runs: 3, avg_runs: 3, target: 3, state: 'on', level, level_before_miss: null, redeemed: false, streak, rules_version: 1,
+      week_start, runs: 3, avg_runs: 3, target: 3, state: 'on', level, level_before_miss: null, redeemed: false, streak,
     })
     const manual = (id: number, name: string, rows: LedgerRow[]): RaidMemberInput => ({
-      athlete_id: id, name, joinedDay: '2026-01-01', history: rows, current: { ...row('2026-10-19', rows[1].level, 0), runs: 0, state: 'zero' }, frozenThrough: null,
+      athlete_id: id, name, joinedDay: '2026-01-01', history: rows, current: { ...row('2026-10-19', rows[1].level, 0), runs: 0, state: 'zero' }, settledThrough: null,
     })
     const tie = raidWeek([manual(1, 'Ana', [row(LAUNCH, 2, 1), row(RAID, 3, 1)]), manual(2, 'Zed', [row(LAUNCH, 2, 5), row(RAID, 3, 6)])], RAID)
     expect(tie.mvp?.name).toBe('Zed')
@@ -224,11 +224,11 @@ describe('raidWeek', () => {
     expect(week.landed).toBe(true)
   })
 
-  it('marks weeks that aren\'t frozen yet as provisional', () => {
-    const members = [member(1, 'Ana', allOn, now), member(2, 'Budi', allOn, now, { frozenThrough: RAID })]
+  it('marks weeks still inside their grace period as provisional', () => {
+    const members = [member(1, 'Ana', allOn, now), member(2, 'Budi', allOn, now, { settledThrough: RAID })]
     expect(raidWeek(members, RAID).provisional).toBe(true)
-    const frozen = [member(1, 'Ana', allOn, now, { frozenThrough: RAID }), member(2, 'Budi', allOn, now, { frozenThrough: RAID })]
-    expect(raidWeek(frozen, RAID).provisional).toBe(false)
+    const settled = [member(1, 'Ana', allOn, now, { settledThrough: RAID }), member(2, 'Budi', allOn, now, { settledThrough: RAID })]
+    expect(raidWeek(settled, RAID).provisional).toBe(false)
   })
 })
 
@@ -254,13 +254,13 @@ describe('resolveRaid', () => {
     expect(resolveRaid(missed, 0, 0, RAID, '2026-11-09').hp).toBe(resolveRaid(hit, 0, 0, RAID, '2026-11-09').hp)
   })
 
-  it('marks HP provisional until the weeks it rests on are frozen', () => {
+  it('marks HP provisional until the weeks it rests on are settled', () => {
     const counts = [...BASE, 3, 3, 3, 3, 3, 3]
     const open = [1, 2].map(id => member(id, `M${id}`, counts, end))
     // Raid 2 starts Nov 9; its HP rests on the weeks through Oct 26.
     expect(resolveRaid(open, 1, 0, RAID, '2026-11-09').hpProvisional).toBe(true)
-    const frozen = [1, 2].map(id => member(id, `M${id}`, counts, end, { frozenThrough: '2026-10-26' }))
-    expect(resolveRaid(frozen, 1, 0, RAID, '2026-11-09').hpProvisional).toBe(false)
+    const settled = [1, 2].map(id => member(id, `M${id}`, counts, end, { settledThrough: '2026-10-26' }))
+    expect(resolveRaid(settled, 1, 0, RAID, '2026-11-09').hpProvisional).toBe(false)
   })
 
   it('lets the boss escape after 4 weeks', () => {

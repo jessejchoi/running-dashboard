@@ -1,12 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { addDays, commonTimezone, localDate } from '@/lib/calendar'
-import { RUN_LOOKBACK_WEEKS, countRuns, firstOpenWeek, foldTimeline, type RhythmInputs } from '@/lib/rhythm'
+import { RUN_LOOKBACK_WEEKS, countRuns, foldTimeline, lastSettledWeek, type RhythmInputs } from '@/lib/rhythm'
 import { loadRhythmInputs, rhythmLaunchWeek } from '@/lib/rhythmData'
-import { freezeLoadedWeeks } from '@/lib/rhythmLedger'
 import {
   DORMANT_WEEKS,
-  RAID_LOOKBACK,
-  RAID_WEEKS,
   computeRaid,
   type RaidMemberInput,
   type RaidState,
@@ -14,9 +11,6 @@ import {
   type RaidWeekResult,
 } from '@/lib/raid'
 import { bossTaunt, shameList, situation, type ShameList } from '@/lib/raidCopy'
-
-/** Frozen rows the raid needs: every raid in the lookback, the week before each, and the dormant window. */
-const LEDGER_WEEKS = RAID_LOOKBACK * RAID_WEEKS + DORMANT_WEEKS + 2
 
 export interface RaidReport {
   raid: RaidSummary
@@ -42,7 +36,7 @@ export interface RaidView {
 
 /** Runs per week before launch, for weeks the loaded runs fully cover. */
 function earlyWeeks(input: RhythmInputs, launchWeek: string): Record<string, number> {
-  const covered = addDays(firstOpenWeek(input.ledger, launchWeek), -RUN_LOOKBACK_WEEKS * 7)
+  const covered = addDays(launchWeek, -RUN_LOOKBACK_WEEKS * 7)
   const weeks: Record<string, number> = {}
   for (let i = 1; i <= DORMANT_WEEKS; i++) {
     const week = addDays(launchWeek, -i * 7)
@@ -53,13 +47,11 @@ function earlyWeeks(input: RhythmInputs, launchWeek: string): Record<string, num
 
 /**
  * Everything the Raid tab and the share card show, from one load. Returns
- * null while Rhythm is off (unset launch week, or migration 024 missing).
+ * null while Rhythm is off (unset launch week).
  */
 export async function loadRaidState(
   groupId: string,
   now = new Date(),
-  /** `freeze: false` for a simulated `now`: never lock in weeks that haven't really happened. */
-  { freeze = true }: { freeze?: boolean } = {},
 ): Promise<RaidView | null> {
   const launchWeek = rhythmLaunchWeek()
   if (!launchWeek) return null
@@ -75,10 +67,9 @@ export async function loadRaidState(
 
   const [{ data: tokens, error: tokensError }, inputs] = await Promise.all([
     supabaseAdmin.from('strava_tokens').select('athlete_id, athlete_name, athlete_profile').in('athlete_id', ids),
-    loadRhythmInputs(ids, launchWeek, now, { ledgerWeeks: LEDGER_WEEKS }),
+    loadRhythmInputs(ids, launchWeek),
   ])
   if (tokensError) throw tokensError
-  if (!inputs) return null
 
   const zone = commonTimezone(ids.map(id => inputs[id]?.zone))
   const members: RaidView['members'] = {}
@@ -100,7 +91,7 @@ export async function loadRaidState(
       joinedDay: localDate(new Date(row.joined_at), zone),
       history: timeline.history,
       current: timeline.current,
-      frozenThrough: input.ledger[input.ledger.length - 1]?.week_start ?? null,
+      settledThrough: lastSettledWeek(timeline.today),
       earlyWeeks: earlyWeeks(input, launchWeek),
     })
   }
@@ -112,12 +103,6 @@ export async function loadRaidState(
     rhythmLaunchWeek: launchWeek,
     now,
   })
-
-  // Safety net for the daily freeze: members who stopped opening the app are frozen here.
-  if (freeze) {
-    await freezeLoadedWeeks(inputs, launchWeek, now)
-      .catch(error => console.error('[raid] Rhythm freeze failed', error))
-  }
 
   return { groupId, groupName: group.name, zone, state, members, summary: situation(state), report: report(state, groupId) }
 }

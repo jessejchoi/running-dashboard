@@ -21,6 +21,8 @@ export function quotaResume(headers: Headers, now = Date.now()): number | null {
 export async function stravaFetch(url: string, init: RequestInit) {
   const res = await fetch(url, {
     ...init,
+    // Never serve Strava responses (including token refreshes) from Next.js's Data Cache.
+    cache: 'no-store',
     signal: init.signal ?? AbortSignal.timeout(15000),
   })
   const resume =

@@ -6,6 +6,7 @@ import {
   dropOneTier,
   foldTimeline,
   lastSettledWeek,
+  weekCounts,
   targetFromAverage,
   tierFor,
   type RhythmInputs,
@@ -26,7 +27,7 @@ function weeks(from: string, counts: number[]): RhythmRun[] {
 }
 
 function inputs(runs: RhythmRun[]): RhythmInputs {
-  return { zone: ZONE, runs }
+  return { zone: ZONE, weeks: weekCounts(runs, ZONE), runs }
 }
 
 const at = (day: string) => new Date(`${day}T05:00:00Z`) // midday in Jakarta

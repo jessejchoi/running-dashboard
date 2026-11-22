@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: vi.fn() } }))
+vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: vi.fn(), rpc: vi.fn() } }))
 vi.mock('@/lib/timezone', () => ({
   athleteTimezones: vi.fn(async (ids: number[]) => Object.fromEntries(ids.map(id => [id, 'Asia/Jakarta']))),
 }))
@@ -11,15 +11,19 @@ import { fetchAllPages } from '@/lib/fetchAllPages'
 import { loadRhythmInputs, loadRhythmSummaries, rhythmLaunchWeek } from '@/lib/rhythmData'
 
 const mockFrom = supabaseAdmin.from as ReturnType<typeof vi.fn>
+const mockRpc = supabaseAdmin.rpc as ReturnType<typeof vi.fn>
 const LAUNCH = '2026-10-05'
 
 /** Route supabase.from(table) calls to queued chains, in order, per table. */
+/** Route supabase.from(table) and supabase.rpc(fn) calls to queued chains, in order, per name. */
 function tables(queues: Record<string, Array<ReturnType<typeof createQueryChain>>>) {
-  mockFrom.mockImplementation((table: string) => {
-    const next = queues[table]?.shift()
-    if (!next) throw new Error(`unexpected query on ${table}`)
-    return next
-  })
+  const next = (name: string) => {
+    const chain = queues[name]?.shift()
+    if (!chain) throw new Error(`unexpected query on ${name}`)
+    return chain
+  }
+  mockFrom.mockImplementation(next)
+  mockRpc.mockImplementation(next)
 }
 
 const page = (rows: unknown[]) => createQueryChain({ data: rows, error: null })
@@ -29,6 +33,7 @@ const run = (athlete_id: number, day: string, minutes = 40) => ({
 
 beforeEach(() => {
   mockFrom.mockReset()
+  mockRpc.mockReset()
   vi.spyOn(console, 'error').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
@@ -66,35 +71,50 @@ describe('rhythmLaunchWeek', () => {
 })
 
 describe('loadRhythmInputs', () => {
-  it('loads every runner\'s runs in one query and groups them by athlete', async () => {
+  const NOW = new Date('2026-10-15T05:00:00Z')
+
+  it('counts finished weeks in the database and loads only recent runs, grouped by athlete', async () => {
+    const counts = page([
+      { athlete_id: 1, week_start: LAUNCH, runs: 3 },
+      { athlete_id: 2, week_start: LAUNCH, runs: 2 },
+      { athlete_id: 2, week_start: '2026-10-12', runs: 1 },
+    ])
     const runsChain = page([run(1, '2026-10-13'), run(2, '2026-10-13'), run(2, '2026-10-14')])
-    tables({ activities: [runsChain] })
+    tables({ rhythm_week_counts: [counts], activities: [runsChain] })
 
-    const inputs = await loadRhythmInputs([1, 2], LAUNCH)
+    const inputs = await loadRhythmInputs([1, 2], LAUNCH, NOW)
 
-    expect(mockFrom).toHaveBeenCalledTimes(1)
-    expect(runsChain.in).toHaveBeenCalledWith('athlete_id', [1, 2])
-    expect(inputs[1]).toEqual({ zone: 'Asia/Jakarta', runs: [expect.objectContaining({ athlete_id: 1 })] })
+    // Counts reach 6 weeks before launch, for launch week's average, with the run-length rule passed in.
+    expect(mockRpc).toHaveBeenCalledWith('rhythm_week_counts', { p_athletes: [1, 2], p_from: '2026-08-24', p_min_secs: 600 })
+    expect(inputs[1]).toEqual({ zone: 'Asia/Jakarta', weeks: { [LAUNCH]: 3 }, runs: [expect.objectContaining({ athlete_id: 1 })] })
+    expect(inputs[2].weeks).toEqual({ [LAUNCH]: 2, '2026-10-12': 1 })
     expect(inputs[2].runs).toHaveLength(2)
-    // Runs start 6 weeks (plus a day for zones) before launch, for launch week's average.
-    expect(runsChain.gte).toHaveBeenCalledWith('start_date', '2026-08-23T00:00:00Z')
+    // Individual runs only cover this week, in any zone: 8 UTC days back.
+    expect(runsChain.in).toHaveBeenCalledWith('athlete_id', [1, 2])
+    expect(runsChain.gte).toHaveBeenCalledWith('start_date', '2026-10-07T00:00:00Z')
   })
 
-  it('pages past the 1,000-row cap', async () => {
+  it('pages both reads past the 1,000-row cap', async () => {
+    const weeks = Array.from({ length: 500 }, () => ({ athlete_id: 1, week_start: LAUNCH, runs: 1 }))
     const many = Array.from({ length: 500 }, () => run(1, '2026-10-13'))
-    tables({ activities: [page(many), page(many), page(many.slice(0, 20))] })
-    const inputs = await loadRhythmInputs([1], LAUNCH)
+    tables({
+      rhythm_week_counts: [page(weeks), page(weeks.slice(0, 3))],
+      activities: [page(many), page(many), page(many.slice(0, 20))],
+    })
+    const inputs = await loadRhythmInputs([1], LAUNCH, NOW)
+    expect(mockRpc).toHaveBeenCalledTimes(2)
     expect(inputs[1].runs).toHaveLength(1020)
   })
 
-  it('rethrows a read error', async () => {
-    tables({ activities: [createQueryChain({ data: null, error: { code: '57014' } })] })
-    await expect(loadRhythmInputs([1], LAUNCH)).rejects.toEqual({ code: '57014' })
+  it('rethrows a read error, for instance before migration 026 is applied', async () => {
+    tables({ rhythm_week_counts: [createQueryChain({ data: null, error: { code: 'PGRST202' } })], activities: [page([])] })
+    await expect(loadRhythmInputs([1], LAUNCH, NOW)).rejects.toEqual({ code: 'PGRST202' })
   })
 
   it('short-circuits an empty id list without touching the database', async () => {
     expect(await loadRhythmInputs([], LAUNCH)).toEqual({})
     expect(mockFrom).not.toHaveBeenCalled()
+    expect(mockRpc).not.toHaveBeenCalled()
   })
 })
 
@@ -107,22 +127,21 @@ describe('loadRhythmSummaries', () => {
 
   it('computes each runner live, and null before launch week', async () => {
     vi.stubEnv('RHYTHM_LAUNCH_WEEK', LAUNCH)
-    tables({ activities: [page([run(1, LAUNCH)])] })
+    tables({ rhythm_week_counts: [page([{ athlete_id: 1, week_start: LAUNCH, runs: 1 }])], activities: [page([run(1, LAUNCH)])] })
     const live = await loadRhythmSummaries([1, 2], new Date('2026-10-07T05:00:00Z'))
     expect(live!.launchWeek).toBe(LAUNCH)
     expect(live!.byAthlete[1]).toMatchObject({ seasonWeek: 1, thisWeek: { runs: 1 } })
     expect(live!.byAthlete[2]).toMatchObject({ seasonWeek: 1, thisWeek: { runs: 0 } })
 
-    tables({ activities: [page([])] })
+    tables({ rhythm_week_counts: [page([])], activities: [page([])] })
     expect(await loadRhythmSummaries([1], new Date('2026-10-01T05:00:00Z'))).toMatchObject({ launchWeek: LAUNCH, byAthlete: { 1: null } })
   })
 
-  it('counts runs that arrive after a week has ended, whenever they land', async () => {
+  it('takes finished weeks from the database counts, so late runs land whenever they arrive', async () => {
     vi.stubEnv('RHYTHM_LAUNCH_WEEK', LAUNCH)
-    // Three weeks after launch week ended, its 3 runs are in the database: it's a hit.
-    const pre = Array.from({ length: 6 }, (_, w) => [0, 1, 2].map(d => run(1, addDaysIso('2026-08-24', w * 7 + d)))).flat()
-    const launchWeek = [0, 1, 2].map(d => run(1, addDaysIso(LAUNCH, d)))
-    tables({ activities: [page([...pre, ...launchWeek])] })
+    // Six pre-launch weeks at 3 set the target to 3; launch week's 3 runs make it a hit.
+    const weeks = [0, 1, 2, 3, 4, 5, 6].map(i => ({ athlete_id: 1, week_start: addDaysIso('2026-08-24', i * 7), runs: 3 }))
+    tables({ rhythm_week_counts: [page(weeks)], activities: [page([])] })
     const result = await loadRhythmSummaries([1], new Date('2026-11-02T05:00:00Z'))
     expect(result!.byAthlete[1]!.history[0]).toEqual({ week: LAUNCH, state: 'on', runs: 3, target: 3 })
   })

@@ -13,7 +13,9 @@ import { addDays, localDate, runDay, weekday, weekStart, type DatedRun } from '@
  *
  * Everyone starts Unarmed on launch week, and every week is folded from the
  * stored runs on each load: nothing is saved, so the result always matches
- * the runs in the database. foldWeek() is the only place the weapon rules live.
+ * the runs in the database. Finished weeks arrive as per-week counts
+ * (rhythm_week_counts in migration_026); only the week in progress needs its
+ * runs. foldWeek() is the only place the weapon rules live.
  */
 
 const WEEK = 7
@@ -65,7 +67,9 @@ export interface LedgerRow {
 
 export interface RhythmInputs {
   zone: string
-  /** Runs from RUN_LOOKBACK_WEEKS before launch week onward. */
+  /** Qualifying runs per week (keyed by Monday) from RUN_LOOKBACK_WEEKS before launch week on. */
+  weeks: Record<string, number>
+  /** Individual runs covering at least the week in progress. */
   runs: RhythmRun[]
 }
 
@@ -104,6 +108,17 @@ export function redeemableLevel(history: LedgerRow[]): number | null {
 }
 const isRhythmRun = (r: RhythmRun) => (r.moving_time ?? 0) >= MIN_RUN_SECS
 
+/** Qualifying runs per week, keyed by Monday: what rhythm_week_counts returns, computed from runs. */
+export function weekCounts(runs: RhythmRun[], zone: string): Record<string, number> {
+  const weeks: Record<string, number> = {}
+  for (const r of runs) {
+    if (!isRhythmRun(r)) continue
+    const week = weekStart(runDay(r, zone))
+    weeks[week] = (weeks[week] ?? 0) + 1
+  }
+  return weeks
+}
+
 export function countRuns(runs: RhythmRun[], week: string, zone: string, upTo = addDays(week, WEEK - 1)): number {
   return runs.filter(r => {
     if (!isRhythmRun(r)) return false
@@ -122,28 +137,25 @@ export function targetFromAverage(average: number, previousTarget: number | null
   return Math.max(1, rounded)
 }
 
-interface FoldContext {
-  zone: string
-  runs: RhythmRun[]
-}
+type FoldContext = RhythmInputs
 
-/** Average weekly runs over the 6 weeks before `week`. Pre-launch weeks come from runs. */
+/** Average weekly runs over the 6 weeks before `week`. Pre-launch weeks come from the counts. */
 function averageBefore(week: string, history: LedgerRow[], ctx: FoldContext): number {
   let total = 0
   for (let i = 1; i <= AVERAGE_WEEKS; i++) {
     const w = addDays(week, -i * WEEK)
     const row = history.find(r => r.week_start === w)
-    total += row ? row.runs : countRuns(ctx.runs, w, ctx.zone)
+    total += row ? row.runs : ctx.weeks[w] ?? 0
   }
   return Math.round((total / AVERAGE_WEEKS) * 100) / 100
 }
 
 /**
- * Fold one week onto the rows before it. `upTo` limits counting to a week in
- * progress; a finished week counts through Sunday.
+ * Fold one week onto the rows before it. A finished week takes its count from
+ * `weeks`; the week in progress counts its runs through `upTo`.
  */
 export function foldWeek(history: LedgerRow[], week: string, ctx: FoldContext, upTo?: string): LedgerRow {
-  const runs = countRuns(ctx.runs, week, ctx.zone, upTo)
+  const runs = upTo ? countRuns(ctx.runs, week, ctx.zone, upTo) : ctx.weeks[week] ?? 0
   const prev = history[history.length - 1]
   const avg = averageBefore(week, history, ctx)
   const target = targetFromAverage(avg, prev?.target ?? null)
@@ -232,13 +244,11 @@ export function foldTimeline(inputs: RhythmInputs, launchWeek: string, now = new
   const today = localDate(now, inputs.zone)
   const week = weekStart(today)
   if (week < launchWeek) return null
-  const ctx = { zone: inputs.zone, runs: inputs.runs }
-
   const history: LedgerRow[] = []
   for (let w = launchWeek; w < week; w = addDays(w, WEEK)) {
-    history.push(foldWeek(history, w, ctx))
+    history.push(foldWeek(history, w, inputs))
   }
-  return { today, week, history, current: foldWeek(history, week, ctx, today) }
+  return { today, week, history, current: foldWeek(history, week, inputs, today) }
 }
 
 export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = new Date()): RhythmResult | null {

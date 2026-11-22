@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addDays } from '@/lib/calendar'
-import { foldTimeline, type LedgerRow, type RhythmRun } from '@/lib/rhythm'
+import { foldTimeline, weekCounts, type LedgerRow, type RhythmRun } from '@/lib/rhythm'
 import {
   BOSSES,
   bossFor,
@@ -42,7 +42,7 @@ interface MemberOptions {
 /** A member whose weeks are folded from `counts` (per week from PRE) as of `now`. */
 function member(id: number, name: string, counts: number[], now: Date, { joined = '2026-01-01', zone = ZONE, settledThrough = null }: MemberOptions = {}): RaidMemberInput {
   const all = runs(counts, zone)
-  const timeline = foldTimeline({ zone, runs: all }, LAUNCH, now)!
+  const timeline = foldTimeline({ zone, weeks: weekCounts(all, zone), runs: all }, LAUNCH, now)!
   const earlyWeeks = Object.fromEntries(counts.slice(0, 6).map((n, i) => [addDays(PRE, i * 7), n]))
   return { athlete_id: id, name, joinedDay: joined, history: timeline.history, current: timeline.current, settledThrough, earlyWeeks }
 }

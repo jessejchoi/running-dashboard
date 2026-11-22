@@ -13,7 +13,7 @@ import { getAthleteId } from '@/lib/auth'
 import { groupRole } from '@/lib/groupAccess'
 import { loadRaidState, type RaidView } from '@/lib/raidData'
 import { addDays } from '@/lib/calendar'
-import { foldTimeline, type RhythmRun } from '@/lib/rhythm'
+import { foldTimeline, weekCounts, type RhythmRun } from '@/lib/rhythm'
 import { computeRaid } from '@/lib/raid'
 import { situation } from '@/lib/raidCopy'
 import { drawableImageType, fetchAvatars } from '@/lib/raidCard'
@@ -27,7 +27,8 @@ const run = (day: string): RhythmRun => ({ start_date: `${addDays(day, -1)}T23:0
 /** A group in hype week, before its first raid. */
 function hypeWeekView(): RaidView {
   const now = new Date('2026-10-07T05:00:00Z')
-  const timeline = foldTimeline({ zone: 'Asia/Jakarta', runs: Array.from({ length: 21 }, (_, i) => run(addDays(PRE, Math.floor(i / 3) * 7 + (i % 3)))) }, LAUNCH, now)!
+  const runs = Array.from({ length: 21 }, (_, i) => run(addDays(PRE, Math.floor(i / 3) * 7 + (i % 3))))
+  const timeline = foldTimeline({ zone: 'Asia/Jakarta', weeks: weekCounts(runs, 'Asia/Jakarta'), runs }, LAUNCH, now)!
   const state = computeRaid({
     members: [{ athlete_id: 1, name: 'Budi Santoso', joinedDay: '2026-01-01', history: timeline.history, current: timeline.current, settledThrough: null }],
     groupZone: 'Asia/Jakarta',

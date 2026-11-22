@@ -12,7 +12,7 @@ import { getAthleteId } from '@/lib/auth'
 import { groupRole } from '@/lib/groupAccess'
 import { createQueryChain } from '@/__tests__/helpers/supabase'
 import { addDays } from '@/lib/calendar'
-import { type RhythmInputs, type RhythmRun } from '@/lib/rhythm'
+import { weekCounts, type RhythmInputs, type RhythmRun } from '@/lib/rhythm'
 import { loadRaidState } from '@/lib/raidData'
 import { GET as raidRoute } from '@/app/api/groups/[id]/raid/route'
 
@@ -25,6 +25,7 @@ const GROUP = 'group-1'
 
 const run = (day: string): RhythmRun => ({ start_date: `${addDays(day, -1)}T23:00:00Z`, start_date_local: `${day}T06:00:00`, moving_time: 2400 })
 const runs = (counts: number[]) => counts.flatMap((n, i) => Array.from({ length: n }, (_, d) => run(addDays(PRE, i * 7 + d))))
+const input = (counts: number[]): RhythmInputs => ({ zone: ZONE, weeks: weekCounts(runs(counts), ZONE), runs: runs(counts) })
 
 function tables(queues: Record<string, Array<ReturnType<typeof createQueryChain>>>) {
   mockFrom.mockImplementation((table: string) => {
@@ -60,21 +61,21 @@ describe('loadRaidState', () => {
 
   it('fixes HP before the raid: the same before and after the week before it settles', async () => {
     const counts = [3, 3, 3, 3, 3, 3, 3, 2]
-    setup({ 1: { zone: ZONE, runs: runs(counts) }, 2: { zone: ZONE, runs: runs(counts) } })
+    setup({ 1: input(counts), 2: input(counts) })
     const live = (await loadRaidState(GROUP, new Date(`${addDays(RAID, 1)}T05:00:00Z`)))!
     // The first raid's HP rests on nothing but launch (everyone starts Unarmed), so it's settled.
     expect(live.state.raid?.hpProvisional).toBe(false)
 
-    setup({ 1: { zone: ZONE, runs: runs(counts) }, 2: { zone: ZONE, runs: runs(counts) } })
+    setup({ 1: input(counts), 2: input(counts) })
     const settled = (await loadRaidState(GROUP, new Date(`${addDays(RAID, 2)}T05:00:00Z`)))!
     expect(settled.state.raid?.hp).toBe(live.state.raid?.hp)
   })
 
   it('treats a week as settled once its grace period passes, and names the view', async () => {
     const now = new Date(`${addDays(RAID, 2)}T05:00:00Z`) // Wednesday: launch week has settled
-    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 3]) } }, { 1: 'avatar/athlete/large.png' })
+    setup({ 1: input([3, 3, 3, 3, 3, 3, 3, 3]) }, { 1: 'avatar/athlete/large.png' })
     const view = (await loadRaidState(GROUP, now))!
-    expect(vi.mocked(loadRhythmInputs)).toHaveBeenCalledWith([1], LAUNCH)
+    expect(vi.mocked(loadRhythmInputs)).toHaveBeenCalledWith([1], LAUNCH, now)
     expect(mockFrom).not.toHaveBeenCalledWith('rhythm_weeks')
     expect(view.groupName).toBe('Jakarta Pacers')
     expect(view.zone).toBe(ZONE)
@@ -86,9 +87,9 @@ describe('loadRaidState', () => {
   it('builds last week\'s report with its shame list', async () => {
     const now = new Date(`${addDays(RAID, 8)}T05:00:00Z`) // Tuesday of raid week 2
     setup({
-      1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 3, 3]) },
-      2: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 3, 3]) },
-      3: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3, 0, 3]) },
+      1: input([3, 3, 3, 3, 3, 3, 3, 3, 3]),
+      2: input([3, 3, 3, 3, 3, 3, 3, 3, 3]),
+      3: input([3, 3, 3, 3, 3, 3, 3, 0, 3]),
     })
     const view = (await loadRaidState(GROUP, now))!
     expect(view.report?.raidWeek).toBe(1)
@@ -119,7 +120,7 @@ describe('GET /api/groups/[id]/raid', () => {
   it('returns the view', async () => {
     vi.mocked(getAthleteId).mockResolvedValueOnce('1')
     vi.mocked(groupRole).mockResolvedValueOnce('member')
-    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    setup({ 1: input([3, 3, 3, 3, 3, 3, 3]) })
     const body = await (await raidRoute(req(), { params: { id: GROUP } })).json()
     expect(body.enabled).toBe(true)
     expect(body.view.groupId).toBe(GROUP)
@@ -131,7 +132,7 @@ describe('GET /api/groups/[id]/raid', () => {
     vi.stubEnv('NODE_ENV', 'development')
     vi.mocked(getAthleteId).mockResolvedValueOnce('1')
     vi.mocked(groupRole).mockResolvedValueOnce('member')
-    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    setup({ 1: input([3, 3, 3, 3, 3, 3, 3]) })
     const body = await (await raidRoute(future(), { params: { id: GROUP } })).json()
     expect(body.view.state.week).toBe('2026-12-21')
     vi.unstubAllEnvs()
@@ -140,7 +141,7 @@ describe('GET /api/groups/[id]/raid', () => {
   it('ignores ?at= outside local development', async () => {
     vi.mocked(getAthleteId).mockResolvedValueOnce('1')
     vi.mocked(groupRole).mockResolvedValueOnce('member')
-    setup({ 1: { zone: ZONE, runs: runs([3, 3, 3, 3, 3, 3, 3]) } })
+    setup({ 1: input([3, 3, 3, 3, 3, 3, 3]) })
     const body = await (await raidRoute(future(), { params: { id: GROUP } })).json()
     expect(body.view.state.week).not.toBe('2026-12-21')
   })

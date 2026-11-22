@@ -259,3 +259,47 @@ it('aggregates daily run counts and preserves the best effort identity', async (
   expect(days[0].best_challenge.activityId).toBe(998001)
   expect(days[0].laps).toBeUndefined()
 })
+
+it('counts Rhythm weeks in the database exactly as the fold counts them', async () => {
+  const { weekCounts, MIN_RUN_SECS } = await import('@/lib/rhythm')
+  const pg = new PGlite()
+  try {
+    await pg.exec(`create role anon;create role authenticated;create role service_role bypassrls;
+      create table activities(id bigint primary key, athlete_id bigint, type text, start_date timestamptz,
+        start_date_local timestamp, moving_time int);`)
+    const migration = readFileSync('supabase/migration_026.sql', 'utf8')
+    await pg.exec(migration)
+    await pg.exec(migration)
+    const runs = [
+      // [athlete, type, local start, moving secs]
+      [1, 'Run', '2026-11-09T06:00:00', 2400], // Monday: first day of the week
+      [1, 'Run', '2026-11-15T23:30:00', 2400], // Sunday night still counts for that week
+      [1, 'Run', '2026-11-16T00:10:00', 2400], // just after midnight: next week
+      [1, 'Run', '2026-11-14T15:09:13', 489], // 8 minutes: too short
+      [1, 'Run', '2026-11-12T09:00:00', 600], // exactly 10 minutes counts
+      [1, 'Ride', '2026-11-11T06:00:00', 3600], // not a run
+      [2, 'Run', '2026-11-11T17:32:25', 2535],
+      [1, 'Run', '2026-09-01T06:00:00', 2400], // before the window
+      [3, 'Run', '2026-11-11T06:00:00', 2400], // not asked for
+    ] as const
+    for (let i = 0; i < runs.length; i++) {
+      const [athlete, type, local, secs] = runs[i]
+      await pg.query('insert into activities values($1,$2,$3,$4,$5,$6)', [i + 1, athlete, type, `${local}Z`, local, secs])
+    }
+    const { rows } = await pg.query<{ athlete_id: string; week_start: Date; runs: number }>(
+      'select * from rhythm_week_counts($1, $2, $3)', [[1, 2], '2026-10-01', MIN_RUN_SECS])
+    const fromSql = rows.map(r => [Number(r.athlete_id), r.week_start.toISOString().slice(0, 10), r.runs])
+    expect(fromSql).toEqual([[1, '2026-11-09', 3], [1, '2026-11-16', 1], [2, '2026-11-09', 1]])
+
+    // The same runs through the app's own counting give the same weeks.
+    for (const athlete of [1, 2]) {
+      const mine = runs
+        .filter(([a, type, local]) => a === athlete && type === 'Run' && local >= '2026-10-01')
+        .map(([, , local, secs]) => ({ start_date: `${local}Z`, start_date_local: local, moving_time: secs }))
+      const expected = Object.fromEntries(fromSql.filter(([a]) => a === athlete).map(([, week, n]) => [week, n]))
+      expect(weekCounts(mine, 'Asia/Jakarta')).toEqual(expected)
+    }
+  } finally {
+    await pg.close()
+  }
+})

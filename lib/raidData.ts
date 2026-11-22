@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { addDays, commonTimezone, localDate } from '@/lib/calendar'
-import { RUN_LOOKBACK_WEEKS, countRuns, foldTimeline, lastSettledWeek, type RhythmInputs } from '@/lib/rhythm'
+import { RUN_LOOKBACK_WEEKS, foldTimeline, lastSettledWeek, type RhythmInputs } from '@/lib/rhythm'
 import { loadRhythmInputs, rhythmLaunchWeek } from '@/lib/rhythmData'
 import {
   DORMANT_WEEKS,
@@ -34,13 +34,13 @@ export interface RaidView {
   report: RaidReport | null
 }
 
-/** Runs per week before launch, for weeks the loaded runs fully cover. */
+/** Runs per week before launch, for weeks the loaded counts cover. */
 function earlyWeeks(input: RhythmInputs, launchWeek: string): Record<string, number> {
   const covered = addDays(launchWeek, -RUN_LOOKBACK_WEEKS * 7)
   const weeks: Record<string, number> = {}
   for (let i = 1; i <= DORMANT_WEEKS; i++) {
     const week = addDays(launchWeek, -i * 7)
-    if (week >= covered) weeks[week] = countRuns(input.runs, week, input.zone)
+    if (week >= covered) weeks[week] = input.weeks[week] ?? 0
   }
   return weeks
 }
@@ -67,7 +67,7 @@ export async function loadRaidState(
 
   const [{ data: tokens, error: tokensError }, inputs] = await Promise.all([
     supabaseAdmin.from('strava_tokens').select('athlete_id, athlete_name, athlete_profile').in('athlete_id', ids),
-    loadRhythmInputs(ids, launchWeek),
+    loadRhythmInputs(ids, launchWeek, now),
   ])
   if (tokensError) throw tokensError
 

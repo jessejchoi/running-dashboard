@@ -32,6 +32,15 @@ export async function getAthleteId(): Promise<string | undefined> {
   return !error && data ? String(data.athlete_id) : undefined
 }
 
+/**
+ * A scheduled job's request: it carries the cron secret. Always false while
+ * CRON_SECRET is unset, so "Bearer undefined" never passes.
+ */
+export function isCronRequest(request: Request): boolean {
+  const secret = process.env.CRON_SECRET
+  return !!secret && request.headers.get('authorization') === `Bearer ${secret}`
+}
+
 export async function createSession(athleteId: number): Promise<string> {
   const token = randomBytes(32).toString('hex')
   const { error } = await supabaseAdmin.from('app_sessions').insert({

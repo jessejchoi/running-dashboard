@@ -16,13 +16,16 @@ import { LEVEL_CAP, isMiss, levelIfOn, redeemableLevel, tierFor, type LedgerRow,
 
 export const RAID_WEEKS = 4
 /** Boss HP is this share of what the party would deal if everyone hit every week. */
-export const HP_FACTOR = 0.3
-/** Bosses that arrived on or before this day keep the 60% they started with, so HP never moves mid-raid. */
-const EARLY_HP = { through: '2026-10-20', factor: 0.6 }
+export const HP_FACTOR = 0.45
+/** Earlier shares, oldest first: a boss that arrived on or before `through` keeps its share, so HP never moves mid-raid. */
+const PAST_HP = [
+  { through: '2026-10-20', factor: 0.6 },
+  { through: '2026-11-22', factor: 0.3 },
+]
 
 /** The HP share for a raid starting on `start`. */
 export function hpFactor(start: string): number {
-  return start <= EARLY_HP.through ? EARLY_HP.factor : HP_FACTOR
+  return PAST_HP.find(p => start <= p.through)?.factor ?? HP_FACTOR
 }
 export const MIN_HP = 4
 /** A member with no qualifying run in this many weeks is dormant: no attack, no block. */

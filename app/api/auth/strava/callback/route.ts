@@ -1,4 +1,4 @@
-import { createSession, SESSION_COOKIE, SESSION_SECONDS } from '@/lib/auth'
+import { createSession, SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { startHistory } from '@/lib/history'
@@ -120,13 +120,7 @@ export async function GET(request: NextRequest) {
   response.cookies.set('pending_profile', '', { maxAge: 0, path: '/' })
   response.cookies.set('strava_state', '', { maxAge: 0, path: '/' })
   response.cookies.set('athlete_id', '', { maxAge: 0, path: '/' })
-  response.cookies.set(SESSION_COOKIE, await createSession(athlete.id), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: SESSION_SECONDS,
-    path: '/',
-  })
+  response.cookies.set(SESSION_COOKIE, await createSession(athlete.id), SESSION_COOKIE_OPTIONS)
   // Set unit_pref for new users so units work immediately without visiting settings
   if (!existingProfile) {
     response.cookies.set('unit_pref', stravaUnit, {

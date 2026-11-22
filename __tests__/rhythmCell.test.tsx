@@ -6,10 +6,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 ;(globalThis as any).React = React
 
 vi.mock('@/lib/rhythmData', () => ({ loadRhythmSummaries: vi.fn() }))
-vi.mock('@/lib/rhythmLedger', () => ({ freezeLoadedWeeks: vi.fn() }))
 
 import { loadRhythmSummaries } from '@/lib/rhythmData'
-import { freezeLoadedWeeks } from '@/lib/rhythmLedger'
 import { TIERS, type RhythmResult, type RhythmStatus } from '@/lib/rhythm'
 import RhythmCell from '@/components/RhythmCell'
 import DashboardRhythmSection from '@/components/DashboardRhythmSection'
@@ -31,7 +29,6 @@ function result(overrides: Partial<RhythmResult> = {}): RhythmResult {
     fadeWeeks: 0,
     weapon: { tier: tier('stick'), level: 1, nextTier: tier('dagger'), weeksToNext: 1, tierWeeksDone: 0, tierWeeksTotal: 1, tierWeeksPending: 0, upcomingLevel: null, upgradeComing: false, leveledUp: false, redeemAvailable: false, redeemTier: null },
     history: [{ week: '2026-10-05', state: 'on', runs: 3, target: 3 }],
-    unfrozenWeeks: 0,
     ...overrides,
   }
 }
@@ -118,7 +115,6 @@ describe('RhythmCell', () => {
 
 describe('DashboardRhythmSection', () => {
   const mockLoad = loadRhythmSummaries as ReturnType<typeof vi.fn>
-  const mockFreeze = freezeLoadedWeeks as ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -136,22 +132,5 @@ describe('DashboardRhythmSection', () => {
     const notice = renderToStaticMarkup((await DashboardRhythmSection({ athleteId: 1, today: '2026-10-01' }))!)
     expect(notice).toContain('Starts Mon, Oct 5')
     expect(notice).toContain('Everyone begins Unarmed')
-    expect(mockFreeze).not.toHaveBeenCalled()
-  })
-
-  it('catches up an unfrozen ledger without failing the card when the freeze errors', async () => {
-    const inputs = { 1: { zone: 'Asia/Jakarta', ledger: [], runs: [] } }
-    const now = new Date('2026-10-14T05:00:00Z')
-    mockLoad.mockResolvedValue({ launchWeek: '2026-10-05', now, inputs, byAthlete: { 1: result({ unfrozenWeeks: 2 }) } })
-    mockFreeze.mockRejectedValueOnce(new Error('upsert failed'))
-    const markup = renderToStaticMarkup((await DashboardRhythmSection({ athleteId: 1, today: TODAY }))!)
-    // The freeze reuses what the card already loaded rather than querying again.
-    expect(mockFreeze).toHaveBeenCalledWith(inputs, '2026-10-05', now)
-    expect(markup).toContain('1 of 3 target runs this week')
-
-    mockFreeze.mockClear()
-    mockLoad.mockResolvedValue({ launchWeek: '2026-10-05', byAthlete: { 1: result({ unfrozenWeeks: 0 }) } })
-    await DashboardRhythmSection({ athleteId: 1, today: TODAY })
-    expect(mockFreeze).not.toHaveBeenCalled()
   })
 })

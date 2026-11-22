@@ -4,9 +4,11 @@ import {
   computeRhythm,
   countRuns,
   dropOneTier,
+  foldTimeline,
+  lastSettledWeek,
+  weekCounts,
   targetFromAverage,
   tierFor,
-  weeksToFreeze,
   type RhythmInputs,
   type RhythmRun,
 } from '@/lib/rhythm'
@@ -24,16 +26,16 @@ function weeks(from: string, counts: number[]): RhythmRun[] {
   return counts.flatMap((n, i) => Array.from({ length: n }, (_, d) => run(addDays(from, i * 7 + d))))
 }
 
-function inputs(runs: RhythmRun[], ledger: RhythmInputs['ledger'] = []): RhythmInputs {
-  return { zone: ZONE, runs, ledger }
-}
-
-/** Freeze every finished week through the week of `lastWeek`. */
-function freezeThrough(input: RhythmInputs, lastWeek: string) {
-  return weeksToFreeze(input, LAUNCH, addDays(lastWeek, 9))
+function inputs(runs: RhythmRun[]): RhythmInputs {
+  return { zone: ZONE, weeks: weekCounts(runs, ZONE), runs }
 }
 
 const at = (day: string) => new Date(`${day}T05:00:00Z`) // midday in Jakarta
+
+/** Every finished week from launch through the week of `lastWeek`. */
+function freezeThrough(input: RhythmInputs, lastWeek: string) {
+  return foldTimeline(input, LAUNCH, at(addDays(lastWeek, 7)))!.history
+}
 
 describe('weapon tiers', () => {
   it('maps levels to tiers', () => {
@@ -126,29 +128,18 @@ describe('the weekly fold', () => {
   })
 })
 
-describe('freezing', () => {
-  const runs = weeks(PRE, [3, 3, 3, 3, 3, 3, 3, 3])
-
-  it('waits two days past Sunday before a week can freeze', () => {
-    expect(weeksToFreeze(inputs(runs), LAUNCH, addDays(LAUNCH, 8))).toEqual([]) // Tuesday
-    expect(weeksToFreeze(inputs(runs), LAUNCH, addDays(LAUNCH, 9)).map(r => r.week_start)).toEqual([LAUNCH]) // Wednesday
+describe('settling', () => {
+  it('settles a week two days past its Sunday', () => {
+    expect(lastSettledWeek(addDays(LAUNCH, 8))).toBe(addDays(LAUNCH, -7)) // Tuesday
+    expect(lastSettledWeek(addDays(LAUNCH, 9))).toBe(LAUNCH) // Wednesday
   })
 
-  it('only folds the weeks after the latest frozen row', () => {
-    const first = freezeThrough(inputs(runs), LAUNCH)
-    const next = weeksToFreeze(inputs(runs, first), LAUNCH, addDays(LAUNCH, 16))
-    expect(next.map(r => r.week_start)).toEqual([addDays(LAUNCH, 7)])
-    expect(next[0]).toMatchObject({ level: 2, streak: 2 })
-  })
-
-  it('gives the same answer whether weeks come from the ledger or are folded live', () => {
-    const all = weeks(PRE, [3, 3, 3, 3, 3, 3, 3, 1, 3, 0, 3])
-    const today = addDays(LAUNCH, 4 * 7 + 2)
-    const frozen = weeksToFreeze(inputs(all), LAUNCH, today)
-    expect(computeRhythm(inputs(all, frozen), LAUNCH, at(today))).toEqual({
-      ...computeRhythm(inputs(all), LAUNCH, at(today))!,
-      unfrozenWeeks: 0,
-    })
+  it('recounts a finished week from the runs on every fold, so late runs still land', () => {
+    const runs = weeks(PRE, [3, 3, 3, 3, 3, 3, 2])
+    const before = freezeThrough(inputs(runs), LAUNCH)
+    expect(before[0]).toMatchObject({ runs: 2, state: 'short' }) // launch week had 2 of 3
+    const late = [...runs, run(addDays(LAUNCH, 6))]
+    expect(freezeThrough(inputs(late), LAUNCH)[0]).toMatchObject({ runs: 3, state: 'on', level: 1 })
   })
 })
 
@@ -194,12 +185,6 @@ describe('computeRhythm', () => {
     const result = computeRhythm(inputs(runs), LAUNCH, at(addDays(LAUNCH, 5 * 7)))!
     expect(result.status).toBe('redeem')
     expect(result.weapon).toMatchObject({ redeemAvailable: true, redeemTier: { key: 'sword' }, tier: { key: 'dagger' } })
-  })
-
-  it('reports finished weeks that are past grace but not yet frozen', () => {
-    const runs = weeks(PRE, [...history, 3, 3, 3])
-    expect(computeRhythm(inputs(runs), LAUNCH, at(addDays(LAUNCH, 16)))!.unfrozenWeeks).toBe(2)
-    expect(computeRhythm(inputs(runs), LAUNCH, at(addDays(LAUNCH, 8)))!.unfrozenWeeks).toBe(0)
   })
 
   it('does not count today as a day left once they have run, counts doubles once per day, and skips untimed runs', () => {

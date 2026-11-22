@@ -1,6 +1,5 @@
 import { format, parseISO } from 'date-fns'
 import { loadRhythmSummaries } from '@/lib/rhythmData'
-import { freezeLoadedWeeks } from '@/lib/rhythmLedger'
 import RhythmCell from '@/components/RhythmCell'
 
 /** Deferred dashboard section: renders nothing while Rhythm is off. */
@@ -26,10 +25,5 @@ export default async function DashboardRhythmSection({ athleteId, today }: { ath
     )
   }
 
-  // Safety net for the daily freeze: catch this runner's ledger up if it fell behind.
-  if (rhythm.unfrozenWeeks > 0) {
-    await freezeLoadedWeeks(summaries.inputs, summaries.launchWeek, summaries.now)
-      .catch(error => console.error('[dashboard] Rhythm freeze failed', error))
-  }
   return <RhythmCell rhythm={rhythm} />
 }

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Local development only: `?at=YYYY-MM-DD` shows the raid as of that day
- * (midday UTC), to check future weeks. It never freezes rows.
+ * (midday UTC), to check future weeks.
  */
 function simulatedNow(req: NextRequest): Date | null {
   if (process.env.NODE_ENV !== 'development') return null
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Not a member' }, { status: 403 })
   }
   const at = simulatedNow(req)
-  const view = at ? await loadRaidState(params.id, at, { freeze: false }) : await loadRaidState(params.id)
+  const view = await loadRaidState(params.id, at ?? undefined)
   if (!view) return NextResponse.json({ enabled: false })
   return NextResponse.json({ enabled: true, view })
 }

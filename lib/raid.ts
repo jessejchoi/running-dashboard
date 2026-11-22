@@ -88,19 +88,19 @@ export interface RaidMemberInput {
   name: string
   /** The day they joined the group, in the group's zone. */
   joinedDay: string
-  /** Finished weeks, oldest first: frozen rows, then live-folded ones. */
+  /** Finished weeks since launch, oldest first. */
   history: LedgerRow[]
   /** Their week in progress. */
   current: LedgerRow
-  /** Latest frozen week, or null when nothing is frozen yet. */
-  frozenThrough: string | null
+  /** Latest week past its grace period for late uploads, or null when none is yet. */
+  settledThrough: string | null
   /** Runs in weeks before launch, where the loaded runs reach back that far. */
   earlyWeeks?: Record<string, number>
 }
 
 interface MemberWeek {
   open: boolean
-  frozen: boolean
+  settled: boolean
   runs: number
   target: number
   state: WeekState
@@ -119,7 +119,7 @@ function memberWeek(m: RaidMemberInput, week: string): MemberWeek | null {
     const before = m.history.slice(0, i)
     return {
       open: false,
-      frozen: m.frozenThrough != null && week <= m.frozenThrough,
+      settled: m.settledThrough != null && week <= m.settledThrough,
       runs: row.runs,
       target: row.target,
       state: row.state,
@@ -134,7 +134,7 @@ function memberWeek(m: RaidMemberInput, week: string): MemberWeek | null {
   if (week === m.current.week_start) {
     return {
       open: true,
-      frozen: false,
+      settled: false,
       runs: m.current.runs,
       target: m.current.target,
       state: m.current.state,
@@ -148,7 +148,7 @@ function memberWeek(m: RaidMemberInput, week: string): MemberWeek | null {
   // Their zone hasn't reached this Monday yet: nothing run, nothing changed.
   if (week > m.current.week_start) {
     const level = m.current.state === 'on' ? m.current.level : last?.level ?? 0
-    return { open: true, frozen: false, runs: 0, target: m.current.target, state: 'zero', levelBefore: level, level, levelIfOn: Math.min(LEVEL_CAP, level + 1), streak: 0, redeemNext: false }
+    return { open: true, settled: false, runs: 0, target: m.current.target, state: 'zero', levelBefore: level, level, levelIfOn: Math.min(LEVEL_CAP, level + 1), streak: 0, redeemNext: false }
   }
   return null
 }
@@ -208,7 +208,7 @@ export interface RaidWeekResult {
   locked: number
   /** Damage if every eligible member hits. */
   possible: number
-  /** Some eligible member's row isn't frozen yet. */
+  /** Some eligible member's week is still inside its grace period. */
   provisional: boolean
 }
 
@@ -227,7 +227,7 @@ export function raidWeek(members: RaidMemberInput[], week: string): RaidWeekResu
       if (m.joinedDay < week) dormant.push({ athlete_id: m.athlete_id, name: m.name })
       continue
     }
-    provisional ||= !w.open && !w.frozen
+    provisional ||= !w.open && !w.settled
     const on = w.state === 'on'
     const tier = tierFor(w.level)
     const tierBefore = tierFor(w.levelBefore)
@@ -285,7 +285,7 @@ export interface RaidSummary {
   /** The raid's last Sunday. */
   end: string
   hp: number
-  /** HP comes from rows that aren't frozen yet. */
+  /** HP comes from weeks still inside their grace period. */
   hpProvisional: boolean
   /** Finished weeks, then the open one when the raid is in progress. */
   weeks: RaidWeekResult[]
@@ -318,7 +318,7 @@ export function raidMvp(weeks: RaidWeekResult[]): RaidSummary['mvp'] {
  * active member hits every target from the week before on. It only depends on
  * weeks that finished before that week began, so it's known (and fixed) a week
  * ahead: missing the week before a raid doesn't change the boss. Provisional
- * while those weeks aren't frozen.
+ * while those weeks are inside their grace period.
  */
 export function raidHp(members: RaidMemberInput[], start: string): { hp: number; provisional: boolean } {
   const before = addDays(start, -WEEK)
@@ -328,7 +328,7 @@ export function raidHp(members: RaidMemberInput[], start: string): { hp: number;
     hp: bossHp(starters.map(m => memberWeek(m, before)?.levelIfOn ?? 1), hpFactor(start)),
     provisional: starters.some(m => {
       const settled = memberWeek(m, addDays(before, -WEEK))
-      return settled != null && !settled.frozen
+      return settled != null && !settled.settled
     }),
   }
 }

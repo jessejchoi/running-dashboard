@@ -3,20 +3,20 @@ import { addDays, localDate, runDay, weekday, weekStart, type DatedRun } from '@
 /*
  * Rhythm: each runner's weekly target for number of runs, and the weapon that
  * levels up while they keep hitting it. Pure rules only; lib/rhythmData.ts
- * loads the inputs and lib/rhythmLedger.ts freezes finished weeks.
+ * loads the inputs.
  *
  *   launch week                                        this week
- *   │ frozen ledger rows (rhythm_weeks, never rewritten)│ open weeks │
+ *   │ finished weeks                                   │ open week  │
  *   ├──────────┬──────────┬─────┬──────────────────────┼────────────┤
- *   │ level 0  │ level 1  │ ... │ level 4              │ folded live│
+ *   │ level 0  │ level 1  │ ... │ level 4              │ so far     │
  *   └──────────┴──────────┴─────┴──────────────────────┴────────────┘
  *
- * Everyone starts Unarmed on launch week. foldWeek() is the only place the
- * weapon rules live; the freezer and the live view both go through it.
- * Bump RHYTHM_RULES_VERSION whenever a rule here changes, then run
- * scripts/rebuild-rhythm.ts so frozen rows are refolded.
+ * Everyone starts Unarmed on launch week, and every week is folded from the
+ * stored runs on each load: nothing is saved, so the result always matches
+ * the runs in the database. Finished weeks arrive as per-week counts
+ * (rhythm_week_counts in migration_026); only the week in progress needs its
+ * runs. foldWeek() is the only place the weapon rules live.
  */
-export const RHYTHM_RULES_VERSION = 1
 
 const WEEK = 7
 /** A run counts toward Rhythm when it lasts at least this long. */
@@ -26,9 +26,9 @@ const REDEEM_COOLDOWN_WEEKS = 4
 /** Fading: at least FADE_MISSES misses in the last FADE_WINDOW_WEEKS finished weeks. */
 export const FADE_WINDOW_WEEKS = 3
 export const FADE_MISSES = 2
-/** Freezing waits this many days past a week's Sunday for late uploads. */
+/** A finished week counts as settled this many days past its Sunday, leaving time for late uploads. */
 export const GRACE_DAYS = 2
-/** Runs needed before the first open week: the 6 weeks the average covers. */
+/** Runs needed before launch week: the 6 weeks its average covers. */
 export const RUN_LOOKBACK_WEEKS = AVERAGE_WEEKS
 
 export const TIERS = [
@@ -63,14 +63,13 @@ export interface LedgerRow {
   level_before_miss: number | null
   redeemed: boolean
   streak: number
-  rules_version: number
 }
 
 export interface RhythmInputs {
   zone: string
-  /** Frozen rows, oldest first. May start after launch week. */
-  ledger: LedgerRow[]
-  /** Runs from RUN_LOOKBACK_WEEKS before the first open week onward. */
+  /** Qualifying runs per week (keyed by Monday) from RUN_LOOKBACK_WEEKS before launch week on. */
+  weeks: Record<string, number>
+  /** Individual runs covering at least the week in progress. */
   runs: RhythmRun[]
 }
 
@@ -109,6 +108,17 @@ export function redeemableLevel(history: LedgerRow[]): number | null {
 }
 const isRhythmRun = (r: RhythmRun) => (r.moving_time ?? 0) >= MIN_RUN_SECS
 
+/** Qualifying runs per week, keyed by Monday: what rhythm_week_counts returns, computed from runs. */
+export function weekCounts(runs: RhythmRun[], zone: string): Record<string, number> {
+  const weeks: Record<string, number> = {}
+  for (const r of runs) {
+    if (!isRhythmRun(r)) continue
+    const week = weekStart(runDay(r, zone))
+    weeks[week] = (weeks[week] ?? 0) + 1
+  }
+  return weeks
+}
+
 export function countRuns(runs: RhythmRun[], week: string, zone: string, upTo = addDays(week, WEEK - 1)): number {
   return runs.filter(r => {
     if (!isRhythmRun(r)) return false
@@ -127,28 +137,25 @@ export function targetFromAverage(average: number, previousTarget: number | null
   return Math.max(1, rounded)
 }
 
-interface FoldContext {
-  zone: string
-  runs: RhythmRun[]
-}
+type FoldContext = RhythmInputs
 
-/** Average weekly runs over the 6 weeks before `week`. Pre-launch weeks come from runs. */
+/** Average weekly runs over the 6 weeks before `week`. Pre-launch weeks come from the counts. */
 function averageBefore(week: string, history: LedgerRow[], ctx: FoldContext): number {
   let total = 0
   for (let i = 1; i <= AVERAGE_WEEKS; i++) {
     const w = addDays(week, -i * WEEK)
     const row = history.find(r => r.week_start === w)
-    total += row ? row.runs : countRuns(ctx.runs, w, ctx.zone)
+    total += row ? row.runs : ctx.weeks[w] ?? 0
   }
   return Math.round((total / AVERAGE_WEEKS) * 100) / 100
 }
 
 /**
- * Fold one week onto the rows before it. `upTo` limits counting to a week in
- * progress; a finished week counts through Sunday.
+ * Fold one week onto the rows before it. A finished week takes its count from
+ * `weeks`; the week in progress counts its runs through `upTo`.
  */
 export function foldWeek(history: LedgerRow[], week: string, ctx: FoldContext, upTo?: string): LedgerRow {
-  const runs = countRuns(ctx.runs, week, ctx.zone, upTo)
+  const runs = upTo ? countRuns(ctx.runs, week, ctx.zone, upTo) : ctx.weeks[week] ?? 0
   const prev = history[history.length - 1]
   const avg = averageBefore(week, history, ctx)
   const target = targetFromAverage(avg, prev?.target ?? null)
@@ -156,7 +163,7 @@ export function foldWeek(history: LedgerRow[], week: string, ctx: FoldContext, u
 
   const level = prev?.level ?? 0
   const streak = prev?.streak ?? 0
-  const base = { week_start: week, runs, avg_runs: avg, target, state, rules_version: RHYTHM_RULES_VERSION }
+  const base = { week_start: week, runs, avg_runs: avg, target, state }
 
   if (state === 'on') {
     const pending = redeemableLevel(history)
@@ -184,32 +191,8 @@ export function currentWeek(zone: string, now = new Date()): string {
 }
 
 /** The last week that has passed its grace period on `today`. */
-export function lastFreezableWeek(today: string): string {
+export function lastSettledWeek(today: string): string {
   return weekStart(addDays(today, -(WEEK + GRACE_DAYS)))
-}
-
-/** The first week not yet in the frozen ledger. */
-export function firstOpenWeek(ledger: LedgerRow[], launchWeek: string): string {
-  const last = ledger[ledger.length - 1]
-  return last ? addDays(last.week_start, WEEK) : launchWeek
-}
-
-function foldContext(inputs: RhythmInputs): FoldContext {
-  return { zone: inputs.zone, runs: inputs.runs }
-}
-
-/** Finished weeks after the ledger that are ready to freeze, folded in order. */
-export function weeksToFreeze(inputs: RhythmInputs, launchWeek: string, today: string): LedgerRow[] {
-  const ctx = foldContext(inputs)
-  const history = [...inputs.ledger]
-  const rows: LedgerRow[] = []
-  const last = lastFreezableWeek(today)
-  for (let week = firstOpenWeek(inputs.ledger, launchWeek); week <= last; week = addDays(week, WEEK)) {
-    const row = foldWeek(history, week, ctx)
-    history.push(row)
-    rows.push(row)
-  }
-  return rows
 }
 
 export interface RhythmResult {
@@ -243,8 +226,6 @@ export interface RhythmResult {
     redeemTier: Tier | null
   }
   history: Array<{ week: string; state: WeekState; runs: number; target: number }>
-  /** Finished weeks past their grace period that aren't frozen yet. */
-  unfrozenWeeks: number
 }
 
 const weeksBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / (WEEK * 86400000))
@@ -252,24 +233,22 @@ const weeksBetween = (from: string, to: string) => Math.round((Date.parse(to) - 
 export interface RhythmTimeline {
   today: string
   week: string
-  /** Every finished week in the window: frozen rows, then live-folded ones. */
+  /** Every finished week since launch, oldest first. */
   history: LedgerRow[]
   /** This week so far. */
   current: LedgerRow
 }
 
-/** Frozen rows plus the live fold through today, or null before launch. */
+/** Every week since launch folded from the runs, through today; null before launch. */
 export function foldTimeline(inputs: RhythmInputs, launchWeek: string, now = new Date()): RhythmTimeline | null {
   const today = localDate(now, inputs.zone)
   const week = weekStart(today)
   if (week < launchWeek) return null
-  const ctx = foldContext(inputs)
-
-  const history = [...inputs.ledger]
-  for (let w = firstOpenWeek(inputs.ledger, launchWeek); w < week; w = addDays(w, WEEK)) {
-    history.push(foldWeek(history, w, ctx))
+  const history: LedgerRow[] = []
+  for (let w = launchWeek; w < week; w = addDays(w, WEEK)) {
+    history.push(foldWeek(history, w, inputs))
   }
-  return { today, week, history, current: foldWeek(history, week, ctx, today) }
+  return { today, week, history, current: foldWeek(history, week, inputs, today) }
 }
 
 export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = new Date()): RhythmResult | null {
@@ -306,8 +285,6 @@ export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = ne
     : redeemAvailable ? 'redeem'
     : 'building'
 
-  const frozenThrough = inputs.ledger[inputs.ledger.length - 1]?.week_start ?? addDays(launchWeek, -WEEK)
-
   return {
     launchWeek,
     seasonWeek: weeksBetween(launchWeek, week) + 1,
@@ -333,7 +310,6 @@ export function computeRhythm(inputs: RhythmInputs, launchWeek: string, now = ne
       redeemTier: redeemLevel != null ? tierFor(redeemLevel) : null,
     },
     history: history.slice(-12).map(r => ({ week: r.week_start, state: r.state, runs: r.runs, target: r.target })),
-    unfrozenWeeks: Math.max(0, weeksBetween(frozenThrough, lastFreezableWeek(today))),
   }
 }
 

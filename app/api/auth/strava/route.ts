@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { LOGIN_NEXT_COOKIE, safeLoginNext } from '@/lib/loginNext'
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const clientId = process.env.STRAVA_CLIENT_ID
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
 
@@ -26,6 +27,15 @@ export async function GET() {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 600, // 10 minutes
+    path: '/',
+  })
+  // An invite link to finish after login (new users arrive from /join/<code>).
+  const next = safeLoginNext(request.nextUrl.searchParams.get('next'))
+  response.cookies.set(LOGIN_NEXT_COOKIE, next ?? '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: next ? 600 : 0,
     path: '/',
   })
   return response

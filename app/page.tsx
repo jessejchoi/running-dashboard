@@ -7,6 +7,7 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import Nav from '@/components/Nav'
 import OnboardingPage from '@/components/OnboardingPage'
+import { safeLoginNext } from '@/lib/loginNext'
 import { WeeklyMileageChart, TrainingLoadChart } from '@/components/DashboardCharts'
 import DashboardRaceSection from '@/components/DashboardRaceSection'
 import DashboardRhythmSection from '@/components/DashboardRhythmSection'
@@ -87,13 +88,13 @@ function RaceSectionSkeleton() {
 }
 
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: { next?: string } }) {
   const cookieStore = cookies()
   const athleteId = await getAthleteId()
   const unit = (cookieStore.get('unit_pref')?.value ?? 'km') as DistanceUnit
 
   if (!athleteId) {
-    return <OnboardingPage />
+    return <OnboardingPage next={safeLoginNext(searchParams.next)} />
   }
 
   const { activities, athlete, displayName, hasMaxHr, primaryGroupId, totals, maxHr, timezone } = await getFastData(Number(athleteId))

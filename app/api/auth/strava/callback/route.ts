@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { startHistory } from '@/lib/history'
 import { queueAthleteWork } from '@/lib/worker'
+import { LOGIN_NEXT_COOKIE, safeLoginNext } from '@/lib/loginNext'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -116,7 +117,10 @@ export async function GET(request: NextRequest) {
   await queueAthleteWork(athlete.id)
 
   // Issue an opaque server session and retire the legacy identity cookie
-  const response = NextResponse.redirect(`${appUrl}/?syncing=true`)
+  // Finish an invite the runner started before logging in; otherwise go home.
+  const next = safeLoginNext(request.cookies.get(LOGIN_NEXT_COOKIE)?.value)
+  const response = NextResponse.redirect(next ? `${appUrl}${next}` : `${appUrl}/?syncing=true`)
+  response.cookies.set(LOGIN_NEXT_COOKIE, '', { maxAge: 0, path: '/' })
   // Clear the pending profile and state cookies
   response.cookies.set('pending_profile', '', { maxAge: 0, path: '/' })
   response.cookies.set('strava_state', '', { maxAge: 0, path: '/' })

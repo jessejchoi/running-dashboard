@@ -6,7 +6,8 @@ const StravaLogo = () => (
   </svg>
 )
 
-export default function OnboardingPage() {
+/** `next`: an invite link to come back to after connecting Strava. */
+export default function OnboardingPage({ next = null }: { next?: string | null }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm fade-up">
@@ -27,7 +28,7 @@ export default function OnboardingPage() {
           </div>
 
           <a
-            href="/api/auth/strava"
+            href={next ? `/api/auth/strava?next=${encodeURIComponent(next)}` : '/api/auth/strava'}
             className="w-full flex items-center justify-center gap-2.5 text-white font-bold py-3.5 rounded-lg transition-colors text-sm"
             style={{ background: 'var(--orange)' }}
           >

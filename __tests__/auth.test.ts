@@ -3,7 +3,7 @@ vi.mock('next/headers', () => ({ cookies: vi.fn() }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: vi.fn() } }))
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAthleteId, renewSession, sessionHash, SESSION_COOKIE, SESSION_SECONDS } from '@/lib/auth'
 import { createQueryChain } from './helpers/supabase'
 beforeEach(() => {
@@ -70,8 +70,9 @@ describe('session renewal', () => {
 
 it('issues a fresh uncached OAuth state for each sign-in', async () => {
   const { GET, dynamic } = await import('@/app/api/auth/strava/route')
-  const a = await GET(),
-    b = await GET()
+  const signIn = (path = '/api/auth/strava') => GET(new NextRequest(`https://rundash.test${path}`))
+  const a = await signIn(),
+    b = await signIn()
   expect(dynamic).toBe('force-dynamic')
   expect(a.headers.get('cache-control')).toBe('no-store')
   const stateA = new URL(a.headers.get('location')!).searchParams.get('state')
@@ -79,4 +80,12 @@ it('issues a fresh uncached OAuth state for each sign-in', async () => {
   expect(stateA).toBeTruthy()
   expect(stateA).not.toBe(stateB)
   expect(a.cookies.get('strava_state')?.value).toBe(stateA)
+})
+
+it('remembers an invite link across the Strava login, and only invite links', async () => {
+  const { GET } = await import('@/app/api/auth/strava/route')
+  const invited = await GET(new NextRequest('https://rundash.test/api/auth/strava?next=%2Fjoin%2Fabc123'))
+  expect(invited.cookies.get('login_next')?.value).toBe('/join/abc123')
+  const offsite = await GET(new NextRequest('https://rundash.test/api/auth/strava?next=%2F%2Fevil.com'))
+  expect(offsite.cookies.get('login_next')?.value).toBe('')
 })
